@@ -1,0 +1,20 @@
+{
+  "name": "mega-links-wa-engine",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Motor WhatsApp (Baileys) da Mega Links BR — gera QR, valida canais e dispara posts.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.18",
+    "express": "^4.21.2",
+    "pino": "^9.6.0",
+    "qrcode": "^1.5.4"
+  }
+}
