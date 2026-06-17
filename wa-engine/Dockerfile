@@ -4,7 +4,7 @@ FROM node:20-slim
 
 # Baileys usa libs nativas (sharp/ffmpeg opcionais para mídia)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates ffmpeg \
+      ca-certificates ffmpeg git \
     && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
