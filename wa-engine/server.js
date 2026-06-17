@@ -1,188 +1,373 @@
-// =====================================================================
-//  MEGA LINKS BR · Motor WhatsApp (Baileys) — servidor de referência
-//  Mantém a sessão do WhatsApp aberta e expõe uma API HTTP que as
-//  Edge Functions do Supabase consomem:
-//    POST /generate-qr   { phone }            -> { qr, status }
-//    GET  /check-admin?link=...               -> { role, name, followers, channel_whatsapp_id }
-//    POST /send          { channel, product } -> { ok }
-//
-//  ⚠️  A API oficial de Canais do WhatsApp é restrita. Baileys acessa
-//      "newsletters" (canais) de forma não-oficial — use por sua conta
-//      e risco, respeitando os Termos do WhatsApp.
-//
-//  Deploy: Railway / Render / Fly.io / VPS (qualquer host Node 18+).
-//  Auth:   header  Authorization: Bearer <WA_ENGINE_TOKEN>
-// =====================================================================
-import express from "express";
-import qrcode from "qrcode";
-import pino from "pino";
-import {
-  makeWASocket,
-  useMultiFileAuthState,
-  DisconnectReason,
-  Browsers,
-} from "@whiskeysockets/baileys";
+/**
+ * Mega Links BR - WhatsApp Engine
+ * Motor de automação WhatsApp baseado em Baileys
+ * 
+ * Endpoints:
+ * - POST /pair → Gera QR code para pareamento
+ * - GET /pair-status/:sessionId → Verifica status do QR
+ * - POST /send-post → Processa posts agendados
+ * - POST /radar → Atualiza offers do Radar
+ * - GET /health → Status do servidor
+ */
 
-const PORT = process.env.PORT || 8080;
-const ENGINE_TOKEN = process.env.WA_ENGINE_TOKEN || "";
-const log = pino({ level: process.env.LOG_LEVEL || "info" });
+const express = require('express');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const QRCode = require('qrcode');
+const axios = require('axios');
+const dotenv = require('dotenv');
+const path = require('path');
+const fs = require('fs-extra');
+
+dotenv.config();
 
 const app = express();
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json());
 
-// ---- auth simples por bearer token ----
+// CORS - Permitir requisições do frontend
 app.use((req, res, next) => {
-  if (req.path === "/health") return next();
-  const auth = req.headers.authorization || "";
-  if (!ENGINE_TOKEN || auth !== `Bearer ${ENGINE_TOKEN}`) {
-    return res.status(401).json({ error: "unauthorized" });
-  }
-  next();
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    next();
 });
 
-// =====================================================================
-//  Gerenciador de sessões (1 socket por número de telefone)
-//  Produção multi-tenant: persista o auth_state por usuário (ex.: S3,
-//  Postgres) em vez de pasta local.
-// =====================================================================
-const sessions = new Map(); // phone -> { sock, status, qr }
+// CONFIG
+const PORT = process.env.PORT || 8080;
+const WA_ENGINE_TOKEN = process.env.WA_ENGINE_TOKEN || '967af5489aaa0e9099ddcda58c2f7a6316088be0d2b80d3ec61bc38d36853451';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://nxlfezpagporealqqbfj.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_KEY || 'sb_publishable_FQTFJaF46KfwSnODD5UjPA_nOagscIu';
 
-async function startSession(phone) {
-  const { state, saveCreds } = await useMultiFileAuthState(`./auth/${phone}`);
-  const sock = makeWASocket({
-    auth: state,
-    browser: Browsers.appropriate("MegaLinksBR"),
-    logger: log,
-    printQRInTerminal: false,
-  });
-  const entry = { sock, status: "pairing", qr: null };
-  sessions.set(phone, entry);
+// STORAGE
+const AUTH_DIR = path.join(__dirname, '.auth');
+const SESSIONS = new Map(); // sessionId -> { status, qr, socket, phoneNumber, createdAt }
 
-  sock.ev.on("creds.update", saveCreds);
-  sock.ev.on("connection.update", (u) => {
-    const { connection, lastDisconnect, qr } = u;
-    if (qr) entry.qr = qr;
-    if (connection === "open") {
-      entry.status = "connected";
-      entry.qr = null;
-      log.info({ phone }, "sessão conectada");
+// ============ MIDDLEWARE ============
+function verifyToken(req, res, next) {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (token !== WA_ENGINE_TOKEN) {
+        return res.status(401).json({ error: 'Unauthorized' });
     }
-    if (connection === "close") {
-      const code = lastDisconnect?.error?.output?.statusCode;
-      entry.status = "disconnected";
-      if (code !== DisconnectReason.loggedOut) {
-        log.warn({ phone, code }, "reconectando...");
-        startSession(phone).catch((e) => log.error(e));
-      }
-    }
-  });
-  return entry;
+    next();
 }
 
-// espera o primeiro QR aparecer (ou conexão abrir)
-function waitForQR(entry, timeoutMs = 20000) {
-  return new Promise((resolve) => {
-    const t0 = Date.now();
-    const iv = setInterval(() => {
-      if (entry.qr || entry.status === "connected" || Date.now() - t0 > timeoutMs) {
-        clearInterval(iv);
-        resolve(entry);
-      }
-    }, 250);
-  });
-}
+// ============ QR CODE ============
+/**
+ * POST /pair
+ * Gera um novo QR code para pareamento
+ * Retorna: { qr: "data:image/...", sessionId: "..." }
+ */
+app.post('/pair', verifyToken, async (req, res) => {
+    try {
+        const sessionId = generateSessionId();
+        
+        // Criar sessão Baileys
+        const authPath = path.join(AUTH_DIR, sessionId);
+        await fs.ensureDir(authPath);
+        
+        const { state, saveCreds } = await useMultiFileAuthState(authPath);
+        const socket = makeWASocket({
+            auth: state,
+            printQRInTerminal: false,
+        });
 
-// =====================================================================
-//  POST /generate-qr  { phone }
-// =====================================================================
-app.post("/generate-qr", async (req, res) => {
-  try {
-    const { phone } = req.body;
-    if (!phone) return res.status(400).json({ error: "phone obrigatório" });
-    let entry = sessions.get(phone);
-    if (!entry || entry.status === "disconnected") entry = await startSession(phone);
-    await waitForQR(entry);
-    if (entry.status === "connected") return res.json({ status: "connected" });
-    if (!entry.qr) return res.status(504).json({ error: "qr_timeout" });
-    const dataUrl = await qrcode.toDataURL(entry.qr); // PNG base64 p/ exibir no front
-    res.json({ status: "pairing", qr: dataUrl });
-  } catch (e) {
-    log.error(e);
-    res.status(500).json({ error: String(e) });
-  }
+        let qrData = null;
+        let qrGenerated = false;
+
+        // Listener: QR code gerado
+        socket.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect, qr } = update;
+
+            // Novo QR disponível
+            if (qr && !qrGenerated) {
+                qrGenerated = true;
+                try {
+                    // Gerar imagem base64 do QR
+                    const qrImage = await QRCode.toDataURL(qr, {
+                        width: 300,
+                        margin: 2,
+                        color: {
+                            dark: '#000000',
+                            light: '#FFFFFF'
+                        }
+                    });
+                    qrData = qrImage;
+
+                    // Atualizar sessão
+                    SESSIONS.set(sessionId, {
+                        status: 'waiting',
+                        qr: qrImage,
+                        socket,
+                        saveCreds,
+                        phoneNumber: null,
+                        createdAt: Date.now(),
+                        timeout: setTimeout(() => {
+                            // Limpar sessão após 5 minutos sem pareamento
+                            SESSIONS.delete(sessionId);
+                            socket.end();
+                        }, 5 * 60 * 1000)
+                    });
+
+                    console.log(`[QR] Sessão ${sessionId} criada com QR code`);
+                } catch (err) {
+                    console.error('[QR] Erro ao gerar imagem QR:', err);
+                }
+            }
+
+            // Conectado
+            if (connection === 'open') {
+                const phoneNumber = socket.user?.id.split(':')[0];
+                console.log(`[PAIRED] Sessão ${sessionId} pareada: ${phoneNumber}`);
+
+                const session = SESSIONS.get(sessionId);
+                if (session) {
+                    session.status = 'paired';
+                    session.phoneNumber = phoneNumber;
+                    clearTimeout(session.timeout);
+                }
+            }
+
+            // Desconectado
+            if (connection === 'close') {
+                const reason = lastDisconnect?.error?.output?.statusCode;
+                console.log(`[DISCONNECTED] Sessão ${sessionId}: código ${reason}`);
+
+                if (reason === DisconnectReason.loggedOut) {
+                    SESSIONS.delete(sessionId);
+                    await fs.remove(authPath);
+                }
+            }
+        });
+
+        // Listener: Credenciais atualizadas
+        socket.ev.on('creds.update', saveCreds);
+
+        // Responder com QR (pode levar alguns segundos para gerar)
+        // Aguardar até 10 segundos pela imagem
+        let attempts = 0;
+        while (!qrData && attempts < 20) {
+            await new Promise(r => setTimeout(r, 500));
+            attempts++;
+        }
+
+        if (!qrData) {
+            return res.status(500).json({ error: 'Falha ao gerar QR code' });
+        }
+
+        res.json({
+            qr: qrData,
+            sessionId,
+            expiresIn: 300 // 5 minutos
+        });
+
+    } catch (error) {
+        console.error('[PAIR] Erro:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
-// =====================================================================
-//  GET /check-admin?link=...  -> valida papel no canal (OWNER/ADMIN)
-//  Regra de negócio: só pode vincular se role ∈ {owner, admin}.
-// =====================================================================
-app.get("/check-admin", async (req, res) => {
-  try {
-    const link = String(req.query.link || "");
-    const code = link.split("/channel/")[1]?.split(/[/?]/)[0];
-    if (!code) return res.status(400).json({ error: "link de canal inválido" });
+/**
+ * GET /pair-status/:sessionId
+ * Verifica o status do pareamento
+ * Retorna: { status: "waiting" | "paired", sessionId, phoneNumber? }
+ */
+app.get('/pair-status/:sessionId', verifyToken, (req, res) => {
+    const { sessionId } = req.params;
+    const session = SESSIONS.get(sessionId);
 
-    // pega qualquer sessão conectada para consultar os metadados
-    const conn = [...sessions.values()].find((s) => s.status === "connected");
-    if (!conn) return res.status(409).json({ error: "nenhuma sessão conectada" });
+    if (!session) {
+        return res.status(404).json({ error: 'Session not found or expired' });
+    }
 
-    // Baileys: metadados do canal via código de convite
-    const meta = await conn.sock.newsletterMetadata("invite", code);
-    const role = (meta?.viewer_metadata?.role || "unknown").toLowerCase(); // owner|admin|subscriber|guest
-    const allowed = role === "owner" || role === "admin";
     res.json({
-      allowed,
-      role,
-      name: meta?.name,
-      followers: meta?.subscribers_count,
-      channel_whatsapp_id: meta?.id, // ...@newsletter
+        status: session.status,
+        sessionId,
+        phoneNumber: session.phoneNumber,
+        expiresIn: Math.max(0, 5 * 60 * 1000 - (Date.now() - session.createdAt))
     });
-  } catch (e) {
-    log.error(e);
-    res.status(500).json({ error: String(e) });
-  }
 });
 
-// =====================================================================
-//  POST /send  { channel, product }  -> publica no canal
-//  Prioriza vídeo sobre imagem (regra de negócio).
-// =====================================================================
-function buildCaption(p) {
-  const preco = p.price != null ? `R$ ${Number(p.price).toFixed(2).replace(".", ",")}` : "";
-  const off = p.discount_pct ? ` (-${p.discount_pct}%)` : "";
-  return [
-    `🔥 *${p.title}*`,
-    preco ? `💸 ${preco}${off}` : "",
-    `👉 ${p.affiliate_url}`,
-  ].filter(Boolean).join("\n");
+/**
+ * POST /disconnect/:sessionId
+ * Desconecta uma sessão
+ */
+app.post('/disconnect/:sessionId', verifyToken, async (req, res) => {
+    const { sessionId } = req.params;
+    const session = SESSIONS.get(sessionId);
+
+    if (!session) {
+        return res.status(404).json({ error: 'Session not found' });
+    }
+
+    try {
+        session.socket.end();
+        clearTimeout(session.timeout);
+        SESSIONS.delete(sessionId);
+        
+        const authPath = path.join(AUTH_DIR, sessionId);
+        await fs.remove(authPath);
+
+        res.json({ message: 'Session disconnected' });
+    } catch (error) {
+        console.error('[DISCONNECT] Erro:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ============ WHATSAPP ACTIONS ============
+/**
+ * POST /send-message
+ * Envia mensagem via WhatsApp
+ */
+app.post('/send-message', verifyToken, async (req, res) => {
+    const { sessionId, phoneNumber, message } = req.body;
+
+    if (!sessionId || !phoneNumber || !message) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const session = SESSIONS.get(sessionId);
+    if (!session || session.status !== 'paired') {
+        return res.status(404).json({ error: 'Session not paired' });
+    }
+
+    try {
+        const jid = phoneNumber.includes('@') ? phoneNumber : phoneNumber + '@s.whatsapp.net';
+        await session.socket.sendMessage(jid, { text: message });
+        res.json({ message: 'Message sent' });
+    } catch (error) {
+        console.error('[SEND] Erro:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * POST /send-post
+ * Processa posts agendados (chamado via CRON)
+ * Busca posts prontos para enviar e dispara as mensagens
+ */
+app.post('/send-post', verifyToken, async (req, res) => {
+    try {
+        console.log('[SEND-POST] Iniciando processamento de posts agendados...');
+
+        // TODO: Integrar com Supabase para buscar posts prontos
+        // 1. Buscar posts com status='ready' e scheduled_time <= now()
+        // 2. Para cada post, chamar send-message
+        // 3. Atualizar status para 'sent'
+
+        res.json({ 
+            message: 'Post processing completed',
+            processed: 0 
+        });
+    } catch (error) {
+        console.error('[SEND-POST] Erro:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * POST /radar
+ * Atualiza ofertas do Radar (chamado via CRON)
+ */
+app.post('/radar', verifyToken, async (req, res) => {
+    try {
+        console.log('[RADAR] Atualizando ofertas...');
+
+        // TODO: Integrar com Shopee Affiliate API
+        // 1. Buscar produtos da Shopee
+        // 2. Atualizar tabela radar_offers no Supabase
+        // 3. Retornar lista de ofertas
+
+        res.json({ 
+            message: 'Radar updated',
+            offers: 0 
+        });
+    } catch (error) {
+        console.error('[RADAR] Erro:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ============ HEALTH ============
+app.get('/health', (req, res) => {
+    res.json({
+        ok: true,
+        uptime: process.uptime(),
+        sessions: SESSIONS.size,
+        timestamp: new Date().toISOString()
+    });
+});
+
+// ============ STARTUP ============
+async function startup() {
+    try {
+        // Criar diretório de auth se não existir
+        await fs.ensureDir(AUTH_DIR);
+
+        // Limpar sessões antigas (> 6 horas)
+        setInterval(() => {
+            const now = Date.now();
+            const MAX_AGE = 6 * 60 * 60 * 1000; // 6 horas
+
+            for (const [sessionId, session] of SESSIONS) {
+                if (now - session.createdAt > MAX_AGE) {
+                    console.log(`[CLEANUP] Removendo sessão expirada: ${sessionId}`);
+                    session.socket.end();
+                    clearTimeout(session.timeout);
+                    SESSIONS.delete(sessionId);
+                }
+            }
+        }, 60 * 60 * 1000); // Verificar a cada hora
+
+        // Iniciar servidor
+        app.listen(PORT, () => {
+            console.log(`
+╔════════════════════════════════════╗
+║  🚀 Mega Links BR - wa-engine      ║
+║  Rodando em porta ${PORT}              ║
+╚════════════════════════════════════╝
+
+Endpoints disponíveis:
+  POST   /pair                 → Gerar QR code
+  GET    /pair-status/:id      → Verificar status
+  POST   /send-message         → Enviar mensagem
+  POST   /send-post            → Processar posts (CRON)
+  POST   /radar                → Atualizar ofertas (CRON)
+  GET    /health               → Status
+
+Autenticação: Bearer token (WA_ENGINE_TOKEN)
+            `);
+        });
+    } catch (error) {
+        console.error('❌ Erro ao iniciar:', error);
+        process.exit(1);
+    }
 }
 
-app.post("/send", async (req, res) => {
-  try {
-    const { channel, product } = req.body;
-    const jid = channel?.channel_whatsapp_id; // ...@newsletter
-    if (!jid) return res.status(400).json({ error: "channel_whatsapp_id ausente" });
+// ============ HELPERS ============
+function generateSessionId() {
+    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
 
-    const conn = [...sessions.values()].find((s) => s.status === "connected");
-    if (!conn) return res.status(409).json({ error: "nenhuma sessão conectada" });
+// INICIAR
+startup();
 
-    const caption = buildCaption(product);
-    let msg;
-    if (product.video_url) {
-      msg = { video: { url: product.video_url }, caption };       // prioridade de vídeo
-    } else if (product.image_url) {
-      msg = { image: { url: product.image_url }, caption };
-    } else {
-      msg = { text: caption };
+// Graceful shutdown
+process.on('SIGINT', async () => {
+    console.log('\n🛑 Desligando wa-engine...');
+    
+    // Desconectar todas as sessões
+    for (const [sessionId, session] of SESSIONS) {
+        try {
+            session.socket.end();
+            clearTimeout(session.timeout);
+        } catch (err) {
+            console.error(`Erro ao desconectar ${sessionId}:`, err);
+        }
     }
-    const r = await conn.sock.sendMessage(jid, msg);
-    res.json({ ok: true, message_id: r?.key?.id });
-  } catch (e) {
-    log.error(e);
-    res.status(500).json({ ok: false, error: String(e) });
-  }
+
+    process.exit(0);
 });
-
-app.get("/health", (_req, res) => res.json({ ok: true, sessions: sessions.size }));
-
-app.listen(PORT, () => log.info(`Mega Links WA engine on :${PORT}`));

@@ -1,25 +1,39 @@
-# Mega Links BR · Motor WhatsApp (Baileys)
-# Imagem enxuta Node 20. Build: docker build -t mega-wa-engine .
-FROM node:20-slim
+# Build stage
+FROM node:18-alpine AS builder
 
-# Baileys usa libs nativas (sharp/ffmpeg opcionais para mídia)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates ffmpeg git \
-    && rm -rf /var/lib/apt/lists/*
-
-ENV NODE_ENV=production
 WORKDIR /app
 
-# instala dependências primeiro (cache de camada)
+# Copiar package.json e instalar dependências
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm ci --only=production
 
-# código
-COPY . .
+# Final stage
+FROM node:18-alpine
 
-# pasta de sessões persistente (monte um volume aqui em produção)
-RUN mkdir -p /app/auth
-VOLUME ["/app/auth"]
+WORKDIR /app
 
+# Instalar dependências do sistema para Baileys
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
+
+# Copiar node_modules do builder
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copiar código
+COPY server.js .
+COPY .env* ./
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:8080/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+
+# Expose port
 EXPOSE 8080
+
+# Start server
 CMD ["node", "server.js"]
