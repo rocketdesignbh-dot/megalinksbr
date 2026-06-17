@@ -1,1314 +1,1349 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="dark">
+<html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mega Links BR · Plataforma de Afiliados</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-/* ======================= TOKENS ======================= */
-:root{
-  --volt:#19E27D; --volt-2:#0ec46b; --volt-soft:rgba(25,226,125,.14);
-  --gold:#FFB020; --pink:#FF4D8D; --sky:#39C0FF; --violet:#9B7DFF;
-  --r:16px; --r-sm:10px; --r-xs:7px;
-  --disp:"Space Grotesk",-apple-system,Segoe UI,Roboto,sans-serif;
-  --body:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
-  --rail:248px;
-}
-:root[data-theme="dark"]{
-  --bg:#080A0F; --bg2:#0e1119; --surf:#141925; --surf2:#1b2231; --surf3:#222b3d;
-  --bd:#222a3a; --bd2:#2f3a4f;
-  --tx:#eaf0f6; --tx2:#aeb8cc; --mut:#6b7689;
-  --shadow:0 18px 48px rgba(0,0,0,.5);
-  --glow:0 0 0 1px rgba(25,226,125,.4),0 0 40px rgba(25,226,125,.18);
-  --topbar:rgba(8,10,15,.72);
-  --grid:rgba(255,255,255,.03);
-}
-:root[data-theme="light"]{
-  --bg:#eef1f7; --bg2:#e7ebf3; --surf:#ffffff; --surf2:#f5f7fb; --surf3:#eef1f7;
-  --bd:#e2e7f0; --bd2:#d2d9e6;
-  --tx:#10151f; --tx2:#46506a; --mut:#838ea4;
-  --shadow:0 16px 40px rgba(30,45,80,.12);
-  --glow:0 0 0 1px rgba(14,170,95,.35),0 0 36px rgba(14,170,95,.15);
-  --topbar:rgba(255,255,255,.78);
-  --grid:rgba(20,30,60,.04);
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{font-family:var(--body);background:var(--bg);color:var(--tx);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
-body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:
-   radial-gradient(820px 420px at 88% -8%,rgba(25,226,125,.16),transparent 58%),
-   radial-gradient(680px 380px at -6% 22%,rgba(57,192,255,.10),transparent 60%),
-   linear-gradient(var(--grid) 1px,transparent 1px),
-   linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-  background-size:auto,auto,46px 46px,46px 46px}
-:root[data-theme="light"] body::before{opacity:.6}
-h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.02em}
-a{color:var(--volt);text-decoration:none}a:hover{text-decoration:underline}
-button{font-family:inherit;cursor:pointer}
-::selection{background:rgba(25,226,125,.3)}
-input,select,textarea{font-family:inherit;font-size:14px;width:100%;padding:10px 12px;border:1px solid var(--bd2);border-radius:var(--r-sm);background:var(--bg2);color:var(--tx)}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--volt);box-shadow:0 0 0 3px var(--volt-soft)}
-input::placeholder,textarea::placeholder{color:var(--mut)}
-label{display:block;font-weight:600;margin-bottom:6px;font-size:12.5px;color:var(--tx2)}
-.hint{font-size:12px;color:var(--mut);margin-top:5px}
-.kbd{background:var(--bg2);border:1px solid var(--bd2);border-bottom-width:2px;border-radius:6px;padding:1px 7px;font-family:var(--mono);font-size:11px;color:var(--tx2)}
-.mono{font-family:var(--mono)}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mega Links BR - Automação para Afiliados</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-/* ======================= SIDEBAR ======================= */
-.rail{position:fixed;inset:0 auto 0 0;width:var(--rail);background:var(--bg2);border-right:1px solid var(--bd);overflow-y:auto;z-index:50;padding:16px 12px;display:flex;flex-direction:column;gap:3px}
-.brand{display:flex;align-items:center;gap:11px;padding:4px 8px 14px}
-.brand .mark{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,var(--volt),var(--sky));display:grid;place-items:center;color:#04120a;font-family:var(--disp);font-weight:700;font-size:19px;box-shadow:var(--glow)}
-.brand .wm{font-family:var(--disp);font-weight:700;font-size:17px;line-height:1;letter-spacing:-.02em}
-.brand .wm i{color:var(--volt);font-style:normal}
-.brand .wm small{display:block;font-size:9.5px;font-weight:700;letter-spacing:.22em;color:var(--mut);margin-top:3px}
-.role-switch{display:flex;background:var(--surf);border:1px solid var(--bd);border-radius:11px;padding:3px;margin:2px 4px 8px}
-.role-switch button{flex:1;border:none;background:none;color:var(--tx2);font-weight:700;font-size:12px;padding:8px 4px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:6px}
-.role-switch button.on{background:linear-gradient(135deg,var(--volt),var(--volt-2));color:#04120a}
-.role-switch button svg{width:14px;height:14px}
-.nav-grp{display:none;flex-direction:column;gap:3px}
-.nav-grp.show{display:flex}
-.lbl{font-size:10px;letter-spacing:.13em;color:var(--mut);font-weight:800;padding:13px 10px 5px;text-transform:uppercase}
-.nav{display:flex;align-items:center;gap:11px;padding:9.5px 12px;border-radius:11px;color:var(--tx2);font-size:13.5px;font-weight:500;cursor:pointer;border:1px solid transparent;position:relative;transition:.13s}
-.nav svg{width:18px;height:18px;flex:none;stroke:currentColor;opacity:.85}
-.nav:hover{background:var(--surf);color:var(--tx);text-decoration:none}
-.nav.active{background:var(--volt-soft);color:var(--tx);font-weight:600;border-color:rgba(25,226,125,.32)}
-.nav.active svg{stroke:var(--volt);opacity:1}
-.nav.active::before{content:"";position:absolute;left:-12px;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--volt);box-shadow:0 0 12px var(--volt)}
-.nav .tag{margin-left:auto;font-size:9px;font-weight:800;padding:2px 7px;border-radius:8px}
-.nav .tag.dot{background:var(--volt);color:#04120a}
-.nav .tag.gold{background:var(--gold);color:#3a2600}
-.rail-foot{margin-top:auto;background:linear-gradient(150deg,var(--volt-soft),rgba(57,192,255,.08));border:1px solid rgba(25,226,125,.3);border-radius:var(--r);padding:13px}
-.rail-foot strong{display:block;font-family:var(--disp);font-size:13px}
-.prog{height:7px;background:var(--bg2);border-radius:6px;overflow:hidden;margin:9px 0}
-.prog>i{display:block;height:100%;background:linear-gradient(90deg,var(--volt),var(--sky));border-radius:6px}
+        :root {
+            --volt-green: #10B981;
+            --volt-green-dark: #059669;
+            --volt-green-light: #D1FAE5;
+            --ink: #1F2937;
+            --ink-light: #374151;
+            --ink-lighter: #9CA3AF;
+            --white: #FFFFFF;
+            --border: #E5E7EB;
+            --error: #EF4444;
+            --success: #10B981;
+            --warning: #F59E0B;
+        }
 
-/* ======================= LAYOUT / TOPBAR ======================= */
-.main{margin-left:var(--rail);min-height:100vh;display:flex;flex-direction:column;position:relative;z-index:1}
-.top{backdrop-filter:blur(16px);background:var(--topbar);border-bottom:1px solid var(--bd);padding:11px 26px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:40}
-.search{flex:1;max-width:440px;display:flex;align-items:center;gap:9px;background:var(--bg2);border:1px solid var(--bd2);border-radius:11px;padding:9px 13px;color:var(--mut);cursor:pointer;font-size:13px}
-.search:hover{border-color:var(--volt)}.search .kbd{margin-left:auto}
-.top-r{margin-left:auto;display:flex;align-items:center;gap:10px}
-.ibtn{background:var(--bg2);border:1px solid var(--bd2);color:var(--tx2);display:inline-grid;place-items:center;padding:9px;border-radius:11px;position:relative;transition:.13s}
-.ibtn:hover{color:var(--tx);border-color:var(--volt)}
-.ibtn .pip{position:absolute;top:6px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--pink);box-shadow:0 0 0 2px var(--bg2)}
-.av{width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,var(--volt),var(--sky));color:#04120a;font-weight:800;display:grid;place-items:center;border:none;position:relative;font-family:var(--disp)}
-.av::after{content:"";position:absolute;right:-2px;bottom:-2px;width:10px;height:10px;border-radius:50%;background:var(--volt);border:2px solid var(--bg)}
-.wrap{padding:26px;max-width:1320px;width:100%}
-.page{display:none;animation:up .3s ease}.page.on{display:block}
-@keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.phead{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:22px}
-h1.pt{font-size:23px}.psub{color:var(--mut);font-size:13px;margin-top:4px}
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--white);
+            color: var(--ink);
+            line-height: 1.5;
+        }
 
-/* ======================= PRIMITIVES ======================= */
-.btn{display:inline-flex;align-items:center;gap:8px;border:none;border-radius:11px;padding:10px 17px;font-size:13.5px;font-weight:700;color:#fff;text-decoration:none;transition:.13s;white-space:nowrap}
-.btn:hover{filter:brightness(1.07);text-decoration:none;transform:translateY(-1px)}.btn:active{transform:none}
-.btn-volt{background:linear-gradient(135deg,var(--volt),var(--volt-2));color:#04120a;box-shadow:0 8px 22px rgba(25,226,125,.32)}
-.btn-gold{background:var(--gold);color:#3a2600}.btn-pink{background:var(--pink)}.btn-red{background:#ff5168}
-.btn-ghost{background:var(--bg2);color:var(--tx);border:1px solid var(--bd2)}
-.btn-sm{padding:7px 13px;font-size:12.5px;border-radius:9px}.btn-lg{padding:14px 28px;font-size:15px;border-radius:13px}
-.card{background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:20px;overflow:hidden;box-shadow:var(--shadow)}
-.ch{padding:15px 18px;font-family:var(--disp);font-weight:600;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:9px;font-size:14.5px}
-.ch .r{margin-left:auto;font-family:var(--body);font-weight:500;font-size:12.5px;color:var(--mut)}
-.cb{padding:18px}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:20px}.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}.g23{display:grid;grid-template-columns:1.55fr 1fr;gap:20px}
-@media(max-width:1160px){.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:1fr 1fr}.g23{grid-template-columns:1fr}}
-@media(max-width:820px){.g2,.g3,.g4{grid-template-columns:1fr}.rail{display:none}.main{margin-left:0}.search{display:none}}
-.field{margin-bottom:15px}
-.alert{border:1px solid;border-radius:var(--r-sm);padding:13px 16px;margin-bottom:16px;font-size:13.5px}
-.alert.g{background:var(--volt-soft);border-color:rgba(25,226,125,.4);color:#7ef0b6}
-.alert.y{background:rgba(255,176,32,.12);border-color:rgba(255,176,32,.4);color:#ffd27a}
-.alert.r{background:rgba(255,77,141,.12);border-color:rgba(255,77,141,.4);color:#ff9bc1}
-.alert.b{background:rgba(57,192,255,.1);border-color:rgba(57,192,255,.4);color:#9bdcff}
-:root[data-theme="light"] .alert.g{color:#0a7a44}:root[data-theme="light"] .alert.y{color:#7a5300}
-:root[data-theme="light"] .alert.r{color:#a51458}:root[data-theme="light"] .alert.b{color:#0a6e96}
-.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 11px;border-radius:20px;font-size:11px;font-weight:800;letter-spacing:.02em}
-.pill.gray{background:var(--bg2);color:var(--tx2);border:1px solid var(--bd2)}
-.pill.volt{background:var(--volt-soft);color:var(--volt)}
-.pill.red{background:rgba(255,77,141,.16);color:#ff8fbb}
-.pill.gold{background:rgba(255,176,32,.16);color:var(--gold)}
-.pill.sky{background:rgba(57,192,255,.16);color:var(--sky)}
-.pill .d{width:6px;height:6px;border-radius:50%;background:currentColor}
-.tag-new{background:linear-gradient(135deg,var(--volt),var(--sky));color:#04120a;font-size:8.5px;font-weight:800;border-radius:5px;padding:2px 6px;vertical-align:2px;margin-left:5px;letter-spacing:.05em}
-table{width:100%;border-collapse:collapse}
-th,td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--bd);font-size:13.5px}
-th{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.07em;font-weight:700}
-tbody tr{transition:.1s}tbody tr:hover{background:var(--surf2)}
-.row-click{cursor:pointer}
+        body.dark-mode {
+            background: #0F172A;
+            color: #F1F5F9;
+        }
 
-/* ======================= DASHBOARD WIDGETS ======================= */
-.kpi{background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:17px 18px;position:relative;overflow:hidden}
-.kpi::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--volt);opacity:.7}
-.kpi .kl{font-size:12px;color:var(--mut);font-weight:600}
-.kpi .kv{font-family:var(--disp);font-size:26px;font-weight:700;margin:6px 0 2px;letter-spacing:-.02em}
-.kpi .kd{font-size:12px;font-weight:700}.kpi .kd.up{color:var(--volt)}.kpi .kd.dn{color:var(--pink)}
-.kpi svg.sp{position:absolute;right:10px;bottom:10px;opacity:.9}
-.onb{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
-.ring{width:88px;height:88px;flex:none}
-.osteps{flex:1;min-width:230px;display:grid;gap:8px}
-.ostep{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--tx2)}
-.ostep.done{color:var(--tx)}.ostep.done .ck{background:var(--volt);border-color:var(--volt);color:#04120a}
-.ostep .ck{width:21px;height:21px;border-radius:7px;border:1.5px solid var(--bd2);display:grid;place-items:center;font-size:11px;font-weight:800;flex:none}
-.heat{display:grid;grid-template-columns:36px repeat(12,1fr);gap:4px;font-size:10.5px;color:var(--mut)}
-.heat .c{aspect-ratio:1.4;border-radius:5px;background:var(--bg2);position:relative}
-.heat .c:hover::after{content:attr(data-t);position:absolute;bottom:120%;left:50%;transform:translateX(-50%);background:var(--surf3);border:1px solid var(--bd2);color:var(--tx);padding:3px 8px;border-radius:6px;white-space:nowrap;font-size:11px;z-index:5}
-.feed{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--bd);font-size:13px}
-.feed:last-child{border:none}
-.fic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:15px;flex:none;background:var(--bg2);border:1px solid var(--bd2)}
-.feed .t{color:var(--mut);font-size:11.5px}
-.radar{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--bd);font-size:13px}
-.radar:last-child{border:none}.radar .disc{margin-left:auto;font-family:var(--disp);font-weight:700;color:var(--volt)}
+        body.dark-mode .sidebar,
+        body.dark-mode .container {
+            background: #1E293B;
+            color: #F1F5F9;
+        }
 
-/* ======================= TABS / PLANS / FAQ / PHONE / QR ======================= */
-.tabs{display:flex;flex-wrap:wrap;gap:7px;background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:10px;margin-bottom:20px}
-.tab{padding:7px 14px;border-radius:9px;font-size:12.6px;font-weight:600;color:var(--tx2);background:var(--bg2);border:1px solid var(--bd);cursor:pointer;transition:.12s}
-.tab:hover{color:var(--tx)}.tab.active{background:linear-gradient(135deg,var(--volt),var(--volt-2));color:#04120a;border-color:transparent}
-.tp{display:none}.tp.on{display:block;animation:up .22s ease}
-.plan{background:var(--surf);border:1px solid var(--bd);border-radius:18px;padding:24px;text-align:center;position:relative;display:flex;flex-direction:column;transition:.15s}
-.plan:hover{transform:translateY(-4px);border-color:var(--bd2)}
-.plan.pop{border:1.5px solid var(--volt);box-shadow:var(--glow)}
-.plan .pt{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--volt),var(--sky));color:#04120a;font-size:10.5px;font-weight:800;padding:4px 16px;border-radius:14px;white-space:nowrap;letter-spacing:.05em}
-.plan h3{font-size:16px;letter-spacing:.04em}
-.plan .pr{font-family:var(--disp);font-size:31px;font-weight:700;margin:10px 0 0}.plan .pr small{font-size:13px;color:var(--mut);font-weight:500;font-family:var(--body)}
-.plan .ec{font-size:11.5px;color:var(--volt);font-weight:700;min-height:16px}
-.plan ul{list-style:none;text-align:left;margin:16px 0 18px;flex:1}
-.plan ul li{padding:5.5px 0;font-size:13px;display:flex;gap:8px;color:var(--tx2)}.plan ul li::before{content:"✓";color:var(--volt);font-weight:800}
-.bill{display:inline-flex;background:var(--surf);border:1px solid var(--bd);border-radius:12px;padding:4px;gap:4px;margin:0 auto 24px}
-.bill button{border:none;background:none;color:var(--tx2);font-weight:700;font-size:13px;padding:8px 18px;border-radius:9px}
-.bill button.on{background:linear-gradient(135deg,var(--volt),var(--volt-2));color:#04120a}
-.fcat{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
-.fc{padding:7px 15px;border-radius:20px;background:var(--surf);border:1px solid var(--bd2);font-size:12.5px;font-weight:600;cursor:pointer;color:var(--tx2)}
-.fc.on{background:linear-gradient(135deg,var(--volt),var(--volt-2));color:#04120a;border-color:transparent}
-.fi{background:var(--surf);border:1px solid var(--bd);border-radius:12px;margin-bottom:10px;overflow:hidden}
-.fq{padding:15px 18px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px}
-.fq::after{content:"▾";color:var(--mut);transition:.15s}.fi.open .fq::after{transform:rotate(180deg)}
-.fa{display:none;padding:0 18px 16px;color:var(--tx2)}.fi.open .fa{display:block}
-.locked{text-align:center;padding:48px 20px;color:var(--tx2)}
-.locked .li{font-size:42px;margin-bottom:10px;filter:drop-shadow(0 6px 18px rgba(25,226,125,.4))}
-.hero{background:linear-gradient(120deg,var(--volt-soft),rgba(57,192,255,.1));border:1px solid rgba(25,226,125,.4);border-radius:18px;text-align:center;padding:38px 26px;margin:22px 0}.hero h3{font-size:22px}
-.sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:18px 0}@media(max-width:900px){.sgrid{grid-template-columns:1fr 1fr}}
-.stat{background:var(--surf);border:1px solid var(--bd);border-radius:12px;padding:17px;text-align:center}
-.stat .v{font-family:var(--disp);font-size:21px;font-weight:700}.stat .l{font-size:11.5px;color:var(--mut)}
-.tut{background:var(--surf);border:1px solid var(--bd);border-radius:14px;overflow:hidden;cursor:pointer;transition:.15s}.tut:hover{transform:translateY(-3px);border-color:var(--bd2)}
-.tut .th{height:110px;display:grid;place-items:center;color:#fff;font-weight:800;text-align:center;padding:10px;font-size:13px;text-shadow:0 2px 8px rgba(0,0,0,.5)}
-.tut .nm{padding:11px 13px 4px;font-weight:600;font-size:13px}.tut .mt{padding:0 13px 11px;font-size:11.5px;color:var(--mut)}
-/* phone */
-.phone{width:286px;background:#0a0d12;border:1px solid var(--bd2);border-radius:32px;padding:12px;margin:0 auto;box-shadow:var(--shadow)}
-.phone .notch{width:90px;height:18px;background:#000;border-radius:0 0 12px 12px;margin:-12px auto 8px}
-.scr{background:#0b141a;border-radius:22px;min-height:340px;padding:12px 10px;background-image:radial-gradient(rgba(25,226,125,.06) 1px,transparent 1px);background-size:15px 15px}
-.wah{display:flex;align-items:center;gap:8px;color:#dfe5ea;font-size:12px;font-weight:700;padding-bottom:8px;border-bottom:1px solid #1c2730;margin-bottom:10px}
-.wah .gp{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--volt),var(--sky));display:grid;place-items:center;font-size:12px;color:#04120a}
-.bub{background:#1f2c34;border-radius:4px 12px 12px 12px;color:#e7eef2;font-size:12px;padding:9px 10px;max-width:96%;white-space:pre-wrap;word-break:break-word;box-shadow:0 1px 2px rgba(0,0,0,.4)}
-.bub .img{height:98px;border-radius:8px;background:linear-gradient(135deg,var(--volt),var(--sky));display:grid;place-items:center;font-size:30px;margin-bottom:8px;color:#04120a}
-.bub .tm{display:block;text-align:right;font-size:9.5px;color:#7f8d96;margin-top:5px}
-.bub b{color:#fff}.bub s{color:#93a3ad}.bub .lnk{color:#53bdeb}
-/* QR */
-.qrbox{width:210px;height:210px;margin:0 auto;border-radius:16px;background:#fff;padding:14px;position:relative;overflow:hidden}
-.qrbox img{width:100%;height:100%;image-rendering:pixelated}
-.qrbox .scan{position:absolute;left:14px;right:14px;height:3px;background:linear-gradient(90deg,transparent,var(--volt),transparent);box-shadow:0 0 14px var(--volt);animation:scan 2.1s ease-in-out infinite}
-@keyframes scan{0%,100%{top:16px}50%{top:188px}}
-.prod{display:flex;gap:12px;align-items:center;padding:12px;border:1px solid var(--bd);border-radius:12px;background:var(--bg2);margin-bottom:10px}
-.prod .pimg{width:54px;height:54px;border-radius:10px;background:linear-gradient(135deg,var(--volt-soft),rgba(57,192,255,.16));display:grid;place-items:center;font-size:22px;flex:none}
-.chan-badge{display:inline-flex;align-items:center;gap:6px;background:var(--volt-soft);color:var(--volt);border:1px solid rgba(25,226,125,.4);padding:5px 12px;border-radius:20px;font-weight:800;font-size:12px}
-.prog-mini{height:6px;background:var(--bg2);border-radius:5px;overflow:hidden}.prog-mini>i{display:block;height:100%;background:linear-gradient(90deg,var(--volt),var(--sky))}
+        body.dark-mode .card,
+        body.dark-mode .modal-content {
+            background: #0F172A;
+            border-color: #334155;
+        }
 
-/* ======================= ADMIN CRM ======================= */
-.seg{display:inline-flex;background:var(--surf);border:1px solid var(--bd);border-radius:11px;padding:3px;gap:3px}
-.seg button{border:none;background:none;color:var(--tx2);font-weight:600;font-size:12.5px;padding:7px 14px;border-radius:8px}
-.seg button.on{background:var(--surf3);color:var(--tx)}
-.av-sm{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-weight:800;color:#04120a;font-family:var(--disp);font-size:13px;flex:none}
-.uflex{display:flex;align-items:center;gap:11px}
-.bar-track{display:flex;align-items:flex-end;gap:7px;height:140px}
-.bar{flex:1;background:linear-gradient(180deg,var(--volt),var(--volt-2));border-radius:7px 7px 0 0;min-height:6px;position:relative}
-.bar.alt{background:linear-gradient(180deg,var(--sky),#1f8fd4)}
-.bar:hover::after{content:attr(data-t);position:absolute;bottom:104%;left:50%;transform:translateX(-50%);background:var(--surf3);border:1px solid var(--bd2);padding:2px 8px;border-radius:6px;font-size:11px;white-space:nowrap}
-.legend{display:flex;gap:16px;font-size:11.5px;color:var(--mut);margin-top:10px}
-.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
-.qrow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--bd);font-size:13px}
-.qrow:last-child{border:none}
-.dotpulse{width:9px;height:9px;border-radius:50%;background:var(--volt);box-shadow:0 0 0 0 rgba(25,226,125,.6);animation:pulse 1.6s infinite}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(25,226,125,.5)}70%{box-shadow:0 0 0 8px rgba(25,226,125,0)}100%{box-shadow:0 0 0 0 rgba(25,226,125,0)}}
+        body.dark-mode input,
+        body.dark-mode textarea,
+        body.dark-mode select {
+            background: #1E293B;
+            color: #F1F5F9;
+            border-color: #334155;
+        }
 
-/* ======================= OVERLAYS ======================= */
-.dd{position:absolute;top:50px;right:0;background:var(--surf);border:1px solid var(--bd2);border-radius:14px;box-shadow:var(--shadow);min-width:280px;padding:8px 0;display:none;z-index:60}
-.dd.open{display:block;animation:up .15s ease}
-.ddh{padding:11px 16px;border-bottom:1px solid var(--bd)}
-.ddi{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;background:none;border:none;padding:11px 16px;font-size:13px;color:var(--tx)}.ddi:hover{background:var(--surf2)}.ddi small{color:var(--mut)}
-.mbg{position:fixed;inset:0;background:rgba(4,6,11,.7);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}.mbg.open{display:flex}
-.modal{background:var(--surf);border:1px solid var(--bd2);border-radius:18px;width:100%;max-width:540px;overflow:hidden;max-height:92vh;overflow-y:auto;box-shadow:var(--shadow)}
-.mh{padding:16px 20px;border-bottom:1px solid var(--bd);font-family:var(--disp);font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:10px}
-.mx{background:none;border:none;font-size:21px;color:var(--mut);line-height:1}
-.mb{padding:20px}.mf{padding:15px 20px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:10px}
-.tw{position:fixed;top:18px;right:18px;z-index:300;display:flex;flex-direction:column;gap:10px}
-.toast{background:var(--surf);border:1px solid rgba(25,226,125,.5);border-left:4px solid var(--volt);color:var(--tx);padding:13px 18px;border-radius:12px;font-weight:600;box-shadow:var(--shadow);animation:up .25s ease;font-size:13.5px;max-width:340px}
-.palbg{position:fixed;inset:0;background:rgba(4,6,11,.62);backdrop-filter:blur(5px);display:none;justify-content:center;z-index:200;padding-top:12vh}.palbg.open{display:flex}
-.pal{width:100%;max-width:580px;height:fit-content;background:var(--surf);border:1px solid var(--bd2);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
-.pal input{border:none;background:none;border-radius:0;padding:16px 18px;font-size:15px;border-bottom:1px solid var(--bd)}.pal input:focus{box-shadow:none}
-.pall{max-height:340px;overflow-y:auto;padding:8px}
-.pi{display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:10px;cursor:pointer;font-size:13.5px}
-.pi .ic{width:28px;height:28px;border-radius:8px;background:var(--bg2);border:1px solid var(--bd);display:grid;place-items:center;font-size:13px}
-.pi small{margin-left:auto;color:var(--mut);font-size:11px}.pi:hover,.pi.sel{background:var(--surf2)}
-.fab{position:fixed;right:22px;bottom:22px;z-index:90;border:none;border-radius:16px;padding:13px 18px;font-family:var(--disp);font-weight:700;color:#04120a;background:linear-gradient(135deg,var(--volt),var(--sky));box-shadow:0 10px 30px rgba(25,226,125,.5);display:flex;align-items:center;gap:9px;font-size:14px}.fab:hover{transform:translateY(-2px)}
-.drw{position:fixed;top:0;right:-440px;bottom:0;width:420px;max-width:94vw;background:var(--surf);border-left:1px solid var(--bd2);z-index:150;display:flex;flex-direction:column;transition:right .25s ease;box-shadow:var(--shadow)}.drw.open{right:0}
-.drwh{padding:16px 18px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:700}
-.drwh .ai{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--volt),var(--sky));display:grid;place-items:center}
-.drwb{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
-.msg{max-width:88%;padding:11px 13px;border-radius:14px;font-size:13px;white-space:pre-wrap;word-break:break-word}
-.msg.ai{background:var(--surf2);border:1px solid var(--bd);border-top-left-radius:4px}
-.msg.me{background:linear-gradient(135deg,var(--volt),var(--volt-2));color:#04120a;margin-left:auto;border-top-right-radius:4px}
-.chips{display:flex;flex-wrap:wrap;gap:7px}
-.chip{background:var(--bg2);border:1px solid var(--bd2);color:var(--tx2);border-radius:16px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer}.chip:hover{color:var(--tx);border-color:var(--volt)}
-.drwf{padding:13px;border-top:1px solid var(--bd);display:flex;gap:9px}
-.typing i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--mut);margin-right:3px;animation:bl 1s infinite}.typing i:nth-child(2){animation-delay:.18s}.typing i:nth-child(3){animation-delay:.36s}
-@keyframes bl{0%,100%{opacity:.25}50%{opacity:1}}
-.foot{margin-top:auto;padding:20px 26px;color:var(--mut);font-size:12px;text-align:center}
-/* ===== LOGIN GATE ===== */
-.authbg{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;
-  background:radial-gradient(900px 480px at 80% -10%,rgba(25,226,125,.18),transparent 60%),radial-gradient(700px 400px at 0% 30%,rgba(57,192,255,.12),transparent 60%),var(--bg)}
-.authcard{width:100%;max-width:400px;background:var(--surf);border:1px solid var(--bd2);border-radius:20px;padding:30px;box-shadow:var(--shadow)}
-.authcard .brand{justify-content:center;padding:0 0 6px}
-.auth-h{text-align:center;font-family:var(--disp);font-size:20px;margin:6px 0 2px}
-.auth-sub{text-align:center;color:var(--mut);font-size:13px;margin-bottom:20px}
-.auth-err{background:rgba(255,77,141,.12);border:1px solid rgba(255,77,141,.4);color:#ff9bc1;border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:14px;display:none}
-.auth-tabs{display:flex;background:var(--bg2);border:1px solid var(--bd);border-radius:11px;padding:3px;margin-bottom:18px}
-.auth-tabs button{flex:1;border:none;background:none;color:var(--tx2);font-weight:700;font-size:13px;padding:8px;border-radius:8px}
-.auth-tabs button.on{background:linear-gradient(135deg,var(--volt),var(--volt-2));color:#04120a}
-.auth-demo{margin-top:18px;padding-top:16px;border-top:1px solid var(--bd);text-align:center}
-.auth-demo .hint{margin-bottom:9px}
-.auth-demo .row{display:flex;gap:8px}
-</style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        /* LAYOUT */
+        .app-wrapper {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            background: var(--white);
+            border-right: 1px solid var(--border);
+            padding: 24px;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+        }
+
+        .container {
+            background: var(--white);
+            padding: 40px;
+            overflow-y: auto;
+        }
+
+        /* LOGO */
+        .logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--volt-green);
+            margin-bottom: 40px;
+            letter-spacing: -0.5px;
+        }
+
+        /* NAV */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--ink-light);
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: var(--volt-green-light);
+            color: var(--volt-green-dark);
+        }
+
+        .nav-item.active {
+            background: var(--volt-green);
+            color: var(--white);
+            border-color: var(--volt-green-dark);
+        }
+
+        /* ROLE SWITCH */
+        .role-switch {
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+        }
+
+        .role-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .role-btn {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--white);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--ink-light);
+        }
+
+        .role-btn.active {
+            background: var(--volt-green);
+            color: var(--white);
+            border-color: var(--volt-green);
+        }
+
+        /* HEADER */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        body.dark-mode .header h1 {
+            color: #F1F5F9;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .header-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--white);
+            color: var(--ink);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .header-btn:hover {
+            background: var(--volt-green-light);
+            color: var(--volt-green-dark);
+            border-color: var(--volt-green);
+        }
+
+        .header-btn.primary {
+            background: var(--volt-green);
+            color: var(--white);
+            border-color: var(--volt-green);
+        }
+
+        .header-btn.primary:hover {
+            background: var(--volt-green-dark);
+        }
+
+        /* GRID */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .grid.cols-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .grid.cols-1 {
+            grid-template-columns: 1fr;
+        }
+
+        /* CARD */
+        .card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.2s ease;
+        }
+
+        .card:hover {
+            border-color: var(--volt-green);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
+        }
+
+        .card h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--ink);
+        }
+
+        body.dark-mode .card h2 {
+            color: #F1F5F9;
+        }
+
+        .card p {
+            font-size: 14px;
+            color: var(--ink-light);
+            margin-bottom: 12px;
+        }
+
+        body.dark-mode .card p {
+            color: #CBD5E1;
+        }
+
+        /* INPUT */
+        input, textarea, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            margin-bottom: 12px;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--volt-green);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+
+        /* BUTTON */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--volt-green);
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background: var(--volt-green-dark);
+        }
+
+        .btn-secondary {
+            background: var(--border);
+            color: var(--ink);
+        }
+
+        .btn-secondary:hover {
+            background: #D1D5DB;
+        }
+
+        .btn-danger {
+            background: var(--error);
+            color: var(--white);
+        }
+
+        .btn-danger:hover {
+            background: #DC2626;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        /* MODAL */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 25px rgba(0, 0, 0, 0.2);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-header h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        body.dark-mode .modal-header h2 {
+            color: #F1F5F9;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--ink-light);
+        }
+
+        /* QR CODE */
+        .qr-container {
+            text-align: center;
+            padding: 24px;
+            background: var(--volt-green-light);
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .qr-container canvas,
+        .qr-container img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
+        }
+
+        .qr-status {
+            font-size: 14px;
+            color: var(--ink-light);
+            margin-top: 16px;
+            text-align: center;
+        }
+
+        .qr-status.loading {
+            color: var(--volt-green);
+            font-weight: 600;
+        }
+
+        .qr-status.success {
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        /* BADGE */
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--volt-green-dark);
+        }
+
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: #92400E;
+        }
+
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: #7F1D1D;
+        }
+
+        /* HIDDEN */
+        .hidden {
+            display: none !important;
+        }
+
+        /* LOGIN SCREEN */
+        .login-screen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, var(--volt-green) 0%, var(--volt-green-dark) 100%);
+            z-index: 3000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-screen.active {
+            display: flex;
+        }
+
+        .login-container {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 48px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        body.dark-mode .login-container {
+            background: #1E293B;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .login-logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--volt-green);
+            margin-bottom: 8px;
+        }
+
+        .login-subtitle {
+            font-size: 14px;
+            color: var(--ink-light);
+            margin-bottom: 24px;
+        }
+
+        body.dark-mode .login-subtitle {
+            color: #CBD5E1;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--ink-light);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        body.dark-mode .form-group label {
+            color: #CBD5E1;
+        }
+
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .password-wrapper input {
+            margin-bottom: 0;
+            padding-right: 40px;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .password-toggle:hover {
+            opacity: 0.7;
+        }
+
+        .login-button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: var(--volt-green);
+            color: var(--white);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 8px;
+        }
+
+        .login-button:hover {
+            background: var(--volt-green-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .login-error {
+            color: var(--error);
+            font-size: 12px;
+            margin-top: 8px;
+            display: none;
+        }
+
+        .login-error.show {
+            display: block;
+        }
+
+        .login-footer {
+            text-align: center;
+            font-size: 12px;
+            color: var(--ink-lighter);
+            margin-top: 24px;
+        }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab {
+            padding: 12px 16px;
+            border: none;
+            background: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--ink-light);
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+            margin-bottom: -1px;
+        }
+
+        .tab:hover {
+            color: var(--ink);
+        }
+
+        .tab.active {
+            color: var(--volt-green);
+            border-bottom-color: var(--volt-green);
+        }
+
+        /* COMMAND PALETTE */
+        .command-palette {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: 0 20px 25px rgba(0, 0, 0, 0.2);
+            z-index: 2000;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .command-palette.active {
+            display: block;
+        }
+
+        .command-input {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-bottom: 1px solid var(--border);
+            font-size: 16px;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .command-results {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .command-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            transition: all 0.1s ease;
+        }
+
+        .command-item:hover {
+            background: var(--volt-green-light);
+        }
+
+        /* ADMIN ONLY */
+        .admin-only {
+            display: none;
+        }
+
+        .admin-only.visible {
+            display: block;
+        }
+
+        body.admin .admin-only {
+            display: block;
+        }
+
+        .user-only {
+            display: block;
+        }
+
+        body.admin .user-only {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .app-wrapper {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                display: none;
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 280px;
+                height: 100vh;
+                z-index: 999;
+                border-right: 1px solid var(--border);
+            }
+
+            .sidebar.active {
+                display: block;
+            }
+
+            .container {
+                padding: 20px;
+            }
+
+            .grid.cols-2 {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+            }
+        }
+    </style>
 </head>
 <body>
-<!-- ============ LOGIN GATE ============ -->
-<div class="authbg" id="authGate">
-  <div class="authcard">
-    <div class="brand"><span class="mark">M</span><span class="wm">Mega<i>Links</i><small>BRASIL</small></span></div>
-    <div class="auth-h" id="authTitle">Entrar na sua conta</div>
-    <div class="auth-sub">Plataforma de automação para afiliados</div>
-    <div class="auth-tabs"><button class="on" id="tabLogin">Entrar</button><button id="tabSignup">Criar conta</button></div>
-    <div class="auth-err" id="authErr"></div>
-    <div class="field" id="nameField" style="display:none"><label>Nome completo</label><input id="authName" placeholder="Seu nome"></div>
-    <div class="field"><label>E-mail</label><input id="authEmail" type="email" placeholder="voce@email.com" autocomplete="email"></div>
-    <div class="field"><label>Senha</label><input id="authPass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
-    <button class="btn btn-volt" id="authSubmit" style="width:100%;justify-content:center">Entrar</button>
-    <div class="auth-demo">
-      <div class="hint">Sem backend configurado? Explore em modo demonstração:</div>
-      <div class="row"><button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="demoEnter(false)">Como Afiliado</button><button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="demoEnter(true)">Como Admin</button></div>
+    <div class="app-wrapper">
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="logo">💚 Mega</div>
+            
+            <nav>
+                <div class="nav-item active" onclick="switchView('dashboard')">
+                    📊 Dashboard
+                </div>
+                <div class="nav-item" onclick="switchView('whatsapp')">
+                    💬 WhatsApp Channels
+                </div>
+                <div class="nav-item" onclick="switchView('instaresp')">
+                    📸 InstaResp
+                </div>
+                <div class="nav-item" onclick="switchView('radar')">
+                    🎯 Radar de Ofertas
+                </div>
+            </nav>
+
+            <div class="role-switch">
+                <div style="font-size: 12px; color: var(--ink-lighter); margin-bottom: 8px; font-weight: 600;">Modo</div>
+                <div class="role-buttons">
+                    <button class="role-btn active" onclick="switchRole('user')">Afiliado</button>
+                    <button class="role-btn" onclick="switchRole('admin')" id="adminRoleBtn">Admin</button>
+                </div>
+            </div>
+
+            <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border);">
+                <button class="header-btn" onclick="toggleDarkMode()" style="width: 100%; margin-bottom: 8px;">
+                    🌙 Tema
+                </button>
+                <button class="header-btn" onclick="logout()" style="width: 100%; color: var(--error);">
+                    🚪 Sair
+                </button>
+            </div>
+        </aside>
+
+        <!-- MAIN -->
+        <main class="container">
+            <!-- HEADER -->
+            <div class="header">
+                <div>
+                    <h1 id="pageTitle">Dashboard</h1>
+                </div>
+                <div class="header-actions">
+                    <button class="header-btn" onclick="openCommandPalette()">
+                        ⌘ Ctrl+K
+                    </button>
+                    <div id="userInfo" style="font-size: 14px; color: var(--ink-light);">
+                        Não autenticado
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEWS -->
+            <div id="dashboardView" class="view">
+                <div class="grid cols-2">
+                    <div class="card">
+                        <h2>Estatísticas</h2>
+                        <p><strong id="statsLinks">0</strong> Links ativos</p>
+                        <p><strong id="statsAutomations">0</strong> Automações</p>
+                        <p><strong id="statsConnections">0</strong> Conexões</p>
+                    </div>
+                    <div class="card">
+                        <h2>Plano</h2>
+                        <p id="planInfo">Carregando...</p>
+                        <button class="btn btn-secondary btn-sm" onclick="openBillingModal()">
+                            💳 Gerenciar
+                        </button>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2>Bem-vindo ao Mega Links BR!</h2>
+                    <p>Automação inteligente para afiliados. Distribua links Shopee via WhatsApp, automatize comentários no Instagram e muito mais.</p>
+                    <div style="margin-top: 16px; display: flex; gap: 8px;">
+                        <button class="btn btn-primary" onclick="switchView('whatsapp')">
+                            💬 Começar com WhatsApp
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="whatsappView" class="view hidden">
+                <div class="grid cols-1">
+                    <div class="card">
+                        <h2>WhatsApp Channels</h2>
+                        <p>Distribua links de afiliado Shopee automaticamente via WhatsApp Channels</p>
+                        <button class="btn btn-primary" onclick="openPairingModal()" style="margin-top: 16px;">
+                            🔗 Parear novo canal
+                        </button>
+                        <div id="whatsappList" style="margin-top: 24px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="instarespView" class="view hidden">
+                <div class="grid cols-1">
+                    <div class="card">
+                        <h2>InstaResp</h2>
+                        <p>Automatize respostas de comentários e envio de DMs no Instagram</p>
+                        <button class="btn btn-primary" onclick="addInstagramAutomation()" style="margin-top: 16px;">
+                            ➕ Nova automação
+                        </button>
+                        <div id="instaList" style="margin-top: 24px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="radarView" class="view hidden">
+                <div class="grid cols-1">
+                    <div class="card">
+                        <h2>Radar de Ofertas</h2>
+                        <p>Produtos Shopee ao vivo para suas automações</p>
+                        <div id="radarProducts" style="margin-top: 24px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADMIN PANEL -->
+            <div id="adminView" class="view admin-only hidden">
+                <div class="grid cols-2">
+                    <div class="card">
+                        <h2>Usuários</h2>
+                        <p id="adminUserCount">0 usuários</p>
+                        <button class="btn btn-secondary btn-sm" onclick="openAdminUsers()">
+                            Ver detalhes
+                        </button>
+                    </div>
+                    <div class="card">
+                        <h2>Receita MRR</h2>
+                        <p id="adminMRR">R$ 0,00</p>
+                        <button class="btn btn-secondary btn-sm" onclick="openAdminBilling()">
+                            Ver detalhes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
-  </div>
-</div>
 
-<!-- ============ SIDEBAR ============ -->
-<aside class="rail">
-  <div class="brand">
-    <span class="mark">M</span>
-    <span class="wm">Mega<i>Links</i><small>BRASIL</small></span>
-  </div>
-  <div class="role-switch" id="roleSwitch">
-    <button class="on" data-role="afiliado"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg> Afiliado</button>
-    <button data-role="admin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7z"/></svg> Admin</button>
-  </div>
+    <!-- MODALS -->
 
-  <!-- AFILIADO -->
-  <nav class="nav-grp show" id="navAfiliado">
-    <div class="nav active" data-page="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Dashboard</div>
-    <div class="nav" data-page="radar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 3v4.5M12 12l6-4"/></svg>Radar de Ofertas<span class="tag dot" id="radarBadge">12</span></div>
-    <div class="lbl">Automação WhatsApp</div>
-    <div class="nav" data-page="conexao"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5z"/></svg>Conexão WhatsApp<span class="tag dot">QR</span></div>
-    <div class="nav" data-page="canais-grupos"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M17 8a5 5 0 1 0-10 0c0 5-2 6-2 6h14s-2-1-2-6"/><path d="M10.5 19a1.7 1.7 0 0 0 3 0"/></svg>Canais/Grupos</div>
-    <div class="nav" data-page="instaresp"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".6" fill="currentColor"/></svg>InstaResp<span class="tag dot">NEW</span></div>
-    <div class="lbl">Configurações</div>
-    <div class="nav" data-page="config-afiliados"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.4-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.2-.8.2-1.2z"/></svg>Config Afiliados</div>
-    <div class="nav" data-page="config-telegram"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="m22 2-7 20-4-9-9-4 20-7z"/></svg>Config Telegram</div>
-    <div class="nav" data-page="migracao"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M8 7h12M16 3l4 4-4 4M16 17H4M8 21l-4-4 4-4"/></svg>Migração de Produtos</div>
-    <div class="lbl">Conta & Crescimento</div>
-    <div class="nav" data-page="meus-dados"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>Meus Dados</div>
-    <div class="nav" data-page="assinatura"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>Assinatura</div>
-    <div class="nav" data-page="afiliados"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.2 6.5-5.2s6.5 1.7 6.5 5.2"/><circle cx="17.5" cy="9" r="2.7"/><path d="M16.5 14.6c2.9.3 5 1.9 5 4.9"/></svg>Afiliados Hotmart</div>
-    <div class="nav" data-page="influenciadores"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="m12 2 2.9 6.3 6.6.7-5 4.5 1.4 6.5L12 16.7 6.1 20l1.4-6.5-5-4.5 6.6-.7L12 2z"/></svg>Influenciadores<span class="tag gold">R$500</span></div>
-    <div class="nav" data-page="faq"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.8.3-.9 1-.9 1.7"/><circle cx="12" cy="17" r=".4"/></svg>FAQ</div>
-    <div class="rail-foot">
-      <strong>⚡ Plano STARTER · Trial</strong>
-      <span style="color:var(--tx2);font-size:12px">5 dias restantes</span>
-      <div class="prog"><i style="width:28%"></i></div>
-      <button class="btn btn-volt btn-sm" style="width:100%;justify-content:center" onclick="go('assinatura')">Fazer upgrade</button>
-    </div>
-  </nav>
+    <!-- LOGIN SCREEN -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-container">
+            <div class="login-header">
+                <div class="login-logo">💚 Mega</div>
+                <p class="login-subtitle">Automação para Afiliados</p>
+            </div>
 
-  <!-- ADMIN -->
-  <nav class="nav-grp" id="navAdmin">
-    <div class="nav active" data-page="adm-visao"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 20V8M10 20V4M16 20v-9M21 20H3"/></svg>Visão Geral</div>
-    <div class="lbl">CRM</div>
-    <div class="nav" data-page="adm-usuarios"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.2 6.5-5.2s6.5 1.7 6.5 5.2"/><circle cx="17.5" cy="9" r="2.7"/><path d="M16.5 14.6c2.9.3 5 1.9 5 4.9"/></svg>Usuários<span class="tag dot" id="usrBadge">—</span></div>
-    <div class="nav" data-page="adm-assinaturas"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>Assinaturas & Receita</div>
-    <div class="lbl">Operação</div>
-    <div class="nav" data-page="adm-instancias"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5z"/></svg>Instâncias & Canais</div>
-    <div class="nav" data-page="adm-fila"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Fila de Posts<span class="tag dot" id="filaBadge">live</span></div>
-    <div class="nav" data-page="adm-instaresp"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".6" fill="currentColor"/></svg>InstaResp</div>
-    <div class="nav" data-page="adm-suporte"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>Suporte<span class="tag dot">3</span></div>
-    <div class="lbl">Sistema</div>
-    <div class="nav" data-page="adm-config"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.4-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.2-.8.2-1.2z"/></svg>Config. Plataforma</div>
-    <div class="rail-foot" style="background:linear-gradient(150deg,rgba(57,192,255,.14),rgba(255,176,32,.08));border-color:rgba(57,192,255,.35)">
-      <strong>🛡️ Modo Administrador</strong>
-      <span style="color:var(--tx2);font-size:12px">Acesso total · auditado</span>
-    </div>
-  </nav>
-</aside>
+            <form class="login-form" id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="loginEmail">Email</label>
+                    <input 
+                        type="email" 
+                        id="loginEmail" 
+                        placeholder="seu@email.com"
+                        required
+                        autocomplete="email"
+                    >
+                </div>
 
-<!-- ============ MAIN ============ -->
-<div class="main">
-  <header class="top">
-    <div class="search" id="openPal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg> Buscar páginas, ações, usuários… <span class="kbd">Ctrl K</span></div>
-    <div class="top-r">
-      <button class="ibtn" id="themeT" title="Tema"><svg id="iMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><path d="M21 13A8.5 8.5 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg><svg id="iSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" style="display:none"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M4.8 4.8l1.8 1.8M17.4 17.4l1.8 1.8M4.8 19.2l1.8-1.8M17.4 6.6l1.8-1.8"/></svg></button>
-      <div style="position:relative">
-        <button class="ibtn" id="btnNotif"><span class="pip"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><path d="M17 8a5 5 0 1 0-10 0c0 5-2 6-2 6h14s-2-1-2-6"/><path d="M10.5 19a1.7 1.7 0 0 0 3 0"/></svg></button>
-        <div class="dd" id="ddNotif">
-          <div class="ddh" style="font-family:var(--disp);font-weight:600;display:flex;justify-content:space-between">Notificações <span class="pill volt">3 novas</span></div>
-          <button class="ddi"><span>🛰️</span><span><strong>Radar:</strong> 12 ofertas acima de 50% OFF agora.<br><small>há 4 min</small></span></button>
-          <button class="ddi"><span>✅</span><span>Canal "Achadinhos da Ana" validado como OWNER.<br><small>há 22 min</small></span></button>
-          <button class="ddi"><span>⏳</span><span>Seu trial termina em 5 dias. <a href="#" onclick="go('assinatura');return false">Fazer upgrade</a><br><small>hoje</small></span></button>
-          <button class="ddi" style="color:var(--volt);font-weight:700;justify-content:center" onclick="go('faq')">Ver todas</button>
+                <div class="form-group">
+                    <label for="loginPassword">Senha</label>
+                    <div class="password-wrapper">
+                        <input 
+                            type="password" 
+                            id="loginPassword" 
+                            placeholder="••••••••"
+                            required
+                            autocomplete="current-password"
+                        >
+                        <button 
+                            type="button" 
+                            class="password-toggle" 
+                            id="passwordToggleIcon"
+                            onclick="togglePasswordVisibility()"
+                            title="Mostrar/esconder senha"
+                        >
+                            👁️
+                        </button>
+                    </div>
+                </div>
+
+                <div class="login-error" id="loginError"></div>
+
+                <button type="submit" class="login-button">
+                    🚀 Entrar
+                </button>
+            </form>
+
+            <div class="login-footer">
+                Demo: rocketdesignbh@gmail.com / 123456
+            </div>
         </div>
-      </div>
-      <div style="position:relative">
-        <button class="av" id="btnUser">A</button>
-        <div class="dd" id="ddUser">
-          <div class="ddh"><div style="font-weight:700">Ana Luiza</div><div style="font-size:12px;color:var(--mut)">ana.luiza@email.com · STARTER</div></div>
-          <button class="ddi" onclick="go('meus-dados')">👤 Meu perfil</button>
-          <button class="ddi" onclick="go('assinatura')">💳 Assinatura</button>
-          <button class="ddi" onclick="toggleTheme()">🌓 Alternar tema</button>
-          <button class="ddi" onclick="signOut()">🚪 Sair</button>
+    </div>
+
+    <!-- PAIRING MODAL (QR REAL) -->
+    <div class="modal" id="pairingModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Parear WhatsApp</h2>
+                <button class="modal-close" onclick="closePairingModal()">✕</button>
+            </div>
+            
+            <p>Escaneie o código QR com seu celular para conectar:</p>
+            
+            <div class="qr-container" id="qrCodeContainer">
+                <p class="qr-status loading">⏳ Gerando QR code...</p>
+            </div>
+
+            <div class="qr-status" id="pairingStatus">
+                Aguardando leitura do código QR...
+            </div>
+
+            <div style="margin-top: 24px; display: flex; gap: 8px;">
+                <button class="btn btn-secondary" onclick="closePairingModal()" style="flex: 1;">
+                    Cancelar
+                </button>
+                <button class="btn btn-secondary" onclick="retryQRGeneration()" style="flex: 1;" id="retryBtn">
+                    ↻ Tentar novamente
+                </button>
+            </div>
         </div>
-      </div>
     </div>
-  </header>
 
-  <main class="wrap" id="wrap">
-  <!-- ===== DASHBOARD (afiliado) ===== -->
-  <section class="page on" id="page-dashboard">
-    <div class="phead">
-      <div><h1 class="pt" id="greeting">Boa tarde, Ana ⚡</h1><div class="psub">Resumo da sua operação de afiliada na Mega Links BR.</div></div>
-      <div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="openDrawer()">✨ Gerar post com IA</button><button class="btn btn-volt" onclick="go('canais-grupos')">＋ Novo grupo</button></div>
-    </div>
-    <div class="g4" id="kpiRow" style="margin-bottom:20px"></div>
-    <div class="g23">
-      <div>
-        <div class="card"><div class="ch">📈 Cliques · últimos 14 dias <span class="r">total: <strong id="chTot" style="color:var(--tx)"></strong></span></div><div class="cb" id="chArea"></div></div>
-        <div class="card"><div class="ch">🔥 Melhores horários para postar <span class="r">baseado nos seus cliques</span></div><div class="cb"><div class="heat" id="heat"></div></div></div>
-      </div>
-      <div>
-        <div class="card"><div class="ch">🚀 Comece por aqui <span class="r" id="onbPct"></span></div><div class="cb"><div class="onb">
-          <svg class="ring" viewBox="0 0 88 88"><circle cx="44" cy="44" r="36" fill="none" stroke="var(--bg2)" stroke-width="9"/><circle id="ringFg" cx="44" cy="44" r="36" fill="none" stroke="url(#gr)" stroke-width="9" stroke-linecap="round" stroke-dasharray="226.2" stroke-dashoffset="226.2" transform="rotate(-90 44 44)"/><defs><linearGradient id="gr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#19E27D"/><stop offset="1" stop-color="#39C0FF"/></linearGradient></defs><text id="ringTxt" x="44" y="49" text-anchor="middle" font-size="17" font-weight="700" fill="var(--tx)" font-family="var(--disp)">0%</text></svg>
-          <div class="osteps" id="osteps"></div>
-        </div></div></div>
-        <div class="card"><div class="ch">🛰️ Radar <span class="r"><a href="#" onclick="go('radar');return false">ver tudo</a></span></div><div class="cb" id="radarMini" style="padding-top:6px"></div></div>
-        <div class="card"><div class="ch">🕑 Atividade recente</div><div class="cb" id="feed" style="padding-top:6px"></div></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===== RADAR ===== -->
-  <section class="page" id="page-radar">
-    <div class="phead"><div><h1 class="pt">🛰️ Radar de Ofertas</h1><div class="psub">Oportunidades quentes nas lojas conectadas — publique nos seus canais com 1 clique.</div></div>
-      <button class="btn btn-ghost" onclick="renderRadar();toast('Radar atualizado!')">↻ Atualizar</button></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px" id="radarFilters"></div>
-    <div class="card"><div class="cb" style="padding:6px 18px" id="radarFull"></div></div>
-  </section>
-
-  <!-- ===== CONEXÃO WHATSAPP (QR) ===== -->
-  <section class="page" id="page-conexao">
-    <div class="phead"><div><h1 class="pt">Conexão WhatsApp</h1><div class="psub">Pareie seu número para publicar automaticamente em grupos e canais.</div></div></div>
-    <div class="g2">
-      <div class="card" style="margin:0"><div class="ch">📲 Parear novo número</div><div class="cb">
-        <div class="g2" style="gap:12px">
-          <div class="field"><label>Código do país</label><select><option>+55 BR</option><option>+351 PT</option></select></div>
-          <div class="field"><label>DDD</label><input id="waDDD" value="31" maxlength="3"></div>
+    <!-- COMMAND PALETTE -->
+    <div class="modal" id="commandPalette">
+        <div style="width: 90%; max-width: 500px;">
+            <div class="command-palette">
+                <input type="text" class="command-input" id="commandInput" placeholder="Procure por uma ação..." autofocus>
+                <div class="command-results" id="commandResults"></div>
+            </div>
         </div>
-        <div class="field"><label>Número de telefone</label><input id="waNum" placeholder="9 9999-0000"></div>
-        <button class="btn btn-volt" id="btnGenQR" style="width:100%;justify-content:center">Gerar QR Code</button>
-        <div class="hint" style="margin-top:10px">No celular: WhatsApp → <strong>Aparelhos conectados</strong> → Conectar um aparelho → aponte para o QR.</div>
-      </div></div>
-      <div class="card" style="margin:0"><div class="ch">🔗 Pareamento <span class="r" id="waStatus"><span class="pill gray"><span class="d"></span> aguardando</span></span></div>
-        <div class="cb" id="waPane" style="text-align:center">
-          <div class="qrbox" id="qrbox" style="display:none"><div class="scan"></div><img id="qrImg" alt="QR Code"></div>
-          <p id="qrMsg" style="color:var(--mut);padding:40px 10px">Preencha o número e clique em <strong>Gerar QR Code</strong> para iniciar o pareamento.</p>
-        </div>
-      </div>
-    </div>
-    <div class="card" id="instCard" style="display:none"><div class="ch">📱 Instâncias conectadas</div><div class="cb" id="instList"></div></div>
-  </section>
-
-  <!-- ===== CANAIS/GRUPOS ===== -->
-  <section class="page" id="page-canais-grupos">
-    <div class="phead">
-      <div><h1 class="pt">Canais/Grupos <span class="pill gray" id="pillCount">0/1</span></h1><div class="psub">Cada grupo reúne canais, lojas e regras de postagem de um nicho.</div></div>
-      <button class="btn btn-volt" id="btnAddGrupo">＋ Adicionar Grupo</button>
-    </div>
-    <div class="card">
-      <div class="cb" id="gVazio" style="text-align:center;padding:48px 20px">
-        <div style="font-size:42px;margin-bottom:8px">📭</div><h3 style="margin-bottom:6px">Nenhum grupo cadastrado</h3>
-        <p style="color:var(--tx2)">Crie seu primeiro grupo de configuração para começar a postar no automático.</p>
-      </div>
-      <div id="gTabela" style="display:none"><table><thead><tr><th>Grupo</th><th>ID</th><th>Post Auto</th><th>Produtos</th><th>Canais</th><th>Intervalo</th><th style="text-align:right">Ações</th></tr></thead><tbody id="gBody"></tbody></table></div>
-    </div>
-  </section>
-
-  <!-- ===== EDITAR GRUPO ===== -->
-  <section class="page" id="page-editar-grupo">
-    <div class="phead"><div><h1 class="pt">Editar grupo: <span id="egNome">—</span></h1><div class="psub">Configure lojas, layout, canais e o agendamento deste nicho.</div></div>
-      <button class="btn btn-ghost" onclick="go('canais-grupos')">← Voltar</button></div>
-    <div class="tabs" id="tabsBar"></div>
-    <div id="tabPanes"></div>
-  </section>
-
-  <!-- ===== INSTARESP (Automação de Comentários IG) ===== -->
-  <section class="page" id="page-instaresp">
-    <div class="phead"><div><h1 class="pt">InstaResp <span class="pill volt"><span class="d"></span>NEW</span></h1><div class="psub">Responda comentários automaticamente e envie DMs com seus links de afiliado.</div></div>
-      <button class="btn btn-ghost" id="igDiscBtn" style="display:none" onclick="igDisconnect()">Desconectar</button></div>
-
-    <!-- Card de conexão / métricas -->
-    <div id="igConnectCard">
-      <div class="card"><div class="cb" style="text-align:center;padding:40px 20px">
-        <div style="font-size:44px;margin-bottom:10px">📸</div>
-        <h2 style="margin-bottom:6px">Vincule sua conta do Instagram</h2>
-        <p style="color:var(--tx2);max-width:460px;margin:0 auto 18px">Autorize a Mega Links BR a gerenciar comentários e mensagens (Instagram Profissional/Criador). Necessário para o InstaResp funcionar.</p>
-        <button class="btn btn-lg" style="background:linear-gradient(120deg,#f77737,#c13584,#833ab4);color:#fff" onclick="igConnect()">Conectar Instagram</button>
-      </div></div>
-    </div>
-    <div id="igMetrics" style="display:none">
-      <div class="g4" style="margin-bottom:20px" id="igKpis"></div>
     </div>
 
-    <!-- Galeria de mídias (InstaBotHelp) -->
-    <div class="card" id="igGalleryCard" style="display:none"><div class="ch">🎬 Suas mídias <span class="r">clique em “Nova automação” sobre um post/reel</span></div>
-      <div class="cb"><div class="g4" id="igGallery"></div></div></div>
+    <script>
+        // SUPABASE CONFIG
+        const SUPABASE_URL = 'https://nxlfezpagporealqqbfj.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_FQTFJaF46KfwSnODD5UjPA_nOagscIu';
+        const WA_ENGINE_URL = 'https://megalinksbr-wa-engine.fwezsn.easypanel.host';
 
-    <!-- Automações ativas -->
-    <div class="card" id="igAutomCard" style="display:none"><div class="ch">🤖 Automações ativas <span class="r" id="igAutomCount">0</span></div>
-      <div style="overflow-x:auto"><table><thead><tr><th>Mídia</th><th>Gatilho</th><th>Resposta</th><th>Links</th><th>Disparos</th><th>Status</th><th></th></tr></thead><tbody id="igAutomBody"></tbody></table></div></div>
-  </section>
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  <!-- ===== CONFIG AFILIADOS ===== -->
-  <section class="page" id="page-config-afiliados">
-    <div class="phead"><div><h1 class="pt">Config Afiliados</h1><div class="psub">Conecte suas credenciais para importar produtos e converter links automaticamente.</div></div></div>
-    <div class="g3" id="lojasGrid"></div>
-  </section>
+        // STATE
+        let currentUser = null;
+        let currentRole = 'user';
+        let isDarkMode = false;
+        let currentQRSessionId = null;
 
-  <!-- ===== CONFIG TELEGRAM ===== -->
-  <section class="page" id="page-config-telegram">
-    <h1 class="pt" style="margin-bottom:18px">Config Telegram</h1>
-    <div class="card"><div class="cb" style="text-align:center;padding:46px 20px">
-      <div style="font-size:44px;margin-bottom:10px">✈️</div><h2 style="margin-bottom:8px">Conecte sua conta do Telegram</h2>
-      <p style="color:var(--tx2);max-width:480px;margin:0 auto 20px">Autorize a Mega Links BR a publicar nos seus canais e grupos. Conexão pelo widget oficial do Telegram.</p>
-      <button class="btn btn-volt btn-lg" onclick="toast('Login com Telegram (demonstração).','✈️')">Entrar com Telegram</button>
-    </div></div>
-  </section>
+        // ============ AUTH ============
+        async function initAuth() {
+            const { data } = await supabase.auth.getSession();
+            if (data.session) {
+                currentUser = data.session.user;
+                updateUserInfo();
+                loadDashboardData();
+            } else {
+                showLoginModal();
+            }
+        }
 
-  <!-- ===== MIGRAÇÃO ===== -->
-  <section class="page" id="page-migracao">
-    <h1 class="pt" style="margin-bottom:18px">Migração de Produtos</h1>
-    <div class="card" style="max-width:660px"><div class="cb">
-      <div class="alert r">⚠️ <strong>Atenção:</strong> esta operação é <strong>IRREVERSÍVEL</strong>. Todos os produtos da origem serão movidos para o destino.</div>
-      <div class="field"><label>Grupo de origem</label><select><option>Selecione…</option></select></div>
-      <div class="field"><label>Grupo de destino</label><select><option>Selecione…</option></select></div>
-      <div class="field"><label>Confirmação</label><select><option>Selecione…</option><option>Sim, entendo que é irreversível</option></select></div>
-      <button class="btn btn-red">Migrar Produtos</button>
-    </div></div>
-  </section>
+        function showLoginModal() {
+            document.getElementById('loginScreen').classList.add('active');
+            document.getElementById('loginEmail').focus();
+        }
 
-  <!-- ===== MEUS DADOS ===== -->
-  <section class="page" id="page-meus-dados">
-    <h1 class="pt" style="margin-bottom:18px">Meus Dados</h1>
-    <div class="alert b">ℹ️ Seu CPF é usado para reconhecimento automático da assinatura e faturamento. Mantenha-o atualizado.</div>
-    <div class="card" style="max-width:780px"><div class="cb">
-      <div class="g2"><div class="field"><label>Nome</label><input value="Ana Luiza"></div><div class="field"><label>Sobrenome</label><input value="Ribeiro Fialho"></div></div>
-      <div class="field"><label>E-mail</label><input type="email" value="ana.luiza@email.com"></div>
-      <div class="g3"><div class="field"><label>País</label><select><option>+55 BR</option></select></div><div class="field"><label>DDD</label><input value="031"></div><div class="field"><label>Telefone</label><input value="9 9999-0000"></div></div>
-      <div class="field"><label>CPF / CNPJ</label><input value="123.456.789-00"></div>
-      <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin:14px 0;color:var(--tx)"><input type="checkbox" checked style="width:auto"> Receber notificações via e-mail</label>
-      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><button class="btn btn-volt" onclick="toast('Dados salvos!')">Salvar</button><button class="btn btn-red" onclick="confirm('Excluir conta permanentemente? (demonstração)')">Excluir conta</button></div>
-    </div></div>
-  </section>
+        function closeLoginModal() {
+            document.getElementById('loginScreen').classList.remove('active');
+        }
 
-  <!-- ===== ASSINATURA ===== -->
-  <section class="page" id="page-assinatura">
-    <h1 class="pt" style="margin-bottom:18px">Assinatura</h1>
-    <div class="card"><div class="ch">💳 Minha assinatura atual</div><div class="cb"><div class="sgrid" style="grid-template-columns:repeat(3,1fr);margin:0">
-      <div class="stat"><div class="v">STARTER</div><div class="l">Plano · 7 dias grátis</div></div>
-      <div class="stat"><div class="v" style="color:var(--volt)">ACTIVE</div><div class="l">Status</div></div>
-      <div class="stat"><div class="v" style="color:var(--volt)">PAID</div><div class="l">Pagamento</div></div>
-    </div></div></div>
-    <h2 style="text-align:center;margin:28px 0 6px">Escolha o plano ideal</h2>
-    <p style="text-align:center;color:var(--mut);margin-bottom:18px">Cancele quando quiser · Sem fidelidade · Pix ou cartão</p>
-    <div style="text-align:center"><div class="bill"><button class="on" data-bill="m">Mensal</button><button data-bill="a">Anual <span class="pill volt" style="margin-left:4px">-20%</span></button></div></div>
-    <div style="max-width:420px;margin:0 auto 26px;display:flex;gap:10px"><input placeholder="Cupom de desconto"><button class="btn btn-ghost">Aplicar</button></div>
-    <div class="g4" id="plansGrid" style="align-items:stretch"></div>
-  </section>
+        function togglePasswordVisibility() {
+            const input = document.getElementById('loginPassword');
+            const icon = document.getElementById('passwordToggleIcon');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                icon.textContent = '👁️';
+            }
+        }
 
-  <!-- ===== AFILIADOS HOTMART ===== -->
-  <section class="page" id="page-afiliados">
-    <div class="hero" style="margin-top:0"><h2 style="font-size:24px">🤝 Programa de Afiliados</h2><p style="color:var(--tx2);margin-top:6px">Indique a Mega Links BR e ganhe comissão recorrente por cada assinatura via Hotmart.</p></div>
-    <div class="sgrid"><div class="stat"><div class="v">R$ 49,90</div><div class="l">Comissão máx./venda</div></div><div class="stat"><div class="v">0</div><div class="l">Indicados</div></div><div class="stat"><div class="v">—</div><div class="l">Cupom atual</div></div><div class="stat"><div class="v">Hotmart</div><div class="l">Pagamento</div></div></div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px"><button class="btn btn-gold">🔥 Quero ser Afiliado</button><button class="btn btn-ghost" onclick="go('faq')">▶ Ver ajuda</button></div>
-    <div class="card"><div class="ch">📝 Cadastro Hotmart</div><div class="cb"><div class="g2">
-      <div class="field"><label>Cupom de desconto</label><input placeholder="ex.: ANALUIZA10"></div>
-      <div class="field"><label>Link Hotmart</label><input placeholder="https://hotmart.com/..."></div>
-    </div><button class="btn btn-volt" onclick="toast('Cadastro Hotmart salvo!')">Salvar</button></div></div>
-  </section>
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const errorEl = document.getElementById('loginError');
 
-  <!-- ===== INFLUENCIADORES ===== -->
-  <section class="page" id="page-influenciadores">
-    <h1 class="pt" style="margin-bottom:18px">Programa de Influenciadores</h1>
-    <div class="alert b">ℹ️ <strong>Plano trial.</strong> Para ganhar R$ 500,00/mês como influenciador é necessário ter uma assinatura ativa.</div>
-    <div class="g2">
-      <div class="card" style="margin:0"><div class="ch" style="color:var(--volt)">⭐ Programa de Influenciadores</div><div class="cb"><div style="display:grid;gap:8px"><div>✅ <strong>R$ 500,00 por mês</strong></div><div>✅ 12 vídeos mensais (3/semana)</div><div>✅ Instagram Reels ou TikTok</div><div>✅ Validação manual da equipe</div><div>✅ Pagamento até o 15º dia útil</div></div></div></div>
-      <div class="card" style="margin:0"><div class="ch" style="color:var(--sky)">🚀 Planos Mega Links</div><div class="cb"><div style="display:grid;gap:8px"><div>✅ Automação completa de vendas</div><div>✅ Múltiplas plataformas</div><div>✅ Stories automáticos</div><div>✅ Agendamento de posts</div><div>✅ Respostas automáticas</div></div></div></div>
-    </div>
-    <div class="hero"><div style="font-size:36px">👑</div><h3>Faça o upgrade agora!</h3><p style="margin:8px 0 18px;color:var(--tx2)">Transforme seu trial em assinatura completa e comece a ganhar <strong style="color:var(--tx)">R$ 500/mês</strong>.</p><button class="btn btn-volt btn-lg" onclick="go('assinatura')">👑 FAZER UPGRADE</button></div>
-  </section>
+            if (!email || !password) {
+                errorEl.textContent = 'Preencha email e senha';
+                errorEl.classList.add('show');
+                return;
+            }
 
-  <!-- ===== FAQ ===== -->
-  <section class="page" id="page-faq">
-    <h1 class="pt" style="margin-bottom:14px">Perguntas Frequentes</h1>
-    <input placeholder="🔍 Buscar pergunta…" id="faqSearch" style="max-width:480px">
-    <div class="fcat" id="faqCats"></div><div id="faqList"></div>
-  </section>
-  <!-- ============ ADMIN: VISÃO GERAL ============ -->
-  <section class="page" id="page-adm-visao">
-    <div class="phead"><div><h1 class="pt">Visão Geral da Plataforma</h1><div class="psub">Métricas consolidadas de toda a Mega Links BR.</div></div>
-      <select style="max-width:170px"><option>Últimos 30 dias</option><option>Este mês</option><option>Este ano</option></select></div>
-    <div class="g4" id="admKpis" style="margin-bottom:20px"></div>
-    <div class="g23">
-      <div class="card"><div class="ch">💰 Receita (MRR) vs novos assinantes <span class="r">12 meses</span></div><div class="cb">
-        <div class="bar-track" id="mrrChart"></div>
-        <div class="legend"><span><i style="background:var(--volt)"></i> MRR (R$ mil)</span><span><i style="background:var(--sky)"></i> Novos assinantes</span></div>
-      </div></div>
-      <div class="card"><div class="ch">🧩 Distribuição de planos</div><div class="cb" id="planDist"></div></div>
-    </div>
-    <div class="g2">
-      <div class="card"><div class="ch">📡 Saúde da operação</div><div class="cb" id="opHealth"></div></div>
-      <div class="card"><div class="ch">🧾 Últimas atividades</div><div class="cb" id="admFeed" style="padding-top:6px"></div></div>
-    </div>
-  </section>
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
 
-  <!-- ============ ADMIN: USUÁRIOS (CRM) ============ -->
-  <section class="page" id="page-adm-usuarios">
-    <div class="phead"><div><h1 class="pt">Usuários · CRM</h1><div class="psub">Gerencie contas, assinaturas e relacionamento.</div></div>
-      <div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="toast('Exportado para CSV (demonstração).','📤')">📤 Exportar</button><button class="btn btn-volt" onclick="toast('Convite enviado (demonstração).','✉️')">＋ Convidar</button></div></div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
-      <input id="usrSearch" placeholder="🔍 Buscar por nome ou e-mail…" style="max-width:300px">
-      <div class="seg" id="usrSeg"><button class="on" data-f="todos">Todos</button><button data-f="active">Ativos</button><button data-f="trial">Trial</button><button data-f="canceled">Cancelados</button></div>
-    </div>
-    <div class="card"><div style="overflow-x:auto"><table>
-      <thead><tr><th>Usuário</th><th>Plano</th><th>Status</th><th>MRR</th><th>Grupos</th><th>Canais</th><th>Entrou em</th></tr></thead>
-      <tbody id="usrBody"></tbody></table></div></div>
-  </section>
+                if (error) {
+                    errorEl.textContent = error.message;
+                    errorEl.classList.add('show');
+                    return;
+                }
 
-  <!-- ============ ADMIN: ASSINATURAS & RECEITA ============ -->
-  <section class="page" id="page-adm-assinaturas">
-    <div class="phead"><div><h1 class="pt">Assinaturas & Receita</h1><div class="psub">Acompanhe MRR, churn e cobranças.</div></div></div>
-    <div class="g4" id="subKpis" style="margin-bottom:20px"></div>
-    <div class="card"><div class="ch">🧾 Cobranças recentes</div><div style="overflow-x:auto"><table>
-      <thead><tr><th>Data</th><th>Usuário</th><th>Plano</th><th>Método</th><th>Valor</th><th>Status</th></tr></thead><tbody id="payBody"></tbody></table></div></div>
-  </section>
+                currentUser = data.user;
+                updateUserInfo();
+                closeLoginModal();
+                loadDashboardData();
+                
+                // Limpar form
+                document.getElementById('loginForm').reset();
+                errorEl.classList.remove('show');
+                document.getElementById('loginPassword').type = 'password';
+                document.getElementById('passwordToggleIcon').textContent = '👁️';
 
-  <!-- ============ ADMIN: INSTÂNCIAS & CANAIS ============ -->
-  <section class="page" id="page-adm-instancias">
-    <div class="phead"><div><h1 class="pt">Instâncias & Canais</h1><div class="psub">Monitore conexões WhatsApp e canais vinculados em tempo real.</div></div>
-      <button class="btn btn-ghost" onclick="renderInstancias();toast('Status atualizado!')">↻ Atualizar</button></div>
-    <div class="g4" id="instKpis" style="margin-bottom:20px"></div>
-    <div class="card"><div class="ch">📱 Sessões WhatsApp</div><div style="overflow-x:auto"><table>
-      <thead><tr><th>Usuário</th><th>Número</th><th>Status</th><th>Canais</th><th>Papel</th><th>Última atividade</th></tr></thead><tbody id="instBody"></tbody></table></div></div>
-  </section>
+            } catch (error) {
+                errorEl.textContent = 'Erro ao fazer login: ' + error.message;
+                errorEl.classList.add('show');
+            }
+        }
 
-  <!-- ============ ADMIN: FILA DE POSTS ============ -->
-  <section class="page" id="page-adm-fila">
-    <div class="phead"><div><h1 class="pt">Fila de Posts <span class="dotpulse" style="display:inline-block;vertical-align:2px;margin-left:6px"></span></h1><div class="psub">Scheduler ao vivo — próximos disparos respeitando intervalo e janela de horário.</div></div>
-      <button class="btn btn-ghost" id="btnPauseQueue">⏸ Pausar fila</button></div>
-    <div class="g4" id="filaKpis" style="margin-bottom:20px"></div>
-    <div class="g23">
-      <div class="card"><div class="ch">⏭️ Próximos disparos</div><div class="cb" id="queueList" style="padding-top:6px"></div></div>
-      <div class="card"><div class="ch">📜 Log ao vivo</div><div class="cb" id="queueLog" style="padding-top:6px;max-height:340px;overflow-y:auto"></div></div>
-    </div>
-  </section>
+        async function login(email, password) {
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password
+            });
+            if (error) {
+                alert('Erro ao fazer login: ' + error.message);
+                return;
+            }
+            currentUser = data.user;
+            updateUserInfo();
+            closeLoginModal();
+            loadDashboardData();
+        }
 
-  <!-- ============ ADMIN: INSTARESP ============ -->
-  <section class="page" id="page-adm-instaresp">
-    <div class="phead"><div><h1 class="pt">InstaResp · Monitoramento</h1><div class="psub">Automações de comentário, disparos e conversão por conta.</div></div>
-      <select style="max-width:170px"><option>Últimos 30 dias</option><option>Hoje</option><option>Este mês</option></select></div>
-    <div class="g4" id="irKpis" style="margin-bottom:20px"></div>
-    <div class="g23">
-      <div class="card"><div class="ch">📈 Disparos por dia <span class="r">14 dias</span></div><div class="cb"><div class="bar-track" id="irChart"></div>
-        <div class="legend"><span><i style="background:var(--volt)"></i> respostas públicas</span><span><i style="background:var(--sky)"></i> DMs enviadas</span></div></div></div>
-      <div class="card"><div class="ch">🏆 Top gatilhos</div><div class="cb" id="irTriggers"></div></div>
-    </div>
-    <div class="card"><div class="ch">👤 Contas conectadas</div><div style="overflow-x:auto"><table>
-      <thead><tr><th>Conta</th><th>Automações</th><th>Ativas</th><th>Disparos</th><th>DMs</th><th>Conversão</th></tr></thead><tbody id="irBody"></tbody></table></div></div>
-  </section>
+        async function logout() {
+            await supabase.auth.signOut();
+            currentUser = null;
+            location.reload();
+        }
 
-  <!-- ============ ADMIN: SUPORTE ============ -->
-  <section class="page" id="page-adm-suporte">
-    <div class="phead"><div><h1 class="pt">Suporte</h1><div class="psub">Tickets abertos pelos usuários.</div></div></div>
-    <div class="card"><div style="overflow-x:auto"><table>
-      <thead><tr><th>#</th><th>Usuário</th><th>Assunto</th><th>Prioridade</th><th>Status</th><th>Aberto há</th></tr></thead><tbody id="tickBody"></tbody></table></div></div>
-  </section>
+        function updateUserInfo() {
+            if (!currentUser) return;
+            const email = currentUser.email || 'Usuário';
+            document.getElementById('userInfo').textContent = email;
+            
+            // Verificar se é admin
+            supabase
+                .from('profiles')
+                .select('is_admin')
+                .eq('id', currentUser.id)
+                .single()
+                .then(({ data }) => {
+                    if (data?.is_admin) {
+                        document.getElementById('adminRoleBtn').style.display = 'block';
+                    }
+                });
+        }
 
-  <!-- ============ ADMIN: CONFIG PLATAFORMA ============ -->
-  <section class="page" id="page-adm-config">
-    <div class="phead"><div><h1 class="pt">Configurações da Plataforma</h1><div class="psub">Parâmetros globais, integrações e Supabase.</div></div></div>
-    <div class="g2">
-      <div class="card" style="margin:0"><div class="ch">🟢 Supabase</div><div class="cb">
-        <div class="field"><label>Project URL</label><input class="mono" value="https://nxlfezpagporealqqbfj.supabase.co"></div>
-        <div class="field"><label>Anon key</label><input class="mono" type="password" value="sb_publishable_FQTFJaF46KfwSnODD5UjPA_nOagscIu"></div>
-        <div class="alert g" style="font-size:12.5px">✅ Schema com 9 tabelas + RLS pronto no arquivo <span class="mono">mega_links_supabase_schema.sql</span>.</div>
-        <button class="btn btn-volt" onclick="toast('Conexão Supabase testada com sucesso!','🟢')">Testar conexão</button>
-      </div></div>
-      <div class="card" style="margin:0"><div class="ch">⚙️ Limites por plano</div><div class="cb" id="planLimitsCfg"></div></div>
-    </div>
-    <div class="card"><div class="ch">🔌 Integrações</div><div class="cb" id="integGrid"></div></div>
-  </section>
+        // ============ UI ============
+        function switchView(viewName) {
+            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
-  </main>
-  <footer class="foot">© 2026 Mega Links BR · plataforma de automação para afiliados. <span class="kbd">Ctrl K</span> abre a busca · alterne <strong>Afiliado ⇄ Admin</strong> na lateral.</footer>
-</div>
+            const viewMap = {
+                'dashboard': 'dashboardView',
+                'whatsapp': 'whatsappView',
+                'instaresp': 'instarespView',
+                'radar': 'radarView',
+                'admin': 'adminView'
+            };
 
-<!-- ============ FAB + DRAWER (MegaIA) ============ -->
-<button class="fab" id="fabAI">✨ MegaIA</button>
-<div class="drw" id="drw">
-  <div class="drwh"><span class="ai">✨</span> MegaIA <span class="pill volt" style="margin-left:2px">BETA</span><button class="mx" style="margin-left:auto" onclick="closeDrawer()">×</button></div>
-  <div class="drwb" id="aiBody">
-    <div class="msg ai">Oi, Ana! ⚡ Sou a MegaIA. Gero legendas de post, melhoro textos e sugiro horários. Diga um produto ou use um atalho:</div>
-    <div class="chips"><button class="chip" data-q="Gerar post: Fone Bluetooth XYZ por R$ 9,99">⚡ Gerar post</button><button class="chip" data-q="Qual o melhor horário para postar?">🕑 Melhor horário</button><button class="chip" data-q="Me dê 3 ideias de CTA">💬 Ideias de CTA</button></div>
-  </div>
-  <div class="drwf"><input id="aiInput" placeholder="Ex.: gerar post: Air Fryer 4L por R$ 199"><button class="btn btn-volt" id="aiSend">➤</button></div>
-</div>
+            if (viewMap[viewName]) {
+                const viewEl = document.getElementById(viewMap[viewName]);
+                if (viewEl) viewEl.classList.remove('hidden');
+            }
 
-<!-- ============ COMMAND PALETTE ============ -->
-<div class="palbg" id="palbg"><div class="pal"><input id="palInput" placeholder="Buscar páginas e ações…"><div class="pall" id="pall"></div></div></div>
+            event.target.classList.add('active');
 
-<!-- ============ MODAIS ============ -->
-<div class="mbg" id="modalGrupo"><div class="modal">
-  <div class="mh">Adicionar Grupo de Configuração (nicho) <button class="mx" onclick="closeModal('modalGrupo')">×</button></div>
-  <div class="mb"><div class="field"><label>Nome do grupo</label><input id="inNomeGrupo" placeholder="ex.: Achadinhos da Semana"></div>
-    <div class="alert b" style="margin:0">💡 Nomeie pelo <strong>nicho</strong>. Cada grupo reúne canais, lojas e regras daquele nicho.</div></div>
-  <div class="mf"><button class="btn btn-ghost" onclick="closeModal('modalGrupo')">Cancelar</button><button class="btn btn-volt" id="btnSalvarGrupo">Criar grupo</button></div>
-</div></div>
+            const titleMap = {
+                'dashboard': 'Dashboard',
+                'whatsapp': 'WhatsApp Channels',
+                'instaresp': 'InstaResp',
+                'radar': 'Radar de Ofertas',
+                'admin': 'Painel Admin'
+            };
+            document.getElementById('pageTitle').textContent = titleMap[viewName] || 'Mega Links BR';
+        }
 
-<div class="mbg" id="modalUser"><div class="modal" style="max-width:560px"><div id="userDetail"></div></div></div>
+        function switchRole(role) {
+            if (role === 'admin' && currentUser) {
+                currentRole = 'admin';
+                document.body.classList.add('admin');
+                document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+                event.target.classList.add('active');
+                switchView('admin');
+            } else if (role === 'user') {
+                currentRole = 'user';
+                document.body.classList.remove('admin');
+                document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+                event.target.classList.add('active');
+                switchView('dashboard');
+            }
+        }
 
-<div class="mbg" id="modalInflu"><div class="modal" style="max-width:560px">
-  <div class="mh">🎉 Programa de Influenciadores! <button class="mx" onclick="closeModal('modalInflu')">×</button></div>
-  <div class="mb"><p style="margin-bottom:14px;color:var(--tx2)">Crie conteúdo sobre a Mega Links BR e receba todo mês:</p>
-    <div class="g2" style="gap:10px"><div class="alert g" style="margin:0">💰 <strong>R$ 500/mês</strong><br><small>Pagamento garantido</small></div><div class="alert b" style="margin:0">🤝 <strong>Suporte dedicado</strong><br><small>Equipe exclusiva</small></div><div class="alert y" style="margin:0">📈 <strong>Crescimento</strong><br><small>Divulgação do perfil</small></div><div class="alert r" style="margin:0">🎁 <strong>Materiais exclusivos</strong><br><small>Artes e roteiros</small></div></div></div>
-  <div class="mf"><button class="btn btn-ghost" onclick="closeModal('modalInflu')">Mais tarde</button><button class="btn btn-gold" onclick="closeModal('modalInflu');setRole('afiliado');go('influenciadores')">QUERO PARTICIPAR!</button></div>
-</div></div>
+        function toggleDarkMode() {
+            isDarkMode = !isDarkMode;
+            document.body.classList.toggle('dark-mode', isDarkMode);
+            localStorage.setItem('darkMode', isDarkMode);
+        }
 
-<!-- ===== MODAL NOVA AUTOMAÇÃO (InstaResp) ===== -->
-<div class="mbg" id="modalAutom"><div class="modal" style="max-width:600px">
-  <div class="mh">🤖 Nova automação de comentários <button class="mx" onclick="closeModal('modalAutom')">×</button></div>
-  <div class="mb">
-    <div id="automMediaInfo" class="prod" style="margin-bottom:16px"></div>
-    <div class="field"><label>Palavra-chave gatilho</label><input id="auKw" placeholder='ex.: quero'><div class="hint">Não diferencia maiúsculas/minúsculas.</div></div>
-    <div class="field"><label>Frase de resposta ao comentário</label><textarea id="auReply" rows="2" placeholder="Frases separadas por ; (alterna entre elas) ou digite: auto"></textarea><div class="hint">Use <span class="kbd">auto</span> para sortear entre 90+ frases prontas, ou separe variações com <span class="kbd">;</span>.</div></div>
-    <div class="field"><label>Texto enviado no Direct (DM)</label><textarea id="auDm" rows="2" placeholder="ex.: Aqui está o link que você pediu 👇"></textarea></div>
-    <div class="field"><label>Texto de destaque (acima dos botões)</label><input id="auHi" placeholder="ex.: VER NA SHOPEE"></div>
-    <label>Links de afiliado <span style="color:var(--mut);font-weight:400">(1 a 10 botões)</span></label>
-    <div id="auLinks" style="margin:8px 0"></div>
-    <button class="btn btn-ghost btn-sm" id="auAddLink">＋ Adicionar link</button>
-    <button class="btn btn-ghost btn-sm" onclick="autoFillAutom()" style="margin-left:6px">↺ Preencher automaticamente</button>
-  </div>
-  <div class="mf"><button class="btn btn-ghost" onclick="closeModal('modalAutom')">Cancelar</button><button class="btn btn-volt" id="auSave">Salvar automação</button></div>
-</div></div>
+        // ============ QR REAL - INTEGRAÇÃO wa-engine ============
+        async function openPairingModal() {
+            document.getElementById('pairingModal').classList.add('active');
+            await generateQRCode();
+        }
 
-<div class="tw" id="tw"></div>
-<script>
-/* ================= STATE ================= */
-const S={grupos:[],nextId:42809,planLimit:1,grupoAtual:null,bill:"m",role:"afiliado",
-  waConnected:false,waNumber:"",queuePaused:false};
+        function closePairingModal() {
+            document.getElementById('pairingModal').classList.remove('active');
+            if (currentQRSessionId) {
+                stopQRPolling();
+            }
+        }
 
-/* ================= THEME ================= */
-function toggleTheme(){const r=document.documentElement,d=r.getAttribute("data-theme")==="dark";
-  r.setAttribute("data-theme",d?"light":"dark");iMoon.style.display=d?"none":"";iSun.style.display=d?"":"none";}
-themeT.onclick=toggleTheme;
+        async function generateQRCode() {
+            try {
+                const container = document.getElementById('qrCodeContainer');
+                const statusEl = document.getElementById('pairingStatus');
+                
+                container.innerHTML = '<p class="qr-status loading">⏳ Gerando QR code...</p>';
+                statusEl.textContent = 'Conectando ao servidor...';
 
-/* ================= ROLE SWITCH ================= */
-function setRole(role){
-  if(role==="admin"&&!IS_ADMIN){toast("Acesso restrito a administradores.","🔒");return;}
-  S.role=role;
-  document.querySelectorAll(".role-switch button").forEach(b=>b.classList.toggle("on",b.dataset.role===role));
-  navAfiliado.classList.toggle("show",role==="afiliado");
-  navAdmin.classList.toggle("show",role==="admin");
-  go(role==="admin"?"adm-visao":"dashboard");
-}
-document.querySelectorAll(".role-switch button").forEach(b=>b.onclick=()=>setRole(b.dataset.role));
+                // Chamar /pair do wa-engine
+                const response = await fetch(`${WA_ENGINE_URL}/pair`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer 967af5489aaa0e9099ddcda58c2f7a6316088be0d2b80d3ec61bc38d36853451'
+                    }
+                });
 
-/* ================= NAV ================= */
-function go(page){
-  document.querySelectorAll(".page").forEach(p=>p.classList.remove("on"));
-  (document.getElementById("page-"+page)||document.getElementById("page-dashboard")).classList.add("on");
-  document.querySelectorAll(".nav").forEach(n=>n.classList.toggle("active",n.dataset.page===page));
-  window.scrollTo({top:0});closeDD();
-  if(page==="adm-fila") startQueue(); else stopQueue();
-}
-document.querySelectorAll(".nav").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
+                if (!response.ok) {
+                    throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                }
 
-/* ================= DROPDOWNS / MODAIS / TOAST ================= */
-function closeDD(){document.querySelectorAll(".dd").forEach(d=>d.classList.remove("open"));}
-btnNotif.onclick=e=>{e.stopPropagation();const o=ddNotif.classList.contains("open");closeDD();ddNotif.classList.toggle("open",!o);};
-btnUser.onclick=e=>{e.stopPropagation();const o=ddUser.classList.contains("open");closeDD();ddUser.classList.toggle("open",!o);};
-document.addEventListener("click",closeDD);
-function openModal(id){document.getElementById(id).classList.add("open");}
-function closeModal(id){document.getElementById(id).classList.remove("open");}
-document.querySelectorAll(".mbg").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("open");}));
-function toast(msg,emoji){const t=document.createElement("div");t.className="toast";t.textContent=(emoji||"✅")+" "+msg;tw.appendChild(t);
-  setTimeout(()=>{t.style.opacity="0";t.style.transition="opacity .3s";setTimeout(()=>t.remove(),320);},3400);}
+                const data = await response.json();
+                
+                // Esperado: { qr: "data:image/png;base64,..." ou "QR_STRING", sessionId: "..." }
+                if (!data.qr || !data.sessionId) {
+                    throw new Error('Resposta inválida do servidor');
+                }
 
-/* ================= GREETING ================= */
-(function(){const h=new Date().getHours();const g=h<6?"Boa madrugada":h<12?"Bom dia":h<18?"Boa tarde":"Boa noite";greeting.textContent=g+", Ana ⚡";})();
+                currentQRSessionId = data.sessionId;
 
-/* ================= SPARK + KPIs ================= */
-function spark(d,c){const w=86,h=30,mx=Math.max(...d),mn=Math.min(...d);
-  const p=d.map((v,i)=>(i/(d.length-1)*w).toFixed(1)+","+(h-((v-mn)/(mx-mn||1))*(h-4)-2).toFixed(1)).join(" ");
-  return `<svg class="sp" width="${w}" height="${h}"><polyline points="${p}" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"/></svg>`;}
-kpiRow.innerHTML=[
-  {l:"Cliques hoje",v:"1.284",d:"+18% vs ontem",up:1,c:"#19E27D",s:[40,52,48,61,58,72,69,84,90,86,99,112]},
-  {l:"Comissões estimadas",v:"R$ 312,40",d:"+9% na semana",up:1,c:"#39C0FF",s:[20,24,22,28,26,31,30,29,34,36,35,39]},
-  {l:"Posts enviados",v:"96",d:"meta diária: 120",up:1,c:"#FFB020",s:[8,10,9,12,11,10,13,12,14,13,15,16]},
-  {l:"CTR médio",v:"4,7%",d:"-0,3pp vs semana",up:0,c:"#FF4D8D",s:[5.4,5.2,5.1,5.3,4.9,5,4.8,4.9,4.7,4.8,4.6,4.7]}
-].map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="kd ${k.up?"up":"dn"}">${k.up?"▲":"▼"} ${k.d}</div>${spark(k.s,k.c)}</div>`).join("");
+                // Renderizar QR code
+                container.innerHTML = '';
+                if (data.qr.startsWith('data:')) {
+                    // É uma imagem base64
+                    const img = document.createElement('img');
+                    img.src = data.qr;
+                    container.appendChild(img);
+                } else {
+                    // É uma string QR, usar QRCode.js
+                    const canvas = document.createElement('canvas');
+                    QRCode.toCanvas(canvas, data.qr, { width: 300 });
+                    container.appendChild(canvas);
+                }
 
-/* ================= AREA CHART ================= */
-(function(){const data=[310,420,395,510,470,640,605,720,690,810,760,930,880,1020];
-  const labels=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(13-i));return d.getDate()+"/"+(d.getMonth()+1);});
-  const W=720,H=220,P=34,mx=Math.ceil(Math.max(...data)/200)*200;
-  const x=i=>P+i*(W-P-10)/(data.length-1),y=v=>H-26-(v/mx)*(H-50);
-  let path="M"+x(0)+","+y(data[0]);data.forEach((v,i)=>{if(i)path+=" L"+x(i)+","+y(v);});
-  const area=path+` L${x(13)},${H-26} L${x(0)},${H-26} Z`;let grid="",lbl="";
-  for(let g=0;g<=4;g++){const v=mx*g/4,yy=y(v);grid+=`<line x1="${P}" x2="${W-8}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="3 4"/>`;lbl+=`<text x="${P-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`;}
-  const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="#19E27D" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
-  const xl=labels.map((t,i)=>i%2?"":`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${t}</text>`).join("");
-  chArea.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#19E27D" stop-opacity=".4"/><stop offset="1" stop-color="#19E27D" stop-opacity="0"/></linearGradient></defs>${grid}${lbl}<path d="${area}" fill="url(#ga)"/><path d="${path}" fill="none" stroke="url(#gr)" stroke-width="2.6" stroke-linecap="round"/>${dots}${xl}</svg>`;
-  chTot.textContent=data.reduce((a,b)=>a+b,0).toLocaleString("pt-BR")+" cliques";})();
+                statusEl.textContent = '✓ QR code gerado. Escaneie com seu celular...';
+                statusEl.className = 'qr-status';
 
-/* ================= HEATMAP ================= */
-(function(){const dias=["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"],horas=Array.from({length:12},(_,i)=>i*2);
-  let html="<span></span>"+horas.map(h=>`<span style="text-align:center">${h}h</span>`).join("");
-  const hot=(d,h)=>Math.max(0,Math.min(1,(Math.sin(h/3.2)+(h>=16&&h<=21?1.2:0)+(d>=4?.5:0)+Math.random()*.5)/2.6));
-  dias.forEach((d,di)=>{html+=`<span style="line-height:2.1">${d}</span>`+horas.map(h=>{const v=hot(di,h);
-    const bg=v<.25?"var(--bg2)":v<.5?"rgba(25,226,125,.32)":v<.75?"rgba(25,226,125,.6)":"#19E27D";
-    return `<span class="c" style="background:${bg}" data-t="${d} ${h}h · ${Math.round(v*100)} cliques"></span>`;}).join("");});
-  heat.innerHTML=html;})();
+                // Iniciar polling para saber quando foi escaneado
+                startQRPolling(data.sessionId);
 
-/* ================= ONBOARDING ================= */
-const ONB=[{t:"Criar conta",done:1},{t:"Conectar 1ª loja",done:1,go:"config-afiliados"},{t:"Parear WhatsApp (QR)",done:0,go:"conexao"},{t:"Criar grupo de configuração",done:0,go:"canais-grupos"},{t:"Ativar post automático",done:0,go:"canais-grupos"}];
-function renderOnb(){if(S.grupos.length)ONB[3].done=1;if(S.waConnected)ONB[2].done=1;
-  const done=ONB.filter(s=>s.done).length,pct=Math.round(done/ONB.length*100);
-  osteps.innerHTML=ONB.map(s=>`<div class="ostep ${s.done?"done":""}" ${s.go?`style="cursor:pointer" onclick="go('${s.go}')"`:""}><span class="ck">${s.done?"✓":""}</span>${s.t}</div>`).join("");
-  onbPct.textContent=done+"/"+ONB.length;const C=226.2;ringFg.style.strokeDashoffset=C-(C*pct/100);ringTxt.textContent=pct+"%";}
+            } catch (error) {
+                console.error('Erro ao gerar QR:', error);
+                document.getElementById('qrCodeContainer').innerHTML = `
+                    <p class="qr-status" style="color: var(--error);">
+                        ❌ Erro ao gerar QR: ${error.message}
+                    </p>
+                `;
+                document.getElementById('pairingStatus').textContent = 'Erro ao conectar. Tente novamente.';
+            }
+        }
 
-/* ================= RADAR ================= */
-// Conexão com o Supabase (Radar lê ofertas reais da Shopee daqui)
-const SUPA_URL="https://nxlfezpagporealqqbfj.supabase.co";
-const SUPA_KEY="sb_publishable_FQTFJaF46KfwSnODD5UjPA_nOagscIu";
-const RLOJAS=["Shopee","AliExpress","Amazon","Mercado Livre","Magalu","Shein"];
-const RPROD=["Fone Bluetooth TWS","Air Fryer 4L Digital","Smartwatch Fit Pro","Kit 10 Organizadores","Luminária LED Galaxy","Mini Projetor HD","Aspirador Robô Slim","Tênis Runner Flex","Cafeteira Espresso","Mochila Antifurto USB","Teclado Mecânico RGB","Garrafa Térmica 1L"];
-let radarData=[],radarFilter="Todas",radarLive=false;
-function genRadar(){radarData=RPROD.map((p,i)=>({p,loja:RLOJAS[i%RLOJAS.length],de:Math.random()*300+60,off:Math.floor(Math.random()*45)+35,score:Math.floor(Math.random()*30)+70,link:""})).sort((a,b)=>b.score-a.score);}
-// busca ofertas reais gravadas pela Edge Function "radar" (Shopee Affiliate API)
-async function fetchRadarLive(){
-  try{
-    const q="select=title,shop_name,price,price_original,discount_pct,score,affiliate_url&order=score.desc&limit=40";
-    const r=await fetch(`${SUPA_URL}/rest/v1/radar_offers?${q}`,{headers:{apikey:SUPA_KEY,authorization:"Bearer "+SUPA_KEY}});
-    if(!r.ok)return null;
-    const d=await r.json();
-    if(!Array.isArray(d)||!d.length)return null;
-    return d.map(o=>({p:o.title,loja:o.shop_name||"Shopee",de:Number(o.price_original||o.price||0),off:o.discount_pct||0,score:o.score||0,link:o.affiliate_url||""}));
-  }catch(e){return null;}
-}
-function postarOferta(p,lnk){toast("“"+p+"” enviado para a fila de posts!"+(lnk?" 🔗":""),"🚀");}
-function rrow(o){const por=o.de*(1-o.off/100);const p=(o.p||"").replace(/"/g,"&quot;").replace(/'/g,"\\'");
-  return `<div class="radar"><span class="fic">🛍️</span><span><strong>${o.p}</strong><br><small style="color:var(--mut)">${o.loja} · de R$ ${o.de.toFixed(2).replace(".",",")} por <strong style="color:var(--tx)">R$ ${por.toFixed(2).replace(".",",")}</strong> · score <strong>${o.score}</strong>🔥</small></span><span class="disc">-${o.off}%</span><button class="btn btn-volt btn-sm" onclick="postarOferta('${p}','${o.link||""}')">Postar</button></div>`;}
-async function renderRadar(){
-  const live=await fetchRadarLive();
-  if(live){radarData=live;radarLive=true;}else{genRadar();radarLive=false;}
-  const lojas=[...new Set(radarData.map(o=>o.loja))];
-  if(radarFilter!=="Todas"&&!lojas.includes(radarFilter))radarFilter="Todas";
-  const statusPill=`<span class="pill ${radarLive?"volt":"gold"}" style="align-self:center"><span class="d"></span>${radarLive?"ao vivo · Shopee":"demonstração"}</span>`;
-  radarFilters.innerHTML=statusPill+["Todas",...lojas].map(l=>`<button class="fc ${l===radarFilter?"on":""}" onclick="radarFilter='${l}';renderRadar()">${l}</button>`).join("");
-  const list=radarData.filter(o=>radarFilter==="Todas"||o.loja===radarFilter);
-  radarFull.innerHTML=list.map(rrow).join("")||"<p style='padding:20px;color:var(--mut)'>Nada para esse filtro.</p>";
-  radarMini.innerHTML=radarData.slice(0,3).map(rrow).join("");radarBadge.textContent=radarData.length;}
+        function retryQRGeneration() {
+            generateQRCode();
+        }
 
-/* ================= FEED ================= */
-feed.innerHTML=[["✅","Canal “Achadinhos da Ana” validado como OWNER","há 22 min"],["🛰️","Radar encontrou 12 novas ofertas","há 4 min"],["⚙️","Tag Mercado Livre configurada: anan1844639","ontem"],["👋","Bem-vinda à Mega Links BR!","ontem"]].map(f=>`<div class="feed"><span class="fic">${f[0]}</span><span>${f[1]}<br><span class="t">${f[2]}</span></span></div>`).join("");
+        let qrPollingInterval = null;
 
-/* ================= CONFIG AFILIADOS ================= */
-const LOJAS=[
-  {n:"AliExpress",e:"🛒",f:["APP KEY","APP SECRET","TRACKING ID"],st:0},{n:"Amazon",e:"📦",f:["ID de Associado","ACCESS KEY","SECRET KEY"],st:0},
-  {n:"AWIN",e:"🔗",f:["ID do Publisher","API TOKEN"],st:0},{n:"Shopee",e:"🧡",f:["ID de Afiliado"],st:1,val:"18344180897"},
-  {n:"Magalu",e:"💙",f:["Nome da Loja"],st:0},{n:"Mercado Livre",e:"💛",f:["Link de Afiliado","Cookie"],st:1,extra:"✅ Tag: <strong>anan1844639</strong>"},
-  {n:"Natura",e:"🌿",f:["Link do Espaço Digital"],st:1,val:"natura.com.br/minhaloja"},{n:"Shein",e:"🖤",f:["ID de Afiliado"],st:0},{n:"TerabyteShop",e:"🖥️",f:["ID de Parceiro"],st:0}
-];
-lojasGrid.innerHTML=LOJAS.map(l=>`<div class="card" style="margin:0"><div class="ch">${l.e} ${l.n}<span class="r"><span class="pill ${l.st?"volt":"gray"}"><span class="d"></span>${l.st?"CONECTADO":"PENDENTE"}</span></span></div><div class="cb">${l.extra?`<div class="alert g" style="padding:8px 12px;font-size:12.5px">${l.extra}</div>`:""}${l.f.map((f,i)=>`<div class="field"><label>${f}</label><input ${/SECRET|TOKEN|Cookie|KEY$/.test(f)?'type="password"':""} placeholder="${f}" ${i===0&&l.val?`value="${l.val}"`:""}></div>`).join("")}<button class="btn btn-volt btn-sm" onclick="toast('Credenciais ${l.n} salvas!')">Salvar</button></div></div>`).join("");
+        async function startQRPolling(sessionId) {
+            stopQRPolling(); // Limpar intervalo anterior
 
-/* ================= QR / CONEXÃO WHATSAPP ================= */
-function makeQR(seed){ // pseudo-QR visual em SVG data-uri
-  const n=29;let r=seed||Date.now();const rnd=()=>{r=(r*9301+49297)%233280;return r/233280;};
-  let rects="";
-  const finder=(x,y)=>{for(let i=0;i<7;i++)for(let j=0;j<7;j++){const b=(i===0||i===6||j===0||j===6||(i>=2&&i<=4&&j>=2&&j<=4));if(b)rects+=`<rect x="${(x+i)*4}" y="${(y+j)*4}" width="4" height="4"/>`;}};
-  for(let x=0;x<n;x++)for(let y=0;y<n;y++){const inF=(x<8&&y<8)||(x>n-9&&y<8)||(x<8&&y>n-9);if(!inF&&rnd()>.55)rects+=`<rect x="${x*4}" y="${y*4}" width="4" height="4"/>`;}
-  finder(0,0);finder(n-7,0);finder(0,n-7);
-  const svg=`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${n*4} ${n*4}' fill='#0a0d12'>${rects}</svg>`;
-  return "data:image/svg+xml;base64,"+btoa(svg);
-}
-const INSTANCIAS=[];
-btnGenQR.onclick=()=>{
-  const num=waNum.value.trim();if(!num){toast("Informe o número.","⚠️");return;}
-  qrMsg.style.display="none";qrbox.style.display="block";qrImg.src=makeQR();
-  waStatus.innerHTML='<span class="pill sky"><span class="d"></span> escaneie o QR</span>';
-  toast("QR gerado. Escaneie no app do WhatsApp.","📲");
-  setTimeout(()=>{ // simula pareamento bem-sucedido
-    S.waConnected=true;S.waNumber="+55 "+waDDD.value+" "+num;
-    qrbox.style.display="none";qrMsg.style.display="block";
-    qrMsg.innerHTML='<div style="font-size:42px">✅</div><h3 style="margin:8px 0 4px">Número conectado!</h3><p style="color:var(--mut)">'+S.waNumber+'</p>';
-    waStatus.innerHTML='<span class="pill volt"><span class="d"></span> conectado</span>';
-    INSTANCIAS.length=0;INSTANCIAS.push({phone:S.waNumber,status:"connected"});
-    instCard.style.display="block";
-    instList.innerHTML=INSTANCIAS.map(i=>`<div class="prod"><div class="pimg">📱</div><div style="flex:1"><strong>${i.phone}</strong><br><small style="color:var(--mut)">Sessão ativa · pronto para postar</small></div><span class="pill volt"><span class="d"></span> CONECTADO</span></div>`).join("");
-    renderOnb();toast("WhatsApp pareado com sucesso!","🎉");
-  },2600);
-};
+            qrPollingInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`${WA_ENGINE_URL}/pair-status/${sessionId}`, {
+                        headers: {
+                            'Authorization': 'Bearer 967af5489aaa0e9099ddcda58c2f7a6316088be0d2b80d3ec61bc38d36853451'
+                        }
+                    });
 
-/* ================= GRUPOS ================= */
-btnAddGrupo.onclick=()=>{if(S.grupos.length>=S.planLimit){toast("Limite STARTER atingido (1 grupo). Faça upgrade!","⚠️");go("assinatura");return;}
-  inNomeGrupo.value="";openModal("modalGrupo");setTimeout(()=>inNomeGrupo.focus(),60);};
-btnSalvarGrupo.onclick=()=>{const nome=inNomeGrupo.value.trim();if(!nome){toast("Informe o nome.","⚠️");return;}
-  S.grupos.push({id:S.nextId++,nome,postAuto:false,produtos:0,canais:0,intervalo:"N/A"});
-  closeModal("modalGrupo");renderGrupos();renderOnb();toast("Grupo criado!");};
-function renderGrupos(){const has=S.grupos.length>0;
-  gVazio.style.display=has?"none":"block";gTabela.style.display=has?"block":"none";pillCount.textContent=S.grupos.length+"/"+S.planLimit;
-  gBody.innerHTML=S.grupos.map(g=>`<tr><td><strong>${g.nome}</strong></td><td class="mono" style="font-size:12px">${g.id}</td><td><span class="pill ${g.postAuto?"volt":"red"}"><span class="d"></span>${g.postAuto?"ATIVO":"INATIVO"}</span></td><td>${g.produtos}</td><td>${g.canais}</td><td>${g.intervalo}</td><td style="text-align:right"><button class="btn btn-volt btn-sm" onclick="editarGrupo(${g.id})">Editar</button> <button class="btn btn-red btn-sm" onclick="excluirGrupo(${g.id})">Excluir</button></td></tr>`).join("");}
-function excluirGrupo(id){if(!confirm("Excluir este grupo?"))return;S.grupos=S.grupos.filter(g=>g.id!==id);renderGrupos();toast("Grupo excluído.","🗑️");}
-function editarGrupo(id){S.grupoAtual=S.grupos.find(g=>g.id===id);egNome.textContent=S.grupoAtual.nome+" · ID "+id;buildTabs();go("editar-grupo");}
+                    if (!response.ok) return;
 
-/* ================= ABAS EDITAR GRUPO ================= */
-const TABS=[{id:"geral",label:"Geral"},{id:"telegram",label:"Telegram"},{id:"layout",label:"Layout Post"},{id:"ia",label:"Recursos de IA",novo:1},{id:"site",label:"Site"},{id:"instagram",label:"Instagram"},{id:"instasched",label:"InstaSched"},{id:"instabothelp",label:"InstaBotHelp"},{id:"wagrupos",label:"WhatsApp-GRUPOS"},{id:"wacanais",label:"WhatsApp-CANAIS",novo:1},{id:"aliexpress",label:"AliExpress"},{id:"amazon",label:"Amazon"},{id:"magalu",label:"Magalu"},{id:"ml",label:"Mercado Livre"},{id:"shein",label:"Shein",novo:1},{id:"shopee",label:"Shopee"},{id:"awin",label:"Awin"},{id:"manual",label:"Produto Manual"},{id:"natura",label:"Natura"},{id:"terabyte",label:"TerabyteShop"},{id:"blogposts",label:"Blog/Posts"},{id:"blogcats",label:"Blog/Categorias"},{id:"colab",label:"Colaboradores"},{id:"cabecalho",label:"Cabeçalho"},{id:"ugc",label:"UGC Vídeo",novo:1}];
-function paneCred(l){return `<div class="card"><div class="cb locked"><div class="li">🔒</div><h3 style="margin-bottom:6px">Credenciais ${l} necessárias</h3><p style="color:var(--tx2);max-width:430px;margin:0 auto 16px">Conecte sua conta ${l} para importar produtos e ativar a postagem automática.</p><button class="btn btn-gold" onclick="setRole('afiliado');go('config-afiliados')">Configurar Afiliados</button></div></div>`;}
-const PANES={
-geral:`
-  <div class="g2">
-    <div class="card" style="margin:0"><div class="ch">⚙️ Postagem automática</div><div class="cb">
-      <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:10px"><input type="checkbox" id="pgAuto" style="width:auto"> Post Automático</label>
-      <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" style="width:auto"> Post em Loop <small style="color:var(--mut);font-weight:400">(reinicia a lista ao fim)</small></label>
-      <div class="g2">
-        <div class="field"><label>Intervalo (min)</label><select id="pgInt"><option>2</option><option>5</option><option selected>10</option><option>15</option><option>30</option><option>60</option></select></div>
-        <div class="field"><label>País</label><select><option>Brasil</option></select></div>
-        <div class="field"><label>Hora início</label><select id="pgIni">${Array.from({length:25},(_,h)=>`<option ${h===8?"selected":""}>${h}h</option>`).join("")}</select></div>
-        <div class="field"><label>Hora fim</label><select id="pgFim">${Array.from({length:25},(_,h)=>`<option ${h===22?"selected":""}>${h}h</option>`).join("")}</select></div>
-        <div class="field"><label>Idioma</label><select><option>Português (BR)</option><option>Español</option></select></div>
-        <div class="field"><label>Moeda</label><select><option>BRL — Real</option></select></div>
-      </div></div></div>
-    <div class="card" style="margin:0"><div class="ch">🏪 Lojas ativas</div><div class="cb"><div style="display:grid;gap:8px" id="lojasAtivas"></div></div></div>
-  </div>
-  <button class="btn btn-volt" onclick="salvarGeral()">Salvar configurações</button>`,
-wacanais:`
-  <div class="alert ${"b"}" id="wcAlert">ℹ️ Vincule um <strong>Canal do WhatsApp</strong> a este grupo. O número conectado precisa ser <strong>Dono</strong> ou <strong>Admin</strong> do canal.</div>
-  <div class="card"><div class="ch">🔗 Vincular canal <span class="r" id="wcConn"></span></div><div class="cb">
-    <div class="field"><label>Link do canal (convite)</label><input id="wcLink" placeholder="https://whatsapp.com/channel/..." value="https://whatsapp.com/channel/0029AbCdEfGh"></div>
-    <button class="btn btn-volt" id="wcBuscar">Buscar canal</button>
-    <div id="wcResult" style="margin-top:14px"></div>
-  </div></div>
-  <div class="card"><div class="ch">📡 Canais vinculados</div><div class="cb" id="wcList"><p style="color:var(--mut);text-align:center;padding:20px">Nenhum canal vinculado ainda.</p></div></div>`,
-shopee:`
-  <div class="alert g" style="font-size:12.5px">✅ Credenciais Shopee conectadas (ID 18344180897). Os links serão convertidos automaticamente para <span class="mono">shope.ee/...</span></div>
-  <div class="card"><div class="ch">🔎 Buscar produtos Shopee</div><div class="cb">
-    <div class="g2">
-      <div class="field"><label>Categoria</label><select id="spCat"><option>Eletrônicos</option><option>Casa & Cozinha</option><option>Moda</option><option>Beleza</option><option>Esportes</option></select></div>
-      <div class="field"><label>Palavra-chave</label><input id="spKw" placeholder="ex.: fone bluetooth" value="fone bluetooth"></div>
-    </div>
-    <div class="field"><label>Link Shopee Vídeo (opcional)</label><input placeholder="https://... (prioriza vídeo no post)"></div>
-    <button class="btn btn-volt" id="spBuscar">Buscar e adicionar</button>
-  </div></div>
-  <div class="card"><div class="ch">🛍️ Produtos do grupo <span class="r" id="spCount">0 itens</span></div><div class="cb" id="spList"><p style="color:var(--mut);text-align:center;padding:20px">Busque por categoria/palavra-chave para popular a lista.</p></div></div>`,
-layout:`
-  <div class="g23">
-    <div class="card" style="margin:0"><div class="ch">🖼️ Layout do post <span class="r">edite e veja ao vivo →</span></div><div class="cb">
-      <div class="alert b" style="font-size:12px">💡 <span class="kbd">*negrito*</span> <span class="kbd">_itálico_</span> <span class="kbd">~riscado~</span></div>
-      <div class="field"><label>Cabeçalho</label><input id="lpHead" value="🔥 OFERTA RELÂMPAGO 🔥" oninput="rp()"></div>
-      <div class="field"><label>Título</label><input id="lpTitle" value="Fone Bluetooth XYZ" oninput="rp()"></div>
-      <div class="g2"><div class="field"><label>Preço original</label><input id="lpDe" value="29,90" oninput="rp()"></div><div class="field"><label>Preço atual</label><input id="lpPor" value="9,99" oninput="rp()"></div><div class="field"><label>Sufixo</label><input id="lpSuf" value="no Pix" oninput="rp()"></div><div class="field"><label>Parcelado</label><input id="lpParc" value="10x de R$ 0,99" oninput="rp()"></div></div>
-      <div class="field"><label>Texto de vendas</label><input id="lpCta" value="Corre que acaba rápido! ⚡" oninput="rp()"></div>
-      <button class="btn btn-volt" onclick="toast('Layout salvo!')">Salvar</button>
-    </div></div>
-    <div class="card" style="margin:0"><div class="ch">📱 Preview ao vivo</div><div class="cb"><div class="phone"><div class="notch"></div><div class="scr"><div class="wah"><span class="gp">A</span> Achadinhos da Ana · canal</div><div class="bub" id="lpBub"></div></div></div></div></div>
-  </div>`,
-ia:`
-  <div class="alert y">🧪 <strong>MegaIA — BETA.</strong> Reescreve e formata suas mensagens automaticamente para converter mais.</div>
-  <div class="g2"><div class="card" style="margin:0"><div class="ch">Antes</div><div class="cb"><div class="msg ai" style="max-width:100%">fone bluetooth barato 9,99 link https://loja.com aproveita</div></div></div>
-  <div class="card" style="margin:0"><div class="ch" style="color:var(--volt)">Depois (com IA)</div><div class="cb"><div class="msg ai" style="max-width:100%;border-color:rgba(25,226,125,.4)">🎧 <b>FONE BLUETOOTH XYZ</b>\n💸 Apenas <b>R$ 9,99 no Pix</b>\n⚡ Estoque limitado!\n👉 shope.ee/abc</div></div></div></div>
-  <div style="display:flex;gap:10px;margin-top:12px"><button class="btn btn-volt" onclick="toast('Preferência de IA salva!')">Ativar IA</button><button class="btn btn-ghost" onclick="openDrawer()">✨ Abrir MegaIA</button></div>`,
-site:`<div class="card"><div class="cb locked"><div class="li">🚀</div><h3 style="margin-bottom:6px">Site de ofertas — upgrade necessário</h3><p style="color:var(--tx2);max-width:430px;margin:0 auto 16px">Publique seus produtos em um site próprio. A partir do plano PRO.</p><button class="btn btn-gold" onclick="setRole('afiliado');go('assinatura')">Fazer upgrade</button></div></div>`,
-instagram:`<div class="alert r">⛔ Conecte uma conta do Instagram para respostas e postagens automáticas.</div><div class="card"><div class="cb" style="text-align:center;padding:42px 20px"><div style="font-size:42px;margin-bottom:10px">📸</div><h3 style="margin-bottom:6px">Conectar Instagram</h3><button class="btn" style="background:linear-gradient(120deg,#f77737,#c13584,#833ab4);color:#fff;margin-top:12px" onclick="toast('Login com Instagram (demo).','📸')">Login com Instagram</button></div></div>`,
-wagrupos:`<div class="card"><div class="ch">💬 Grupos WhatsApp ${S.waConnected?'<span class="r"><span class="pill volt"><span class="d"></span> número conectado</span></span>':""}</div><div class="cb locked" style="padding:34px 16px">${S.waConnected?'<div class="li">✅</div><h3 style="margin-bottom:6px">Pronto para vincular grupos</h3><p style="color:var(--tx2)">Cole o link de convite do grupo para começar a postar.</p>':'<div class="li">📱</div><h3 style="margin-bottom:6px">Nenhuma sessão conectada</h3><p style="color:var(--tx2);margin-bottom:14px">Pareie um número primeiro.</p><button class="btn btn-volt" onclick="setRole(\'afiliado\');go(\'conexao\')">Parear WhatsApp</button>'}</div></div>`,
-aliexpress:`<div class="alert y">⚠️ Configure suas credenciais AliExpress em Config Afiliados para importar produtos.</div><div class="card"><div class="ch">🛍️ Painel de produtos</div><div class="cb"><div class="locked" style="padding:26px"><p style="color:var(--tx2)">Nenhum produto ainda.</p></div></div></div>`
-};
-function buildTabs(){tabsBar.innerHTML=TABS.map((t,i)=>`<button class="tab${i===0?" active":""}" data-tab="${t.id}">${t.label}${t.novo?'<span class="tag-new">NEW</span>':""}</button>`).join("");
-  tabPanes.innerHTML=TABS.map((t,i)=>`<div class="tp${i===0?" on":""}" id="pane-${t.id}">${PANES[t.id]||paneCred(t.label)}</div>`).join("");
-  const lojas=["AliExpress","Amazon","Magazine Luiza","Shopee","Shein","Natura","Awin","Mercado Livre","Produto Manual"];
-  const la=document.getElementById("lojasAtivas");if(la)la.innerHTML=lojas.map(l=>`<label style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" checked style="width:auto"> ${l}</label>`).join("");
-  tabsBar.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{tabsBar.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".tp").forEach(p=>p.classList.remove("on"));document.getElementById("pane-"+b.dataset.tab).classList.add("on");if(b.dataset.tab==="layout")rp();if(b.dataset.tab==="wacanais")wireWaCanais();if(b.dataset.tab==="shopee")wireShopee();});
-}
-function salvarGeral(){const g=S.grupoAtual;if(document.getElementById("pgAuto").checked){g.postAuto=true;g.intervalo=document.getElementById("pgInt").value+" min";}else{g.postAuto=false;g.intervalo="N/A";}renderGrupos();toast(g.postAuto?"Post automático ATIVADO! 🚀":"Configurações salvas!");}
-/* WhatsApp Canais */
-function wireWaCanais(){
-  const conn=document.getElementById("wcConn");
-  conn.innerHTML=S.waConnected?'<span class="pill volt"><span class="d"></span> '+S.waNumber+'</span>':'<span class="pill red"><span class="d"></span> sem número</span>';
-  const btn=document.getElementById("wcBuscar");
-  btn.onclick=()=>{
-    if(!S.waConnected){toast("Pareie um número WhatsApp primeiro.","⚠️");setRole("afiliado");go("conexao");return;}
-    const res=document.getElementById("wcResult");
-    res.innerHTML='<div class="prod"><div class="pimg">🔎</div><div style="flex:1"><span class="typing"><i></i><i></i><i></i></span> validando seu papel no canal…</div></div>';
-    setTimeout(()=>{
-      res.innerHTML=`<div class="prod"><div class="pimg">📣</div><div style="flex:1"><strong>Achadinhos da Ana</strong><br><small style="color:var(--mut)">1.204 seguidores · canal do WhatsApp</small></div><span class="chan-badge">✓ OWNER</span></div>
-      <button class="btn btn-volt" onclick="vincularCanal()" style="margin-top:4px">Vincular este canal</button>`;
-    },1400);
-  };
-}
-let canaisVinc=[];
-function vincularCanal(){
-  canaisVinc.push({nome:"Achadinhos da Ana",seg:"1.204",role:"OWNER"});
-  S.grupoAtual.canais=canaisVinc.length;renderGrupos();
-  document.getElementById("wcList").innerHTML=canaisVinc.map(c=>`<div class="prod"><div class="pimg">📣</div><div style="flex:1"><strong>${c.nome}</strong><br><small style="color:var(--mut)">${c.seg} seguidores</small></div><span class="chan-badge">✓ ${c.role}</span> <button class="btn btn-red btn-sm" onclick="desvincular('${c.nome}')">Remover</button></div>`).join("");
-  document.getElementById("wcResult").innerHTML="";
-  document.getElementById("wcAlert").className="alert g";document.getElementById("wcAlert").innerHTML="✅ Canal vinculado! Ative o <strong>Post Automático</strong> na aba Geral para começar a publicar.";
-  toast("Canal vinculado como OWNER!","📣");
-}
-function desvincular(n){canaisVinc=canaisVinc.filter(c=>c.nome!==n);S.grupoAtual.canais=canaisVinc.length;renderGrupos();wireWaCanais();document.getElementById("wcList").innerHTML=canaisVinc.length?canaisVinc.map(c=>`<div class="prod"><div class="pimg">📣</div><div style="flex:1"><strong>${c.nome}</strong></div><span class="chan-badge">✓ ${c.role}</span></div>`).join(""):'<p style="color:var(--mut);text-align:center;padding:20px">Nenhum canal vinculado.</p>';toast("Canal removido.","🗑️");}
-/* Shopee */
-let spProds=[];
-function wireShopee(){const btn=document.getElementById("spBuscar");if(!btn)return;
-  btn.onclick=()=>{const kw=document.getElementById("spKw").value||"produto";const cat=document.getElementById("spCat").value;
-    const novos=Array.from({length:6},(_,i)=>({t:kw.charAt(0).toUpperCase()+kw.slice(1)+" "+(["Pro","Plus","Premium","2025","Slim","Max"][i]),p:(Math.random()*180+9).toFixed(2),off:Math.floor(Math.random()*50)+20,cat}));
-    spProds=spProds.concat(novos);renderSp();S.grupoAtual.produtos=spProds.length;renderGrupos();toast(novos.length+" produtos adicionados!","🛍️");};
-  renderSp();
-}
-function renderSp(){const el=document.getElementById("spList");if(!el)return;
-  document.getElementById("spCount").textContent=spProds.length+" itens";
-  el.innerHTML=spProds.length?spProds.map((p,i)=>`<div class="prod"><div class="pimg">🛍️</div><div style="flex:1"><strong>${p.t}</strong><br><small style="color:var(--mut)">${p.cat} · <span style="color:var(--volt);font-weight:700">R$ ${p.p.replace(".",",")}</span> · -${p.off}% · shope.ee/${Math.random().toString(36).slice(2,7)}</small></div><button class="btn btn-ghost btn-sm" onclick="rmSp(${i})">✕</button></div>`).join(""):'<p style="color:var(--mut);text-align:center;padding:20px">Busque por categoria/palavra-chave.</p>';}
-function rmSp(i){spProds.splice(i,1);renderSp();S.grupoAtual.produtos=spProds.length;renderGrupos();}
-/* Preview */
-function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
-function rp(){const g=id=>document.getElementById(id);if(!g("lpBub"))return;
-  g("lpBub").innerHTML=`<span class="img">🎧</span>${esc(g("lpHead").value)}\n<b>${esc(g("lpTitle").value)}</b>\n<s>De R$ ${esc(g("lpDe").value)}</s> por <b>R$ ${esc(g("lpPor").value)} ${esc(g("lpSuf").value)}</b>\n💳 ${esc(g("lpParc").value)}\n${esc(g("lpCta").value)}\n<span class="lnk">👉 shope.ee/abc</span><span class="tm">14:32 ✓✓</span>`;}
+                    const data = await response.json();
 
-/* ================= PLANOS ================= */
-const PLANS=[{n:"PRIME",m:69.9,f:["1 Grupo de Configuração","Post automático Telegram","Post automático WhatsApp","Sem marca de água","Suporte padrão"]},{n:"PREMIUM",m:129.9,pop:1,f:["3 Grupos","Tudo do PRIME","Respostas Instagram","MegaIA (Beta)","Suporte prioritário"]},{n:"PRO",m:169.9,f:["6 Grupos","Tudo do PREMIUM","5 contas Instagram","Site de ofertas","Relatórios avançados"]},{n:"ULTIMATE",m:229.9,sub:"Máxima performance",f:["15 Grupos","Recursos PRO+","15 contas Instagram","UGC Vídeo com IA","Suporte dedicado"]}];
-function brl(v){return v.toFixed(2).replace(".",",");}
-function renderPlans(){plansGrid.innerHTML=PLANS.map(p=>{const a=S.bill==="a",v=a?p.m*0.8:p.m;
-  return `<div class="plan ${p.pop?"pop":""}">${p.pop?'<span class="pt">MAIS POPULAR</span>':""}<h3>${p.n}</h3>${p.sub?`<div style="font-size:11.5px;color:var(--mut)">${p.sub}</div>`:""}<div class="pr">R$ ${brl(v)} <small>/mês</small></div><div class="ec">${a?"anual · economize R$ "+brl(p.m*12*0.2)+"/ano":"&nbsp;"}</div><ul>${p.f.map(f=>`<li>${f}</li>`).join("")}</ul><button class="btn btn-volt" onclick="toast('Checkout Pix ${p.n} (demo).','💸')">ASSINAR VIA PIX</button><button class="btn btn-ghost" style="margin-top:8px" onclick="toast('Checkout cartão ${p.n} (demo).','💳')">VIA CARTÃO</button></div>`;}).join("");}
-document.querySelectorAll("[data-bill]").forEach(b=>b.onclick=()=>{S.bill=b.dataset.bill;document.querySelectorAll("[data-bill]").forEach(x=>x.classList.toggle("on",x===b));renderPlans();});
+                    if (data.status === 'paired') {
+                        // QR foi escaneado e conexão estabelecida
+                        clearInterval(qrPollingInterval);
+                        onQRPaired(data);
+                    }
+                } catch (error) {
+                    console.error('Erro ao verificar status QR:', error);
+                }
+            }, 2000); // Verificar a cada 2 segundos
+        }
 
-/* ================= FAQ ================= */
-const FCATS=["Perguntas Gerais","WhatsApp & Canais","Programas de Afiliados","Assinatura","Recursos Avançados","Problemas Técnicos"];
-const FAQS=[["Perguntas Gerais","O que é a Mega Links BR?","Uma plataforma de automação para afiliados: encontra ofertas nas lojas, converte seus links de afiliado e publica automaticamente em grupos e canais do WhatsApp, Telegram e Instagram."],["WhatsApp & Canais","Como conecto meu número?","Em Conexão WhatsApp, informe o número e gere o QR Code. No celular, vá em WhatsApp → Aparelhos conectados → Conectar um aparelho e escaneie."],["WhatsApp & Canais","Posso postar em Canais do WhatsApp?","Sim. Em Editar Grupo → WhatsApp-CANAIS, cole o link do canal e clique em Buscar canal. Só é possível vincular canais onde você é Dono (OWNER) ou Admin."],["Programas de Afiliados","Quais lojas são suportadas?","AliExpress, Amazon, AWIN, Shopee, Magalu, Mercado Livre, Shein, Natura e TerabyteShop, além de produtos manuais."],["Assinatura","Como funciona o trial?","O plano STARTER oferece 7 dias grátis com 1 grupo de configuração e marca de água nos posts."],["Recursos Avançados","O que é a MegaIA?","Nossa IA (BETA) que reescreve mensagens, gera legendas e sugere os melhores horários de postagem."],["Problemas Técnicos","Meu post parou de sair. O que fazer?","Verifique se a sessão WhatsApp continua conectada e se o grupo está com Post Auto ativo dentro da janela de horário configurada."]];
-let faqCat="Perguntas Gerais";
-faqCats.innerHTML=FCATS.map(c=>`<button class="fc${c===faqCat?" on":""}" data-cat="${c}">${c}</button>`).join("");
-function renderFaq(){const q=faqSearch.value.toLowerCase();const list=FAQS.filter(f=>q?(f[1]+f[2]).toLowerCase().includes(q):f[0]===faqCat);
-  faqList.innerHTML=list.length?list.map((f,i)=>`<div class="fi${i===0&&!q?" open":""}"><div class="fq">${f[1]}</div><div class="fa">${f[2]}</div></div>`).join(""):'<p style="color:var(--mut);padding:20px 4px">Nada encontrado.</p>';
-  document.querySelectorAll(".fq").forEach(el=>el.onclick=()=>el.parentElement.classList.toggle("open"));}
-document.querySelectorAll(".fc[data-cat]").forEach(b=>b.onclick=()=>{faqCat=b.dataset.cat;faqSearch.value="";document.querySelectorAll(".fc[data-cat]").forEach(x=>x.classList.toggle("on",x===b));renderFaq();});
-faqSearch.addEventListener("input",renderFaq);
+        function stopQRPolling() {
+            if (qrPollingInterval) {
+                clearInterval(qrPollingInterval);
+                qrPollingInterval = null;
+            }
+        }
 
-/* ================= COMMAND PALETTE ================= */
-const PAL=[
-  {t:"Dashboard",ic:"🏠",go:"dashboard",k:"painel afiliado"},{t:"Radar de Ofertas",ic:"🛰️",go:"radar",k:"ofertas promo"},
-  {t:"Conexão WhatsApp (QR)",ic:"📲",go:"conexao",k:"parear qr code numero"},{t:"Canais/Grupos",ic:"🔔",go:"canais-grupos",k:"grupo canal"},
-  {t:"InstaResp · automação de comentários",ic:"📸",go:"instaresp",k:"instagram comentario dm bot reels"},
-  {t:"Adicionar grupo",ic:"➕",act:()=>{setRole("afiliado");go("canais-grupos");btnAddGrupo.click();},k:"novo criar"},
-  {t:"Config Afiliados",ic:"⚙️",go:"config-afiliados",k:"credenciais shopee"},{t:"Assinatura e planos",ic:"💳",go:"assinatura",k:"upgrade pix"},
-  {t:"FAQ",ic:"❓",go:"faq",k:"ajuda"},{t:"Abrir MegaIA",ic:"✨",act:()=>openDrawer(),k:"ia copiloto"},
-  {t:"Alternar tema",ic:"🌓",act:()=>toggleTheme(),k:"dark light"},
-  {t:"[Admin] Visão Geral",ic:"📊",act:()=>setRole("admin"),k:"admin metricas"},
-  {t:"[Admin] Usuários / CRM",ic:"👥",act:()=>{setRole("admin");go("adm-usuarios");},k:"crm usuarios"},
-  {t:"[Admin] Fila de Posts",ic:"⏱️",act:()=>{setRole("admin");go("adm-fila");},k:"scheduler fila"},
-  {t:"[Admin] InstaResp · monitor",ic:"📸",act:()=>{setRole("admin");go("adm-instaresp");},k:"instagram automacao disparos"},
-  {t:"[Admin] Instâncias & Canais",ic:"📱",act:()=>{setRole("admin");go("adm-instancias");},k:"whatsapp sessoes"}
-];
-let palSel=0;
-function openPalette(){palbg.classList.add("open");palInput.value="";renderPal();setTimeout(()=>palInput.focus(),40);}
-function closePalette(){palbg.classList.remove("open");}
-openPal.onclick=openPalette;palbg.addEventListener("click",e=>{if(e.target===palbg)closePalette();});
-function palItems(){const q=palInput.value.toLowerCase();return PAL.filter(p=>(IS_ADMIN||!p.t.includes("[Admin]"))&&(!q||(p.t+" "+p.k).toLowerCase().includes(q)));}
-function renderPal(){const items=palItems();palSel=Math.min(palSel,Math.max(0,items.length-1));
-  pall.innerHTML=items.length?items.map((p,i)=>`<div class="pi${i===palSel?" sel":""}" data-i="${i}"><span class="ic">${p.ic}</span>${p.t}<small>${p.go?"página":"ação"}</small></div>`).join(""):'<div style="padding:18px;color:var(--mut);text-align:center">Nada encontrado.</div>';
-  pall.querySelectorAll(".pi").forEach(el=>el.onclick=()=>execPal(items[+el.dataset.i]));}
-function execPal(p){closePalette();if(p.act)p.act();else go(p.go);}
-palInput.addEventListener("input",()=>{palSel=0;renderPal();});
-palInput.addEventListener("keydown",e=>{const items=palItems();if(e.key==="ArrowDown"){palSel=Math.min(palSel+1,items.length-1);renderPal();e.preventDefault();}else if(e.key==="ArrowUp"){palSel=Math.max(palSel-1,0);renderPal();e.preventDefault();}else if(e.key==="Enter"&&items[palSel])execPal(items[palSel]);});
-document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();palbg.classList.contains("open")?closePalette():openPalette();}if(e.key==="Escape"){closePalette();closeDrawer();document.querySelectorAll(".mbg").forEach(m=>m.classList.remove("open"));}});
+        async function onQRPaired(data) {
+            const statusEl = document.getElementById('pairingStatus');
+            statusEl.textContent = '✓ Código escaneado com sucesso!';
+            statusEl.className = 'qr-status success';
 
-/* ================= MEGAIA ================= */
-function openDrawer(){drw.classList.add("open");setTimeout(()=>aiInput.focus(),120);}
-function closeDrawer(){drw.classList.remove("open");}
-fabAI.onclick=openDrawer;
-function aiPush(html,who){const d=document.createElement("div");d.className="msg "+who;d.innerHTML=html;aiBody.appendChild(d);aiBody.scrollTop=aiBody.scrollHeight;return d;}
-function aiAns(q){const ql=q.toLowerCase();
-  if(ql.includes("hor"))return "🕑 Pelo seu mapa de calor, os melhores horários são <b>18h–21h</b> e <b>sáb/dom à tarde</b>. Agende ~40% dos posts nessa janela.";
-  if(ql.includes("cta"))return "💬 3 CTAs que convertem:\n1. “⚡ Corre! Esse preço dura minutos.”\n2. “🛒 Toque no link antes que esgote.”\n3. “💸 Cupom ativo SÓ HOJE.”";
-  const m=q.match(/post[:\s]+(.+?)(?:\spor\s*(r?\$?\s?[\d.,]+))?$/i);const prod=m?m[1].trim():"Seu Produto",preco=(m&&m[2])?m[2].replace(/r?\$?\s?/i,""):"9,99";
-  return "✨ Post gerado:\n\n🔥 <b>OFERTA RELÂMPAGO</b> 🔥\n🎁 <b>"+prod.toUpperCase()+"</b>\n💸 Apenas <b>R$ "+preco+" no Pix</b>\n⚡ Estoque limitado!\n👉 shope.ee/abc\n\nQuer mais curto, mais urgente, ou com emoji de nicho?";}
-function aiSendMsg(text){const q=(text||aiInput.value).trim();if(!q)return;aiInput.value="";aiPush(esc(q),"me");const tp=aiPush('<span class="typing"><i></i><i></i><i></i></span>',"ai");setTimeout(()=>{tp.innerHTML=aiAns(q);aiBody.scrollTop=aiBody.scrollHeight;},700+Math.random()*400);}
-aiSend.onclick=()=>aiSendMsg();aiInput.addEventListener("keydown",e=>{if(e.key==="Enter")aiSendMsg();});
-document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>aiSendMsg(c.dataset.q));
+            // Salvar a sessão no banco (opcional)
+            if (currentUser && data.sessionId) {
+                await supabase
+                    .from('whatsapp_instances')
+                    .insert({
+                        user_id: currentUser.id,
+                        session_id: data.sessionId,
+                        status: 'active',
+                        phone_number: data.phoneNumber || null
+                    })
+                    .catch(err => console.error('Erro ao salvar sessão:', err));
+            }
 
-/* ================= ADMIN: DADOS ================= */
-const NOMES=["Carlos Souza","Beatriz Lima","Diego Martins","Fernanda Alves","Rafael Costa","Juliana Reis","Marcos Pereira","Patrícia Gomes","Lucas Rocha","Aline Cardoso","Bruno Teixeira","Camila Dias","Ana Luiza Ribeiro","Thiago Mendes","Larissa Pinto","Gustavo Nunes","Vanessa Melo","Felipe Araújo"];
-const PLANO_NM=["STARTER","PRIME","PREMIUM","PRO","ULTIMATE"];const PLANO_V={STARTER:0,PRIME:69.9,PREMIUM:129.9,PRO:169.9,ULTIMATE:229.9};
-const STATUS=["active","active","active","trial","canceled"];
-function avColor(i){const c=["#19E27D","#39C0FF","#FFB020","#FF4D8D","#9B7DFF"];return c[i%c.length];}
-const USERS=NOMES.map((n,i)=>{const st=STATUS[i%STATUS.length];let plano=st==="trial"?"STARTER":PLANO_NM[1+(i%4)];if(st==="canceled")plano=PLANO_NM[1+(i%4)];
-  const d=new Date();d.setDate(d.getDate()-Math.floor(Math.random()*300));
-  return {id:1000+i,nome:n,email:n.toLowerCase().replace(/ /g,".").normalize("NFD").replace(/[\u0300-\u036f]/g,"")+"@email.com",plano,status:st,mrr:st==="active"?PLANO_V[plano]:0,grupos:Math.floor(Math.random()*8),canais:Math.floor(Math.random()*5),entrou:d};});
-function fmtDate(d){return d.toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"numeric"});}
-function stPill(s){return s==="active"?'<span class="pill volt"><span class="d"></span>Ativo</span>':s==="trial"?'<span class="pill gold"><span class="d"></span>Trial</span>':'<span class="pill red"><span class="d"></span>Cancelado</span>';}
+            // Fechar modal após 2 segundos
+            setTimeout(() => {
+                closePairingModal();
+                loadWhatsAppList();
+            }, 2000);
+        }
 
-/* ADMIN: VISÃO GERAL */
-function renderAdminVisao(){
-  const ativos=USERS.filter(u=>u.status==="active").length,trial=USERS.filter(u=>u.status==="trial").length;
-  const mrr=USERS.reduce((a,u)=>a+u.mrr,0);
-  admKpis.innerHTML=[["MRR total","R$ "+mrr.toLocaleString("pt-BR",{minimumFractionDigits:2}),"+12% mês","#19E27D",[30,34,33,40,42,48,52,58,61,67,72,80]],["Usuários ativos",ativos+"","+8 esta semana","#39C0FF",[12,13,13,14,15,15,16,17,17,18,18,ativos]],["Em trial",trial+"","conversão 34%","#FFB020",[2,3,2,4,3,5,4,4,3,4,3,trial]],["Churn mensal","2,1%","-0,4pp","#FF4D8D",[3,2.8,2.6,2.7,2.5,2.4,2.3,2.4,2.2,2.3,2.1,2.1]]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd up">▲ ${k[2]}</div>${spark(k[4],k[3])}</div>`).join("");
-  const meses=["Jul","Ago","Set","Out","Nov","Dez","Jan","Fev","Mar","Abr","Mai","Jun"];const mrrV=[28,31,33,38,41,46,50,55,60,66,71,80],novos=[12,9,14,11,18,16,21,17,24,19,23,27];const mx=Math.max(...mrrV);
-  mrrChart.innerHTML=meses.map((m,i)=>`<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:3px"><div style="display:flex;gap:2px;align-items:flex-end;height:120px"><div class="bar" style="height:${mrrV[i]/mx*100}%" data-t="${m}: R$ ${mrrV[i]}mil"></div><div class="bar alt" style="height:${novos[i]/27*100}%" data-t="${m}: ${novos[i]} novos"></div></div><div style="text-align:center;font-size:9.5px;color:var(--mut)">${m}</div></div>`).join("");
-  const dist=[["STARTER",trial,"#FFB020"],["PRIME",4,"#19E27D"],["PREMIUM",5,"#39C0FF"],["PRO",3,"#9B7DFF"],["ULTIMATE",2,"#FF4D8D"]];const tot=dist.reduce((a,d)=>a+d[1],0);
-  planDist.innerHTML=dist.map(d=>`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><strong>${d[0]}</strong><span style="color:var(--mut)">${d[1]} · ${Math.round(d[1]/tot*100)}%</span></div><div class="prog-mini"><i style="width:${d[1]/tot*100}%;background:${d[2]}"></i></div></div>`).join("");
-  opHealth.innerHTML=[["📱 Instâncias WhatsApp online","94%","volt"],["📣 Canais validados (OWNER/ADMIN)","312","sky"],["⏱️ Posts na fila agora","47","gold"],["⚠️ Sessões desconectadas (24h)","6","red"]].map(h=>`<div class="qrow"><span>${h[0]}</span><span class="pill ${h[2]}" style="margin-left:auto">${h[1]}</span></div>`).join("");
-  admFeed.innerHTML=[["🆕","Novo assinante PRO: Diego Martins","há 6 min"],["💳","Cobrança PIX confirmada · R$ 129,90","há 18 min"],["📣","Canal validado como OWNER (Patrícia)","há 31 min"],["⚠️","Sessão WhatsApp caiu: Bruno Teixeira","há 1 h"]].map(f=>`<div class="feed"><span class="fic">${f[0]}</span><span>${f[1]}<br><span class="t">${f[2]}</span></span></div>`).join("");
-}
+        // ============ DATA ============
+        async function loadDashboardData() {
+            if (!currentUser) return;
 
-/* ADMIN: USUÁRIOS CRM */
-let usrFilter="todos";
-function renderUsers(){const q=usrSearch.value.toLowerCase();
-  const list=USERS.filter(u=>(usrFilter==="todos"||u.status===usrFilter)&&(!q||(u.nome+u.email).toLowerCase().includes(q)));
-  usrBody.innerHTML=list.map((u,i)=>`<tr class="row-click" onclick="openUser(${u.id})"><td><div class="uflex"><span class="av-sm" style="background:${avColor(u.id)}">${u.nome[0]}</span><div><strong>${u.nome}</strong><br><small style="color:var(--mut)">${u.email}</small></div></div></td><td><span class="pill ${u.plano==="STARTER"?"gray":"sky"}">${u.plano}</span></td><td>${stPill(u.status)}</td><td>${u.mrr?"R$ "+brl(u.mrr):"—"}</td><td>${u.grupos}</td><td>${u.canais}</td><td style="color:var(--mut)">${fmtDate(u.entrou)}</td></tr>`).join("")||'<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:30px">Nenhum usuário encontrado.</td></tr>';
-  usrBadge.textContent=USERS.length;}
-usrSearch.addEventListener("input",renderUsers);
-document.querySelectorAll("#usrSeg button").forEach(b=>b.onclick=()=>{usrFilter=b.dataset.f;document.querySelectorAll("#usrSeg button").forEach(x=>x.classList.toggle("on",x===b));renderUsers();});
-function openUser(id){const u=USERS.find(x=>x.id===id);
-  userDetail.innerHTML=`<div class="mh"><div class="uflex"><span class="av-sm" style="background:${avColor(u.id)};width:38px;height:38px">${u.nome[0]}</span><div><div style="font-family:var(--disp)">${u.nome}</div><small style="color:var(--mut)">${u.email}</small></div></div><button class="mx" onclick="closeModal('modalUser')">×</button></div>
-  <div class="mb"><div class="sgrid" style="grid-template-columns:repeat(3,1fr);margin:0 0 16px"><div class="stat"><div class="v">${u.plano}</div><div class="l">Plano</div></div><div class="stat"><div class="v">${u.mrr?"R$ "+brl(u.mrr):"—"}</div><div class="l">MRR</div></div><div class="stat"><div class="v">${u.grupos}</div><div class="l">Grupos</div></div></div>
-  <div style="display:grid;gap:10px">
-    <div class="qrow"><span>Status</span><span style="margin-left:auto">${stPill(u.status)}</span></div>
-    <div class="qrow"><span>Canais WhatsApp vinculados</span><strong style="margin-left:auto">${u.canais}</strong></div>
-    <div class="qrow"><span>Cliente desde</span><strong style="margin-left:auto">${fmtDate(u.entrou)}</strong></div>
-    <div class="qrow"><span>ID interno</span><span class="mono" style="margin-left:auto;color:var(--mut)">usr_${u.id}</span></div>
-  </div>
-  <div style="margin-top:14px"><strong style="font-family:var(--disp)">Linha do tempo</strong>
-  <div style="margin-top:8px">${["Conta criada","1ª loja conectada","WhatsApp pareado",u.canais?"Canal validado (OWNER)":"—"].filter(t=>t!=="—").map(t=>`<div class="feed"><span class="fic">•</span><span>${t}</span></div>`).join("")}</div></div></div>
-  <div class="mf"><button class="btn btn-ghost" onclick="toast('E-mail enviado (demo).','✉️')">Enviar e-mail</button><button class="btn btn-volt" onclick="closeModal('modalUser');toast('Assinatura ajustada (demo).')">Gerenciar assinatura</button></div>`;
-  openModal("modalUser");}
+            // Carregar stats
+            const { data: instances } = await supabase
+                .from('whatsapp_instances')
+                .select('*')
+                .eq('user_id', currentUser.id);
 
-/* ADMIN: ASSINATURAS */
-function renderSubs(){const mrr=USERS.reduce((a,u)=>a+u.mrr,0);
-  subKpis.innerHTML=[["MRR","R$ "+mrr.toLocaleString("pt-BR",{minimumFractionDigits:2}),"#19E27D"],["ARR projetado","R$ "+(mrr*12).toLocaleString("pt-BR",{minimumFractionDigits:2}),"#39C0FF"],["Ticket médio","R$ "+brl(mrr/Math.max(1,USERS.filter(u=>u.mrr).length)),"#FFB020"],["Churn","2,1%","#FF4D8D"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd up">▲ últimos 30 dias</div></div>`).join("");
-  const met=["PIX","Cartão"];payBody.innerHTML=USERS.filter(u=>u.mrr).slice(0,10).map((u,i)=>{const d=new Date();d.setDate(d.getDate()-i*2);return `<tr><td style="color:var(--mut)">${fmtDate(d)}</td><td>${u.nome}</td><td><span class="pill sky">${u.plano}</span></td><td>${met[i%2]}</td><td><strong>R$ ${brl(u.mrr)}</strong></td><td><span class="pill volt"><span class="d"></span>PAID</span></td></tr>`;}).join("");}
+            const { data: automations } = await supabase
+                .from('comment_automations')
+                .select('*')
+                .eq('user_id', currentUser.id);
 
-/* ADMIN: INSTÂNCIAS */
-function renderInstancias(){
-  instKpis.innerHTML=[["Sessões online","248","#19E27D"],["Offline (24h)","6","#FF4D8D"],["Canais OWNER","312","#39C0FF"],["Canais ADMIN","89","#9B7DFF"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div></div>`).join("");
-  instBody.innerHTML=USERS.slice(0,10).map((u,i)=>{const on=i%4!==0;const last=on?"agora":i+"h atrás";const role=["OWNER","ADMIN","OWNER","—"][i%4];
-    return `<tr><td>${u.nome}</td><td class="mono" style="font-size:12px">+55 ${30+i} 9${1000+i}-${2000+i}</td><td>${on?'<span class="pill volt"><span class="d"></span>connected</span>':'<span class="pill red"><span class="d"></span>disconnected</span>'}</td><td>${u.canais}</td><td>${role==="—"?'<span style="color:var(--mut)">—</span>':'<span class="chan-badge">✓ '+role+'</span>'}</td><td style="color:var(--mut)">${last}</td></tr>`;}).join("");}
+            const { data: products } = await supabase
+                .from('products')
+                .select('*')
+                .eq('user_id', currentUser.id);
 
-/* ADMIN: FILA (live) */
-let queueTimer=null,queueData=[];
-function genQueue(){const acts=["Fone Bluetooth TWS","Air Fryer 4L","Smartwatch Fit","Kit Organizadores","Mini Projetor","Cafeteira Espresso"];
-  queueData=Array.from({length:7},(_,i)=>({prod:acts[i%acts.length],canal:["Achadinhos da Ana","Ofertas Top BR","Casa & Cozinha"][i%3],eta:i*2+1,user:NOMES[i%NOMES.length]}));}
-function renderQueue(){
-  const ativos=queueData.length;filaKpis.innerHTML=[["Na fila",ativos+"","#19E27D"],["Disparos hoje","1.842","#39C0FF"],["Sucesso","99,2%","#FFB020"],["Falhas (24h)","14","#FF4D8D"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div></div>`).join("");
-  queueList.innerHTML=queueData.map((q,i)=>`<div class="qrow"><span class="fic">${i===0?"🚀":"⏳"}</span><span style="flex:1"><strong>${q.prod}</strong><br><small style="color:var(--mut)">→ ${q.canal} · ${q.user}</small></span><span class="pill ${i===0?"volt":"gray"}">${i===0?"enviando…":"em "+q.eta+" min"}</span></div>`).join("");}
-const qlog=[];
-function pushLog(t){qlog.unshift({t,time:new Date().toLocaleTimeString("pt-BR")});if(qlog.length>30)qlog.pop();
-  queueLog.innerHTML=qlog.map(l=>`<div style="font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bd)"><span class="mono" style="color:var(--mut)">${l.time}</span> ${l.t}</div>`).join("");}
-function startQueue(){if(queueTimer||S.queuePaused)return;if(!queueData.length)genQueue();renderQueue();
-  pushLog('✅ <span style="color:var(--volt)">Post enviado</span> · '+queueData[0]?.prod+' → '+queueData[0]?.canal);
-  queueTimer=setInterval(()=>{if(S.queuePaused)return;const done=queueData.shift();if(done)pushLog('✅ <span style="color:var(--volt)">Enviado</span> · '+done.prod+' → '+done.canal);genQueueRefill();renderQueue();},3500);}
-function genQueueRefill(){const acts=["Fone TWS","Air Fryer","Smartwatch","Organizadores","Projetor","Cafeteira","Aspirador","Mochila USB"];queueData.push({prod:acts[Math.floor(Math.random()*acts.length)],canal:["Achadinhos da Ana","Ofertas Top BR","Casa & Cozinha"][Math.floor(Math.random()*3)],eta:queueData.length*2+1,user:NOMES[Math.floor(Math.random()*NOMES.length)]});}
-function stopQueue(){if(queueTimer){clearInterval(queueTimer);queueTimer=null;}}
-btnPauseQueue.onclick=()=>{S.queuePaused=!S.queuePaused;btnPauseQueue.textContent=S.queuePaused?"▶ Retomar fila":"⏸ Pausar fila";if(!S.queuePaused)startQueue();toast(S.queuePaused?"Fila pausada.":"Fila retomada.",S.queuePaused?"⏸":"▶");};
+            document.getElementById('statsLinks').textContent = products?.length || 0;
+            document.getElementById('statsAutomations').textContent = automations?.length || 0;
+            document.getElementById('statsConnections').textContent = instances?.length || 0;
+        }
 
-/* ADMIN: SUPORTE / CONFIG */
-function renderSuporte(){const ass=["Não consigo parear o WhatsApp","Cobrança duplicada no cartão","Canal não valida como OWNER","Como migrar produtos?"];const pr=["Alta","Média","Alta","Baixa"];const stt=["Aberto","Em análise","Aberto","Resolvido"];
-  tickBody.innerHTML=ass.map((a,i)=>`<tr class="row-click" onclick="toast('Ticket aberto (demo).','🎫')"><td class="mono">#${204+i}</td><td>${NOMES[i]}</td><td>${a}</td><td><span class="pill ${pr[i]==="Alta"?"red":pr[i]==="Média"?"gold":"gray"}">${pr[i]}</span></td><td><span class="pill ${stt[i]==="Resolvido"?"volt":"sky"}">${stt[i]}</span></td><td style="color:var(--mut)">${i+1}h</td></tr>`).join("");}
-function renderConfig(){
-  planLimitsCfg.innerHTML=[["STARTER","1 grupo · com marca de água"],["PRIME","1 grupo"],["PREMIUM","3 grupos"],["PRO","6 grupos · site"],["ULTIMATE","15 grupos · UGC IA"]].map(p=>`<div class="qrow"><strong>${p[0]}</strong><span style="margin-left:auto;color:var(--mut)">${p[1]}</span></div>`).join("");
-  integGrid.innerHTML="";const ig=document.createElement("div");ig.className="g3";
-  ig.innerHTML=[["🟢 Supabase","conectado","volt"],["🛒 Shopee API","conectado","volt"],["📦 Amazon PA-API","conectado","volt"],["🤖 OpenAI (MegaIA)","conectado","volt"],["💳 Hotmart","conectado","volt"],["📲 WhatsApp Engine","operacional","volt"]].map(i=>`<div class="card" style="margin:0"><div class="cb" style="display:flex;align-items:center;gap:10px"><span style="font-size:22px">${i[0].split(" ")[0]}</span><div style="flex:1"><strong>${i[0].split(" ").slice(1).join(" ")}</strong><br><span class="pill ${i[2]}" style="margin-top:4px"><span class="d"></span>${i[1]}</span></div></div></div>`).join("");
-  integGrid.appendChild(ig);}
+        async function loadWhatsAppList() {
+            if (!currentUser) return;
 
-/* ================= ADMIN: INSTARESP MONITOR ================= */
-function renderAdminInstaResp(){
-  const contas=[["@ana.achadinhos",18,12,1842,1610,"7,4%"],["@ofertas.top.br",9,7,963,820,"6,1%"],["@casa.e.cozinha",14,11,2210,2050,"8,9%"],["@tech.barato",6,4,540,470,"5,2%"],["@moda.shein.br",11,8,1320,1190,"6,8%"]];
-  const totDisp=contas.reduce((a,c)=>a+c[3],0), totDm=contas.reduce((a,c)=>a+c[4],0), ativas=contas.reduce((a,c)=>a+c[2],0);
-  irKpis.innerHTML=[["Automações ativas",ativas+"","#19E27D"],["Disparos (30d)",totDisp.toLocaleString("pt-BR"),"#39C0FF"],["DMs enviadas",totDm.toLocaleString("pt-BR"),"#FF4D8D"],["Conversão média","7,1%","#FFB020"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div></div>`).join("");
-  const dias=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(13-i));return d.getDate()+"/"+(d.getMonth()+1);});
-  const rep=dias.map(()=>Math.floor(Math.random()*120)+60), dm=dias.map((_,i)=>Math.floor(rep[i]*(0.78+Math.random()*0.15)));
-  const mx=Math.max(...rep);
-  irChart.innerHTML=dias.map((d,i)=>`<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:3px"><div style="display:flex;gap:2px;align-items:flex-end;height:120px"><div class="bar" style="height:${rep[i]/mx*100}%" data-t="${d}: ${rep[i]} respostas"></div><div class="bar alt" style="height:${dm[i]/mx*100}%" data-t="${d}: ${dm[i]} DMs"></div></div><div style="text-align:center;font-size:9px;color:var(--mut)">${i%2?"":d}</div></div>`).join("");
-  const trg=[["quero",4210,"#19E27D"],["eu quero",2980,"#39C0FF"],["link",2110,"#9B7DFF"],["preço",1340,"#FFB020"],["onde",760,"#FF4D8D"]];const tmx=trg[0][1];
-  irTriggers.innerHTML=trg.map(t=>`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><strong>“${t[0]}”</strong><span style="color:var(--mut)">${t[1].toLocaleString("pt-BR")}</span></div><div class="prog-mini"><i style="width:${t[1]/tmx*100}%;background:${t[2]}"></i></div></div>`).join("");
-  irBody.innerHTML=contas.map(c=>`<tr><td><div class="uflex"><span class="av-sm" style="background:linear-gradient(135deg,#c13584,#f77737)">📸</span><strong>${c[0]}</strong></div></td><td>${c[1]}</td><td><span class="pill volt">${c[2]}</span></td><td>${c[3].toLocaleString("pt-BR")}</td><td>${c[4].toLocaleString("pt-BR")}</td><td><span class="pill gold">${c[5]}</span></td></tr>`).join("");
-}
+            const { data } = await supabase
+                .from('whatsapp_instances')
+                .select('*')
+                .eq('user_id', currentUser.id);
 
-/* ================= INSTARESP (Instagram) ================= */
-const IG_STATE={connected:false,acc:null};
-const IG_MEDIA=[
-  {id:"m1",emoji:"🎬",type:"Reel",cap:"3 achados de cozinha que viralizaram",likes:"12,4k",com:842},
-  {id:"m2",emoji:"📸",type:"Post",cap:"Esse organizador mudou minha gaveta",likes:"8,1k",com:391},
-  {id:"m3",emoji:"🎬",type:"Reel",cap:"Fone por menos de R$10? Testei!",likes:"21,7k",com:1530},
-  {id:"m4",emoji:"📸",type:"Post",cap:"Look completo por R$99 na Shein",likes:"5,9k",com:222},
-  {id:"m5",emoji:"🎬",type:"Reel",cap:"Air fryer: vale a pena a de 4L?",likes:"33,2k",com:2104},
-  {id:"m6",emoji:"📸",type:"Post",cap:"Skincare coreano que amei",likes:"7,3k",com:308},
-  {id:"m7",emoji:"🎬",type:"Reel",cap:"Mini projetor transformou minha sala",likes:"15,6k",com:611},
-  {id:"m8",emoji:"📸",type:"Post",cap:"Tênis confortável e barato",likes:"9,8k",com:445}
-];
-let IG_AUTOM=[];          // automações criadas
-let lastAutomCfg=null;    // p/ "Preencher automaticamente"
-let automMedia=null;      // mídia selecionada no modal
+            const listEl = document.getElementById('whatsappList');
+            if (!data || data.length === 0) {
+                listEl.innerHTML = '<p style="color: var(--ink-lighter);">Nenhuma instância conectada</p>';
+                return;
+            }
 
-function igConnect(){
-  IG_STATE.connected=true;IG_STATE.acc={username:"@ana.achadinhos",followers:48230,daily:312};
-  renderIG();toast("Instagram conectado! @ana.achadinhos","📸");renderOnb&&renderOnb();
-}
-function igDisconnect(){if(!confirm("Desconectar o Instagram? As automações ficam pausadas."))return;
-  IG_STATE.connected=false;IG_STATE.acc=null;renderIG();toast("Instagram desconectado.","🔌");}
-function renderIG(){
-  const on=IG_STATE.connected;
-  igConnectCard.style.display=on?"none":"block";
-  igMetrics.style.display=on?"block":"none";
-  igGalleryCard.style.display=on?"block":"none";
-  igAutomCard.style.display=on?"block":"none";
-  igDiscBtn.style.display=on?"inline-flex":"none";
-  if(!on)return;
-  const a=IG_STATE.acc;
-  igKpis.innerHTML=[
-    ["Conta",a.username,"#FF4D8D"],["Seguidores",a.followers.toLocaleString("pt-BR"),"#9B7DFF"],
-    ["Ganho diário","+"+a.daily,"#19E27D"],["Automações",IG_AUTOM.length+"","#39C0FF"]
-  ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv" style="font-size:${k[1].length>10?"17px":"22px"}">${k[1]}</div></div>`).join("");
-  igGallery.innerHTML=IG_MEDIA.map(m=>`<div class="tut"><div class="th" style="background:linear-gradient(135deg,#833ab4,#c13584,#f77737)">${m.emoji} ${m.type}</div><div class="nm" style="font-size:12px;min-height:32px">${m.cap}</div><div class="mt">❤ ${m.likes} · 💬 ${m.com}</div><div style="padding:0 13px 13px"><button class="btn btn-volt btn-sm" style="width:100%;justify-content:center" onclick="novaAutom('${m.id}')">＋ Nova automação</button></div></div>`).join("");
-  renderAutomList();
-}
-function renderAutomList(){
-  igAutomCount.textContent=IG_AUTOM.length;
-  igAutomBody.innerHTML=IG_AUTOM.length?IG_AUTOM.map((a,i)=>{const m=IG_MEDIA.find(x=>x.id===a.mediaId)||{};
-    return `<tr><td><strong>${m.emoji||"🎬"} ${(m.cap||"").slice(0,26)}…</strong></td><td><span class="pill gold">${a.keyword}</span></td><td style="max-width:180px;color:var(--tx2)">${a.reply==="auto"?'<span class="pill volt">auto</span>':a.reply.slice(0,28)}</td><td>${a.links.length}</td><td>${a.count}</td><td><span class="pill ${a.status?"volt":"gray"}"><span class="d"></span>${a.status?"ativo":"pausado"}</span></td><td style="text-align:right"><button class="btn btn-ghost btn-sm" onclick="toggleAutom(${i})">${a.status?"Pausar":"Ativar"}</button> <button class="btn btn-red btn-sm" onclick="delAutom(${i})">✕</button></td></tr>`;}).join(""):'<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:24px">Nenhuma automação ainda. Clique em “Nova automação” numa mídia.</td></tr>';
-}
-function toggleAutom(i){IG_AUTOM[i].status=!IG_AUTOM[i].status;renderAutomList();toast(IG_AUTOM[i].status?"Automação ativada 🚀":"Automação pausada");}
-function delAutom(i){if(!confirm("Excluir automação?"))return;IG_AUTOM.splice(i,1);renderIG();toast("Automação excluída.","🗑️");}
+            listEl.innerHTML = data.map(inst => `
+                <div class="card" style="margin-bottom: 12px;">
+                    <p><strong>${inst.phone_number || 'Celular'}</strong></p>
+                    <p style="font-size: 12px; color: var(--ink-lighter);">
+                        Status: <span class="badge badge-success">${inst.status}</span>
+                    </p>
+                </div>
+            `).join('');
+        }
 
-/* ---- modal ---- */
-function linkRow(label="",url=""){const d=document.createElement("div");d.className="prod";d.style.padding="10px";d.style.gap="8px";
-  d.innerHTML=`<input placeholder="Nome do produto" value="${label}" style="flex:1"><input placeholder="https://..." value="${url}" style="flex:1.4"><button class="btn btn-ghost btn-sm" onclick="this.closest('.prod').remove()">✕</button>`;
-  return d;}
-function novaAutom(mediaId){automMedia=IG_MEDIA.find(m=>m.id===mediaId);
-  const m=automMedia;automMediaInfo.innerHTML=`<div class="pimg">${m.emoji}</div><div style="flex:1"><strong>${m.cap}</strong><br><small style="color:var(--mut)">${m.type} · ❤ ${m.likes} · 💬 ${m.com}</small></div><span class="pill sky">${m.type}</span>`;
-  auKw.value="";auReply.value="auto";auDm.value="";auHi.value="";
-  auLinks.innerHTML="";auLinks.appendChild(linkRow("","")); // começa com 1 link
-  openModal("modalAutom");}
-auAddLink.onclick=()=>{if(auLinks.children.length>=10){toast("Máximo de 10 links por automação.","⚠️");return;}auLinks.appendChild(linkRow());};
-function autoFillAutom(){if(!lastAutomCfg){toast("Nenhuma config salva ainda para reutilizar.","ℹ️");return;}
-  auKw.value=lastAutomCfg.keyword;auReply.value=lastAutomCfg.reply;auDm.value=lastAutomCfg.dm;auHi.value=lastAutomCfg.hi;
-  auLinks.innerHTML="";lastAutomCfg.links.forEach(l=>auLinks.appendChild(linkRow(l.label,l.url)));
-  toast("Última configuração recuperada!","↺");}
-auSave.onclick=()=>{
-  const kw=auKw.value.trim();if(!kw){toast("Defina a palavra-chave gatilho.","⚠️");return;}
-  const links=[...auLinks.querySelectorAll(".prod")].map(r=>{const i=r.querySelectorAll("input");return {label:i[0].value.trim(),url:i[1].value.trim()};}).filter(l=>l.label||l.url);
-  const cfg={mediaId:automMedia.id,keyword:kw,reply:auReply.value.trim()||"auto",dm:auDm.value.trim(),hi:auHi.value.trim(),links,status:true,count:0};
-  IG_AUTOM.push(cfg);lastAutomCfg={keyword:cfg.keyword,reply:cfg.reply,dm:cfg.dm,hi:cfg.hi,links:cfg.links};
-  closeModal("modalAutom");renderIG();toast("Automação criada! O bot já está monitorando os comentários. 🤖");
-};
+        // ============ COMMAND PALETTE ============
+        function openCommandPalette() {
+            document.getElementById('commandPalette').classList.add('active');
+            document.getElementById('commandInput').focus();
+        }
 
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'k') {
+                e.preventDefault();
+                openCommandPalette();
+            }
+            if (e.key === 'Escape') {
+                document.getElementById('commandPalette').classList.remove('active');
+            }
+        });
 
-renderGrupos();renderOnb();renderPlans();renderFaq();renderRadar();renderIG();
-renderAdminVisao();renderUsers();renderSubs();renderInstancias();renderSuporte();renderConfig();genQueue();renderQueue();renderAdminInstaResp();
-/* ================= AUTENTICAÇÃO + SEPARAÇÃO DE PAPÉIS ================= */
-let IS_ADMIN=false, CURRENT_USER=null, authMode="login";
-let SB=null;
-try{ if(window.supabase) SB=window.supabase.createClient(SUPA_URL,SUPA_KEY); }catch(e){ SB=null; }
-
-function setAuthErr(msg){authErr.style.display=msg?"block":"none";authErr.textContent=msg||"";}
-function switchAuth(mode){authMode=mode;
-  tabLogin.classList.toggle("on",mode==="login");tabSignup.classList.toggle("on",mode==="signup");
-  nameField.style.display=mode==="signup"?"block":"none";
-  authTitle.textContent=mode==="signup"?"Criar sua conta":"Entrar na sua conta";
-  authSubmit.textContent=mode==="signup"?"Criar conta":"Entrar";setAuthErr("");}
-tabLogin.onclick=()=>switchAuth("login");tabSignup.onclick=()=>switchAuth("signup");
-
-async function doAuth(){
-  const email=authEmail.value.trim(),pass=authPass.value;
-  if(!email||!pass){setAuthErr("Preencha e-mail e senha.");return;}
-  if(!SB){setAuthErr("SDK do Supabase indisponível aqui. Use o modo demonstração abaixo.");return;}
-  authSubmit.disabled=true;authSubmit.textContent="Aguarde…";
-  try{
-    if(authMode==="signup"){
-      const{data,error}=await SB.auth.signUp({email,password:pass,options:{data:{full_name:authName.value.trim()}}});
-      if(error)throw error;
-      if(!data.session){setAuthErr("");toast("Conta criada! Confirme o e-mail (se exigido) e entre.","✉️");switchAuth("login");return;}
-      await afterLogin(data.user);
-    }else{
-      const{data,error}=await SB.auth.signInWithPassword({email,password:pass});
-      if(error)throw error;
-      await afterLogin(data.user);
-    }
-  }catch(e){setAuthErr(e.message||"Falha na autenticação.");}
-  finally{authSubmit.disabled=false;authSubmit.textContent=authMode==="signup"?"Criar conta":"Entrar";}
-}
-authSubmit.onclick=doAuth;
-authPass.addEventListener("keydown",e=>{if(e.key==="Enter")doAuth();});
-
-async function afterLogin(user){
-  CURRENT_USER=user;let profile={full_name:(user.user_metadata&&user.user_metadata.full_name)||user.email,is_admin:false,plan:"starter"};
-  try{const{data}=await SB.from("profiles").select("full_name,is_admin,plan,sub_status").eq("id",user.id).single();if(data)profile=Object.assign(profile,data);}catch(e){}
-  enterApp(profile);
-}
-function demoEnter(asAdmin){
-  enterApp({full_name:asAdmin?"Admin Mega":"Ana Luiza",is_admin:!!asAdmin,plan:asAdmin?"ultimate":"starter",demo:true});
-  toast(asAdmin?"Modo demonstração: Administrador":"Modo demonstração: Afiliado","🧪");
-}
-function enterApp(profile){
-  IS_ADMIN=!!profile.is_admin;
-  CURRENT_USER=CURRENT_USER||{};
-  // separação visual: só admin enxerga o seletor de Admin
-  roleSwitch.style.display=IS_ADMIN?"flex":"none";
-  // identidade do usuário
-  const nome=profile.full_name||"Usuário";const ini=nome.trim()[0]?nome.trim()[0].toUpperCase():"U";
-  btnUser.textContent=ini;
-  const h=new Date().getHours();const g=h<6?"Boa madrugada":h<12?"Bom dia":h<18?"Boa tarde":"Boa noite";
-  greeting.textContent=g+", "+nome.split(" ")[0]+" ⚡";
-  const ddName=ddUser.querySelector(".ddh > div:first-child");if(ddName)ddName.textContent=nome;
-  const ddMail=ddUser.querySelector(".ddh > div:last-child");if(ddMail&&CURRENT_USER.email)ddMail.textContent=CURRENT_USER.email+" · "+(profile.plan||"starter").toUpperCase();
-  // entra sempre pela área de afiliado
-  authGate.style.display="none";
-  setRole("afiliado");
-  if(!IS_ADMIN)setTimeout(()=>openModal("modalInflu"),700);
-}
-async function signOut(){closeDD();if(SB){try{await SB.auth.signOut();}catch(e){}}
-  IS_ADMIN=false;CURRENT_USER=null;authEmail.value="";authPass.value="";switchAuth("login");
-  authGate.style.display="flex";toast("Sessão encerrada.","🚪");}
-
-async function bootAuth(){
-  if(SB){
-    try{const{data}=await SB.auth.getSession();
-      if(data&&data.session){await afterLogin(data.session.user);return;}}catch(e){}
-  }
-  authGate.style.display="flex"; // sem sessão → mostra login
-}
-bootAuth();
-</script>
+        // ============ INIT ============
+        initAuth();
+        if (localStorage.getItem('darkMode') === 'true') {
+            toggleDarkMode();
+        }
+    </script>
 </body>
 </html>
