@@ -3,9 +3,9 @@
 # nao quebra mais com "ReferenceError: File is not defined".
 FROM node:20-slim
 
-# git e necessario para o libsignal do Baileys compilar/baixar deps
+# git e openssh-client sao necessarios para o libsignal do Baileys baixar deps via SSH
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git \
+    && apt-get install -y --no-install-recommends git openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
