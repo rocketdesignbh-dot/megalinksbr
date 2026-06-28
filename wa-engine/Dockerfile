@@ -10,12 +10,11 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# Forca git a usar HTTPS em vez de SSH (evita erro de chave SSH no build do Docker)
-RUN git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" \
-    && git config --global url."https://github.com/".insteadOf "git@github.com:"
-
 # Instala dependencias primeiro (cache eficiente).
 COPY package*.json ./
+
+# Forca git a usar HTTPS em vez de SSH via HOME do root
+RUN mkdir -p /root && echo '[url "https://github.com/"]\n\tinsteadOf = ssh://git@github.com/\n\tinsteadOf = git@github.com:' > /root/.gitconfig
 RUN npm install --omit=dev
 
 # Copia o restante do codigo
