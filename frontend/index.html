@@ -812,7 +812,7 @@ function hideLoading(){
     <div class="card" style="padding:12px 16px;margin-bottom:12px">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
         <div style="flex:1;min-width:180px">
-          <label style="font-size:11px;color:var(--mut);font-weight:600;display:block;margin-bottom:5px">BUSCAR PRODUTO</label>
+          <label style="font-size:11px;color:var(--mut);font-weight:600;display:block;margin-bottom:5px">FILTRAR EXIBIDOS</label>
           <input id="radarSearch" placeholder="🔍 Filtrar produtos exibidos…" oninput="clearTimeout(window._radarSearchTimer);window._radarSearchTimer=setTimeout(()=>renderRadar(),500)" style="width:100%">
         </div>
         <div style="min-width:140px">
@@ -848,7 +848,8 @@ function hideLoading(){
           </select>
         </div>
         <button class="btn btn-volt btn-sm" onclick="renderRadar()" style="align-self:flex-end;white-space:nowrap">🔄 Atualizar</button>
-        <button class="btn btn-ghost btn-sm" id="btnBuscarAgora" onclick="radarDispararBusca()" style="align-self:flex-end;white-space:nowrap">🔍 Buscar agora</button>
+        <button class="btn btn-volt btn-sm" id="btnBuscarAgora" onclick="radarDispararBusca()" style="align-self:flex-end;white-space:nowrap">🔍 Buscar agora</button>
+        <button class="btn btn-ghost btn-sm" onclick="radarAbrirConfigurar()" style="align-self:flex-end;white-space:nowrap">⚙️ Configurar busca</button>
         <button class="btn btn-ghost btn-sm" onclick="radarShopeeEmMassa()" style="align-self:flex-end;white-space:nowrap">🛍️ Shopee em massa</button>
       </div>
       <!-- Filtros de loja dinâmicos -->
@@ -857,6 +858,61 @@ function hideLoading(){
         <div id="radarFilters" style="display:flex;gap:6px;flex-wrap:wrap"></div>
       </div>
     </div>
+
+    <!-- Modal Configurar Busca do Radar -->
+    <div class="mbg" id="modalRadarConfig"><div class="modal" style="max-width:620px">
+      <div class="mh">⚙️ Configurar Busca do Radar <button class="mx" onclick="closeModal('modalRadarConfig')">×</button></div>
+      <div class="mb" style="display:flex;flex-direction:column;gap:16px">
+        <div class="alert b" style="font-size:12.5px">🔍 Configure quais <strong>produtos e categorias</strong> o Radar vai buscar. Mais keywords = mais ofertas encontradas.</div>
+        <div>
+          <label style="font-size:11px;color:var(--mut);font-weight:600;display:block;margin-bottom:6px">PALAVRAS-CHAVE / PRODUTOS <span style="color:var(--volt)" id="radarKwCount"></span></label>
+          <div id="radarKwTags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:40px;background:var(--surf2);border:1px solid var(--bd);border-radius:8px;padding:8px"></div>
+          <div style="display:flex;gap:8px">
+            <input id="radarKwInput" placeholder="Ex: tênis feminino, perfume importado, cama box…" style="flex:1" onkeydown="if(event.key==='Enter'||event.key===','){radarKwAdd();event.preventDefault()}">
+            <button class="btn btn-ghost btn-sm" onclick="radarKwAdd()">+ Adicionar</button>
+          </div>
+          <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:11px;color:var(--mut);font-weight:600">Categorias rápidas:</span>
+            <button class="fc" onclick="radarKwSugerir('eletronicos')">📱 Eletrônicos</button>
+            <button class="fc" onclick="radarKwSugerir('moda')">👗 Moda</button>
+            <button class="fc" onclick="radarKwSugerir('casa')">🏠 Casa</button>
+            <button class="fc" onclick="radarKwSugerir('beleza')">💄 Beleza</button>
+            <button class="fc" onclick="radarKwSugerir('esportes')">⚽ Esportes</button>
+            <button class="fc" onclick="radarKwSugerir('bebes')">🍼 Bebês</button>
+            <button class="fc" onclick="radarKwSugerir('games')">🎮 Games</button>
+            <button class="fc" onclick="radarKwSugerir('automotivo')">🚗 Automotivo</button>
+            <button class="fc" onclick="radarKwSugerir('ferramentas')">🔧 Ferramentas</button>
+            <button class="fc" onclick="radarKwSugerir('pets')">🐾 Pets</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:150px">
+            <label style="font-size:11px;color:var(--mut);font-weight:600;display:block;margin-bottom:5px">PRODUTOS POR KEYWORD</label>
+            <select id="radarLimitConfig" style="width:100%">
+              <option value="48">48 produtos</option>
+              <option value="96">96 produtos</option>
+              <option value="144" selected>144 produtos</option>
+              <option value="200">200 produtos (máx)</option>
+            </select>
+          </div>
+          <div style="flex:1;min-width:150px">
+            <label style="font-size:11px;color:var(--mut);font-weight:600;display:block;margin-bottom:5px">PÁGINAS POR KEYWORD</label>
+            <select id="radarPagesConfig" style="width:100%">
+              <option value="1">1 página (~48)</option>
+              <option value="3" selected>3 páginas (~144)</option>
+              <option value="5">5 páginas (~240)</option>
+              <option value="10">10 páginas (~480)</option>
+            </select>
+          </div>
+        </div>
+        <div class="alert" style="font-size:12px;color:var(--mut)">⏱️ Exemplo: 10 keywords × 3 páginas = ~1.440 produtos possíveis. Mais páginas demoram mais para buscar.</div>
+      </div>
+      <div class="mf" style="gap:8px">
+        <button class="btn btn-ghost" onclick="radarKwLimpar()">🗑️ Limpar keywords</button>
+        <button class="btn btn-ghost" onclick="closeModal('modalRadarConfig')">Cancelar</button>
+        <button class="btn btn-volt" onclick="radarSalvarConfig()">💾 Salvar e Buscar agora</button>
+      </div>
+    </div></div>
 
     <!-- Grid de ofertas -->
     <div id="radarFull"></div>
@@ -1929,54 +1985,155 @@ function radarEmpty(){
 
 // Dispara manualmente a Edge Function radar para buscar ofertas
 // ── Busca ML via wa-engine (proxy VPS — não bloqueado pelo ML) ───────────────
-const ML_KW_DEFAULT=["fone bluetooth","air fryer","smartwatch","caixa de som bluetooth","aspirador robô","cafeteira","mouse gamer","bola de futebol","mochila escolar","tênis esportivo","panela elétrica","ventilador","luminária led","kit manicure","brinquedo criança"];
+const ML_KW_DEFAULT=["fone bluetooth","air fryer","smartwatch","caixa de som bluetooth","aspirador robô","cafeteira","mouse gamer","bola de futebol","mochila escolar","tênis esportivo","panela elétrica","ventilador","luminária led","kit manicure","brinquedo criança","notebook","tablet","perfume feminino","relógio masculino","cama box"];
 
-async function buscarMLnoBrowser(keywords,jwt){
-  const kws=keywords&&keywords.length?keywords:ML_KW_DEFAULT;
+// ── RADAR CONFIG — keywords e volume ────────────────────────────────────────
+const RADAR_KW_STORAGE = 'mlbr_radar_keywords';
+const RADAR_CFG_STORAGE = 'mlbr_radar_config';
+
+const RADAR_KW_SUGESTOES = {
+  eletronicos: ["fone bluetooth","smartwatch","carregador sem fio","caixa de som bluetooth","mouse gamer","teclado gamer","tablet","notebook","câmera de segurança","roteador wifi"],
+  moda:        ["tênis feminino","tênis masculino","vestido feminino","calça jeans","camiseta","perfume feminino","perfume masculino","bolsa feminina","óculos de sol","relógio masculino"],
+  casa:        ["air fryer","panela elétrica","aspirador robô","cafeteira","luminária led","ventilador","cama box","travesseiro","jogo de lençol","organizador"],
+  beleza:      ["kit manicure","secador de cabelo","chapinha","escova elétrica","creme facial","protetor solar","maquiagem","perfume feminino","kit skincare","massageador"],
+  esportes:    ["bola de futebol","tênis esportivo","kit musculação","bike ergométrica","bicicleta","luva boxe","mochila esportiva","garrafa térmica","squeeze","corda pular"],
+  bebes:       ["brinquedo criança","carrinho bebe","berço","kit enxoval bebe","chupeta","mordedor bebe","cadeirinha carro","babá eletrônica","fralda","pomada bebe"],
+  games:       ["controle playstation","controle xbox","headset gamer","mousepad gamer","cadeira gamer","jogo ps5","jogo xbox","memory card","console retro","volante gamer"],
+  automotivo:  ["suporte celular carro","carregador veicular","capa banco carro","tapete automotivo","câmera ré","alarme carro","pneu","limpador parabrisa","perfume carro","kit limpeza carro"],
+  ferramentas: ["furadeira","parafusadeira","serra circular","kit ferramentas","alicate","chave de fenda","fita métrica","nível","cortador grama","escada"],
+  pets:        ["ração cachorro","ração gato","casinha cachorro","arranhador gato","coleira cachorro","bebedouro pet","comedouro pet","brinquedo pet","cama pet","shampoo pet"]
+};
+
+function radarGetKeywords() {
+  try { const s = localStorage.getItem(RADAR_KW_STORAGE); if(s) return JSON.parse(s); } catch(e){}
+  return [...ML_KW_DEFAULT];
+}
+function radarGetConfig() {
+  try { const s = localStorage.getItem(RADAR_CFG_STORAGE); if(s) return JSON.parse(s); } catch(e){}
+  return { limit: 144, pages: 3 };
+}
+function radarSaveKeywords(kws) {
+  localStorage.setItem(RADAR_KW_STORAGE, JSON.stringify(kws));
+}
+function radarSaveConfig(cfg) {
+  localStorage.setItem(RADAR_CFG_STORAGE, JSON.stringify(cfg));
+}
+
+// Estado interno do modal
+let _radarKwTemp = [];
+
+function radarAbrirConfigurar() {
+  _radarKwTemp = [...radarGetKeywords()];
+  const cfg = radarGetConfig();
+  const limEl = document.getElementById('radarLimitConfig');
+  const pgEl  = document.getElementById('radarPagesConfig');
+  if(limEl) limEl.value = String(cfg.limit || 144);
+  if(pgEl)  pgEl.value  = String(cfg.pages || 3);
+  radarKwRenderTags();
+  openModal('modalRadarConfig');
+}
+
+function radarKwRenderTags() {
+  const el = document.getElementById('radarKwTags');
+  const cnt = document.getElementById('radarKwCount');
+  if(!el) return;
+  el.innerHTML = _radarKwTemp.map((kw,i) =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surf);border:1px solid var(--bd2);border-radius:20px;padding:3px 10px;font-size:12px">
+      ${kw}
+      <button onclick="_radarKwTemp.splice(${i},1);radarKwRenderTags()" style="background:none;border:none;cursor:pointer;color:var(--mut);font-size:14px;padding:0;line-height:1">×</button>
+    </span>`
+  ).join('') || '<span style="color:var(--mut);font-size:12px;padding:4px">Nenhuma keyword adicionada — use as sugestões abaixo ou digite acima.</span>';
+  if(cnt) cnt.textContent = `(${_radarKwTemp.length})`;
+}
+
+function radarKwAdd() {
+  const inp = document.getElementById('radarKwInput');
+  if(!inp) return;
+  const vals = inp.value.split(',').map(v=>v.trim().toLowerCase()).filter(Boolean);
+  vals.forEach(v => { if(v && !_radarKwTemp.includes(v)) _radarKwTemp.push(v); });
+  inp.value = '';
+  radarKwRenderTags();
+}
+
+function radarKwSugerir(cat) {
+  const sugs = RADAR_KW_SUGESTOES[cat] || [];
+  sugs.forEach(kw => { if(!_radarKwTemp.includes(kw)) _radarKwTemp.push(kw); });
+  radarKwRenderTags();
+  toast(`${sugs.length} keywords de ${cat} adicionadas 🎯`,'✅');
+}
+
+function radarKwLimpar() {
+  _radarKwTemp = [];
+  radarKwRenderTags();
+}
+
+function radarSalvarConfig() {
+  const limit  = Number(document.getElementById('radarLimitConfig')?.value || 144);
+  const pages  = Number(document.getElementById('radarPagesConfig')?.value || 3);
+  const kws    = _radarKwTemp.length ? _radarKwTemp : [...ML_KW_DEFAULT];
+  radarSaveKeywords(kws);
+  radarSaveConfig({ limit, pages });
+  closeModal('modalRadarConfig');
+  toast(`Configuração salva! ${kws.length} keywords, ${pages} páginas/kw 🚀`,'💾');
+  radarDispararBusca();
+}
+
+async function buscarMLnoBrowser(keywords,jwt,cfg){
+  const kws=keywords&&keywords.length?keywords:radarGetKeywords();
+  const limit=(cfg&&cfg.limit)||radarGetConfig().limit||144;
+  const pages=(cfg&&cfg.pages)||radarGetConfig().pages||3;
   try{
     // Chama o wa-engine como proxy (VPS Hostinger — IP não bloqueado pelo ML)
     const r=await fetch(`${WA_ENGINE_URL}/ml-search`,{
       method:"POST",
       headers:{"Content-Type":"application/json","Authorization":"Bearer "+WA_ENGINE_TOKEN},
-      body:JSON.stringify({keywords:kws.length?kws:ML_KW_DEFAULT,limit:20})
+      body:JSON.stringify({keywords:kws,limit,pages})
     });
     if(!r.ok){console.warn("ML proxy error:",r.status);return 0;}
     const d=await r.json();
+    if(d.errors&&d.errors.length)console.warn("ML-search warnings:",d.errors);
     const unique=d.results||[];
     if(!unique.length)return 0;
-    // Salva no Supabase
-    const res=await fetch(`${SUPA_URL}/rest/v1/radar_offers`,{
-      method:"POST",
-      headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+jwt,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"},
-      body:JSON.stringify(unique)
-    });
-    if(!res.ok){console.error("ML upsert error:",await res.text());return 0;}
-    return unique.length;
+    // Salva no Supabase em lotes de 200
+    let saved=0;
+    for(let i=0;i<unique.length;i+=200){
+      const batch=unique.slice(i,i+200);
+      const res=await fetch(`${SUPA_URL}/rest/v1/radar_offers`,{
+        method:"POST",
+        headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+jwt,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"},
+        body:JSON.stringify(batch)
+      });
+      if(res.ok)saved+=batch.length;
+      else console.error("ML upsert error:",await res.text());
+    }
+    return saved;
   }catch(e){console.warn("buscarMLnoBrowser error:",e);return 0;}
 }
 
 async function radarDispararBusca(){
   const btn=document.getElementById("btnBuscarAgora")||document.querySelector("[onclick='radarDispararBusca()']");
-  const keyword=(document.getElementById("radarSearch")?.value||"").trim();
+  const filterInput=(document.getElementById("radarSearch")?.value||"").trim();
   const labelOrig=btn?btn.textContent:"";
   if(btn){btn.disabled=true;btn.textContent="⏳ Buscando…";}
   try{
     const session=await SB.auth.getSession();
     const jwt=session?.data?.session?.access_token;
     if(!jwt)throw new Error("Sessão expirada");
-    const keywords=keyword?[keyword]:[];
+
+    // Keywords: se o usuário digitou no filtro, usa só ela; senão usa as salvas
+    const cfg=radarGetConfig();
+    const keywords=filterInput?[filterInput]:radarGetKeywords();
 
     // Determina lojas baseado no filtro selecionado
-    const lojaParaSource={"Mercado Livre":"mercado_livre","Shopee":"shopee","Amazon":"amazon","AliExpress":"aliexpress"};
     const buscaML=radarFilter==="Todas"||(radarFilter==="Mercado Livre");
     const buscaShopee=radarFilter==="Todas"||(radarFilter==="Shopee");
 
     let totalUpserts=0;
     const tarefas=[];
 
-    // ML: busca no browser diretamente
+    // ML: busca via wa-engine (proxy VPS)
     if(buscaML){
-      tarefas.push(buscarMLnoBrowser(keywords,jwt).then(n=>{totalUpserts+=n;}));
+      tarefas.push(buscarMLnoBrowser(keywords,jwt,cfg).then(n=>{totalUpserts+=n;}));
     }
 
     // Shopee e outras: via Edge Function backend
@@ -1984,8 +2141,7 @@ async function radarDispararBusca(){
     if(buscaShopee)sourcesBackend.push("shopee");
 
     if(sourcesBackend.length){
-      const body={sources:sourcesBackend};
-      if(keywords.length)body.keywords=keywords;
+      const body={sources:sourcesBackend,keywords};
       tarefas.push(
         fetch(`${SUPA_URL}/functions/v1/radar`,{
           method:"POST",
@@ -2002,7 +2158,7 @@ async function radarDispararBusca(){
     await Promise.all(tarefas);
     if(btn){btn.disabled=false;btn.textContent=labelOrig||"🔍 Buscar agora";}
     const lojaMsg=radarFilter==="Todas"?"":radarFilter+" ";
-    const kwMsg=keyword?` para "${keyword}"`:"";
+    const kwMsg=filterInput?` para "${filterInput}"`:` (${keywords.length} keywords)`;
     toast(`${totalUpserts} ofertas ${lojaMsg}encontradas${kwMsg} 🛰️`,"🔥");
     await renderRadar(true);
   }catch(e){
