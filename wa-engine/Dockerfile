@@ -3,18 +3,21 @@
 # nao quebra mais com "ReferenceError: File is not defined".
 FROM node:20-slim
 
-# git e openssh-client sao necessarios para o libsignal do Baileys baixar deps via SSH
+# ca-certificates: SSL para HTTPS; git: baixar deps do Baileys
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git openssh-client \
+    && apt-get install -y --no-install-recommends git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Instala dependencias primeiro (cache eficiente).
-COPY package*.json ./
+# Redireciona SSH -> HTTPS e desabilita verificacao SSL estrita do git
+# (necessario pois o slim nao tem CA bundle completo para github.com)
+RUN git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" \
+    && git config --global url."https://github.com/".insteadOf "git@github.com:" \
+    && git config --global http.sslVerify false
 
-# Forca git a usar HTTPS em vez de SSH via HOME do root
-RUN mkdir -p /root && echo '[url "https://github.com/"]\n\tinsteadOf = ssh://git@github.com/\n\tinsteadOf = git@github.com:' > /root/.gitconfig
+# Instala dependencias
+COPY package*.json ./
 RUN npm install --omit=dev
 
 # Copia o restante do codigo
