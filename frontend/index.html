@@ -1705,7 +1705,7 @@ kpiRow.innerHTML=[
 })();
 
 /* ================= ONBOARDING ================= */
-const ONB=[{t:"Criar conta",done:1},{t:"Conectar 1ª loja",done:1,go:"config-afiliados"},{t:"Parear WhatsApp (QR)",done:0,go:"conexao"},{t:"Criar Grupo de Oferta",done:0,go:"canais-grupos"},{t:"Ativar post automático",done:0,go:"canais-grupos"}];
+const ONB=[{t:"Criar conta",done:1},{t:"Parear WhatsApp (QR)",done:0,go:"conexao"},{t:"Criar Grupo de Oferta",done:0,go:"canais-grupos"},{t:"Configurar Afiliados",done:0,go:"config-afiliados"},{t:"Ativar Post Automático",done:0,go:"canais-grupos"},{t:"Buscar ofertas no Radar",done:0,go:"radar"},{t:"Configurar Telegram (opcional)",done:0,go:"config-telegram"}];
 /* SUPORTE */
 /* ── Captura silenciosa de erros do console ── */
 window.__consoleErrors=[];
@@ -1774,7 +1774,16 @@ async function enviarSuporte(tipo){
   const url=`mailto:${dest}?subject=${encodeURIComponent(assunto+" - Mega Links BR")}&body=${encodeURIComponent(corpo)}`;
   setTimeout(()=>{window.open(url,'_blank');},800);
 }
-function renderOnb(){if(S.grupos.length)ONB[3].done=1;if(S.waConnected)ONB[2].done=1;
+function renderOnb(){
+  ONB[1].done=S.waConnected?1:0;
+  ONB[2].done=S.grupos.length?1:0;
+  // Afiliados: verifica se há alguma credencial preenchida
+  try{const creds=lsLoad("creds",{});ONB[3].done=Object.values(creds).some(c=>Object.values(c||{}).some(v=>v&&v.trim()))?1:0;}catch(_){}
+  ONB[4].done=S.grupos.some(g=>g.postAuto)?1:0;
+  // Radar: verifica badge > 0
+  try{const badge=document.getElementById("radarBadge");ONB[5].done=(badge&&parseInt(badge.textContent)>0)?1:0;}catch(_){}
+  // Telegram: verifica se há canal configurado
+  ONB[6].done=0; // deixa manual por enquanto
   const done=ONB.filter(s=>s.done).length,pct=Math.round(done/ONB.length*100);
   osteps.innerHTML=ONB.map(s=>`<li class="${s.done?"done":""}" ${s.go?`style="cursor:pointer" onclick="go('${s.go}')"`:""}><span class="ostep"></span>${s.t}</li>`).join("");
   onbPct.textContent=done+"/"+ONB.length;const C=226.2;ringFg.style.strokeDashoffset=C-(C*pct/100);ringTxt.textContent=pct+"%";}
@@ -1929,7 +1938,7 @@ async function buscarMLnoBrowser(keywords,jwt){
     const r=await fetch(`${WA_ENGINE_URL}/ml-search`,{
       method:"POST",
       headers:{"Content-Type":"application/json","Authorization":"Bearer "+WA_ENGINE_TOKEN},
-      body:JSON.stringify({keywords:kws,limit:20})
+      body:JSON.stringify({keywords:kws.length?kws:ML_KW_DEFAULT,limit:20})
     });
     if(!r.ok){console.warn("ML proxy error:",r.status);return 0;}
     const d=await r.json();
@@ -1966,7 +1975,7 @@ async function radarDispararBusca(){
     const tarefas=[];
 
     // ML: busca no browser diretamente
-    if(buscaML&&lojaConectada("Mercado Livre")){
+    if(buscaML){
       tarefas.push(buscarMLnoBrowser(keywords,jwt).then(n=>{totalUpserts+=n;}));
     }
 
@@ -2241,9 +2250,10 @@ const LOJAS=[
 ];
 
 function lojaConectada(n){
+  // ML usa scraping via wa-engine (sem token necessário)
+  if(n==="Mercado Livre") return true;
   const c=CREDS_STATE[n];
   if(!c)return false;
-  if(n==="Mercado Livre")return !!(c.access_token&&String(c.access_token).trim());
   return Object.values(c).some(v=>v&&String(v).trim());
 }
 
@@ -2474,7 +2484,7 @@ async function renderInstCard(){
             <div>
               <strong style="color:#ef4444">Sessão derrubada?</strong><br>
               ✅ <strong>Celular</strong> pode ficar ligado normalmente — não interfere.<br>
-              ❌ <strong>WA Desktop ou WA Web</strong> aberto derruba esta sessão automaticamente. Feche-os antes de reconectar.
+              ⚠️ <strong>WA Desktop ou WA Web</strong> aberto no celular derruba esta sessão. Feche-os antes de reconectar.<br><small style="color:var(--mut)">Se Reconectar não funcionar, o WhatsApp invalidou as credenciais remotamente — use Gerar QR Code.</small>
             </div>
           </div>
           <button class="btn btn-volt btn-sm" onclick="waReconectar()">⟳ Reconectar</button><button class="btn btn-ghost btn-sm" style="color:var(--red,#ef4444);border-color:var(--red,#ef4444)" onclick="waDesconectar()">Desconectar</button>`;
@@ -2490,7 +2500,7 @@ async function renderInstCard(){
             <div>
               <strong style="color:#ef4444">Sessão derrubada?</strong><br>
               ✅ <strong>Celular</strong> pode ficar ligado normalmente — não interfere.<br>
-              ❌ <strong>WA Desktop ou WA Web</strong> aberto derruba esta sessão automaticamente. Feche-os antes de reconectar.
+              ⚠️ <strong>WA Desktop ou WA Web</strong> aberto no celular derruba esta sessão. Feche-os antes de reconectar.<br><small style="color:var(--mut)">Se Reconectar não funcionar, o WhatsApp invalidou as credenciais remotamente — use Gerar QR Code.</small>
             </div>
           </div>
           <button class="btn btn-volt btn-sm" onclick="waReconectar()">⟳ Reconectar</button><button class="btn btn-ghost btn-sm" style="color:var(--red,#ef4444);border-color:var(--red,#ef4444)" onclick="waDesconectar()">Desconectar</button>`;
@@ -2526,7 +2536,7 @@ async function waReconectar(){
       await renderInstCard();
     }else{
       // Sessão não encontrada no servidor — precisa novo QR
-      toast("Sessão expirada. Gerando novo QR Code…","⚠️");
+      toast("Sessão expirada no WhatsApp. Use o botão Gerar QR Code para reconectar.","⚠️");
       // Atualiza banco
       const uid=CURRENT_USER?.id;
       if(uid){try{await SB.from("whatsapp_instances").update({status:"expired"}).eq("user_id",uid);}catch(_){}}
@@ -3073,6 +3083,32 @@ manual:`
       </div></div>
     </div>
   </div>`
+,
+"ml":`
+  <div id="mlCredInfo" class="alert g" style="font-size:12.5px">✅ <strong>Mercado Livre</strong> conectado via busca automática — sem necessidade de token.</div>
+  <div class="card"><div class="ch">🔗 Importar produto do ML via link</div><div class="cb">
+    <div class="field"><label>Cole o link do produto no Mercado Livre</label>
+      <div style="display:flex;gap:8px">
+        <input id="mlImportLink" placeholder="https://produto.mercadolivre.com.br/MLB-..." style="flex:1" oninput="prodLinkAutoFill()">
+        <button class="btn btn-volt" onclick="mlImportarLink()">🔍 Buscar</button>
+      </div>
+    </div>
+    <div id="mlImportPreview" style="display:none;margin-top:4px">
+      <div class="card" style="background:var(--bg2);margin:0 0 12px"><div class="cb" id="mlImportBody"></div></div>
+    </div>
+    <div class="g2" style="gap:10px">
+      <div class="field" style="margin:0"><label>Preço original (R$)</label><input id="mlLinkPrecoOrig" placeholder="99,90"></div>
+      <div class="field" style="margin:0"><label>Preço atual (R$)</label><input id="mlLinkPrecoAtual" placeholder="59,90"></div>
+    </div>
+    <div class="g2" style="gap:10px;margin-top:8px">
+      <button class="btn btn-volt" style="flex:1" onclick="mlConfirmarImport()">✅ Salvar produto</button>
+      <button class="btn btn-gold" style="flex:1" onclick="mlConfirmarImport(true)">⚡ Salvar e Postar agora</button>
+    </div>
+  </div></div>
+  <div class="card"><div class="ch">🛰️ Importar do Radar de Ofertas</div><div class="cb">
+    <p style="font-size:13px;color:var(--tx2);margin:0 0 12px">Os produtos do Radar com maior score são os mais indicados para o grupo. Clique em <strong>⚡ Postar</strong> em qualquer card do Radar para postar ou salvar no grupo.</p>
+    <button class="btn btn-ghost" onclick="go('radar')">↗ Abrir Radar de Ofertas</button>
+  </div></div>`
 };
 let _currentTabL1=TAB_GROUPS[0].id;
 function buildTabs(){
@@ -3469,13 +3505,49 @@ function wireShopee(){
       ?'<div class="alert g" style="font-size:12.5px">✅ Credenciais Shopee configuradas. A busca retornará produtos reais quando a API estiver aprovada.</div>'
       :'<div class="alert b" style="font-size:12.5px">ℹ️ Configure suas credenciais Shopee em <strong><a href="#" onclick="setRole(\'afiliado\');go(\'config-afiliados\');return false">Config Afiliados</a></strong> para converter links automaticamente.</div>';
   }
-  btn.onclick=()=>{
+  btn.onclick=async()=>{
     if(!lojaConectada("Shopee")){
       toast("Configure suas credenciais Shopee primeiro.","⚠️");
       setRole("afiliado");go("config-afiliados");return;
     }
-    // API Shopee ainda pendente de aprovação → avisa mas não gera fictício
-    toast("Busca Shopee: aguardando aprovação da API. Em breve disponível!","🛰️");
+    // Busca via product-search Edge Function
+    const kw=(document.getElementById("spKw")?.value||"").trim()||"ofertas";
+    const cat=document.getElementById("spCat")?.value||"";
+    toast("Buscando produtos Shopee…","⏳");
+    try{
+      const session=await SB.auth.getSession();
+      const jwt=session?.data?.session?.access_token;
+      const r=await fetch(`${SUPA_URL}/functions/v1/product-search`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json","Authorization":"Bearer "+jwt},
+        body:JSON.stringify({source:"shopee",keyword:kw,category:cat,limit:10})
+      });
+      const d=await r.json();
+      const items=d.items||d.results||[];
+      if(!items.length){toast("Nenhum produto encontrado. Tente outra palavra-chave.","⚠️");return;}
+      const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
+      if(!gid){toast("Salve o grupo primeiro.","⚠️");return;}
+      let saved=0;
+      for(const item of items){
+        const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gid).order("position",{ascending:false}).limit(1).maybeSingle();
+        const pos=(last?.position||0)+1;
+        const{error}=await SB.from("products").insert({
+          niche_group_id:gid,source:"shopee",position:pos,
+          title:item.title||item.name||"Produto Shopee",
+          affiliate_url:item.affiliate_url||item.url||"",
+          image_url:item.image||item.image_url||"",
+          price:item.price||item.price_to||null,
+          price_original:item.price_original||item.price_from||null,
+          discount_pct:item.discount_pct||null,
+          user_id:CURRENT_USER?.id,price_suffix:"no Pix",
+        });
+        if(!error)saved++;
+      }
+      S.grupoAtual.produtos=(S.grupoAtual.produtos||0)+saved;renderGrupos();
+      toast(`${saved} produtos Shopee salvos no grupo!`,"✅");
+      setTimeout(()=>{const t=document.querySelector('.tab[data-tab="prod-lista"]');if(t)t.click();},600);
+      wireProdLista();
+    }catch(e){toast("Erro Shopee: "+e.message,"⚠️");}
   };
   renderSp();
 }
@@ -3574,6 +3646,69 @@ function prodIdeaisCalc(){
 }
 
 let _prodImportData=null;
+
+
+async function mlImportarLink(){
+  const link=(document.getElementById("mlImportLink")?.value||"").trim();
+  if(!link){toast("Cole um link do ML primeiro.","⚠️");return;}
+  toast("Buscando produto…","⏳");
+  try{
+    const session=await SB.auth.getSession();
+    const jwt=session?.data?.session?.access_token;
+    const r=await fetch(`${SUPA_URL}/functions/v1/product-search`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+jwt},
+      body:JSON.stringify({url:link})
+    });
+    const d=await r.json();
+    if(!d||(!d.title&&!d.name)){toast("Não foi possível extrair dados. Preencha manualmente.","⚠️");return;}
+    window._mlImportData={title:d.title||d.name,price:d.price||d.price_to,affiliate_url:link,image_url:d.image||d.thumbnail||d.image_url,discount_pct:d.discount_pct||null};
+    const body=document.getElementById("mlImportBody");
+    const prev=document.getElementById("mlImportPreview");
+    if(body)body.innerHTML=`<div class="prod" style="align-items:center">
+      <div class="pimg">${window._mlImportData.image_url?`<img src="${window._mlImportData.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:"🛒"}</div>
+      <div style="flex:1"><strong>${window._mlImportData.title}</strong><br>
+      <small style="color:var(--mut)">${window._mlImportData.price?`R$ ${window._mlImportData.price} · `:""}${window._mlImportData.discount_pct?window._mlImportData.discount_pct+"% OFF":""}</small></div>
+    </div>`;
+    if(prev)prev.style.display="block";
+    toast("Produto encontrado!","✅");
+  }catch(e){toast("Erro: "+e.message,"⚠️");}
+}
+
+async function mlConfirmarImport(postarAgora=false){
+  const link=(document.getElementById("mlImportLink")?.value||"").trim();
+  const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
+  if(!gid){toast("Salve o grupo primeiro.","⚠️");return;}
+  if(!link&&!window._mlImportData){toast("Busque um produto primeiro.","⚠️");return;}
+  const precoAtual=parseFloat(String(document.getElementById("mlLinkPrecoAtual")?.value||"").replace(",","."))||window._mlImportData?.price||null;
+  const precoOrig=parseFloat(String(document.getElementById("mlLinkPrecoOrig")?.value||"").replace(",","."))||null;
+  const discPct=precoOrig&&precoAtual&&precoAtual<precoOrig?Math.round((1-precoAtual/precoOrig)*100):window._mlImportData?.discount_pct||null;
+  const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gid).order("position",{ascending:false}).limit(1).maybeSingle();
+  const pos=(last?.position||0)+1;
+  const row={
+    niche_group_id:gid,source:"link",position:pos,
+    title:window._mlImportData?.title||"Produto ML",
+    affiliate_url:link||window._mlImportData?.affiliate_url||"",
+    image_url:window._mlImportData?.image_url||"",
+    price:precoAtual,price_original:precoOrig,discount_pct:discPct,
+    price_suffix:"no Pix",user_id:CURRENT_USER?.id,
+  };
+  const{error}=await SB.from("products").insert(row);
+  if(error){toast("Erro ao salvar: "+error.message,"⚠️");return;}
+  window._mlImportData=null;
+  ["mlImportLink","mlLinkPrecoOrig","mlLinkPrecoAtual"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  const prev=document.getElementById("mlImportPreview");if(prev)prev.style.display="none";
+  S.grupoAtual.produtos=(S.grupoAtual.produtos||0)+1;renderGrupos();
+  toast("Produto ML salvo!","✅");
+  if(postarAgora){
+    window.PR_PRE_FROM_RADAR={nome:row.title,foto:row.image_url,de:row.price_original?String(row.price_original):"",por:row.price?String(row.price):"",link:row.affiliate_url,loja:"Mercado Livre"};
+    go("post-relampago");
+    toast("Produto carregado no Post Relâmpago!","⚡");
+  }else{
+    setTimeout(()=>{const t=document.querySelector('.tab[data-tab="prod-lista"]');if(t)t.click();},600);
+    wireProdLista();
+  }
+}
 
 async function wireProdLista(){
   const el=document.getElementById("prodListaBody");if(!el)return;
