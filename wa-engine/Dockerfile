@@ -10,8 +10,11 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# Instala dependencias primeiro (cache eficiente). Como nao versionamos
-# package-lock antigo, usamos npm install para resolver as versoes atuais.
+# Forca git a usar HTTPS em vez de SSH (evita erro de chave SSH no build do Docker)
+RUN git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" \
+    && git config --global url."https://github.com/".insteadOf "git@github.com:"
+
+# Instala dependencias primeiro (cache eficiente).
 COPY package*.json ./
 RUN npm install --omit=dev
 
