@@ -611,22 +611,33 @@ app.post('/ml-search', verifyToken, async (req, res) => {
         });
     }
 
-    const { keywords = [], limit = 20 } = req.body || {};
+    const { keywords = [], limit = 48, pages = 3 } = req.body || {};
     const kws = keywords.length ? keywords : [
         'fone bluetooth', 'air fryer', 'smartwatch',
         'caixa de som bluetooth', 'carregador sem fio',
-        'aspirador robo', 'cafeteira', 'mouse gamer'
+        'aspirador robo', 'cafeteira', 'mouse gamer',
+        'tenis esportivo', 'mochila escolar', 'panela eletrica',
+        'luminaria led', 'kit manicure', 'brinquedo crianca',
+        'ventilador', 'cama bebe', 'notebook', 'tablet',
+        'relogio masculino', 'perfume feminino'
     ];
-    const perKw = Math.min(Number(limit) || 20, 50);
+    const perKw = Math.min(Number(limit) || 48, 200);
+    const numPages = Math.min(Number(pages) || 3, 10); // até 10 páginas por keyword
 
     const results = [];
     const errors = [];
     const expires = new Date(Date.now() + 6 * 3600 * 1000).toISOString();
 
     await Promise.all(kws.map(async (kw) => {
+        let count = 0;
+        for (let page = 1; page <= numPages && count < perKw; page++) {
         try {
             const slug = encodeURIComponent(String(kw).trim().toLowerCase().replace(/\s+/g, '-'));
-            const targetUrl = `https://lista.mercadolivre.com.br/${slug}`;
+            // ML pagina de 48 em 48: _Desde_1, _Desde_49, _Desde_97...
+            const offset = (page - 1) * 48 + 1;
+            const targetUrl = page === 1
+                ? `https://lista.mercadolivre.com.br/${slug}`
+                : `https://lista.mercadolivre.com.br/${slug}_Desde_${offset}`;
             // Scrape.do: proxy residencial que bypassa o anti-bot do ML
             const scrapeDoKey = process.env.SCRAPE_DO_TOKEN || '';
             const fetchUrl = scrapeDoKey
@@ -647,11 +658,11 @@ app.post('/ml-search', verifyToken, async (req, res) => {
             if (!$cards.length) $cards = $('div.ui-search-result__wrapper');
 
             if (!$cards.length) {
-                errors.push(`${kw}: 0 cards (HTML ${String(r.data).length}b — seletor pode ter mudado ou ML retornou pagina de bloqueio)`);
-                return;
+                errors.push(`${kw} p${page}: 0 cards (HTML ${String(r.data).length}b — seletor pode ter mudado ou ML retornou pagina de bloqueio)`);
+                break; // sem cards nessa página, para de paginar essa keyword
             }
 
-            let count = 0;
+            let pageCount = 0;
             $cards.each((_, el) => {
                 if (count >= perKw) return false; // para de iterar
                 const $c = $(el);
@@ -708,12 +719,18 @@ app.post('/ml-search', verifyToken, async (req, res) => {
                     expires_at: expires,
                 });
                 count++;
+                pageCount++;
             });
 
-            if (!count) errors.push(`${kw}: ${$cards.length} cards no HTML mas 0 extraidos (ajustar seletores de titulo/preco)`);
+            if (!pageCount) {
+                errors.push(`${kw} p${page}: ${$cards.length} cards no HTML mas 0 extraidos`);
+                break; // para paginação se não extraiu nada
+            }
         } catch (e) {
-            errors.push(`${kw}: ${e.response?.status || e.code || e.message}`);
+            errors.push(`${kw} p${page}: ${e.response?.status || e.code || e.message}`);
+            break; // para paginação em caso de erro
         }
+        } // fim for page
     }));
 
     // Deduplica por item_id
