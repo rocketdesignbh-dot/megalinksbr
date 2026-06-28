@@ -574,12 +574,74 @@ app.post('/radar', verifyToken, async (req, res) => {
 // com ou sem token). O SITE lista.mercadolivre.com.br continua aberto e o IP da
 // VPS nao esta bloqueado pra ele. Entao buscamos a pagina de listagem e
 // extraimos os produtos do HTML (mesma tecnica que os concorrentes usam).
-const ML_BROWSER_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-    'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
-    'Cache-Control': 'no-cache',
-};
+// Rotação de User-Agents reais (Chrome/Edge/Firefox recentes)
+const ML_USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0',
+];
+function mlRandomUA() { return ML_USER_AGENTS[Math.floor(Math.random() * ML_USER_AGENTS.length)]; }
+
+function mlBrowserHeaders() {
+    return {
+        'User-Agent': mlRandomUA(),
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'max-age=0',
+        'Sec-Ch-Ua': '"Chromium";v="125", "Not.A/Brand";v="24"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1',
+        'Referer': 'https://www.mercadolivre.com.br/',
+    };
+}
+
+// Busca via API pública do ML (fallback sem scraping)
+async function mlSearchViaAPI(keyword, limit = 48) {
+    try {
+        const q = encodeURIComponent(keyword);
+        const url = `https://api.mercadolibre.com/sites/MLB/search?q=${q}&limit=${Math.min(limit, 50)}&sort=relevance`;
+        const r = await axios.get(url, { timeout: 15000, headers: { 'User-Agent': mlRandomUA() } });
+        const items = r.data?.results || [];
+        const expires = new Date(Date.now() + 6 * 3600 * 1000).toISOString();
+        return items.map(it => {
+            const price = Number(it.price || 0);
+            const original = Number(it.original_price || 0);
+            const discPct = original > price ? Math.round((1 - price / original) * 100) : 0;
+            return {
+                source: 'mercado_livre',
+                item_id: it.id || ('ml_' + Math.random().toString(36).slice(2)),
+                shop_id: String(it.seller?.id || ''),
+                title: (it.title || '').slice(0, 250),
+                keyword,
+                category: it.category_id || 'geral',
+                price,
+                price_original: original || price,
+                discount_pct: discPct,
+                commission_rate: 0,
+                rating: Number(it.seller?.seller_reputation?.transactions?.ratings?.positive || 0),
+                sales: Number(it.sold_quantity || 0),
+                shop_name: 'Mercado Livre',
+                image_url: it.thumbnail?.replace('http://', 'https://') || '',
+                product_link: it.permalink || '',
+                affiliate_url: it.permalink || '',
+                score: Math.round(40 + Math.min(discPct, 90) / 90 * 40 + Math.min(Number(it.sold_quantity || 0), 1000) / 1000 * 20),
+                fetched_at: new Date().toISOString(),
+                expires_at: expires,
+            };
+        });
+    } catch (e) {
+        console.warn(`[ML-API] Erro para "${keyword}":`, e.message);
+        return [];
+    }
+}
 
 // Le um valor monetario (fraction + cents) dentro de um escopo cheerio
 function mlMoney($scope) {
@@ -628,8 +690,28 @@ app.post('/ml-search', verifyToken, async (req, res) => {
     const errors = [];
     const expires = new Date(Date.now() + 6 * 3600 * 1000).toISOString();
 
+    // ESTRATEGIA 1: API publica do ML (sem antibot, dados estruturados, gratuita)
+    console.log(`[ML-SEARCH] API publica para ${kws.length} keywords...`);
     await Promise.all(kws.map(async (kw) => {
-        let count = 0;
+        const apiItems = await mlSearchViaAPI(kw, Math.min(perKw, 50));
+        if (apiItems.length) {
+            results.push(...apiItems);
+            console.log(`[ML-API] "${kw}": ${apiItems.length} produtos`);
+        } else {
+            errors.push(`${kw}: API publica retornou 0`);
+        }
+    }));
+
+    // ESTRATEGIA 2: Scraping HTML para keywords sem resultado ou quando numPages > 1
+    const kwsSemResultado = kws.filter(kw => !results.some(r => r.keyword === kw));
+    const kwsParaPaginar = numPages > 1 ? kws.filter(kw => results.filter(r => r.keyword === kw).length < perKw) : [];
+    const kwsScraping = [...new Set([...kwsSemResultado, ...kwsParaPaginar])];
+    if (kwsScraping.length) {
+        console.log(`[ML-SEARCH] Scraping para ${kwsScraping.length} keywords...`);
+    }
+
+    await Promise.all(kwsScraping.map(async (kw) => {
+        let count = results.filter(r => r.keyword === kw).length;
         for (let page = 1; page <= numPages && count < perKw; page++) {
         try {
             const slug = encodeURIComponent(String(kw).trim().toLowerCase().replace(/\s+/g, '-'));
@@ -644,7 +726,7 @@ app.post('/ml-search', verifyToken, async (req, res) => {
                 ? `https://api.scrape.do?token=${scrapeDoKey}&url=${encodeURIComponent(targetUrl)}&geoCode=br&super=true`
                 : targetUrl;
             const r = await axios.get(fetchUrl, {
-                headers: scrapeDoKey ? {} : ML_BROWSER_HEADERS,
+                headers: scrapeDoKey ? { 'User-Agent': mlRandomUA() } : mlBrowserHeaders(),
                 timeout: 25000,
                 maxRedirects: 5,
                 validateStatus: s => s >= 200 && s < 400,
