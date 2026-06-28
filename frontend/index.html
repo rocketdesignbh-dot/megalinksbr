@@ -2083,28 +2083,66 @@ async function buscarMLnoBrowser(keywords,jwt,cfg){
   const limit=(cfg&&cfg.limit)||radarGetConfig().limit||144;
   const pages=(cfg&&cfg.pages)||radarGetConfig().pages||3;
   try{
-    // Chama o wa-engine como proxy (VPS Hostinger — IP não bloqueado pelo ML)
-    const r=await fetch(`${WA_ENGINE_URL}/ml-search`,{
-      method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+WA_ENGINE_TOKEN},
-      body:JSON.stringify({keywords:kws,limit,pages})
-    });
-    if(!r.ok){console.warn("ML proxy error:",r.status);return 0;}
-    const d=await r.json();
-    if(d.errors&&d.errors.length)console.warn("ML-search warnings:",d.errors);
-    const unique=d.results||[];
+    // ESTRATEGIA 1: API publica do ML direto do browser (IP residencial, sem bloqueio)
+    const expires=new Date(Date.now()+6*3600*1000).toISOString();
+    const allItems=[];
+    await Promise.all(kws.map(async(kw)=>{
+      try{
+        const q=encodeURIComponent(kw);
+        const r=await fetch(`https://api.mercadolibre.com/sites/MLB/search?q=${q}&limit=50&sort=relevance`,{headers:{"Accept":"application/json"}});
+        if(!r.ok)return;
+        const d=await r.json();
+        (d.results||[]).forEach(it=>{
+          const price=Number(it.price||0);
+          const original=Number(it.original_price||0);
+          const discPct=original>price?Math.round((1-price/original)*100):0;
+          allItems.push({
+            source:"mercado_livre",
+            item_id:it.id||("ml_"+Math.random().toString(36).slice(2)),
+            shop_id:String(it.seller?.id||""),
+            title:(it.title||"").slice(0,250),
+            keyword:kw,
+            category:it.category_id||"geral",
+            price,price_original:original||price,discount_pct:discPct,
+            commission_rate:0,rating:0,sales:Number(it.sold_quantity||0),
+            shop_name:"Mercado Livre",
+            image_url:(it.thumbnail||"").replace("http://","https://"),
+            product_link:it.permalink||"",affiliate_url:it.permalink||"",
+            score:Math.round(40+Math.min(discPct,90)/90*40+Math.min(Number(it.sold_quantity||0),1000)/1000*20),
+            fetched_at:new Date().toISOString(),expires_at:expires
+          });
+        });
+        console.log(`[ML-API-browser] "${kw}": ${(d.results||[]).length} produtos`);
+      }catch(e){console.warn(`[ML-API-browser] "${kw}" erro:`,e.message);}
+    }));
+
+    // Se API do browser funcionou, usa esses resultados
+    // Senão, tenta via wa-engine como fallback
+    let unique=allItems;
+    if(!unique.length){
+      console.warn("[ML] API browser falhou, tentando wa-engine...");
+      const r=await fetch(`${WA_ENGINE_URL}/ml-search`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json","Authorization":"Bearer "+WA_ENGINE_TOKEN},
+        body:JSON.stringify({keywords:kws,limit,pages})
+      });
+      if(!r.ok){console.warn("ML proxy error:",r.status);return 0;}
+      const d=await r.json();
+      if(d.errors&&d.errors.length)console.warn("ML-search warnings:",d.errors);
+      unique=d.results||[];
+    }
     if(!unique.length)return 0;
     // Salva no Supabase em lotes de 200
     let saved=0;
     for(let i=0;i<unique.length;i+=200){
       const batch=unique.slice(i,i+200);
-      const res=await fetch(`${SUPA_URL}/rest/v1/radar_offers`,{
+      const res=await fetch(`${SUPA_URL}/rest/v1/radar_offers?on_conflict=source,item_id`,{
         method:"POST",
-        headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+jwt,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"},
+        headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+jwt,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},
         body:JSON.stringify(batch)
       });
-      if(res.ok)saved+=batch.length;
-      else console.error("ML upsert error:",await res.text());
+      if(res.ok||res.status===409)saved+=batch.length;
+      else console.error("ML upsert error:",res.status,await res.text());
     }
     return saved;
   }catch(e){console.warn("buscarMLnoBrowser error:",e);return 0;}
