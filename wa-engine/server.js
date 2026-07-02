@@ -822,6 +822,9 @@ app.post('/ml-search', verifyToken, async (req, res) => {
 });
 
 // ── /ml-product  (busca dados de produto ML via API JSON + Scrape.do) ──────
+// Aceita opcionalmente ?userScrapeToken=... — se enviado, usa o token pessoal
+// do usuário (dele, na conta dele do Scrape.do) em vez do token compartilhado
+// da plataforma. Isso permite que cada usuário traga seu próprio crédito.
 app.get('/ml-product', verifyToken, async (req, res) => {
     const url = (req.query.url || '').trim();
     if (!url) return res.status(400).json({ ok: false, error: 'url obrigatório' });
@@ -829,7 +832,9 @@ app.get('/ml-product', verifyToken, async (req, res) => {
     const mlb = url.match(/MLB[-_]?(\d+)/i)?.[1];
     if (!mlb) return res.status(400).json({ ok: false, error: 'MLB ID não encontrado no link' });
 
-    const SCRAPE_TOKEN = process.env.SCRAPE_DO_TOKEN || '';
+    const userToken = (req.query.userScrapeToken || '').trim();
+    const SCRAPE_TOKEN = userToken || process.env.SCRAPE_DO_TOKEN || '';
+    const usingPersonalToken = !!userToken;
 
     // Tenta 1: API JSON do ML via Scrape.do (mais leve, retorna JSON limpo)
     try {
@@ -856,6 +861,7 @@ app.get('/ml-product', verifyToken, async (req, res) => {
                         price_to: priceTo ? String(priceTo) : undefined,
                         price_from: priceFrom ? String(priceFrom) : undefined,
                         discount_pct: discPct || undefined,
+                        usingPersonalToken,
                     });
                 }
             } catch (_) {}
@@ -903,6 +909,7 @@ app.get('/ml-product', verifyToken, async (req, res) => {
             price_to: priceTo ? String(priceTo) : undefined,
             price_from: priceFrom ? String(priceFrom) : undefined,
             discount_pct: discPct || undefined,
+            usingPersonalToken,
         });
     } catch (e) {
         const msg = e.name === 'AbortError' ? 'Timeout buscando produto ML' : e.message;

@@ -1093,6 +1093,26 @@ function hideLoading(){
       <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button></div></div></div>
     <div class="g3" id="lojasGrid"></div>
 
+    <!-- Scrape.do pessoal (buscas de Mercado Livre sem limite compartilhado) -->
+    <div class="card" style="margin-top:20px">
+      <div class="ch">🚀 Buscas de Mercado Livre sem limite</div>
+      <div class="cb">
+        <p style="font-size:12.5px;color:var(--mut);margin:0 0 12px">
+          O <strong>Mercado Livre</strong> bloqueia buscas automatizadas sem um proxy — por isso usamos o serviço <strong>Scrape.do</strong>.
+          Por padrão, você usa a cota compartilhada da plataforma (com um limite diário para garantir acesso a todos).
+          Conecte seu <strong>próprio token do Scrape.do</strong> (grátis para começar) e suas buscas de Mercado Livre deixam de ter esse limite.
+          <br><small style="opacity:.8">Não é necessário para Shopee ou as demais lojas — elas já funcionam sem isso.</small>
+        </p>
+        <div class="g2" style="gap:10px;align-items:end">
+          <div class="field" style="margin:0"><label>Seu token do Scrape.do</label>
+            <input id="scrapeDoTokenInput" placeholder="Cole aqui o token da sua conta Scrape.do" type="password"></div>
+          <button class="btn btn-volt btn-sm" onclick="salvarScrapeDoToken()">💾 Salvar token</button>
+        </div>
+        <p id="scrapeDoTokenStatus" style="font-size:12px;color:var(--mut);margin:10px 0 0"></p>
+        <p style="font-size:12px;margin:8px 0 0"><a href="https://dashboard.scrape.do" target="_blank" rel="noopener">Criar conta grátis no Scrape.do →</a></p>
+      </div>
+    </div>
+
     <!-- Meus Cupons -->
     <div class="card" style="margin-top:20px">
       <div class="ch">🏷️ Meus Cupons</div>
@@ -1778,6 +1798,47 @@ function renderCupons(){
       <button class="btn btn-ghost btn-sm" onclick="cupomRemover('${c.id}')" title="Remover">🗑️</button>
     </div>`).join("");
 }
+/* Scrape.do pessoal — buscas de Mercado Livre sem limite compartilhado */
+async function carregarScrapeDoStatus(){
+  const input=document.getElementById("scrapeDoTokenInput");
+  const status=document.getElementById("scrapeDoTokenStatus");
+  if(!input||!status||!CURRENT_USER?.id)return;
+  try{
+    const{data,error}=await SB.from("profiles").select("scrape_do_token,scrape_do_connected_at").eq("id",CURRENT_USER.id).maybeSingle();
+    if(error)throw error;
+    if(data?.scrape_do_token){
+      input.placeholder="•••••••••••••••••••••• (token salvo)";
+      const dt=data.scrape_do_connected_at?new Date(data.scrape_do_connected_at).toLocaleDateString("pt-BR"):"";
+      status.innerHTML=`✅ Token conectado${dt?` desde ${dt}`:""}. Suas buscas de Mercado Livre não usam mais a cota compartilhada. <a href="#" onclick="removerScrapeDoToken();return false" style="color:var(--mut)">Remover</a>`;
+    }else{
+      input.placeholder="Cole aqui o token da sua conta Scrape.do";
+      status.textContent="Sem token pessoal conectado — suas buscas de Mercado Livre usam a cota compartilhada da plataforma.";
+    }
+  }catch(e){console.warn("carregarScrapeDoStatus:",e);}
+}
+async function salvarScrapeDoToken(){
+  const input=document.getElementById("scrapeDoTokenInput");
+  const token=(input?.value||"").trim();
+  if(!token){toast("Cole o token do Scrape.do primeiro.","⚠️");return;}
+  if(!CURRENT_USER?.id){toast("Sessão expirada.","⚠️");return;}
+  try{
+    const{error}=await SB.from("profiles").update({scrape_do_token:token,scrape_do_connected_at:new Date().toISOString()}).eq("id",CURRENT_USER.id);
+    if(error)throw error;
+    input.value="";
+    toast("Token do Scrape.do conectado! Suas buscas de ML agora são ilimitadas.","🚀");
+    carregarScrapeDoStatus();
+  }catch(e){toast("Erro ao salvar: "+(e.message||""),"⛔");}
+}
+async function removerScrapeDoToken(){
+  if(!CURRENT_USER?.id)return;
+  if(!confirm("Remover seu token pessoal do Scrape.do? Suas buscas de Mercado Livre voltam a usar a cota compartilhada."))return;
+  try{
+    const{error}=await SB.from("profiles").update({scrape_do_token:null,scrape_do_connected_at:null}).eq("id",CURRENT_USER.id);
+    if(error)throw error;
+    toast("Token removido.","🗑️");
+    carregarScrapeDoStatus();
+  }catch(e){toast("Erro ao remover: "+(e.message||""),"⛔");}
+}
 async function cupomAdicionar(){
   const loja=document.getElementById("cupomNovaLoja")?.value;
   const codigo=document.getElementById("cupomNovoCodigo")?.value?.trim();
@@ -1917,9 +1978,12 @@ function go(page){
       if(sel&&S.grupos.length){sel.innerHTML='<option value="">— nenhum —</option>'+S.grupos.map(g=>`<option value="${g.db_id||g.id}">${g.nome}</option>`).join("");}
     },100);
   }
-  // Hook: ao entrar em Config Afiliados, renderiza lista de cupons
+  // Hook: ao entrar em Config Afiliados, renderiza lista de cupons e status do Scrape.do
   if(page==="config-afiliados"){
-    setTimeout(()=>{if(typeof renderCupons==="function")renderCupons();},50);
+    setTimeout(()=>{
+      if(typeof renderCupons==="function")renderCupons();
+      if(typeof carregarScrapeDoStatus==="function")carregarScrapeDoStatus();
+    },50);
   }
   // Hook: ao entrar no admin suporte, recarrega tickets reais
   if(page==="adm-suporte")setTimeout(()=>renderSuporte(),50);
@@ -5655,7 +5719,7 @@ async function prBuscarProduto(){
     if(lojaDetect==="Shopee"&&!(CREDS_STATE["Shopee"]?.["App Key"])){
       dica=`🟠 <strong>Shopee detectada</strong> — configure o <strong>App Key</strong> em Config Afiliados para busca automática. Por enquanto, preencha os campos abaixo manualmente.`;
     }else if(lojaDetect==="Mercado Livre"){
-      dica=`🟡 <strong>Mercado Livre</strong> bloqueia a leitura automática de produtos (proteção antibot). <strong>Preencha o nome, preços e foto abaixo</strong> — seu link de afiliado já foi gerado e está pronto para postar. 💡 Dica: copie o nome e a foto direto da página do produto.`;
+      dica=`🟡 <strong>Mercado Livre</strong> bloqueia a leitura automática de produtos (proteção antibot). <strong>Preencha o nome, preços e foto abaixo</strong> — seu link de afiliado já foi gerado e está pronto para postar. 💡 Dica: copie o nome e a foto direto da página do produto. Quer buscas automáticas mais confiáveis? <a href="#" onclick="setRole('afiliado');go('config-afiliados');return false">Conecte seu token do Scrape.do</a>.`;
     }else{
       dica=prDicaLoja(link,storeDetected);
     }
