@@ -678,6 +678,7 @@ function hideLoading(){
             <input id="prLink" placeholder="https://shopee.com.br/produto... ou qualquer loja parceira" style="flex:1" oninput="prAutoBuscar()" onpaste="setTimeout(prAutoBuscar,50)">
             <button class="btn btn-volt" onclick="prBuscarProduto()" id="prBtnBuscar" style="flex:none;white-space:nowrap">🔍 Buscar</button>
           </div>
+          <small style="color:var(--mut);display:block;margin-top:5px">Cole o link e buscamos os dados automaticamente — ideal para divulgar uma oferta específica agora mesmo.</small>
         </div>
         <div class="field">
           <label>Loja / Programa de afiliado</label>
@@ -869,6 +870,7 @@ function hideLoading(){
       <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button></div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <span id="radarLastUpdate" style="font-size:11px;color:var(--mut)"></span>
+        <span class="pill" style="font-size:10.5px;color:var(--mut);background:var(--surf2);border:1px solid var(--bd2)" title="Mercado Livre atualiza 2x ao dia (11h e 19h) para manter a qualidade do serviço. Shopee atualiza a cada 30min.">🔄 ML 2x/dia · Shopee 30min</span>
       </div>
     </div>
 
@@ -2335,7 +2337,7 @@ function radarEmpty(){
     <p style="max-width:460px;margin:0 auto 16px;color:var(--tx2)">
       Clique em <strong>🔄 Buscar agora</strong> para o Radar buscar ofertas reais do 
       <strong>Mercado Livre</strong> e <strong>Shopee</strong> automaticamente.<br>
-      <small style="color:var(--mut)">Após a primeira busca, o Radar atualiza sozinho a cada hora via cron.</small>
+      <small style="color:var(--mut)">Shopee atualiza a cada 30min. Mercado Livre atualiza 2x ao dia (11h e 19h) para manter a qualidade do serviço.</small>
     </p>
     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
       <button class="btn btn-volt" onclick="radarDispararBusca()">🔄 Buscar ofertas agora</button>
@@ -2345,32 +2347,9 @@ function radarEmpty(){
 }
 
 // Dispara manualmente a Edge Function radar para buscar ofertas
-// ── Busca ML via wa-engine (proxy VPS — não bloqueado pelo ML) ───────────────
-const ML_KW_DEFAULT=["fone bluetooth","air fryer","smartwatch","caixa de som bluetooth","aspirador robô","cafeteira","mouse gamer","bola de futebol","mochila escolar","tênis esportivo","panela elétrica","ventilador","luminária led","kit manicure","brinquedo criança"];
-
-async function buscarMLnoBrowser(keywords,jwt){
-  const kws=keywords&&keywords.length?keywords:ML_KW_DEFAULT;
-  try{
-    // Chama o wa-engine como proxy (VPS Hostinger — IP não bloqueado pelo ML)
-    const r=await fetch(`${WA_ENGINE_URL}/ml-search`,{
-      method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+WA_ENGINE_TOKEN},
-      body:JSON.stringify({keywords:kws.length?kws:ML_KW_DEFAULT,limit:20})
-    });
-    if(!r.ok){console.warn("ML proxy error:",r.status);return 0;}
-    const d=await r.json();
-    const unique=d.results||[];
-    if(!unique.length)return 0;
-    // Salva no Supabase
-    const res=await fetch(`${SUPA_URL}/rest/v1/radar_offers`,{
-      method:"POST",
-      headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+jwt,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"},
-      body:JSON.stringify(unique)
-    });
-    if(!res.ok){console.error("ML upsert error:",await res.text());return 0;}
-    return unique.length;
-  }catch(e){console.warn("buscarMLnoBrowser error:",e);return 0;}
-}
+// ── ML e Shopee passam SEMPRE pela Edge Function radar (protegida por gate de quota) ──
+// IMPORTANTE: nunca chamar o wa-engine (/ml-search) direto do navegador — isso expõe
+// o token publicamente e contorna o limite de créditos do Scrape.do.
 
 async function radarDispararBusca(){
   const btn=document.getElementById("btnBuscarAgora")||document.querySelector("[onclick='radarDispararBusca()']");
@@ -2384,43 +2363,41 @@ async function radarDispararBusca(){
     const keywords=keyword?[keyword]:[];
 
     // Determina lojas baseado no filtro selecionado
-    const lojaParaSource={"Mercado Livre":"mercado_livre","Shopee":"shopee","Amazon":"amazon","AliExpress":"aliexpress"};
     const buscaML=radarFilter==="Todas"||(radarFilter==="Mercado Livre");
     const buscaShopee=radarFilter==="Todas"||(radarFilter==="Shopee");
 
     let totalUpserts=0;
-    const tarefas=[];
+    let mlQuotaAtingida=false;
 
-    // ML: busca no browser diretamente
-    if(buscaML){
-      tarefas.push(buscarMLnoBrowser(keywords,jwt).then(n=>{totalUpserts+=n;}));
-    }
-
-    // Shopee e outras: via Edge Function backend
+    // ML e Shopee: sempre via Edge Function backend (protegida por gate de quota no ML)
     const sourcesBackend=[];
+    if(buscaML)sourcesBackend.push("mercado_livre");
     if(buscaShopee)sourcesBackend.push("shopee");
 
     if(sourcesBackend.length){
       const body={sources:sourcesBackend};
       if(keywords.length)body.keywords=keywords;
-      tarefas.push(
-        fetch(`${SUPA_URL}/functions/v1/radar`,{
-          method:"POST",
-          headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"},
-          body:JSON.stringify(body)
-        }).then(async r=>{
-          if(!r.ok)return;
-          const d=await r.json();
-          totalUpserts+=(d.upserts||0);
-        }).catch(()=>{})
-      );
+      const r=await fetch(`${SUPA_URL}/functions/v1/radar`,{
+        method:"POST",
+        headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"},
+        body:JSON.stringify(body)
+      });
+      if(r.ok){
+        const d=await r.json();
+        totalUpserts+=(d.upserts||0);
+        // Detecta se o lote de ML foi pulado por limite diário/mensal (nunca mostrar como "erro" cru)
+        mlQuotaAtingida=Array.isArray(d.errors)&&d.errors.some(e=>String(e).includes("ML pulado"));
+      }
     }
 
-    await Promise.all(tarefas);
     if(btn){btn.disabled=false;btn.textContent=labelOrig||"🔍 Buscar agora";}
     const lojaMsg=radarFilter==="Todas"?"":radarFilter+" ";
     const kwMsg=keyword?` para "${keyword}"`:"";
-    toast(`${totalUpserts} ofertas ${lojaMsg}encontradas${kwMsg} 🛰️`,"🔥");
+    if(mlQuotaAtingida&&totalUpserts===0){
+      toast("Exibindo as últimas ofertas do Mercado Livre já coletadas. Próxima atualização automática às 11h/19h. Para um produto específico agora, use Postar Agora com o link.","ℹ️");
+    }else{
+      toast(`${totalUpserts} ofertas ${lojaMsg}encontradas${kwMsg} 🛰️`,"🔥");
+    }
     await renderRadar(true);
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent=labelOrig||"🔍 Buscar agora";}
@@ -2818,7 +2795,7 @@ renderLojas();
 /* QR falso removido — agora usamos apenas o QR real vindo do wa-engine */
 const INSTANCIAS=[];
 const WA_ENGINE_URL="https://megalinksbr-wa-engine.fwezsn.easypanel.host";
-let WA_ENGINE_TOKEN="967af5489aaa0e9099ddcda58c2f7a6316088be0d2b80d3ec61bc38d36853451"; // fallback direto
+let WA_ENGINE_TOKEN=""; // obtido dinamicamente via get-wa-engine-token no login (enterApp) — nunca hardcoded
 
 async function fetchWAEngineToken(){
   try{

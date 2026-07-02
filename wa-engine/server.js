@@ -55,7 +55,11 @@ app.use((req, res, next) => {
 
 // CONFIG
 const PORT = process.env.PORT || 8080;
-const WA_ENGINE_TOKEN = process.env.WA_ENGINE_TOKEN || '967af5489aaa0e9099ddcda58c2f7a6316088be0d2b80d3ec61bc38d36853451';
+const WA_ENGINE_TOKEN = process.env.WA_ENGINE_TOKEN;
+if (!WA_ENGINE_TOKEN) {
+    console.error('❌ WA_ENGINE_TOKEN não configurado nas variáveis de ambiente. Configure no EasyPanel antes de iniciar.');
+    process.exit(1);
+}
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://nxlfezpagporealqqbfj.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_KEY || 'sb_publishable_FQTFJaF46KfwSnODD5UjPA_nOagscIu';
 
