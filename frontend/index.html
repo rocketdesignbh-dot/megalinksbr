@@ -2069,7 +2069,7 @@ async function loadAnalyticsData(){try{
     let grid="",lbl="";
     for(let g=0;g<=4;g++){const v=mx*g/4,yy=y(v);grid+=`<line x1="${P}" x2="${W-8}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="3 4"/>`;lbl+=`<text x="${P-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`;}
     const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="#19E27D" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
-    const xl=labels.map((t,i)=>i%2?""`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${t}</text>`).join("");
+    const xl=labels.map((t,i)=>i%2?"":`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${t}</text>`).join("");
     if(chArea)chArea.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#19E27D" stop-opacity=".4"/><stop offset="1" stop-color="#19E27D" stop-opacity="0"/></linearGradient></defs>${grid}${lbl}<path d="${area}" fill="url(#ga)"/><path d="${path}" fill="none" stroke="url(#gr)" stroke-width="2.6" stroke-linecap="round"/>${dots}${xl}</svg>`;
     if(chTot)chTot.textContent=data.reduce((a,b)=>a+b,0).toLocaleString("pt-BR")+" cliques";
   }
