@@ -100,6 +100,10 @@ img.mark{border-radius:50%;background:transparent}
 .nav .tag.gold{background:var(--gold);color:#0c0c0e}
 .nav .tag.orange{background:#ff6b2b;color:#fff;animation:pulse-orange 2s infinite}
 @keyframes pulse-orange{0%,100%{opacity:1}50%{opacity:.7}}
+@keyframes pulse-red-bg{0%,100%{background:rgba(255,60,60,.18);box-shadow:0 0 0 0 rgba(255,60,60,.4)}50%{background:rgba(255,60,60,.32);box-shadow:0 0 0 5px rgba(255,60,60,0)}}
+@keyframes blink-green-bg{0%,100%{background:rgba(60,220,120,.18)}50%{background:rgba(60,220,120,.42)}}
+.ml-status-red{color:#ff6b6b !important;border-color:rgba(255,60,60,.45) !important;animation:pulse-red-bg 1.6s infinite}
+.ml-status-green{color:#3fd67a !important;border-color:rgba(60,220,120,.45) !important;animation:blink-green-bg 1.1s infinite}
 .nav-cta{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:var(--r-sm);cursor:pointer;border:1px solid rgba(255,107,43,.4);position:relative;transition:.15s;background:linear-gradient(135deg,rgba(255,107,43,.15),rgba(255,60,60,.08));font-size:13px;font-weight:700;color:#ff6b2b;margin-bottom:4px}
 .nav-cta svg{width:17px;height:17px;flex:none;stroke:#ff6b2b}
 .nav-cta:hover{background:linear-gradient(135deg,rgba(255,107,43,.25),rgba(255,60,60,.14));transform:translateX(2px)}
@@ -871,6 +875,7 @@ function hideLoading(){
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <span id="radarLastUpdate" style="font-size:11px;color:var(--mut)"></span>
         <span class="pill" style="font-size:10.5px;color:var(--mut);background:var(--surf2);border:1px solid var(--bd2)" title="Mercado Livre atualiza 2x ao dia (11h e 19h) para manter a qualidade do serviço. Shopee atualiza a cada 30min.">🔄 ML 2x/dia · Shopee 30min</span>
+        <span id="radarMlStatus" class="pill" style="font-size:10.5px;display:none"></span>
       </div>
     </div>
 
@@ -1959,7 +1964,9 @@ function go(page){
   }
   // Hook: ao entrar no Radar, atualiza a marca de "última visita" e re-render
   if(page==="radar"&&typeof renderRadar==="function"){
-    setTimeout(()=>{renderRadar();if(typeof setRadarLastVisit==="function")setRadarLastVisit();},100);
+    setTimeout(()=>{renderRadar();if(typeof setRadarLastVisit==="function")setRadarLastVisit();if(typeof atualizarStatusBuscaML==="function")atualizarStatusBuscaML();},100);
+  }else if(typeof pararStatusBuscaML==="function"){
+    pararStatusBuscaML();
   }
   // Hook: ao entrar em Conexão WhatsApp, renderiza instâncias se conectado
   if(page==="conexao"){
@@ -2415,6 +2422,54 @@ function radarEmpty(){
 // IMPORTANTE: nunca chamar o wa-engine (/ml-search) direto do navegador — isso expõe
 // o token publicamente e contorna o limite de créditos do Scrape.do.
 
+// Indicador visual: mostra se ainda há crédito pra buscar ML hoje, com cronômetro regressivo
+// até a meia-noite (horário de Brasília) quando o limite diário for atingido.
+const RADAR_ML_DAILY_CAP=20; // mantido em sincronia com o valor no backend (Edge Function radar)
+const RADAR_ML_REQUEST_COST=10;
+let _radarMlStatusInterval=null;
+function pararStatusBuscaML(){
+  if(_radarMlStatusInterval){clearInterval(_radarMlStatusInterval);_radarMlStatusInterval=null;}
+}
+function _proximaMeiaNoiteBRT(){
+  // Meia-noite de Brasília (UTC-3) expressa em UTC
+  const now=new Date();
+  const brtNow=new Date(now.toLocaleString("en-US",{timeZone:"America/Sao_Paulo"}));
+  const proxima=new Date(brtNow);
+  proxima.setDate(proxima.getDate()+1);
+  proxima.setHours(0,0,0,0);
+  const diffMs=proxima.getTime()-brtNow.getTime();
+  return new Date(Date.now()+diffMs);
+}
+async function atualizarStatusBuscaML(){
+  const el=document.getElementById("radarMlStatus");
+  if(!el)return;
+  pararStatusBuscaML();
+  try{
+    const{data}=await SB.rpc("get_radar_ml_quota_status");
+    const q=Array.isArray(data)?data[0]:data;
+    const hoje=Number(q?.today_batch||0);
+    const restante=RADAR_ML_DAILY_CAP-hoje;
+    if(restante>=RADAR_ML_REQUEST_COST){
+      el.style.display="inline-flex";
+      el.className="pill ml-status-green";
+      el.textContent="🟢 Buscas de ML liberadas";
+      el.title="Ainda há crédito disponível hoje pra buscar uma categoria específica de Mercado Livre.";
+    }else{
+      const alvo=_proximaMeiaNoiteBRT();
+      const tick=()=>{
+        const diff=alvo.getTime()-Date.now();
+        if(diff<=0){atualizarStatusBuscaML();return;}
+        const h=Math.floor(diff/3600000),m=Math.floor((diff%3600000)/60000),s=Math.floor((diff%60000)/1000);
+        el.style.display="inline-flex";
+        el.className="pill ml-status-red";
+        el.textContent=`🔴 Limite do dia atingido — libera em ${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+        el.title="O limite diário de buscas de Mercado Livre foi atingido. Novas buscas específicas liberam à meia-noite.";
+      };
+      tick();
+      _radarMlStatusInterval=setInterval(tick,1000);
+    }
+  }catch(e){console.warn("atualizarStatusBuscaML:",e);}
+}
 async function radarDispararBusca(){
   const btn=document.getElementById("btnBuscarAgora")||document.querySelector("[onclick='radarDispararBusca()']");
   const keyword=(document.getElementById("radarSearch")?.value||"").trim();
@@ -2436,6 +2491,7 @@ async function radarDispararBusca(){
 
     let totalUpserts=0;
     let mlQuotaAtingida=false;
+    let mlKeywordRepetida=false;
 
     // ML e Shopee: sempre via Edge Function backend (protegida por gate de quota no ML)
     const sourcesBackend=[];
@@ -2453,8 +2509,9 @@ async function radarDispararBusca(){
       if(r.ok){
         const d=await r.json();
         totalUpserts+=(d.upserts||0);
-        // Detecta se o lote de ML foi pulado por limite diário/mensal (nunca mostrar como "erro" cru)
-        mlQuotaAtingida=Array.isArray(d.errors)&&d.errors.some(e=>String(e).includes("ML pulado"));
+        // Detecta se o lote de ML foi pulado por limite diário/mensal ou keyword repetida (nunca mostrar como "erro" cru)
+        mlKeywordRepetida=Array.isArray(d.errors)&&d.errors.some(e=>String(e).includes("keyword_repetida"));
+        mlQuotaAtingida=!mlKeywordRepetida&&Array.isArray(d.errors)&&d.errors.some(e=>String(e).includes("ML pulado"));
       }
     }
 
@@ -2463,12 +2520,15 @@ async function radarDispararBusca(){
     const kwMsg=keyword?` para "${keyword}"`:"";
     if(mlSemKeywordBloqueado&&!buscaShopee){
       toast("Mercado Livre atualiza automaticamente 2x ao dia. Digite uma palavra-chave acima pra buscar algo específico agora.","ℹ️");
+    }else if(mlKeywordRepetida&&totalUpserts===0){
+      toast(`Você já buscou "${keyword}" recentemente — exibindo o resultado já coletado. Quer um produto diferente? Busque direto no site do Mercado Livre e use Postar Agora.`,"ℹ️");
     }else if(mlQuotaAtingida&&totalUpserts===0){
       toast("Exibindo as últimas ofertas do Mercado Livre já coletadas. Próxima atualização automática às 11h/19h. Para um produto específico agora, use Postar Agora com o link.","ℹ️");
     }else{
       toast(`${totalUpserts} ofertas ${lojaMsg}encontradas${kwMsg} 🛰️`,"🔥");
     }
     await renderRadar(true);
+    if(typeof atualizarStatusBuscaML==="function")atualizarStatusBuscaML();
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent=labelOrig||"🔍 Buscar agora";}
     toast("Erro ao buscar: "+(e.message||"verifique as credenciais"),"⛔");
