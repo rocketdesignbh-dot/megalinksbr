@@ -4280,9 +4280,17 @@ function prodIdeaisCalc(){
 let _prodImportData=null;
 
 
+// Trava simples pra impedir duas buscas simultâneas do mesmo link (evita corrida/gasto duplicado)
+window._mlSearchInFlight=window._mlSearchInFlight||new Set();
+function _mlSearchLock(key){if(window._mlSearchInFlight.has(key))return false;window._mlSearchInFlight.add(key);return true;}
+function _mlSearchUnlock(key){window._mlSearchInFlight.delete(key);}
+
 async function mlImportarLink(){
   const link=(document.getElementById("mlImportLink")?.value||"").trim();
   if(!link){toast("Cole um link do ML primeiro.","⚠️");return;}
+  if(!_mlSearchLock("ml:"+link)){toast("Já buscando esse produto, aguarde…","⏳");return;}
+  const btn=document.querySelector('#pane-ml button[onclick="mlImportarLink()"]');
+  if(btn)btn.disabled=true;
   toast("Buscando produto…","⏳");
   try{
     const session=await SB.auth.getSession();
@@ -4305,6 +4313,7 @@ async function mlImportarLink(){
     if(prev)prev.style.display="block";
     toast("Produto encontrado!","✅");
   }catch(e){toast("Erro: "+e.message,"⚠️");}
+  finally{_mlSearchUnlock("ml:"+link);if(btn)btn.disabled=false;}
 }
 
 async function mlConfirmarImport(postarAgora=false){
@@ -4372,6 +4381,9 @@ function wireProdAdd(){
 async function prodImportarLink(){
   const link=(document.getElementById("prodImportLink")?.value||"").trim();
   if(!link){toast("Cole um link primeiro.","⚠️");return;}
+  if(!_mlSearchLock("prod:"+link)){toast("Já buscando esse produto, aguarde…","⏳");return;}
+  const btn=document.querySelector('button[onclick="prodImportarLink()"]');
+  if(btn)btn.disabled=true;
   toast("Buscando produto…","⏳");
   try{
     const session=await SB.auth.getSession();
@@ -4395,6 +4407,7 @@ async function prodImportarLink(){
     if(prev)prev.style.display="block";
     toast("Produto encontrado!","✅");
   }catch(e){toast("Erro: "+e.message,"⚠️");}
+  finally{_mlSearchUnlock("prod:"+link);if(btn)btn.disabled=false;}
 }
 
 async function prodConfirmarImport(postarAgora=false){
@@ -5732,6 +5745,7 @@ async function prBuscarProduto(){
 
   const st=document.getElementById("prBuscarStatus");
   const btn=document.getElementById("prBtnBuscar");
+  if(btn?.disabled){toast("Já buscando esse produto, aguarde…","⏳");return;}
   st.style.display="block";
   st.innerHTML='<div class="alert b" style="margin:0">🔍 Buscando dados do produto… <small style="opacity:.7">(máx 15s)</small></div>';
   btn.disabled=true;
