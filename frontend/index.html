@@ -1998,6 +1998,7 @@ function go(page){
   if(page==="adm-suporte")setTimeout(()=>renderSuporte(),50);
   // Hook: ao entrar em Instâncias & Canais, recarrega com token já disponível
   if(page==="adm-instancias")setTimeout(()=>renderInstancias(),50);
+  if(page==="analitico")loadAnalyticsData();
 }
 document.querySelectorAll(".nav").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
 document.querySelectorAll(".nav-cta").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
