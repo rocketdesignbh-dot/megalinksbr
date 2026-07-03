@@ -839,42 +839,11 @@ app.get('/ml-product', verifyToken, async (req, res) => {
     const SCRAPE_TOKEN = userToken || process.env.SCRAPE_DO_TOKEN || '';
     const usingPersonalToken = !!userToken;
 
-    // Tenta 1: API JSON do ML via Scrape.do (mais leve, retorna JSON limpo)
-    try {
-        const apiUrl = `https://api.mercadolibre.com/items/MLB${mlb}`;
-        const scrapeUrl = `https://api.scrape.do?token=${SCRAPE_TOKEN}&url=${encodeURIComponent(apiUrl)}&geoCode=br`;
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
-        const r = await fetch(scrapeUrl, { signal: controller.signal });
-        clearTimeout(timeout);
+    // NOTA: removida a tentativa via api.mercadolibre.com/items SEM super=true (residencial) —
+    // confirmado repetidamente que o ML bloqueia esse tipo de acesso (502/403), sempre falha.
+    // Vai direto pro scraping HTML com super=true, que e o que realmente funciona.
 
-        if (r.ok) {
-            const text = await r.text();
-            try {
-                const d = JSON.parse(text);
-                if (d.title && d.id) {
-                    const priceTo = d.price ? Number(d.price) : null;
-                    const priceFrom = d.original_price ? Number(d.original_price) : null;
-                    const discPct = priceFrom && priceTo && priceFrom > priceTo
-                        ? Math.round((1 - priceTo / priceFrom) * 100) : null;
-                    const image = (d.pictures?.[0]?.url || d.thumbnail || '').replace('-I.jpg', '-O.jpg');
-                    console.log(`[ml-product] API JSON OK: ${d.title.slice(0, 50)}`);
-                    return res.json({
-                        ok: true, name: d.title, title: d.title, image,
-                        price_to: priceTo ? String(priceTo) : undefined,
-                        price_from: priceFrom ? String(priceFrom) : undefined,
-                        discount_pct: discPct || undefined,
-                        usingPersonalToken,
-                    });
-                }
-            } catch (_) {}
-        }
-        console.warn(`[ml-product] API JSON falhou: HTTP ${r.status}`);
-    } catch (e) {
-        console.warn(`[ml-product] API JSON erro: ${e.message}`);
-    }
-
-    // Tenta 2: scraping HTML da página de produto via Scrape.do
+    // scraping HTML da página de produto via Scrape.do (proxy residencial)
     try {
         const targetUrl = `https://www.mercadolivre.com.br/p/MLB${mlb}`;
         const scrapeUrl = `https://api.scrape.do?token=${SCRAPE_TOKEN}&url=${encodeURIComponent(targetUrl)}&geoCode=br&super=true`;
