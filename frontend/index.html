@@ -2223,6 +2223,7 @@ async function fetchRadarLive(searchQ=""){
     return d.map(o=>({
       p:o.title,
       loja:o.source==="shopee"?"Shopee":o.source==="mercado_livre"?"Mercado Livre":o.source==="amazon"?"Amazon":o.source==="aliexpress"?"AliExpress":o.shop_name||o.source||"Outra",
+      source:o.source||null,
       de:Number(o.price_original||o.price||0),
       por:Number(o.price||0),
       off:o.discount_pct||0,
@@ -2380,7 +2381,7 @@ async function rgSalvarNoGrupo(){
     const pos=(last?.position||0)+1;
     const{error}=await SB.from("products").insert({
       title:nome,affiliate_url:link,price:por,price_original:de,
-      image_url:img,niche_group_id:gidDb,source:"radar",position:pos,
+      image_url:img,niche_group_id:gidDb,source:RG_OFERTA_ATUAL?.source||"manual",position:pos,
       coupon_code:cupom?.code||null,cta_text:ctaTexto,cta_random:ctaRandom,
       description:descExtras,
       user_id:CURRENT_USER?.id,
