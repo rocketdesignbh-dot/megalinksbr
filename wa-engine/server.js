@@ -402,6 +402,12 @@ app.get('/pair-status/:sessionId', verifyToken, (req, res) => {
 });
 
 // -- Sessions list --
+// TEMP DEBUG - remover depois de resolver o problema do token
+app.get('/token-check', (req, res) => {
+    const t = WA_ENGINE_TOKEN || '';
+    res.json({ length: t.length, start: t.slice(0,6), end: t.slice(-6) });
+});
+
 app.get('/sessions', verifyToken, (req, res) => {
     const sessions = [];
     for (const [sessionId, s] of SESSIONS) {
