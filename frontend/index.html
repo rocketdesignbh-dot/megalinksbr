@@ -1959,7 +1959,7 @@ function go(page){
   document.querySelectorAll(".nav-cta").forEach(n=>n.classList.toggle("active",n.dataset.page===page));
   window.scrollTo({top:0});closeDD();
   if(page==="adm-fila") startQueue(); else stopQueue();
-  if(page!=="post-relampago"&&typeof pararStatusPostarML==="function")pararStatusPostarML();
+  if(page!=="post-relampago"&&typeof pararStatusQuotaML==="function")pararStatusQuotaML();
   // Hook: se entrou no Post Relâmpago via Radar, carrega a oferta pré-selecionada
   if(page==="post-relampago"&&window.PR_PRE_FROM_RADAR&&typeof prCarregarOfertaDoRadar==="function"){
     setTimeout(()=>prCarregarOfertaDoRadar(),50);
@@ -3596,6 +3596,7 @@ manual:`
           <input id="prodImportLink" placeholder="https://shopee.com.br/..." style="flex:1" oninput="prodLinkAutoFill()">
           <button class="btn btn-volt" onclick="prodImportarLink()">🔍 Buscar</button>
         </div>
+        <span id="prodImportQuotaStatus" class="pill" style="font-size:10.5px;display:none;margin-top:8px"></span>
       </div>
       <div id="prodImportPreview" style="display:none;margin-top:4px">
         <div class="card" style="background:var(--bg2);margin:0 0 12px"><div class="cb" id="prodImportBody"></div></div>
@@ -3693,6 +3694,7 @@ manual:`
         <input id="mlImportLink" placeholder="https://produto.mercadolivre.com.br/MLB-..." style="flex:1" oninput="prodLinkAutoFill()">
         <button class="btn btn-volt" onclick="mlImportarLink()">🔍 Buscar</button>
       </div>
+      <span id="mlImportQuotaStatus" class="pill" style="font-size:10.5px;display:none;margin-top:8px"></span>
     </div>
     <div id="mlImportPreview" style="display:none;margin-top:4px">
       <div class="card" style="background:var(--bg2);margin:0 0 12px"><div class="cb" id="mlImportBody"></div></div>
@@ -3740,12 +3742,14 @@ function buildTabs(){
       if(b.dataset.tab==="shopee")wireShopee();
       if(b.dataset.tab==="wagrupos")wireWaGrupos();
       if(b.dataset.tab==="manual")wireManual();
+      if(b.dataset.tab==="ml")setTimeout(()=>atualizarStatusQuotaML("mlImportQuotaStatus"),50);
       if(b.dataset.tab==="prod-lista")wireProdLista();
       if(b.dataset.tab==="prod-add"){wireProdAdd();prodIdeaisCalc();prodCupomTipoChange();}
     });
     // dispara wire da primeira tab se necessário
     if(first.id==="layout")rp();
     if(first.id==="wagrupos")wireWaGrupos();
+    if(first.id==="ml")setTimeout(()=>atualizarStatusQuotaML("mlImportQuotaStatus"),50);
   }
   // todas as panes (uma vez)
   tabPanes.innerHTML=TABS.map(t=>`<div class="tp" id="pane-${t.id}">${PANES[t.id]||paneCred(t.label)}</div>`).join("");
@@ -4237,6 +4241,14 @@ function prodLinkAutoFill(){
   // Se o campo de link mudou, limpa o preview
   const prev=document.getElementById("prodImportPreview");
   if(prev)prev.style.display="none";
+  const link=(document.getElementById("prodImportLink")?.value||"").trim();
+  const isML=/mercadolivre|mercadolibre|mlb[-_]?\d/i.test(link);
+  if(isML){
+    atualizarStatusQuotaML("prodImportQuotaStatus");
+  }else{
+    const st=document.getElementById("prodImportQuotaStatus");
+    if(st){st.style.display="none";pararStatusQuotaML("prodImportQuotaStatus");}
+  }
 }
 function prodCupomTipoChange(){
   const tipo=document.getElementById("prodCupomTipo")?.value;
@@ -4338,7 +4350,7 @@ async function wireProdLista(){
   const{data,error}=await SB.from("products").select("*").eq("niche_group_id",gid).order("position");
   if(error||!data){el.innerHTML=`<p style="color:var(--red);text-align:center;padding:28px">Erro: ${error?.message||"desconhecido"}</p>`;return;}
   S.grupoAtual.produtos=data.length;renderGrupos();
-  loadTabProdCounts().then(()=>{const grupo=TAB_GROUPS.find(g=>g.id===_currentTabL1)||TAB_GROUPS[0];tabsBar.innerHTML=grupo.tabs.map((t,i)=>{const count=_tabProdCounts[t.id]||0;const countBadge=count>0?`<span style="margin-left:4px;font-size:10px;background:var(--volt);color:#0c0c0e;padding:1px 5px;border-radius:6px;font-weight:700">${count}</span>`:"";return `<button class="tab${tabsBar.querySelector('.tab.active')?.dataset.tab===t.id?" active":""}" data-tab="${t.id}">${t.label}${t.novo?'<span class="tag-new">NEW</span>':""}${countBadge}</button>`;}).join(""); tabsBar.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{tabsBar.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".tp").forEach(p=>p.classList.toggle("on",p.id==="pane-"+b.dataset.tab));if(b.dataset.tab==="wagrupos")wireWaGrupos();if(b.dataset.tab==="prod-meus")wireProdLista();if(b.dataset.tab==="prod-add"){wireProdAdd();prodIdeaisCalc();prodCupomTipoChange();}});});
+  loadTabProdCounts().then(()=>{const grupo=TAB_GROUPS.find(g=>g.id===_currentTabL1)||TAB_GROUPS[0];tabsBar.innerHTML=grupo.tabs.map((t,i)=>{const count=_tabProdCounts[t.id]||0;const countBadge=count>0?`<span style="margin-left:4px;font-size:10px;background:var(--volt);color:#0c0c0e;padding:1px 5px;border-radius:6px;font-weight:700">${count}</span>`:"";return `<button class="tab${tabsBar.querySelector('.tab.active')?.dataset.tab===t.id?" active":""}" data-tab="${t.id}">${t.label}${t.novo?'<span class="tag-new">NEW</span>':""}${countBadge}</button>`;}).join(""); tabsBar.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{tabsBar.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".tp").forEach(p=>p.classList.toggle("on",p.id==="pane-"+b.dataset.tab));if(b.dataset.tab==="wagrupos")wireWaGrupos();if(b.dataset.tab==="prod-meus")wireProdLista();if(b.dataset.tab==="ml")setTimeout(()=>atualizarStatusQuotaML("mlImportQuotaStatus"),50);if(b.dataset.tab==="prod-add"){wireProdAdd();prodIdeaisCalc();prodCupomTipoChange();}});});
   if(!data.length){el.innerHTML='<p style="color:var(--mut);text-align:center;padding:28px">Nenhum produto cadastrado ainda.<br>Use a aba <strong>➕ Adicionar</strong> para começar.</p>';return;}
   el.innerHTML=data.map((p,i)=>`
     <div class="prod" style="align-items:center">
@@ -5819,18 +5831,23 @@ async function prBuscarProduto(){
 
 // Auto-busca: dispara a busca automaticamente ao colar/digitar um link válido
 let _prBuscarTimer=null;
-// Indicador de quota MANUAL (Postar Agora → link de Mercado Livre). Bucket separado do
-// indicador do Radar (batch) — reflete profiles.scrape_do_token + o teto compartilhado.
+// Indicador de quota MANUAL (link de Mercado Livre em Postar Agora ou dentro de um Grupo de
+// Oferta). Bucket separado do indicador do Radar (batch) — reflete profiles.scrape_do_token
+// + o teto compartilhado. Reutilizável: passa o id do elemento onde exibir.
 const PR_ML_MANUAL_DAILY_CAP=40; // sincronizado com o default da Edge Function product-search
 const PR_ML_MANUAL_REQUEST_COST=20; // pior caso: 2 requisições x 10 créditos
-let _prMlStatusInterval=null;
-function pararStatusPostarML(){
-  if(_prMlStatusInterval){clearInterval(_prMlStatusInterval);_prMlStatusInterval=null;}
+let _mlQuotaStatusInterval=null;
+let _mlQuotaStatusElId=null;
+function pararStatusQuotaML(elId){
+  if(_mlQuotaStatusInterval&&(!elId||_mlQuotaStatusElId===elId)){
+    clearInterval(_mlQuotaStatusInterval);_mlQuotaStatusInterval=null;_mlQuotaStatusElId=null;
+  }
 }
-async function atualizarStatusPostarML(){
-  const el=document.getElementById("prMlQuotaStatus");
+async function atualizarStatusQuotaML(elId){
+  const el=document.getElementById(elId);
   if(!el)return;
-  pararStatusPostarML();
+  pararStatusQuotaML();
+  _mlQuotaStatusElId=elId;
   try{
     // Se o usuário tem token pessoal do Scrape.do conectado, não há limite da plataforma
     if(CURRENT_USER?.id){
@@ -5855,16 +5872,16 @@ async function atualizarStatusPostarML(){
       const alvo=_proximaMeiaNoiteBRT();
       const tick=()=>{
         const diff=alvo.getTime()-Date.now();
-        if(diff<=0){atualizarStatusPostarML();return;}
+        if(diff<=0){atualizarStatusQuotaML(elId);return;}
         const h=Math.floor(diff/3600000),m=Math.floor((diff%3600000)/60000),s=Math.floor((diff%60000)/1000);
         el.style.display="inline-flex";
         el.className="pill ml-status-red";
         el.textContent=`🔴 Limite do dia atingido — libera em ${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}. Preencha manualmente ou conecte seu token em Config Afiliados.`;
       };
       tick();
-      _prMlStatusInterval=setInterval(tick,1000);
+      _mlQuotaStatusInterval=setInterval(tick,1000);
     }
-  }catch(e){console.warn("atualizarStatusPostarML:",e);}
+  }catch(e){console.warn("atualizarStatusQuotaML:",e);}
 }
 function prDetectLojaFromUrl(link){
   if(!link)return null;
@@ -5885,16 +5902,16 @@ function prAutoBuscar(){
     const link=document.getElementById("prLink")?.value.trim()||"";
     if(!link||!/^https?:\/\//i.test(link)){
       const st=document.getElementById("prMlQuotaStatus");
-      if(st){st.style.display="none";pararStatusPostarML();}
+      if(st){st.style.display="none";pararStatusQuotaML("prMlQuotaStatus");}
       return;
     }
     // Auto-detecta a loja pelo link
     const lojaDetectada=prDetectLojaFromUrl(link);
     if(lojaDetectada==="Mercado Livre"){
-      atualizarStatusPostarML();
+      atualizarStatusQuotaML("prMlQuotaStatus");
     }else{
       const st=document.getElementById("prMlQuotaStatus");
-      if(st){st.style.display="none";pararStatusPostarML();}
+      if(st){st.style.display="none";pararStatusQuotaML("prMlQuotaStatus");}
     }
     if(lojaDetectada&&PR.loja!==lojaDetectada){
       prSelectLoja(lojaDetectada);
