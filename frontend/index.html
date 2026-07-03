@@ -2022,11 +2022,58 @@ function spark(d,c){const w=86,h=30,mx=Math.max(...d),mn=Math.min(...d);
   const p=d.map((v,i)=>(i/(d.length-1)*w).toFixed(1)+","+(h-((v-mn)/(mx-mn||1))*(h-4)-2).toFixed(1)).join(" ");
   return `<svg class="sp" width="${w}" height="${h}"><polyline points="${p}" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"/></svg>`;}
 kpiRow.innerHTML=[
-  {l:"Cliques hoje",v:"0",d:"aguardando dados",up:1,c:"#19E27D",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
-  {l:"Comissões estimadas",v:"R$ 0,00",d:"aguardando dados",up:1,c:"#39C0FF",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
-  {l:"Posts enviados",v:"0",d:"aguardando dados",up:1,c:"#FFB020",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
-  {l:"CTR médio",v:"—",d:"aguardando dados",up:1,c:"#FF4D8D",s:[0,0,0,0,0,0,0,0,0,0,0,0]}
+  {l:"Cliques hoje",v:"0",d:"carregando...",up:1,c:"#19E27D",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {l:"Posts enviados",v:"0",d:"carregando...",up:1,c:"#FFB020",s:[0,0,0,0,0,0,0,0,0,0,0,0]}
 ].map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="kd" style="color:var(--mut)">${k.d}</div>${spark(k.s,k.c)}</div>`).join("");
+
+// Função para carregar dados reais de analytics
+async function loadAnalyticsData(){try{
+  const token=localStorage.getItem('sb-token');
+  if(!token)return;
+  const resp=await fetch('/functions/v1/analytics',{headers:{'Authorization':`Bearer ${token}`}});
+  if(!resp.ok)return;
+  const{clicks_today,posts_today,posts_by_group,clicks_history}=await resp.json();
+  
+  // Construir lista de grupos com posts
+  let postsDesc='';
+  if(Array.isArray(posts_by_group)&&posts_by_group.length>0){
+    postsDesc=posts_by_group.slice(0,3).map(p=>`${p.group_name}: ${p.post_count}`).join(' • ');
+  }
+  
+  // Atualizar KPIs com dados reais
+  const kpis=[
+    {l:"Cliques hoje",v:String(clicks_today),d:postsDesc?'atualizado em tempo real':'hoje',up:1,c:"#19E27D"},
+    {l:"Posts enviados",v:String(posts_today),d:postsDesc||'nenhum ainda',up:1,c:"#FFB020"}
+  ];
+  
+  // Gerar sparkline com dados reais
+  const spark_data=(clicks_history||[]).slice(-12).map(row=>row.total_clicks);
+  kpis[0].s=spark_data.length>0?spark_data.concat(Array(12-spark_data.length).fill(0)):[0,0,0,0,0,0,0,0,0,0,0,0];
+  kpiRow.innerHTML=kpis.map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="kd" style="color:var(--mut)">${k.d}</div>${spark(k.s,k.c)}</div>`).join("");
+  
+  // Atualizar gráfico com dados reais
+  if(clicks_history&&clicks_history.length>0){
+    const data=Array(14).fill(0);
+    const today=new Date();
+    clicks_history.forEach(row=>{
+      const date=new Date(row.day);
+      const daysAgo=Math.floor((today-date)/(1000*60*60*24));
+      if(daysAgo<14)data[13-daysAgo]=row.total_clicks;
+    });
+    const W=720,H=220,P=34,mx=Math.max(Math.ceil(Math.max(...data)/200)*200,1);
+    const labels=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(13-i));return d.getDate()+"/"+(d.getMonth()+1);});
+    const x=i=>P+i*(W-P-10)/(data.length-1),y=v=>H-26-(v/mx)*(H-50);
+    let path="M"+x(0)+","+y(data[0]);
+    data.forEach((v,i)=>{if(i)path+=" L"+x(i)+","+y(v);});
+    const area=path+` L${x(13)},${H-26} L${x(0)},${H-26} Z`;
+    let grid="",lbl="";
+    for(let g=0;g<=4;g++){const v=mx*g/4,yy=y(v);grid+=`<line x1="${P}" x2="${W-8}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="3 4"/>`;lbl+=`<text x="${P-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`;}
+    const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="#19E27D" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
+    const xl=labels.map((t,i)=>i%2?""`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${t}</text>`).join("");
+    if(chArea)chArea.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#19E27D" stop-opacity=".4"/><stop offset="1" stop-color="#19E27D" stop-opacity="0"/></linearGradient></defs>${grid}${lbl}<path d="${area}" fill="url(#ga)"/><path d="${path}" fill="none" stroke="url(#gr)" stroke-width="2.6" stroke-linecap="round"/>${dots}${xl}</svg>`;
+    if(chTot)chTot.textContent=data.reduce((a,b)=>a+b,0).toLocaleString("pt-BR")+" cliques";
+  }
+}catch(e){console.error('Analytics:',e);}}
 
 /* ================= AREA CHART ================= */
 (function(){const data=[0,0,0,0,0,0,0,0,0,0,0,0,0,0];
