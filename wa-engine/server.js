@@ -73,8 +73,25 @@ const SESSIONS = new Map(); // sessionId -> { status, qr, socket, phoneNumber, .
 
 // Controle de reconexão — backoff exponencial por sessão
 const RECONNECT_ATTEMPTS = new Map(); // sessionId -> { count, lastAttempt }
-const MAX_RECONNECT_ATTEMPTS = 15;
+const MAX_RECONNECT_ATTEMPTS = 50;
 const BASE_RECONNECT_DELAY = 3000; // 3s inicial, dobra até ~49s
+
+// Gera variantes de um número BR (com e sem o 9º dígito extra do celular)
+// para tolerar o jeito inconsistente que o WhatsApp reporta o número em alguns casos
+function phoneVariants(phone) {
+    const digits = String(phone || '').replace(/\D/g, '');
+    const variants = new Set([digits]);
+    if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
+        const ddd = digits.slice(2, 4);
+        const rest = digits.slice(4);
+        if (rest.length === 9 && rest[0] === '9') {
+            variants.add('55' + ddd + rest.slice(1)); // remove o 9 extra
+        } else if (rest.length === 8) {
+            variants.add('55' + ddd + '9' + rest); // adiciona o 9 extra
+        }
+    }
+    return [...variants];
+}
 
 // ============ MIDDLEWARE ============
 function verifyToken(req, res, next) {
@@ -446,11 +463,12 @@ app.post('/disconnect/:sessionId', verifyToken, async (req, res) => {
 // -- Reconnect by phone (chamado pelo frontend quando sessão sumiu) --
 app.post('/reconnect/:phone', verifyToken, async (req, res) => {
     const phone = req.params.phone.replace(/\D/g, '');
+    const targetVariants = phoneVariants(phone);
 
     // Verifica se já existe sessão ativa para esse número
     for (const [sid, s] of SESSIONS) {
         const sPhone = String(s.phoneNumber || '').replace(/\D/g, '');
-        if (sPhone === phone && s.status === 'paired') {
+        if (targetVariants.includes(sPhone) && s.status === 'paired') {
             return res.json({ ok: true, message: 'Sessão já está conectada', sessionId: sid });
         }
     }
@@ -471,11 +489,11 @@ app.post('/reconnect/:phone', verifyToken, async (req, res) => {
             try { meta = await fs.readJson(metaFile); } catch (e) {}
 
             const metaPhone = String(meta.phoneNumber || '').replace(/\D/g, '');
-            if (metaPhone === phone) {
+            if (targetVariants.includes(metaPhone)) {
                 const sessionId = meta.sessionId || dir;
                 console.log(`[RECONNECT] Encontrada sessão salva para ${phone}: ${sessionId}`);
 
-                await connectSession(sessionId, authPath, phone, true);
+                await connectSession(sessionId, authPath, metaPhone, true);
 
                 // Espera até 15s pela reconexão
                 let attempts = 0;
