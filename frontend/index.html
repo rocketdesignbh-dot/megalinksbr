@@ -879,7 +879,7 @@ function hideLoading(){
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
         <div style="flex:1;min-width:180px">
           <label style="font-size:11px;color:var(--mut);font-weight:600;display:block;margin-bottom:5px">BUSCAR PRODUTO</label>
-          <input id="radarSearch" placeholder="🔍 Filtrar produtos exibidos…" oninput="clearTimeout(window._radarSearchTimer);window._radarSearchTimer=setTimeout(()=>renderRadar(),500)" style="width:100%">
+          <input id="radarSearch" placeholder="🔍 Filtrar ou digite uma categoria (ex: cafeteira) pra buscar no Mercado Livre agora…" oninput="clearTimeout(window._radarSearchTimer);window._radarSearchTimer=setTimeout(()=>renderRadar(),500)" style="width:100%">
         </div>
         <div style="min-width:140px">
           <label style="font-size:11px;color:var(--mut);font-weight:600;display:block;margin-bottom:5px">ORDENAR POR</label>
@@ -2427,8 +2427,12 @@ async function radarDispararBusca(){
     const keywords=keyword?[keyword]:[];
 
     // Determina lojas baseado no filtro selecionado
-    const buscaML=radarFilter==="Todas"||(radarFilter==="Mercado Livre");
-    const buscaShopee=radarFilter==="Todas"||(radarFilter==="Shopee");
+    const filtroIncluiML=radarFilter==="Todas"||radarFilter==="Mercado Livre";
+    const buscaShopee=radarFilter==="Todas"||radarFilter==="Shopee";
+    // ML: só dispara busca NOVA (gasta crédito Scrape.do) quando o usuário digitou algo específico.
+    // Sem palavra-chave, mostraria a mesma categoria do rodízio automático — não vale o crédito.
+    const buscaML=filtroIncluiML&&!!keyword;
+    const mlSemKeywordBloqueado=filtroIncluiML&&!keyword;
 
     let totalUpserts=0;
     let mlQuotaAtingida=false;
@@ -2457,7 +2461,9 @@ async function radarDispararBusca(){
     if(btn){btn.disabled=false;btn.textContent=labelOrig||"🔍 Buscar agora";}
     const lojaMsg=radarFilter==="Todas"?"":radarFilter+" ";
     const kwMsg=keyword?` para "${keyword}"`:"";
-    if(mlQuotaAtingida&&totalUpserts===0){
+    if(mlSemKeywordBloqueado&&!buscaShopee){
+      toast("Mercado Livre atualiza automaticamente 2x ao dia. Digite uma palavra-chave acima pra buscar algo específico agora.","ℹ️");
+    }else if(mlQuotaAtingida&&totalUpserts===0){
       toast("Exibindo as últimas ofertas do Mercado Livre já coletadas. Próxima atualização automática às 11h/19h. Para um produto específico agora, use Postar Agora com o link.","ℹ️");
     }else{
       toast(`${totalUpserts} ofertas ${lojaMsg}encontradas${kwMsg} 🛰️`,"🔥");
