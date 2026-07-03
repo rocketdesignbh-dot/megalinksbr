@@ -719,7 +719,10 @@ app.post('/ml-search', verifyToken, async (req, res) => {
 
     const results = [];
     const errors = [];
-    const expires = new Date(Date.now() + 6 * 3600 * 1000).toISOString();
+    // 5 dias de validade (nao 6h) — bate com o ciclo de rodizio de keywords no plano free do
+    // Scrape.do (1 categoria por rodada, volta completa a cada ~4 dias). Sem isso, categorias
+    // ainda nao re-buscadas no ciclo atual sumiriam do Radar entre uma coleta e outra.
+    const expires = new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString();
 
     await Promise.all(kws.map(async (kw) => {
         try {
