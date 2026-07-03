@@ -683,6 +683,7 @@ function hideLoading(){
             <button class="btn btn-volt" onclick="prBuscarProduto()" id="prBtnBuscar" style="flex:none;white-space:nowrap">🔍 Buscar</button>
           </div>
           <small style="color:var(--mut);display:block;margin-top:5px">Cole o link e buscamos os dados automaticamente — ideal para divulgar uma oferta específica agora mesmo.</small>
+          <span id="prMlQuotaStatus" class="pill" style="font-size:10.5px;display:none;margin-top:8px"></span>
         </div>
         <div class="field">
           <label>Loja / Programa de afiliado</label>
@@ -1958,6 +1959,7 @@ function go(page){
   document.querySelectorAll(".nav-cta").forEach(n=>n.classList.toggle("active",n.dataset.page===page));
   window.scrollTo({top:0});closeDD();
   if(page==="adm-fila") startQueue(); else stopQueue();
+  if(page!=="post-relampago"&&typeof pararStatusPostarML==="function")pararStatusPostarML();
   // Hook: se entrou no Post Relâmpago via Radar, carrega a oferta pré-selecionada
   if(page==="post-relampago"&&window.PR_PRE_FROM_RADAR&&typeof prCarregarOfertaDoRadar==="function"){
     setTimeout(()=>prCarregarOfertaDoRadar(),50);
@@ -5817,6 +5819,53 @@ async function prBuscarProduto(){
 
 // Auto-busca: dispara a busca automaticamente ao colar/digitar um link válido
 let _prBuscarTimer=null;
+// Indicador de quota MANUAL (Postar Agora → link de Mercado Livre). Bucket separado do
+// indicador do Radar (batch) — reflete profiles.scrape_do_token + o teto compartilhado.
+const PR_ML_MANUAL_DAILY_CAP=40; // sincronizado com o default da Edge Function product-search
+const PR_ML_MANUAL_REQUEST_COST=20; // pior caso: 2 requisições x 10 créditos
+let _prMlStatusInterval=null;
+function pararStatusPostarML(){
+  if(_prMlStatusInterval){clearInterval(_prMlStatusInterval);_prMlStatusInterval=null;}
+}
+async function atualizarStatusPostarML(){
+  const el=document.getElementById("prMlQuotaStatus");
+  if(!el)return;
+  pararStatusPostarML();
+  try{
+    // Se o usuário tem token pessoal do Scrape.do conectado, não há limite da plataforma
+    if(CURRENT_USER?.id){
+      const{data:prof}=await SB.from("profiles").select("scrape_do_token").eq("id",CURRENT_USER.id).maybeSingle();
+      if(prof?.scrape_do_token){
+        el.style.display="inline-flex";
+        el.className="pill ml-status-green";
+        el.textContent="🟢 Buscas ilimitadas (seu token Scrape.do)";
+        el.title="Você tem um token pessoal do Scrape.do conectado — suas buscas de Mercado Livre não usam a cota compartilhada.";
+        return;
+      }
+    }
+    const{data}=await SB.rpc("get_radar_ml_quota_status");
+    const q=Array.isArray(data)?data[0]:data;
+    const hoje=Number(q?.today_manual||0);
+    const restante=PR_ML_MANUAL_DAILY_CAP-hoje;
+    if(restante>=PR_ML_MANUAL_REQUEST_COST){
+      el.style.display="inline-flex";
+      el.className="pill ml-status-green";
+      el.textContent="🟢 Busca automática disponível";
+    }else{
+      const alvo=_proximaMeiaNoiteBRT();
+      const tick=()=>{
+        const diff=alvo.getTime()-Date.now();
+        if(diff<=0){atualizarStatusPostarML();return;}
+        const h=Math.floor(diff/3600000),m=Math.floor((diff%3600000)/60000),s=Math.floor((diff%60000)/1000);
+        el.style.display="inline-flex";
+        el.className="pill ml-status-red";
+        el.textContent=`🔴 Limite do dia atingido — libera em ${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}. Preencha manualmente ou conecte seu token em Config Afiliados.`;
+      };
+      tick();
+      _prMlStatusInterval=setInterval(tick,1000);
+    }
+  }catch(e){console.warn("atualizarStatusPostarML:",e);}
+}
 function prDetectLojaFromUrl(link){
   if(!link)return null;
   const l=link.toLowerCase();
@@ -5834,9 +5883,19 @@ function prAutoBuscar(){
   clearTimeout(_prBuscarTimer);
   _prBuscarTimer=setTimeout(()=>{
     const link=document.getElementById("prLink")?.value.trim()||"";
-    if(!link||!/^https?:\/\//i.test(link))return;
+    if(!link||!/^https?:\/\//i.test(link)){
+      const st=document.getElementById("prMlQuotaStatus");
+      if(st){st.style.display="none";pararStatusPostarML();}
+      return;
+    }
     // Auto-detecta a loja pelo link
     const lojaDetectada=prDetectLojaFromUrl(link);
+    if(lojaDetectada==="Mercado Livre"){
+      atualizarStatusPostarML();
+    }else{
+      const st=document.getElementById("prMlQuotaStatus");
+      if(st){st.style.display="none";pararStatusPostarML();}
+    }
     if(lojaDetectada&&PR.loja!==lojaDetectada){
       prSelectLoja(lojaDetectada);
       const st=document.getElementById("prBuscarStatus");
