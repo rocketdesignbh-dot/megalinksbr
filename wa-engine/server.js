@@ -849,10 +849,64 @@ app.post('/ml-search', verifyToken, async (req, res) => {
     res.json({ ok: true, total: unique.length, results: unique, errors });
 });
 
-// ── /ml-product  (busca dados de produto ML via API JSON + Scrape.do) ──────
-// Aceita opcionalmente ?userScrapeToken=... — se enviado, usa o token pessoal
-// do usuário (dele, na conta dele do Scrape.do) em vez do token compartilhado
-// da plataforma. Isso permite que cada usuário traga seu próprio crédito.
+// ── Failover de tokens Scrape.do ───────────────────────────────────────────
+// O Scrape.do sinaliza "sem créditos / assinatura suspensa" com HTTP 401 — e esse
+// 401 NÃO consome crédito (fonte: doc oficial de status codes). Então é seguro
+// tentar o próximo token quando o atual retorna 401. Já 200/404 consomem crédito.
+// Ordem de tentativa: token pessoal PRIMÁRIO → token pessoal BACKUP → token da
+// PLATAFORMA (compartilhado). Retorna o HTML e qual token funcionou.
+async function scrapeDoWithFailover(targetUrl, tokens) {
+    // tokens: array de { token, label }. Remove vazios e duplicados preservando ordem.
+    const seen = new Set();
+    const candidates = tokens.filter(t => {
+        const v = (t.token || '').trim();
+        if (!v || seen.has(v)) return false;
+        seen.add(v);
+        return true;
+    });
+
+    let lastStatus = 0;
+    for (const { token, label } of candidates) {
+        const scrapeUrl = `https://api.scrape.do?token=${token}&url=${encodeURIComponent(targetUrl)}&geoCode=br&super=true`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
+        let r;
+        try {
+            r = await fetch(scrapeUrl, { signal: controller.signal });
+        } catch (e) {
+            clearTimeout(timeout);
+            console.warn(`[scrape.do:${label}] erro de rede: ${e.name === 'AbortError' ? 'timeout' : e.message} — tentando próximo token`);
+            lastStatus = -1;
+            continue;
+        }
+        clearTimeout(timeout);
+        lastStatus = r.status;
+
+        // 401 = sem crédito nesse token (não consome). Tenta o próximo.
+        if (r.status === 401) {
+            console.log(`[scrape.do:${label}] 401 (sem crédito) — failover para o próximo token`);
+            continue;
+        }
+        // 429 = throttle temporário (não é esgotamento). Tenta o próximo mesmo assim.
+        if (r.status === 429) {
+            console.log(`[scrape.do:${label}] 429 (throttle) — tentando próximo token`);
+            continue;
+        }
+        if (!r.ok) {
+            console.warn(`[scrape.do:${label}] HTTP ${r.status} — tentando próximo token`);
+            continue;
+        }
+        const html = await r.text();
+        console.log(`[scrape.do:${label}] 200 OK — token utilizado`);
+        return { ok: true, html, tokenUsed: label };
+    }
+    return { ok: false, html: null, tokenUsed: null, lastStatus };
+}
+
+// ── /ml-product  (busca dados de produto ML via Scrape.do com failover de tokens) ──
+// Aceita opcionalmente ?userScrapeToken=... (primário) e ?userScrapeToken2=... (backup).
+// Cada usuário traz seu próprio crédito; quando o primário esgota (401), usa o backup;
+// se ambos esgotarem (ou não houver token pessoal), cai no token compartilhado da plataforma.
 app.get('/ml-product', verifyToken, async (req, res) => {
     const url = (req.query.url || '').trim();
     if (!url) return res.status(400).json({ ok: false, error: 'url obrigatório' });
@@ -865,27 +919,41 @@ app.get('/ml-product', verifyToken, async (req, res) => {
     if (!mlb) return res.status(400).json({ ok: false, error: 'MLB ID não encontrado no link' });
 
     const userToken = (req.query.userScrapeToken || '').trim();
-    const SCRAPE_TOKEN = userToken || process.env.SCRAPE_DO_TOKEN || '';
-    const usingPersonalToken = !!userToken;
+    const userToken2 = (req.query.userScrapeToken2 || '').trim();
+    const platformToken = process.env.SCRAPE_DO_TOKEN || '';
+    const usingPersonalToken = !!(userToken || userToken2);
+
+    // Ordem de failover: primário do usuário → backup do usuário → plataforma
+    const tokenChain = [
+        { token: userToken, label: 'primario' },
+        { token: userToken2, label: 'backup' },
+        { token: platformToken, label: 'plataforma' },
+    ];
+    if (!tokenChain.some(t => (t.token || '').trim())) {
+        return res.status(400).json({ ok: false, error: 'Nenhum token Scrape.do disponível' });
+    }
 
     // NOTA: removida a tentativa via api.mercadolibre.com/items SEM super=true (residencial) —
     // confirmado repetidamente que o ML bloqueia esse tipo de acesso (502/403), sempre falha.
     // Vai direto pro scraping HTML com super=true, que e o que realmente funciona.
-
-    // scraping HTML da página de produto via Scrape.do (proxy residencial)
     try {
         const targetUrl = `https://www.mercadolivre.com.br/p/MLB${mlb}`;
-        const scrapeUrl = `https://api.scrape.do?token=${SCRAPE_TOKEN}&url=${encodeURIComponent(targetUrl)}&geoCode=br&super=true`;
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000);
-        const r = await fetch(scrapeUrl, { signal: controller.signal });
-        clearTimeout(timeout);
+        const scrape = await scrapeDoWithFailover(targetUrl, tokenChain);
 
-        if (!r.ok) return res.json({ ok: false, error: `Scrape.do HTTP ${r.status}` });
+        if (!scrape.ok) {
+            // Todos os tokens esgotados/falharam. 401 em todos = sem crédito em lugar nenhum.
+            const semCredito = scrape.lastStatus === 401;
+            return res.json({
+                ok: false,
+                error: semCredito
+                    ? 'Créditos do Scrape.do esgotados em todos os tokens. Cadastre um token de contingência ou aguarde a renovação.'
+                    : `Scrape.do falhou (HTTP ${scrape.lastStatus})`,
+                creditsExhausted: semCredito,
+            });
+        }
 
-        const html = await r.text();
         const cheerio = require('cheerio');
-        const $ = cheerio.load(html);
+        const $ = cheerio.load(scrape.html);
 
         const title = ($('h1.ui-pdp-title').first().text().trim()
             || $('h1').first().text().trim()
@@ -905,12 +973,13 @@ app.get('/ml-product', verifyToken, async (req, res) => {
 
         if (!title) return res.json({ ok: false, error: 'Produto não encontrado (antibot). Preencha manualmente.' });
 
-        console.log(`[ml-product] HTML scraping OK: ${title.slice(0, 50)}`);
+        console.log(`[ml-product] HTML scraping OK via token '${scrape.tokenUsed}': ${title.slice(0, 50)}`);
         return res.json({ ok: true, name: title, title, image,
             price_to: priceTo ? String(priceTo) : undefined,
             price_from: priceFrom ? String(priceFrom) : undefined,
             discount_pct: discPct || undefined,
             usingPersonalToken,
+            tokenUsed: scrape.tokenUsed,
         });
     } catch (e) {
         const msg = e.name === 'AbortError' ? 'Timeout buscando produto ML' : e.message;
