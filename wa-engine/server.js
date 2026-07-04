@@ -197,8 +197,12 @@ async function connectSession(sessionId, authPath, phoneNumber = null, isReconne
                         if (otherSession.timeout) clearTimeout(otherSession.timeout);
                         SESSIONS.delete(otherId);
                         RECONNECT_ATTEMPTS.delete(otherId);
-                        // Remove auth files da sessão duplicada
-                        if (otherSession.authPath) fs.remove(otherSession.authPath).catch(() => {});
+                        // Remove auth files da duplicada APENAS se for uma pasta diferente da
+                        // sessão que está conectando agora. Se for o MESMO authPath (caso de
+                        // restauração), apagar destruiria a credencial da sessão viva (ENOENT em loop).
+                        if (otherSession.authPath && otherSession.authPath !== authPath) {
+                            fs.remove(otherSession.authPath).catch(() => {});
+                        }
                     }
                 }
             }
@@ -244,8 +248,11 @@ async function connectSession(sessionId, authPath, phoneNumber = null, isReconne
                 console.log(`[CONFLICT] Sessão ${sessionId} substituída por outra sessão. Não reconectar.`);
                 SESSIONS.delete(sessionId);
                 RECONNECT_ATTEMPTS.delete(sessionId);
-                // Remove auth files da sessão perdedora
-                await fs.remove(authPath).catch(() => {});
+                // IMPORTANTE: NÃO apagar a pasta de auth aqui.
+                // O 440 é protocolo normal do WhatsApp (multi-device / reconexão após restart).
+                // A credencial continua VÁLIDA — apagá-la invalidava a própria sessão que
+                // sobrevive (mesmo authPath restaurado), causando ENOENT em loop no saveCreds
+                // e "conexão expirada" no próximo restart. Só removemos a pasta em loggedOut real.
                 return;
             }
 
