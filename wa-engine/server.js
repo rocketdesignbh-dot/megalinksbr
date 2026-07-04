@@ -127,7 +127,14 @@ async function connectSession(sessionId, authPath, phoneNumber = null, isReconne
         keepAliveIntervalMs: 25000, // heartbeat para manter conexão viva
     });
 
-    socket.ev.on('creds.update', saveCreds);
+    // Wrapper defensivo: se a pasta de auth foi removida (ex.: após conflito 440),
+    // o Baileys ainda pode emitir um último creds.update. Sem esse try/catch, o
+    // saveCreds joga ENOENT NÃO TRATADO e derruba o processo inteiro (todos os
+    // endpoints passam a dar 404 até o container reiniciar).
+    socket.ev.on('creds.update', async () => {
+        try { await saveCreds(); }
+        catch (e) { console.warn(`[CREDS] Falha ao salvar creds de ${sessionId} (ignorado): ${e.code || e.message}`); }
+    });
 
     // Cria ou atualiza entrada no Map
     if (!SESSIONS.has(sessionId)) {
@@ -991,6 +998,20 @@ Autenticação: Bearer token (WA_ENGINE_TOKEN)
 function generateSessionId() {
     return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
+
+// ============ REDE DE SEGURANÇA GLOBAL ============
+// Impede que um erro assíncrono não capturado (ex.: ENOENT ao salvar creds de uma
+// sessão cuja pasta foi removida por conflito 440, ou qualquer falha do Baileys)
+// derrube o processo inteiro. Sem isso, o container cai e TODOS os endpoints
+// (/groups, /reconnect, /ml-product, etc.) retornam 404 até reiniciar.
+process.on('uncaughtException', (err) => {
+    console.error(`[UNCAUGHT] ${err?.code || ''} ${err?.message || err}`);
+    if (err?.stack) console.error(err.stack);
+    // NÃO chama process.exit — mantém o servidor HTTP de pé.
+});
+process.on('unhandledRejection', (reason) => {
+    console.error(`[UNHANDLED_REJECTION] ${reason?.code || ''} ${reason?.message || reason}`);
+});
 
 startup();
 
