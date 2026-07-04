@@ -850,7 +850,11 @@ app.get('/ml-product', verifyToken, async (req, res) => {
     const url = (req.query.url || '').trim();
     if (!url) return res.status(400).json({ ok: false, error: 'url obrigatório' });
 
-    const mlb = url.match(/MLB[-_]?(\d+)/i)?.[1];
+    // Tenta no path; se não achar, busca no query string item_id=MLBxxxxxxx (URLs tipo /up/MLBU...)
+    const pathMatch = url.match(/MLB[-_]?(\d+)/i);
+    const mlb = pathMatch?.[1] ?? (() => {
+        try { const qs = new URL(url).searchParams.get('item_id') ?? ''; return qs.match(/MLB[-_]?(\d+)/i)?.[1] ?? null; } catch { return null; }
+    })();
     if (!mlb) return res.status(400).json({ ok: false, error: 'MLB ID não encontrado no link' });
 
     const userToken = (req.query.userScrapeToken || '').trim();
