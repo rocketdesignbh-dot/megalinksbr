@@ -4442,14 +4442,24 @@ async function mlImportarLink(){
     });
     const d=await r.json();
     if(!d||(!d.title&&!d.name)){toast("Não foi possível extrair dados. Preencha manualmente.","⚠️");return;}
-    const precoAtual=d.price_to||d.price||null;
-    const precoOrig=d.price_from||d.price_original||null;
+    // Normaliza os preços que vieram do backend
+    let precoAtual=d.price_to||d.price||null;
+    let precoOrig=d.price_from||d.price_original||null;
+    const desc=d.discount_pct?Number(d.discount_pct):null;
+    // Deriva o preço que faltar, usando o desconto (quando só um dos dois veio)
+    if(precoAtual&&!precoOrig&&desc&&desc>0&&desc<100){
+      precoOrig=Math.round((Number(precoAtual)/(1-desc/100))*100)/100; // original = atual / (1 - desc%)
+    }else if(precoOrig&&!precoAtual&&desc&&desc>0&&desc<100){
+      precoAtual=Math.round((Number(precoOrig)*(1-desc/100))*100)/100; // atual = original * (1 - desc%)
+    }
+    console.log("[ML preços] price_to:",d.price_to,"price_from:",d.price_from,"desc:",d.discount_pct,"→ atual:",precoAtual,"orig:",precoOrig);
     window._mlImportData={title:d.title||d.name,price:precoAtual,price_original:precoOrig,affiliate_url:link,image_url:d.image||d.thumbnail||d.image_url,discount_pct:d.discount_pct||null};
     // Preenche automaticamente os campos de preço (o usuário ainda pode ajustar)
     const inpOrig=document.getElementById("mlLinkPrecoOrig");
     const inpAtual=document.getElementById("mlLinkPrecoAtual");
-    if(inpOrig&&precoOrig)inpOrig.value=String(precoOrig).replace(".",",");
-    if(inpAtual&&precoAtual)inpAtual.value=String(precoAtual).replace(".",",");
+    const fmt=v=>String(v).replace(".",",");
+    if(inpOrig&&precoOrig)inpOrig.value=fmt(precoOrig);
+    if(inpAtual&&precoAtual)inpAtual.value=fmt(precoAtual);
     const body=document.getElementById("mlImportBody");
     const prev=document.getElementById("mlImportPreview");
     if(body)body.innerHTML=`<div class="prod" style="align-items:center">
