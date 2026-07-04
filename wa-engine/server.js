@@ -936,12 +936,37 @@ app.get('/ml-product', verifyToken, async (req, res) => {
     // NOTA: removida a tentativa via api.mercadolibre.com/items SEM super=true (residencial) —
     // confirmado repetidamente que o ML bloqueia esse tipo de acesso (502/403), sempre falha.
     // Vai direto pro scraping HTML com super=true, que e o que realmente funciona.
+    // Monta as URLs-alvo a tentar, em ordem. A URL ORIGINAL do usuário (se for uma página
+    // de produto do ML) vem primeiro — muitos anúncios não têm página de catálogo /p/MLB,
+    // e forçar /p/ levava a uma página sem os seletores => "não extrai". O /p/MLB fica como
+    // fallback (bom para links de catálogo ou URLs sem o slug do produto).
+    const originalUrl = url;
+    const isMlProductPage = /mercadolivre\.com|mercadolibre\.com/i.test(originalUrl)
+        && /(\/MLB-?\d+|\/p\/MLB|\/up\/)/i.test(originalUrl);
+    const catalogUrl = `https://www.mercadolivre.com.br/p/MLB${mlb}`;
+    const targetUrls = [];
+    if (isMlProductPage) targetUrls.push(originalUrl);
+    if (!targetUrls.includes(catalogUrl)) targetUrls.push(catalogUrl);
+
     try {
-        const targetUrl = `https://www.mercadolivre.com.br/p/MLB${mlb}`;
-        const scrape = await scrapeDoWithFailover(targetUrl, tokenChain);
+        let scrape = { ok: false, html: null, tokenUsed: null, lastStatus: 0 };
+        let title = '';
+        let $ = null;
+        // Tenta cada URL-alvo até extrair um título válido
+        for (const targetUrl of targetUrls) {
+            scrape = await scrapeDoWithFailover(targetUrl, tokenChain);
+            if (!scrape.ok) continue;
+            const cheerio = require('cheerio');
+            $ = cheerio.load(scrape.html);
+            title = ($('h1.ui-pdp-title').first().text().trim()
+                || $('h1').first().text().trim()
+                || $('meta[property="og:title"]').attr('content')?.trim()
+                || '').slice(0, 200);
+            if (title) { console.log(`[ml-product] título OK em ${targetUrl.slice(0, 60)}`); break; }
+            console.log(`[ml-product] sem título em ${targetUrl.slice(0, 60)} — tentando próxima URL`);
+        }
 
         if (!scrape.ok) {
-            // Todos os tokens esgotados/falharam. 401 em todos = sem crédito em lugar nenhum.
             const semCredito = scrape.lastStatus === 401;
             return res.json({
                 ok: false,
@@ -952,13 +977,7 @@ app.get('/ml-product', verifyToken, async (req, res) => {
             });
         }
 
-        const cheerio = require('cheerio');
-        const $ = cheerio.load(scrape.html);
-
-        const title = ($('h1.ui-pdp-title').first().text().trim()
-            || $('h1').first().text().trim()
-            || $('meta[property="og:title"]').attr('content')?.trim()
-            || '').slice(0, 200);
+        if (!title || !$) return res.json({ ok: false, error: 'Produto não encontrado (antibot). Preencha manualmente.' });
 
         const image = $('figure.ui-pdp-gallery__figure img').first().attr('data-zoom')
             || $('figure.ui-pdp-gallery__figure img').first().attr('src')
@@ -970,8 +989,6 @@ app.get('/ml-product', verifyToken, async (req, res) => {
         const priceFrom = origText ? parseFloat(origText) : null;
         const discPct = priceFrom && priceTo && priceFrom > priceTo
             ? Math.round((1 - priceTo / priceFrom) * 100) : null;
-
-        if (!title) return res.json({ ok: false, error: 'Produto não encontrado (antibot). Preencha manualmente.' });
 
         console.log(`[ml-product] HTML scraping OK via token '${scrape.tokenUsed}': ${title.slice(0, 50)}`);
         return res.json({ ok: true, name: title, title, image,
