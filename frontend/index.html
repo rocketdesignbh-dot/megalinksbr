@@ -1101,12 +1101,13 @@ function hideLoading(){
 
     <!-- Scrape.do pessoal (buscas de Mercado Livre sem limite compartilhado) -->
     <div class="card" style="margin-top:20px">
-      <div class="ch">🚀 Buscas de Mercado Livre sem limite</div>
+      <div class="ch">🚀 Buscas de Mercado Livre com seu próprio crédito</div>
       <div class="cb">
         <p style="font-size:12.5px;color:var(--mut);margin:0 0 12px">
           O <strong>Mercado Livre</strong> bloqueia buscas automatizadas sem um proxy — por isso usamos o serviço <strong>Scrape.do</strong>.
           Por padrão, você usa a cota compartilhada da plataforma (com um limite diário para garantir acesso a todos).
-          Conecte seu <strong>próprio token do Scrape.do</strong> (grátis para começar) e suas buscas de Mercado Livre deixam de ter esse limite.
+          Conecte seu <strong>próprio token do Scrape.do</strong> (o plano grátis já vem com créditos mensais) e suas buscas de Mercado Livre passam a usar o <strong>seu crédito</strong>, sem depender da cota compartilhada.
+          <br><small style="opacity:.8">💡 O plano grátis do Scrape.do tem um limite mensal de créditos. Cadastre também um <strong>token de contingência</strong> (2ª conta) para não parar quando o crédito do principal acabar.</small>
           <br><small style="opacity:.8">Não é necessário para Shopee ou as demais lojas — elas já funcionam sem isso.</small>
         </p>
         <div class="field" style="margin:0 0 10px"><label>Token principal do Scrape.do</label>
@@ -5966,14 +5967,17 @@ async function atualizarStatusQuotaML(elId){
   pararStatusQuotaML();
   _mlQuotaStatusElId=elId;
   try{
-    // Se o usuário tem token pessoal do Scrape.do conectado, não há limite da plataforma
+    // Se o usuário tem token pessoal do Scrape.do conectado, usa o crédito dele (não a cota da plataforma)
     if(CURRENT_USER?.id){
-      const{data:prof}=await SB.from("profiles").select("scrape_do_token").eq("id",CURRENT_USER.id).maybeSingle();
+      const{data:prof}=await SB.from("profiles").select("scrape_do_token,scrape_do_token_2").eq("id",CURRENT_USER.id).maybeSingle();
       if(prof?.scrape_do_token){
+        const temBackup=!!prof?.scrape_do_token_2;
         el.style.display="inline-flex";
         el.className="pill ml-status-green";
-        el.textContent="🟢 Buscas ilimitadas (seu token Scrape.do)";
-        el.title="Você tem um token pessoal do Scrape.do conectado — suas buscas de Mercado Livre não usam a cota compartilhada.";
+        el.textContent=temBackup?"🟢 Seu token Scrape.do (+ backup)":"🟢 Seu token Scrape.do";
+        el.title=temBackup
+          ?"Você usa seu próprio crédito Scrape.do. Quando o principal esgotar, o token de contingência entra automaticamente."
+          :"Você usa seu próprio crédito Scrape.do (não a cota compartilhada). Dica: cadastre um token de contingência em Config Afiliados para não parar quando o crédito acabar.";
         return;
       }
     }
