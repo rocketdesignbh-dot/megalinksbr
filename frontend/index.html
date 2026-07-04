@@ -4552,7 +4552,24 @@ async function prodImportarLink(){
     });
     const d=await r.json();
     if(!d||(!d.title&&!d.name)){toast("Não foi possível extrair dados do produto.","⚠️");return;}
-    _prodImportData={title:d.title||d.name||d.name,price:d.price||d.price_to||d.price_from,affiliate_url:link,image_url:d.image||d.thumbnail||d.image_url,discount_pct:d.discount_pct||d.discount||null};
+    // Normaliza os preços do backend e deriva o que faltar usando o desconto
+    let precoAtual=d.price_to||d.price||null;
+    let precoOrig=d.price_from||d.price_original||null;
+    const desc=d.discount_pct?Number(d.discount_pct):(d.discount?Number(d.discount):null);
+    if(precoAtual&&!precoOrig&&desc&&desc>0&&desc<100){
+      precoOrig=Math.round((Number(precoAtual)/(1-desc/100))*100)/100;
+    }else if(precoOrig&&!precoAtual&&desc&&desc>0&&desc<100){
+      precoAtual=Math.round((Number(precoOrig)*(1-desc/100))*100)/100;
+    }
+    console.log("[prod preços] price_to:",d.price_to,"price_from:",d.price_from,"desc:",d.discount_pct,"→ atual:",precoAtual,"orig:",precoOrig);
+    _prodImportData={title:d.title||d.name,price:precoAtual,price_original:precoOrig,affiliate_url:link,image_url:d.image||d.thumbnail||d.image_url,discount_pct:desc||null};
+    // Preenche automaticamente os campos de preço (o usuário ainda pode ajustar)
+    const inpOrig=document.getElementById("prodLinkPrecoOrig");
+    const inpAtual=document.getElementById("prodLinkPrecoAtual");
+    const fmt=v=>String(v).replace(".",",");
+    if(inpOrig&&precoOrig)inpOrig.value=fmt(precoOrig);
+    if(inpAtual&&precoAtual)inpAtual.value=fmt(precoAtual);
+    if(typeof prodCalcDesc==="function")try{prodCalcDesc();}catch(e){}
     const body=document.getElementById("prodImportBody");
     const prev=document.getElementById("prodImportPreview");
     if(body)body.innerHTML=`
