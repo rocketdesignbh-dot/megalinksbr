@@ -4398,7 +4398,14 @@ async function mlImportarLink(){
     });
     const d=await r.json();
     if(!d||(!d.title&&!d.name)){toast("Não foi possível extrair dados. Preencha manualmente.","⚠️");return;}
-    window._mlImportData={title:d.title||d.name,price:d.price||d.price_to,affiliate_url:link,image_url:d.image||d.thumbnail||d.image_url,discount_pct:d.discount_pct||null};
+    const precoAtual=d.price_to||d.price||null;
+    const precoOrig=d.price_from||d.price_original||null;
+    window._mlImportData={title:d.title||d.name,price:precoAtual,price_original:precoOrig,affiliate_url:link,image_url:d.image||d.thumbnail||d.image_url,discount_pct:d.discount_pct||null};
+    // Preenche automaticamente os campos de preço (o usuário ainda pode ajustar)
+    const inpOrig=document.getElementById("mlLinkPrecoOrig");
+    const inpAtual=document.getElementById("mlLinkPrecoAtual");
+    if(inpOrig&&precoOrig)inpOrig.value=String(precoOrig).replace(".",",");
+    if(inpAtual&&precoAtual)inpAtual.value=String(precoAtual).replace(".",",");
     const body=document.getElementById("mlImportBody");
     const prev=document.getElementById("mlImportPreview");
     if(body)body.innerHTML=`<div class="prod" style="align-items:center">
@@ -4423,7 +4430,7 @@ async function mlConfirmarImport(postarAgora=false){
   const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gid).order("position",{ascending:false}).limit(1).maybeSingle();
   const pos=(last?.position||0)+1;
   const row={
-    niche_group_id:gid,source:"link",position:pos,
+    niche_group_id:gid,source:"mercado_livre",position:pos,
     title:window._mlImportData?.title||"Produto ML",
     affiliate_url:link||window._mlImportData?.affiliate_url||"",
     image_url:window._mlImportData?.image_url||"",
@@ -4530,7 +4537,7 @@ async function prodConfirmarImport(postarAgora=false){
   const pos=(last?.position||0)+1;
 
   const row={
-    niche_group_id:gid,source:"link",position:pos,
+    niche_group_id:gid,source:marketplaceSourceFromLink(link||_prodImportData?.affiliate_url),position:pos,
     title:_prodImportData?.title||"",
     affiliate_url:link||_prodImportData?.affiliate_url||"",
     image_url:_prodImportData?.image_url||"",
@@ -6004,6 +6011,23 @@ function prDetectLojaFromUrl(link){
   if(l.includes("shein"))return "Shein";
   if(l.includes("natura"))return "Natura";
   return null;
+}
+
+// Mapeia um link (ou nome de loja) para um valor VÁLIDO do enum `marketplace` no banco.
+// Valores aceitos: shopee, amazon, aliexpress, magalu, mercado_livre, shein, natura, awin, terabyte, manual.
+// Nunca retorna algo fora do enum — o fallback seguro é "manual" (evita 400 Bad Request no insert).
+function marketplaceSourceFromLink(link){
+  const l=String(link||"").toLowerCase();
+  if(l.includes("shopee"))return "shopee";
+  if(l.includes("mercadolivre")||l.includes("mercadolibre")||l.includes("meli")||/mlb[-_]?\d/i.test(l))return "mercado_livre";
+  if(l.includes("amazon"))return "amazon";
+  if(l.includes("aliexpress"))return "aliexpress";
+  if(l.includes("magazineluiza")||l.includes("magalu"))return "magalu";
+  if(l.includes("shein"))return "shein";
+  if(l.includes("natura"))return "natura";
+  if(l.includes("awin"))return "awin";
+  if(l.includes("terabyte"))return "terabyte";
+  return "manual";
 }
 
 function prAutoBuscar(){
