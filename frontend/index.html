@@ -1109,11 +1109,11 @@ function hideLoading(){
           Conecte seu <strong>próprio token do Scrape.do</strong> (grátis para começar) e suas buscas de Mercado Livre deixam de ter esse limite.
           <br><small style="opacity:.8">Não é necessário para Shopee ou as demais lojas — elas já funcionam sem isso.</small>
         </p>
-        <div class="g2" style="gap:10px;align-items:end">
-          <div class="field" style="margin:0"><label>Seu token do Scrape.do</label>
-            <input id="scrapeDoTokenInput" placeholder="Cole aqui o token da sua conta Scrape.do" type="password"></div>
-          <button class="btn btn-volt btn-sm" onclick="salvarScrapeDoToken()">💾 Salvar token</button>
-        </div>
+        <div class="field" style="margin:0 0 10px"><label>Token principal do Scrape.do</label>
+          <input id="scrapeDoTokenInput" placeholder="Cole aqui o token da sua conta Scrape.do" type="password"></div>
+        <div class="field" style="margin:0 0 10px"><label>Token de contingência (backup) <small style="opacity:.7;font-weight:400">— opcional</small></label>
+          <input id="scrapeDoToken2Input" placeholder="Token de uma 2ª conta Scrape.do (usado quando o principal esgota)" type="password"></div>
+        <button class="btn btn-volt btn-sm" onclick="salvarScrapeDoToken()">💾 Salvar tokens</button>
         <p id="scrapeDoTokenStatus" style="font-size:12px;color:var(--mut);margin:10px 0 0"></p>
         <p style="font-size:12px;margin:8px 0 0"><a href="https://dashboard.scrape.do" target="_blank" rel="noopener">Criar conta grátis no Scrape.do →</a></p>
       </div>
@@ -1807,41 +1807,76 @@ function renderCupons(){
 /* Scrape.do pessoal — buscas de Mercado Livre sem limite compartilhado */
 async function carregarScrapeDoStatus(){
   const input=document.getElementById("scrapeDoTokenInput");
+  const input2=document.getElementById("scrapeDoToken2Input");
   const status=document.getElementById("scrapeDoTokenStatus");
   if(!input||!status||!CURRENT_USER?.id)return;
   try{
-    const{data,error}=await SB.from("profiles").select("scrape_do_token,scrape_do_connected_at").eq("id",CURRENT_USER.id).maybeSingle();
+    const{data,error}=await SB.from("profiles").select("scrape_do_token,scrape_do_token_2,scrape_do_connected_at").eq("id",CURRENT_USER.id).maybeSingle();
     if(error)throw error;
     if(data?.scrape_do_token){
       input.placeholder="•••••••••••••••••••••• (token salvo)";
       const dt=data.scrape_do_connected_at?new Date(data.scrape_do_connected_at).toLocaleDateString("pt-BR"):"";
-      status.innerHTML=`✅ Token conectado${dt?` desde ${dt}`:""}. Suas buscas de Mercado Livre não usam mais a cota compartilhada. <a href="#" onclick="removerScrapeDoToken();return false" style="color:var(--mut)">Remover</a>`;
+      const temBackup=!!data?.scrape_do_token_2;
+      if(input2)input2.placeholder=temBackup?"•••••••••••••••••••••• (backup salvo)":"Token de uma 2ª conta Scrape.do (usado quando o principal esgota)";
+      const backupMsg=temBackup
+        ?" 🔁 Token de contingência ativo — quando o principal esgotar, o backup entra automaticamente."
+        :" 💡 Dica: cadastre um token de contingência (2ª conta) para não parar quando o crédito do principal acabar.";
+      status.innerHTML=`✅ Token principal conectado${dt?` desde ${dt}`:""}. Suas buscas de Mercado Livre não usam mais a cota compartilhada.${backupMsg} <a href="#" onclick="removerScrapeDoToken();return false" style="color:var(--mut)">Remover tokens</a>`;
     }else{
       input.placeholder="Cole aqui o token da sua conta Scrape.do";
+      if(input2)input2.placeholder="Token de uma 2ª conta Scrape.do (usado quando o principal esgota)";
       status.textContent="Sem token pessoal conectado — suas buscas de Mercado Livre usam a cota compartilhada da plataforma.";
     }
   }catch(e){console.warn("carregarScrapeDoStatus:",e);}
 }
 async function salvarScrapeDoToken(){
   const input=document.getElementById("scrapeDoTokenInput");
+  const input2=document.getElementById("scrapeDoToken2Input");
   const token=(input?.value||"").trim();
-  if(!token){toast("Cole o token do Scrape.do primeiro.","⚠️");return;}
+  const token2=(input2?.value||"").trim();
   if(!CURRENT_USER?.id){toast("Sessão expirada.","⚠️");return;}
+
+  // Descobre o que já está salvo pra não sobrescrever com vazio quem só editou um campo
+  let jaTemPrincipal=false,jaTemBackup=false;
   try{
-    const{error}=await SB.from("profiles").update({scrape_do_token:token,scrape_do_connected_at:new Date().toISOString()}).eq("id",CURRENT_USER.id);
+    const{data}=await SB.from("profiles").select("scrape_do_token,scrape_do_token_2").eq("id",CURRENT_USER.id).maybeSingle();
+    jaTemPrincipal=!!data?.scrape_do_token;jaTemBackup=!!data?.scrape_do_token_2;
+  }catch(e){}
+
+  if(!token&&!jaTemPrincipal){toast("Cole ao menos o token principal do Scrape.do.","⚠️");return;}
+
+  const patch={};
+  if(token){patch.scrape_do_token=token;patch.scrape_do_connected_at=new Date().toISOString();}
+  if(token2)patch.scrape_do_token_2=token2;
+  if(!Object.keys(patch).length){toast("Nada para salvar — os campos estão vazios.","ℹ️");return;}
+
+  try{
+    const{error}=await SB.from("profiles").update(patch).eq("id",CURRENT_USER.id);
     if(error)throw error;
-    input.value="";
-    toast("Token do Scrape.do conectado! Suas buscas de ML agora são ilimitadas.","🚀");
+    if(input)input.value="";
+    if(input2)input2.value="";
+
+    const salvouBackupAgora=!!token2;
+    const temBackupNoFinal=salvouBackupAgora||jaTemBackup;
+    if(temBackupNoFinal){
+      toast("Tokens salvos! Contingência ativa — o backup entra sozinho quando o principal esgotar. 🚀","✅");
+    }else{
+      toast("Token principal salvo! Suas buscas de ML agora usam seu crédito. 🚀","✅");
+      // Aviso de contingência: orienta cadastrar a 2ª conta enquanto ainda há tempo
+      setTimeout(()=>{
+        toast("⚠️ Importante: quando o crédito deste token acabar, as buscas param. Crie uma 2ª conta no Scrape.do e cadastre o token de contingência acima para não ter interrupção.","⚠️");
+      },1200);
+    }
     carregarScrapeDoStatus();
   }catch(e){toast("Erro ao salvar: "+(e.message||""),"⛔");}
 }
 async function removerScrapeDoToken(){
   if(!CURRENT_USER?.id)return;
-  if(!confirm("Remover seu token pessoal do Scrape.do? Suas buscas de Mercado Livre voltam a usar a cota compartilhada."))return;
+  if(!confirm("Remover seus tokens pessoais do Scrape.do (principal e contingência)? Suas buscas de Mercado Livre voltam a usar a cota compartilhada."))return;
   try{
-    const{error}=await SB.from("profiles").update({scrape_do_token:null,scrape_do_connected_at:null}).eq("id",CURRENT_USER.id);
+    const{error}=await SB.from("profiles").update({scrape_do_token:null,scrape_do_token_2:null,scrape_do_connected_at:null}).eq("id",CURRENT_USER.id);
     if(error)throw error;
-    toast("Token removido.","🗑️");
+    toast("Tokens removidos.","🗑️");
     carregarScrapeDoStatus();
   }catch(e){toast("Erro ao remover: "+(e.message||""),"⛔");}
 }
