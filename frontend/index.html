@@ -1587,7 +1587,25 @@ function hideLoading(){
 <div class="mbg" id="modalGrupo"><div class="modal">
   <div class="mh">Novo Grupo de Oferta <button class="mx" onclick="closeModal('modalGrupo')">×</button></div>
   <div class="mb"><div class="field"><label>Nome do Grupo de Oferta</label><input id="inNomeGrupo" placeholder="ex.: Achadinhos da Semana"></div>
-    <div class="alert b" style="margin:0">💡 Nomeie pelo <strong>nicho</strong>. Cada Grupo de Oferta reúne canais, lojas e regras daquele nicho.</div></div>
+    <div class="field"><label>Nicho do grupo</label>
+      <select id="inNichoGrupo" onchange="onNichoChange()">
+        <option value="">Selecione o nicho…</option>
+        <option value="bebe">🍼 Bebê & Infantil</option>
+        <option value="casa">🏠 Casa & Decoração</option>
+        <option value="eletronicos">📱 Eletrônicos & Tech</option>
+        <option value="cozinha">🍳 Cozinha & Utilidades</option>
+        <option value="moda">👗 Moda & Acessórios</option>
+        <option value="beleza">💄 Beleza & Cuidados</option>
+        <option value="pet">🐾 Pet</option>
+        <option value="fitness">💪 Fitness & Esporte</option>
+        <option value="ferramentas">🔧 Ferramentas & Construção</option>
+        <option value="games">🎮 Games & Brinquedos</option>
+        <option value="outro">✨ Outro / Variados (sem nicho fixo)</option>
+      </select>
+    </div>
+    <div class="field" id="inNichoOutroWrap" style="display:none"><label>Nome do nicho / tema</label>
+      <input id="inNichoOutro" placeholder="ex.: Achadinhos, Ofertas do Dia, Variados"></div>
+    <div class="alert b" style="margin:0">💡 O nicho organiza seus grupos. <strong>"Outro / Variados"</strong> é pra quem quer misturar produtos de tudo no mesmo grupo. Cada Grupo de Oferta reúne canais, lojas e regras daquele tema.</div></div>
   <div class="mf"><button class="btn btn-ghost" onclick="closeModal('modalGrupo')">Cancelar</button><button class="btn btn-volt" id="btnSalvarGrupo">Criar Grupo de Oferta</button></div>
 </div></div>
 
@@ -1732,6 +1750,8 @@ async function loadGroups(){
       db_id:r.id,
       id:r.id,
       nome:r.name,
+      niche:r.niche||null,
+      niche_label:r.niche_label||null,
       postAuto:r.post_auto_enabled,
       produtos:0,
       grupos_wa:0,
@@ -3382,20 +3402,43 @@ function mostraQRStatus(emoji,titulo,sub,cor){
 }
 
 /* ================= GRUPOS ================= */
+// Mostra/oculta o campo de texto livre quando o nicho é "Outro"
+function onNichoChange(){
+  const sel=document.getElementById("inNichoGrupo");
+  const wrap=document.getElementById("inNichoOutroWrap");
+  if(!sel||!wrap)return;
+  wrap.style.display=sel.value==="outro"?"block":"none";
+}
 btnAddGrupo.onclick=()=>{if(S.grupos.length>=S.planLimit){const f=myFeatures();toast(`Limite do plano ${f.label} atingido (${S.planLimit} grupo${S.planLimit>1?"s":""}). Faça upgrade!`,"⚠️");go("assinatura");return;}
-  inNomeGrupo.value="";openModal("modalGrupo");setTimeout(()=>inNomeGrupo.focus(),60);};
+  inNomeGrupo.value="";
+  const selN=document.getElementById("inNichoGrupo");if(selN)selN.value="";
+  const outroN=document.getElementById("inNichoOutro");if(outroN)outroN.value="";
+  const wrapN=document.getElementById("inNichoOutroWrap");if(wrapN)wrapN.style.display="none";
+  openModal("modalGrupo");setTimeout(()=>inNomeGrupo.focus(),60);};
 btnSalvarGrupo.onclick=async()=>{const nome=inNomeGrupo.value.trim();if(!nome){toast("Informe o nome.","⚠️");return;}
+  const nicho=document.getElementById("inNichoGrupo")?.value||"";
+  const nichoOutro=(document.getElementById("inNichoOutro")?.value||"").trim();
+  if(!nicho){toast("Selecione o nicho do grupo.","⚠️");return;}
+  if(nicho==="outro"&&!nichoOutro){toast("Dê um nome ao nicho (ex.: Achadinhos).","⚠️");return;}
+  const nicheLabel=nicho==="outro"?nichoOutro:null;
   const uid=CURRENT_USER?.id;
   if(uid){
-    const{data,error}=await SB.from("niche_groups").insert({user_id:uid,name:nome,post_auto_enabled:false,interval_minutes:10}).select("id").single();
+    const{data,error}=await SB.from("niche_groups").insert({user_id:uid,name:nome,post_auto_enabled:false,interval_minutes:10,niche:nicho,niche_label:nicheLabel}).select("id").single();
     if(error){toast("Erro ao criar grupo.","❌");console.error(error);return;}
-    S.grupos.push({db_id:data.id,id:data.id,nome,postAuto:false,produtos:0,canais:0,intervalo:"N/A"});
+    S.grupos.push({db_id:data.id,id:data.id,nome,niche:nicho,niche_label:nicheLabel,postAuto:false,produtos:0,canais:0,intervalo:"N/A"});
   }else{
     const fakeId="local_"+Date.now();
-    S.grupos.push({id:fakeId,nome,postAuto:false,produtos:0,canais:0,intervalo:"N/A"});
+    S.grupos.push({id:fakeId,nome,niche:nicho,niche_label:nicheLabel,postAuto:false,produtos:0,canais:0,intervalo:"N/A"});
     lsSave("grupos",S.grupos);
   }
   closeModal("modalGrupo");renderGrupos();renderOnb();toast("Grupo de Oferta criado!");};
+// Traduz o slug do nicho no rótulo com emoji para exibição. Para "outro", usa o texto livre do usuário.
+const NICHO_LABELS={bebe:"🍼 Bebê",casa:"🏠 Casa",eletronicos:"📱 Eletrônicos",cozinha:"🍳 Cozinha",moda:"👗 Moda",beleza:"💄 Beleza",pet:"🐾 Pet",fitness:"💪 Fitness",ferramentas:"🔧 Ferramentas",games:"🎮 Games"};
+function nichoLabelBonito(g){
+  if(!g)return"";
+  if(g.niche==="outro")return"✨ "+(g.niche_label||"Variados");
+  return NICHO_LABELS[g.niche]||"";
+}
 function renderGrupos(){const has=S.grupos.length>0;
   gVazio.style.display=has?"none":"block";gTabela.style.display=has?"block":"none";pillCount.textContent=S.grupos.length+"/"+S.planLimit;
   const banner=document.getElementById("grupoStarterBanner");
@@ -3437,7 +3480,7 @@ function renderGrupos(){const has=S.grupos.length>0;
       <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--bd)">
         <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none">📢</div>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.nome}</div>
+          <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.nome}${nichoLabelBonito(g)?` <span style="font-size:10px;font-weight:600;color:var(--mut);background:var(--bg2,rgba(255,255,255,.05));padding:2px 7px;border-radius:6px;margin-left:4px;white-space:nowrap">${nichoLabelBonito(g)}</span>`:""}</div>
           <div style="font-size:11px;color:var(--mut);font-family:var(--mono)">ID: ${(g.db_id||g.id||"").toString().slice(0,8)}…</div>
         </div>
       </div>
