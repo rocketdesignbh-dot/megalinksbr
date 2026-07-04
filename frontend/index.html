@@ -1115,6 +1115,15 @@ function hideLoading(){
           <input id="scrapeDoToken2Input" placeholder="Token de uma 2ª conta Scrape.do (usado quando o principal esgota)" type="password"></div>
         <button class="btn btn-volt btn-sm" onclick="salvarScrapeDoToken()">💾 Salvar tokens</button>
         <p id="scrapeDoTokenStatus" style="font-size:12px;color:var(--mut);margin:10px 0 0"></p>
+        <div id="scrapeDoBackupAviso" style="display:none;margin:12px 0 0;padding:12px 14px;border:1px solid var(--volt);border-radius:10px;background:rgba(255,214,10,.08);position:relative">
+          <button onclick="document.getElementById('scrapeDoBackupAviso').style.display='none'" style="position:absolute;top:8px;right:10px;background:none;border:none;color:var(--mut);font-size:16px;cursor:pointer;line-height:1;padding:0" title="Fechar">✕</button>
+          <div style="font-size:12.5px;line-height:1.5;padding-right:20px">
+            <strong>⚠️ Importante — cadastre um token de contingência</strong><br>
+            Quando o crédito deste token principal acabar, suas buscas de Mercado Livre <strong>param</strong>.
+            Para não ter interrupção, crie uma <strong>segunda conta</strong> no Scrape.do (com outro e-mail) e cole o token dela no campo <em>"Token de contingência (backup)"</em> acima.
+            Assim, quando o principal esgotar, o backup entra <strong>automaticamente</strong>.
+          </div>
+        </div>
         <p style="font-size:12px;margin:8px 0 0"><a href="https://dashboard.scrape.do" target="_blank" rel="noopener">Criar conta grátis no Scrape.do →</a></p>
       </div>
     </div>
@@ -1818,6 +1827,9 @@ async function carregarScrapeDoStatus(){
       const dt=data.scrape_do_connected_at?new Date(data.scrape_do_connected_at).toLocaleDateString("pt-BR"):"";
       const temBackup=!!data?.scrape_do_token_2;
       if(input2)input2.placeholder=temBackup?"•••••••••••••••••••••• (backup salvo)":"Token de uma 2ª conta Scrape.do (usado quando o principal esgota)";
+      // Se já tem backup, garante que o aviso de contingência fique oculto
+      const aviso=document.getElementById("scrapeDoBackupAviso");
+      if(aviso&&temBackup)aviso.style.display="none";
       const backupMsg=temBackup
         ?" 🔁 Token de contingência ativo — quando o principal esgotar, o backup entra automaticamente."
         :" 💡 Dica: cadastre um token de contingência (2ª conta) para não parar quando o crédito do principal acabar.";
@@ -1858,14 +1870,14 @@ async function salvarScrapeDoToken(){
 
     const salvouBackupAgora=!!token2;
     const temBackupNoFinal=salvouBackupAgora||jaTemBackup;
+    const aviso=document.getElementById("scrapeDoBackupAviso");
     if(temBackupNoFinal){
       toast("Tokens salvos! Contingência ativa — o backup entra sozinho quando o principal esgotar. 🚀","✅");
+      if(aviso)aviso.style.display="none";
     }else{
       toast("Token principal salvo! Suas buscas de ML agora usam seu crédito. 🚀","✅");
-      // Aviso de contingência: orienta cadastrar a 2ª conta enquanto ainda há tempo
-      setTimeout(()=>{
-        toast("⚠️ Importante: quando o crédito deste token acabar, as buscas param. Crie uma 2ª conta no Scrape.do e cadastre o token de contingência acima para não ter interrupção.","⚠️");
-      },1200);
+      // Aviso persistente (fica na tela até o usuário fechar no X): orienta cadastrar a 2ª conta
+      if(aviso)aviso.style.display="block";
     }
     carregarScrapeDoStatus();
   }catch(e){toast("Erro ao salvar: "+(e.message||""),"⛔");}
