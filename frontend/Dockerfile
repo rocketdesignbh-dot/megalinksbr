@@ -1,6 +1,6 @@
 # Mega Links BR · Front-end estático (para EasyPanel "App" via Dockerfile)
 FROM nginx:alpine
-RUN echo "2026-06-29T15:00:00Z" > /dev/null
+RUN echo "2026-07-05T00:00:00Z" > /dev/null
 COPY index.html /usr/share/nginx/html/index.html
 COPY privacidade.html /usr/share/nginx/html/privacidade.html
 COPY termos.html /usr/share/nginx/html/termos.html
@@ -15,9 +15,10 @@ server {
   listen 80;
   root /usr/share/nginx/html;
 
+  # Short links — redireciona /r/{code} para a Edge Function redirect
   location /r/ {
     set $supabase_backend "nxlfezpagporealqqbfj.supabase.co";
-    rewrite ^/r/(.*)$ /functions/v1/redir/$1 break;
+    rewrite ^/r/(.*)$ /functions/v1/redirect/$1 break;
     proxy_pass https://$supabase_backend;
     proxy_set_header Host nxlfezpagporealqqbfj.supabase.co;
     proxy_ssl_server_name on;

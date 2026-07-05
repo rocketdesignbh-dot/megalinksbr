@@ -2029,47 +2029,63 @@ function spark(d,c){const w=86,h=30,mx=Math.max(...d),mn=Math.min(...d);
   return `<svg class="sp" width="${w}" height="${h}"><polyline points="${p}" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"/></svg>`;}
 kpiRow.innerHTML=[
   {l:"Cliques hoje",v:"—",d:"carregando…",c:"#19E27D",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
-  {l:"Posts enviados",v:"—",d:"carregando…",c:"#FFB020",s:[0,0,0,0,0,0,0,0,0,0,0,0]}
+  {l:"Cliques 14 dias",v:"—",d:"carregando…",c:"#39C0FF",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {l:"Posts enviados",v:"—",d:"carregando…",c:"#FFB020",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {l:"Links rastreados",v:"—",d:"carregando…",c:"#9B7DFF",s:[0,0,0,0,0,0,0,0,0,0,0,0]}
 ].map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv" id="kpi_${k.l.replace(/\s/g,'_')}">${k.v}</div><div class="kd" style="color:var(--mut)" id="kpid_${k.l.replace(/\s/g,'_')}">${k.d}</div>${spark(k.s,k.c)}</div>`).join("");
 
 async function loadAnalitico(){
   if(!SB||!CURRENT_USER?.id)return;
   const uid=CURRENT_USER.id;
   const hoje=new Date();hoje.setHours(0,0,0,0);
-  const hojeISO=hoje.toISOString();
-  // 14 dias para o gráfico
   const quatorze=new Date(hoje);quatorze.setDate(quatorze.getDate()-13);
+  const temRastreamento=planTemRastreamento();
+
+  // ── Posts enviados ──
   try{
-    // Posts enviados (status 'sent') nos últimos 14 dias
-    const{data:postsData,error:postsErr}=await SB
-      .from("scheduled_posts")
-      .select("sent_at,status")
-      .eq("user_id",uid)
-      .eq("status","sent")
+    const{data:postsData}=await SB
+      .from("scheduled_posts").select("sent_at")
+      .eq("user_id",uid).eq("status","sent")
       .gte("sent_at",quatorze.toISOString());
-    if(!postsErr&&postsData){
-      const totalPosts=postsData.length;
-      const postsHoje=postsData.filter(p=>p.sent_at&&new Date(p.sent_at)>=hoje).length;
-      // KPI Posts enviados
-      const elV=document.getElementById("kpi_Posts_enviados");
-      const elD=document.getElementById("kpid_Posts_enviados");
-      if(elV)elV.textContent=totalPosts.toLocaleString("pt-BR");
-      if(elD)elD.textContent="hoje: "+postsHoje+" · 14 dias";
-      // Gráfico: posts por dia (14 dias)
-      const dias=Array.from({length:14},(_,i)=>{const d=new Date(quatorze);d.setDate(d.getDate()+i);return d;});
-      const chartData=dias.map(d=>{
-        const next=new Date(d);next.setDate(next.getDate()+1);
-        return postsData.filter(p=>p.sent_at&&new Date(p.sent_at)>=d&&new Date(p.sent_at)<next).length;
-      });
-      const labels=dias.map(d=>d.getDate()+"/"+(d.getMonth()+1));
-      renderAnaliticoChart(chartData,labels,totalPosts,"posts");
-    }
+    const totalPosts=(postsData||[]).length;
+    const postsHoje=(postsData||[]).filter(p=>p.sent_at&&new Date(p.sent_at)>=hoje).length;
+    const elV=document.getElementById("kpi_Posts_enviados");
+    const elD=document.getElementById("kpid_Posts_enviados");
+    if(elV)elV.textContent=totalPosts.toLocaleString("pt-BR");
+    if(elD)elD.textContent="hoje: "+postsHoje+" · 14 dias";
+    // Gráfico de posts
+    const dias=Array.from({length:14},(_,i)=>{const d=new Date(quatorze);d.setDate(d.getDate()+i);return d;});
+    const chartData=dias.map(d=>{const next=new Date(d);next.setDate(next.getDate()+1);return (postsData||[]).filter(p=>p.sent_at&&new Date(p.sent_at)>=d&&new Date(p.sent_at)<next).length;});
+    renderAnaliticoChart(chartData,dias.map(d=>d.getDate()+"/"+(d.getMonth()+1)),totalPosts,"posts");
   }catch(e){console.warn("loadAnalitico posts:",e);}
-  // KPI Cliques (placeholder — tabela futura)
-  const elVC=document.getElementById("kpi_Cliques_hoje");
-  const elDC=document.getElementById("kpid_Cliques_hoje");
-  if(elVC)elVC.textContent="—";
-  if(elDC)elDC.textContent="em breve";
+
+  // ── Cliques (Elite/Infinity) ──
+  if(!temRastreamento){
+    // Gate visual para Starter/Pro
+    ["kpi_Cliques_hoje","kpi_Cliques_14_dias","kpi_Links_rastreados"].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.innerHTML='<span style="font-size:11px;color:var(--mut)">🔒 Elite+</span>';
+    });
+    ["kpid_Cliques_hoje","kpid_Cliques_14_dias","kpid_Links_rastreados"].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.textContent="disponível no plano Elite";
+    });
+    return;
+  }
+  try{
+    const{data:clickData}=await SB
+      .from("v_clicks_by_link").select("clicks_today,clicks_14d,code")
+      .eq("user_id",uid);
+    const rows=clickData||[];
+    const clicksHoje=rows.reduce((a,r)=>a+Number(r.clicks_today||0),0);
+    const clicks14=rows.reduce((a,r)=>a+Number(r.clicks_14d||0),0);
+    const linksAtivos=rows.length;
+    const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+    set("kpi_Cliques_hoje",clicksHoje.toLocaleString("pt-BR"));
+    set("kpid_Cliques_hoje","cliques hoje");
+    set("kpi_Cliques_14_dias",clicks14.toLocaleString("pt-BR"));
+    set("kpid_Cliques_14_dias","últimos 14 dias");
+    set("kpi_Links_rastreados",linksAtivos.toLocaleString("pt-BR"));
+    set("kpid_Links_rastreados","links ativos");
+  }catch(e){console.warn("loadAnalitico cliques:",e);}
 }
 
 function renderAnaliticoChart(data,labels,total,tipo){
@@ -6047,8 +6063,36 @@ function prGerarLinkAfil(link,loja){
   }catch(e){return link+"?ref="+id;}
 }
 
-// Encurta qualquer link via is.gd (gratuito, sem autenticação)
-async function mlEncurtarLink(longUrl){
+// Planos com rastreamento de cliques habilitado
+function planTemRastreamento(){
+  return ["elite","infinity"].includes(MY_PLAN);
+}
+
+// Gera um código aleatório de 7 chars
+function gerarCode(){
+  return Math.random().toString(36).slice(2,9);
+}
+
+// Encurta link: Elite/Infinity → short link próprio com rastreamento
+//               Starter/Pro    → is.gd sem rastreamento (fallback)
+async function mlEncurtarLink(longUrl, postRef){
+  // Elite/Infinity: grava no banco e retorna /r/{code}
+  if(planTemRastreamento()&&SB&&CURRENT_USER?.id){
+    try{
+      const code=gerarCode();
+      const{error}=await SB.from("short_links").insert({
+        code,
+        long_url:longUrl,
+        destination:longUrl,
+        user_id:CURRENT_USER.id,
+        post_ref:postRef||null
+      });
+      if(!error){
+        return `${window.location.origin}/r/${code}`;
+      }
+    }catch(e){console.warn("[short-link] erro no banco:",e.message);}
+  }
+  // Fallback: is.gd via Edge Function (Starter/Pro ou se banco falhou)
   try{
     const r=await fetch(`${SUPA_URL}/functions/v1/ml-short-link`,{
       method:"POST",
@@ -6056,9 +6100,7 @@ async function mlEncurtarLink(longUrl){
       body:JSON.stringify({url:longUrl})
     });
     const d=await r.json();
-    console.log("[encurtar] status:",r.status,"resposta:",JSON.stringify(d).slice(0,200));
-    if(d.ok&&d.short_url){return d.short_url;}
-    console.warn("[encurtar] falhou:",d.error);
+    if(d.ok&&d.short_url)return d.short_url;
     return null;
   }catch(e){console.warn("[encurtar] erro:",e.message);return null;}
 }
