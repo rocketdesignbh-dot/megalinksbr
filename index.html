@@ -6369,6 +6369,19 @@ async function prDisparar(){
   btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18"><path d="M13 2L4.5 13.5H11L10 22L19.5 10H13L13 2Z"/></svg> Disparar agora';
 
   if(ok>0){
+    // Grava na scheduled_posts para contagem no Analítico
+    try{
+      const uid=CURRENT_USER?.id;
+      if(uid&&SB){
+        const rows=[];
+        const agora=new Date().toISOString();
+        for(const g of grupos){
+          const gid=g.db_id||g.id;
+          rows.push({user_id:uid,group_id:gid,status:"sent",scheduled_for:agora,sent_at:agora});
+        }
+        if(rows.length)await SB.from("scheduled_posts").insert(rows);
+      }
+    }catch(e){console.warn("Erro ao registrar post no banco:",e);}
     // Tela de sucesso clara
     const step2=document.getElementById("prStep2");
     if(step2){
