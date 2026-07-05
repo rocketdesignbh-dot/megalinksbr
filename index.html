@@ -4896,19 +4896,28 @@ async function loadUsersFromDB(){
   try{
     const{data,error}=await SB.from("profiles").select("id,full_name,email,plan,sub_status,created_at,is_admin,is_vip").order("created_at",{ascending:false});
     if(error||!data)return;
+    // Busca contagens de grupos e canais por usuário
+    const[grpRes,chRes]=await Promise.allSettled([
+      SB.from("niche_groups").select("user_id"),
+      SB.from("whatsapp_channels").select("niche_group_id, niche_groups!inner(user_id)")
+    ]);
+    const grpData=grpRes.status==="fulfilled"&&!grpRes.value.error?(grpRes.value.data||[]):[];
+    const chData=chRes.status==="fulfilled"&&!chRes.value.error?(chRes.value.data||[]):[];
     USERS=data.map((r,i)=>{
       const f=planRow((r.plan||"starter").toLowerCase());
       const st=r.sub_status||"active";
-      // VIPs e admins não geram MRR (não pagam)
       const isVipOrAdmin=!!(r.is_vip||r.is_admin);
       const mrr=(!isVipOrAdmin&&st==="active")?Number(f.price_month):0;
+      const grupos=grpData.filter(g=>g.user_id===r.id).length;
+      const canais=chData.filter(c=>c.niche_groups?.user_id===r.id).length;
       return {id:r.id,nome:r.full_name||r.email||"Usuário",email:r.email||"",
         plano:(f.label||"Starter").toUpperCase(),
         status:st,mrr,
         is_vip:!!r.is_vip,is_admin:!!r.is_admin,
-        grupos:0,canais:0,entrou:r.created_at?new Date(r.created_at):new Date()};
+        grupos,canais,entrou:r.created_at?new Date(r.created_at):new Date(),
+        _idx:i};
     });
-  }catch(e){}
+  }catch(e){console.warn("loadUsersFromDB erro:",e);}
 }
 function fmtDate(d){return d.toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"numeric"});}
 async function loadPaymentsFromDB(){
@@ -4990,12 +4999,13 @@ async function refreshAdminVisao(){
 let usrFilter="todos";
 function renderUsers(){const q=usrSearch.value.toLowerCase();
   const list=USERS.filter(u=>(usrFilter==="todos"||u.status===usrFilter)&&(!q||(u.nome+u.email).toLowerCase().includes(q)));
-  usrBody.innerHTML=list.map((u,i)=>`<tr class="row-click" onclick="openUser(${u.id})"><td><div class="uflex"><span class="av-sm" style="background:${avColor(u.id)}">${u.nome[0]}</span><div><strong>${u.nome}</strong><br><small style="color:var(--mut)">${u.email}</small></div></div></td><td><span class="pill ${u.plano==="STARTER"?"gray":"sky"}">${u.plano}</span></td><td>${stPill(u.status)}</td><td>${u.mrr?"R$ "+brl(u.mrr):"—"}</td><td>${u.grupos}</td><td>${u.canais}</td><td style="color:var(--mut)">${fmtDate(u.entrou)}</td></tr>`).join("")||'<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:30px">Nenhum usuário encontrado.</td></tr>';
+  usrBody.innerHTML=list.map((u,i)=>`<tr class="row-click" onclick="openUser('${u.id}')"><td><div class="uflex"><span class="av-sm" style="background:${avColor(u._idx||i)}">${u.nome[0]}</span><div><strong>${u.nome}</strong><br><small style="color:var(--mut)">${u.email}</small></div></div></td><td><span class="pill ${u.plano==="STARTER"?"gray":"sky"}">${u.plano}</span></td><td>${stPill(u.status)}</td><td>${u.mrr?"R$ "+brl(u.mrr):"—"}</td><td>${u.grupos}</td><td>${u.canais}</td><td style="color:var(--mut)">${fmtDate(u.entrou)}</td></tr>`).join("")||'<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:30px">Nenhum usuário encontrado.</td></tr>';
   usrBadge.textContent=USERS.length;}
 usrSearch.addEventListener("input",renderUsers);
 document.querySelectorAll("#usrSeg button").forEach(b=>b.onclick=()=>{usrFilter=b.dataset.f;document.querySelectorAll("#usrSeg button").forEach(x=>x.classList.toggle("on",x===b));renderUsers();});
 function openUser(id){const u=USERS.find(x=>x.id===id);
-  userDetail.innerHTML=`<div class="mh"><div class="uflex"><span class="av-sm" style="background:${avColor(u.id)};width:38px;height:38px">${u.nome[0]}</span><div><div style="font-family:var(--disp)">${u.nome}</div><small style="color:var(--mut)">${u.email}</small></div></div><button class="mx" onclick="closeModal('modalUser')">×</button></div>
+  if(!u)return;
+  userDetail.innerHTML=`<div class="mh"><div class="uflex"><span class="av-sm" style="background:${avColor(u._idx||0)};width:38px;height:38px">${u.nome[0]}</span><div><div style="font-family:var(--disp)">${u.nome}</div><small style="color:var(--mut)">${u.email}</small></div></div><button class="mx" onclick="closeModal('modalUser')">×</button></div>
   <div class="mb"><div class="sgrid" style="grid-template-columns:repeat(3,1fr);margin:0 0 16px"><div class="stat"><div class="v">${u.plano}</div><div class="l">Plano</div></div><div class="stat"><div class="v">${u.mrr?"R$ "+brl(u.mrr):"—"}</div><div class="l">MRR</div></div><div class="stat"><div class="v">${u.grupos}</div><div class="l">Grupos</div></div></div>
   <div style="display:grid;gap:10px">
     <div class="qrow"><span>Status</span><span style="margin-left:auto">${stPill(u.status)}</span></div>
