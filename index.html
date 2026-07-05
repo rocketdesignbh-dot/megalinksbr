@@ -2003,6 +2003,8 @@ function go(page){
   if(page==="adm-instancias")setTimeout(()=>renderInstancias(),50);
   // Hook: ao entrar na Visão Geral, recarrega dados reais do banco
   if(page==="adm-visao")setTimeout(()=>{if(typeof SB!=="undefined"&&SB)refreshAdminVisao();},120);
+  // Hook: ao entrar no Analítico, carrega dados reais
+  if(page==="analitico")setTimeout(()=>{if(typeof SB!=="undefined"&&SB&&CURRENT_USER?.id)loadAnalitico();},120);
 }
 document.querySelectorAll(".nav").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
 document.querySelectorAll(".nav-cta").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
@@ -2026,25 +2028,64 @@ function spark(d,c){const w=86,h=30,mx=Math.max(...d),mn=Math.min(...d);
   const p=d.map((v,i)=>(i/(d.length-1)*w).toFixed(1)+","+(h-((v-mn)/(mx-mn||1))*(h-4)-2).toFixed(1)).join(" ");
   return `<svg class="sp" width="${w}" height="${h}"><polyline points="${p}" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"/></svg>`;}
 kpiRow.innerHTML=[
-  {l:"Cliques hoje",v:"0",d:"aguardando dados",up:1,c:"#19E27D",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
-  {l:"Comissões estimadas",v:"R$ 0,00",d:"aguardando dados",up:1,c:"#39C0FF",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
-  {l:"Posts enviados",v:"0",d:"aguardando dados",up:1,c:"#FFB020",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
-  {l:"CTR médio",v:"—",d:"aguardando dados",up:1,c:"#FF4D8D",s:[0,0,0,0,0,0,0,0,0,0,0,0]}
-].map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="kd" style="color:var(--mut)">${k.d}</div>${spark(k.s,k.c)}</div>`).join("");
+  {l:"Cliques hoje",v:"—",d:"carregando…",c:"#19E27D",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {l:"Posts enviados",v:"—",d:"carregando…",c:"#FFB020",s:[0,0,0,0,0,0,0,0,0,0,0,0]}
+].map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv" id="kpi_${k.l.replace(/\s/g,'_')}">${k.v}</div><div class="kd" style="color:var(--mut)" id="kpid_${k.l.replace(/\s/g,'_')}">${k.d}</div>${spark(k.s,k.c)}</div>`).join("");
 
-/* ================= AREA CHART ================= */
-(function(){const data=[0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-  const labels=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(13-i));return d.getDate()+"/"+(d.getMonth()+1);});
-  const W=720,H=220,P=34,mx=Math.max(Math.ceil(Math.max(...data)/200)*200,1);
-  if(!data||data.length<2||!chArea)return;
+async function loadAnalitico(){
+  if(!SB||!CURRENT_USER?.id)return;
+  const uid=CURRENT_USER.id;
+  const hoje=new Date();hoje.setHours(0,0,0,0);
+  const hojeISO=hoje.toISOString();
+  // 14 dias para o gráfico
+  const quatorze=new Date(hoje);quatorze.setDate(quatorze.getDate()-13);
+  try{
+    // Posts enviados (status 'sent') nos últimos 14 dias
+    const{data:postsData,error:postsErr}=await SB
+      .from("scheduled_posts")
+      .select("sent_at,status")
+      .eq("user_id",uid)
+      .eq("status","sent")
+      .gte("sent_at",quatorze.toISOString());
+    if(!postsErr&&postsData){
+      const totalPosts=postsData.length;
+      const postsHoje=postsData.filter(p=>p.sent_at&&new Date(p.sent_at)>=hoje).length;
+      // KPI Posts enviados
+      const elV=document.getElementById("kpi_Posts_enviados");
+      const elD=document.getElementById("kpid_Posts_enviados");
+      if(elV)elV.textContent=totalPosts.toLocaleString("pt-BR");
+      if(elD)elD.textContent="hoje: "+postsHoje+" · 14 dias";
+      // Gráfico: posts por dia (14 dias)
+      const dias=Array.from({length:14},(_,i)=>{const d=new Date(quatorze);d.setDate(d.getDate()+i);return d;});
+      const chartData=dias.map(d=>{
+        const next=new Date(d);next.setDate(next.getDate()+1);
+        return postsData.filter(p=>p.sent_at&&new Date(p.sent_at)>=d&&new Date(p.sent_at)<next).length;
+      });
+      const labels=dias.map(d=>d.getDate()+"/"+(d.getMonth()+1));
+      renderAnaliticoChart(chartData,labels,totalPosts,"posts");
+    }
+  }catch(e){console.warn("loadAnalitico posts:",e);}
+  // KPI Cliques (placeholder — tabela futura)
+  const elVC=document.getElementById("kpi_Cliques_hoje");
+  const elDC=document.getElementById("kpid_Cliques_hoje");
+  if(elVC)elVC.textContent="—";
+  if(elDC)elDC.textContent="em breve";
+}
+
+function renderAnaliticoChart(data,labels,total,tipo){
+  if(!chArea)return;
+  const W=720,H=220,P=34,mx=Math.max(Math.ceil(Math.max(...data,1)/5)*5,1);
   const x=i=>P+i*(W-P-10)/(data.length-1),y=v=>H-26-(v/mx)*(H-50);
   let path="M"+x(0)+","+y(data[0]);data.forEach((v,i)=>{if(i)path+=" L"+x(i)+","+y(v);});
-  const area=path+` L${x(13)},${H-26} L${x(0)},${H-26} Z`;let grid="",lbl="";
-  for(let g=0;g<=4;g++){const v=mx*g/4,yy=y(v);grid+=`<line x1="${P}" x2="${W-8}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="3 4"/>`;lbl+=`<text x="${P-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`;}
-  const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="#19E27D" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
+  const area=path+` L${x(data.length-1)},${H-26} L${x(0)},${H-26} Z`;let grid="",lbl="";
+  for(let g=0;g<=4;g++){const v=Math.round(mx*g/4),yy=y(v);grid+=`<line x1="${P}" x2="${W-8}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="3 4"/>`;lbl+=`<text x="${P-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`;}
+  const color=tipo==="posts"?"#FFB020":"#19E27D";
+  const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="${color}" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
   const xl=labels.map((t,i)=>i%2?"":`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${t}</text>`).join("");
-  chArea.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#19E27D" stop-opacity=".4"/><stop offset="1" stop-color="#19E27D" stop-opacity="0"/></linearGradient></defs>${grid}${lbl}<path d="${area}" fill="url(#ga)"/><path d="${path}" fill="none" stroke="url(#gr)" stroke-width="2.6" stroke-linecap="round"/>${dots}${xl}</svg>`;
-  chTot.textContent=data.reduce((a,b)=>a+b,0).toLocaleString("pt-BR")+" cliques";})();
+  const gradId=tipo==="posts"?"gp":"ga";
+  chArea.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".4"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>${grid}${lbl}<path d="${area}" fill="url(#${gradId})"/><path d="${path}" fill="none" stroke="${color}" stroke-width="2.6" stroke-linecap="round"/>${dots}${xl}</svg>`;
+  if(chTot)chTot.textContent=total.toLocaleString("pt-BR")+" "+( tipo==="posts"?"posts enviados":"cliques");
+}
 
 /* ================= HEATMAP ================= */
 (function(){
@@ -6580,6 +6621,8 @@ async function enterApp(profile){
   // entra sempre pela área de afiliado
   authGate.style.display="none";
   setRole("afiliado");
+  // carrega analítico em background
+  setTimeout(()=>{if(typeof loadAnalitico==="function")loadAnalitico();},500);
 }
 // Atualiza o rodapé do menu lateral com o plano real
 function updateRailFoot(profile){
