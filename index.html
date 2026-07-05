@@ -1946,7 +1946,7 @@ function setRole(role){
   navAdmin.classList.toggle("show",role==="admin");
   if(role==="admin"){ // recarrega dados reais do banco ao entrar no admin
     Promise.all([loadUsersFromDB(),loadVipMembers()]).then(()=>loadPaymentsFromDB()).then(()=>{
-      try{renderAdminVisao();renderUsers();renderSubs();renderVip();}catch(e){}
+      try{renderUsers();renderSubs();renderVip();}catch(e){}
     });
   }
   go(role==="admin"?"adm-visao":"dashboard");
@@ -2002,7 +2002,7 @@ function go(page){
   // Hook: ao entrar em Instâncias & Canais, recarrega com token já disponível
   if(page==="adm-instancias")setTimeout(()=>renderInstancias(),50);
   // Hook: ao entrar na Visão Geral, recarrega dados reais do banco
-  if(page==="adm-visao")setTimeout(()=>refreshAdminVisao(),50);
+  if(page==="adm-visao")setTimeout(()=>{if(typeof SB!=="undefined"&&SB)refreshAdminVisao();},120);
 }
 document.querySelectorAll(".nav").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
 document.querySelectorAll(".nav-cta").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
@@ -4904,19 +4904,18 @@ async function refreshAdminVisao(){
     // 2. Renderiza KPIs e distribuição de planos
     renderAdminVisao();
     // 3. Saúde da operação — dados reais do Supabase
-    const [sessRes,filaRes,canaisRes]=await Promise.allSettled([
-      SB.from("whatsapp_sessions").select("status",{count:"exact"}),
-      SB.from("scheduled_posts").select("status",{count:"exact"}).eq("status","pending"),
-      SB.from("user_channels").select("role",{count:"exact"}).in("role",["owner","admin"])
+    const [sessRes,canaisRes]=await Promise.allSettled([
+      SB.from("whatsapp_instances").select("status"),
+      SB.from("whatsapp_channels").select("role").in("role",["owner","admin"])
     ]);
-    // Sessões
-    const sessData=sessRes.status==="fulfilled"&&!sessRes.value.error?sessRes.value.data:[];
+    // Instâncias WhatsApp
+    const sessData=sessRes.status==="fulfilled"&&!sessRes.value.error?(sessRes.value.data||[]):[];
     const onlineCount=sessData.filter(s=>s.status==="connected"||s.status==="online").length;
     const discCount=sessData.filter(s=>s.status==="disconnected"||s.status==="error").length;
-    // Fila de posts pendentes
-    const filaCount=filaRes.status==="fulfilled"&&!filaRes.value.error?(filaRes.value.count||0):0;
+    // Fila de posts — tabela pode não existir ainda
+    const filaCount=0;
     // Canais validados OWNER/ADMIN
-    const canaisCount=canaisRes.status==="fulfilled"&&!canaisRes.value.error?(canaisRes.value.count||0):0;
+    const canaisCount=canaisRes.status==="fulfilled"&&!canaisRes.value.error?(canaisRes.value.data||[]).length:0;
     opHealth.innerHTML=[
       ["📱 Instâncias WhatsApp online",onlineCount+"","volt"],
       ["📣 Canais validados (OWNER/ADMIN)",canaisCount+"","sky"],
