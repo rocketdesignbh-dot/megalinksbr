@@ -1324,7 +1324,9 @@ function hideLoading(){
 
   <!-- ============ ADMIN: ASSINATURAS & RECEITA ============ -->
   <section class="page" id="page-adm-assinaturas">
-    <div class="phead"><div><h1 class="pt">Assinaturas & Receita</h1><div class="psub">Acompanhe MRR, inadimplência e cobranças.</div></div></div>
+    <div class="phead"><div><h1 class="pt">Assinaturas & Receita</h1><div class="psub">Acompanhe MRR, inadimplência e cobranças.</div></div>
+      <button class="btn btn-ghost btn-sm" onclick="admRunCheckSubs()" title="Verifica vencimentos e rebaixa inadimplentes automaticamente">⚙️ Verificar vencimentos</button>
+    </div>
     <div class="g4" id="subKpis" style="margin-bottom:20px"></div>
     <div class="g23" style="margin-bottom:20px">
       <div class="card"><div class="ch">📈 Receita (últimos 6 meses)</div><div class="cb"><div class="bar-track" id="finChart"></div></div></div>
@@ -4969,20 +4971,127 @@ function renderUsers(){const q=usrSearch.value.toLowerCase();
   usrBadge.textContent=USERS.length;}
 usrSearch.addEventListener("input",renderUsers);
 document.querySelectorAll("#usrSeg button").forEach(b=>b.onclick=()=>{usrFilter=b.dataset.f;document.querySelectorAll("#usrSeg button").forEach(x=>x.classList.toggle("on",x===b));renderUsers();});
-function openUser(id){const u=USERS.find(x=>x.id===id);
+let _modalUserId=null;
+function openUser(id){
+  const u=USERS.find(x=>x.id===id);
   if(!u)return;
-  userDetail.innerHTML=`<div class="mh"><div class="uflex"><span class="av-sm" style="background:${avColor(u._idx||0)};width:38px;height:38px">${u.nome[0]}</span><div><div style="font-family:var(--disp)">${u.nome}</div><small style="color:var(--mut)">${u.email}</small></div></div><button class="mx" onclick="closeModal('modalUser')">×</button></div>
-  <div class="mb"><div class="sgrid" style="grid-template-columns:repeat(3,1fr);margin:0 0 16px"><div class="stat"><div class="v">${u.plano}</div><div class="l">Plano</div></div><div class="stat"><div class="v">${u.mrr?"R$ "+brl(u.mrr):"—"}</div><div class="l">MRR</div></div><div class="stat"><div class="v">${u.grupos}</div><div class="l">Grupos</div></div></div>
-  <div style="display:grid;gap:10px">
-    <div class="qrow"><span>Status</span><span style="margin-left:auto">${stPill(u.status)}</span></div>
-    <div class="qrow"><span>Canais WhatsApp vinculados</span><strong style="margin-left:auto">${u.canais}</strong></div>
-    <div class="qrow"><span>Cliente desde</span><strong style="margin-left:auto">${fmtDate(u.entrou)}</strong></div>
-    <div class="qrow"><span>ID interno</span><span class="mono" style="margin-left:auto;color:var(--mut)">usr_${u.id}</span></div>
-  </div>
-  <div style="margin-top:14px"><strong style="font-family:var(--disp)">Linha do tempo</strong>
-  <div style="margin-top:8px">${["Conta criada","1ª loja conectada","WhatsApp pareado",u.canais?"Canal validado (OWNER)":"—"].filter(t=>t!=="—").map(t=>`<div class="feed"><span class="fic">•</span><span>${t}</span></div>`).join("")}</div></div></div>
-  <div class="mf"><button class="btn btn-ghost" onclick="toast('E-mail enviado (demo).','✉️')">Enviar e-mail</button><button class="btn btn-volt" onclick="closeModal('modalUser');toast('Assinatura ajustada (demo).')">Gerenciar assinatura</button></div>`;
-  openModal("modalUser");}
+  _modalUserId=id;
+  const planos=["starter","pro","elite","premium"];
+  const statusOpts=["active","trial","past_due","canceled"];
+  userDetail.innerHTML=`
+  <div class="mh"><div class="uflex"><span class="av-sm" style="background:${avColor(u._idx||0)};width:38px;height:38px">${u.nome[0]}</span>
+    <div><div style="font-family:var(--disp)">${u.nome}</div><small style="color:var(--mut)">${u.email}</small></div></div>
+    <button class="mx" onclick="closeModal('modalUser')">×</button></div>
+  <div class="mb">
+    <div class="sgrid" style="grid-template-columns:repeat(3,1fr);margin:0 0 16px">
+      <div class="stat"><div class="v">${u.plano}</div><div class="l">Plano atual</div></div>
+      <div class="stat"><div class="v">${u.mrr?"R$ "+brl(u.mrr):"—"}</div><div class="l">MRR</div></div>
+      <div class="stat"><div class="v">${u.grupos}</div><div class="l">Grupos</div></div>
+    </div>
+    <div style="display:grid;gap:10px;margin-bottom:18px">
+      <div class="qrow"><span>Status</span><span style="margin-left:auto">${stPill(u.status)}</span></div>
+      <div class="qrow"><span>Canais WA</span><strong style="margin-left:auto">${u.canais}</strong></div>
+      <div class="qrow"><span>Cliente desde</span><strong style="margin-left:auto">${fmtDate(u.entrou)}</strong></div>
+      <div class="qrow"><span>ID interno</span><span class="mono" style="margin-left:auto;color:var(--mut);font-size:11px">${u.id.slice(0,18)}…</span></div>
+    </div>
+    <div style="border-top:1px solid var(--bd);padding-top:14px;margin-top:4px">
+      <strong style="font-family:var(--disp);font-size:13px">Gerenciar assinatura</strong>
+      <div style="display:grid;gap:10px;margin-top:12px">
+        <div class="field" style="margin:0">
+          <label style="font-size:12px">Alterar plano</label>
+          <div style="display:flex;gap:8px">
+            <select id="admPlanSel" style="flex:1">
+              ${planos.map(p=>`<option value="${p}"${u.plano.toLowerCase()===p?" selected":""}>${planRow(p).label}</option>`).join("")}
+            </select>
+            <button class="btn btn-volt btn-sm" onclick="admChangePlan()">Aplicar</button>
+          </div>
+        </div>
+        <div class="field" style="margin:0">
+          <label style="font-size:12px">Alterar status</label>
+          <div style="display:flex;gap:8px">
+            <select id="admStatusSel" style="flex:1">
+              ${statusOpts.map(s=>`<option value="${s}"${u.status===s?" selected":""}>${{active:"Ativo",trial:"Trial",past_due:"Em atraso",canceled:"Cancelado"}[s]||s}</option>`).join("")}
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="admChangeStatus()">Aplicar</button>
+          </div>
+        </div>
+        <button class="btn btn-red btn-sm" style="width:100%;justify-content:center" onclick="admCancelUser()">⛔ Cancelar assinatura e rebaixar para Starter</button>
+      </div>
+    </div>
+    <div id="admPlanLog" style="margin-top:14px;border-top:1px solid var(--bd);padding-top:12px">
+      <strong style="font-family:var(--disp);font-size:12px;color:var(--mut)">Histórico de mudanças</strong>
+      <div style="margin-top:8px;color:var(--mut);font-size:12px">carregando…</div>
+    </div>
+  </div>`;
+  openModal("modalUser");
+  // Carrega histórico de mudanças
+  admLoadPlanLog(id);
+}
+
+async function admLoadPlanLog(uid){
+  const el=document.getElementById("admPlanLog");
+  if(!el||!SB)return;
+  const{data}=await SB.from("plan_changes").select("from_plan,to_plan,from_status,to_status,reason,changed_by,created_at").eq("user_id",uid).order("created_at",{ascending:false}).limit(10);
+  const items=data||[];
+  const inner=el.querySelector("div");
+  if(!items.length){if(inner)inner.textContent="Nenhuma alteração registrada.";return;}
+  const reasonLabel={admin_manual:"Admin",payment_confirmed:"Pagamento",payment_overdue_grace:"Atraso",payment_overdue_cancel:"Cancelamento automático",user_cancel:"Cancelamento"};
+  if(inner)inner.innerHTML=items.map(r=>`<div class="feed" style="font-size:11.5px"><span class="fic">•</span><span><strong>${planRow(r.from_plan||"").label||r.from_plan}→${planRow(r.to_plan||"").label||r.to_plan}</strong> · ${r.to_status} · ${reasonLabel[r.reason]||r.reason} · <span style="color:var(--mut)">${new Date(r.created_at).toLocaleDateString("pt-BR")}</span></span></div>`).join("");
+}
+
+async function admChangePlan(){
+  const u=USERS.find(x=>x.id===_modalUserId);if(!u||!SB)return;
+  const newPlan=document.getElementById("admPlanSel")?.value;
+  if(!newPlan||newPlan===u.plano.toLowerCase()){toast("Selecione um plano diferente.","⚠️");return;}
+  if(!confirm(`Alterar plano de ${u.nome} de ${u.plano} → ${planRow(newPlan).label}?`))return;
+  const{error}=await SB.from("profiles").update({plan:newPlan,sub_status:"active"}).eq("id",u.id);
+  if(error){toast("Erro ao alterar plano: "+error.message,"❌");return;}
+  await SB.from("plan_changes").insert({user_id:u.id,from_plan:u.plano.toLowerCase(),to_plan:newPlan,from_status:u.status,to_status:"active",reason:"admin_manual",changed_by:CURRENT_USER?.id});
+  toast(`Plano de ${u.nome} alterado para ${planRow(newPlan).label}.`,"✅");
+  await loadUsersFromDB();renderUsers();openUser(u.id);
+}
+
+async function admChangeStatus(){
+  const u=USERS.find(x=>x.id===_modalUserId);if(!u||!SB)return;
+  const newStatus=document.getElementById("admStatusSel")?.value;
+  if(!newStatus||newStatus===u.status){toast("Selecione um status diferente.","⚠️");return;}
+  if(!confirm(`Alterar status de ${u.nome} para "${newStatus}"?`))return;
+  const upd={sub_status:newStatus};
+  if(newStatus==="past_due")upd.overdue_since=new Date().toISOString();
+  if(newStatus==="active")upd.overdue_since=null;
+  const{error}=await SB.from("profiles").update(upd).eq("id",u.id);
+  if(error){toast("Erro: "+error.message,"❌");return;}
+  await SB.from("plan_changes").insert({user_id:u.id,from_plan:u.plano.toLowerCase(),to_plan:u.plano.toLowerCase(),from_status:u.status,to_status:newStatus,reason:"admin_manual",changed_by:CURRENT_USER?.id});
+  toast(`Status de ${u.nome} alterado para ${newStatus}.`,"✅");
+  await loadUsersFromDB();renderUsers();openUser(u.id);
+}
+
+async function admCancelUser(){
+  const u=USERS.find(x=>x.id===_modalUserId);if(!u||!SB)return;
+  if(!confirm(`Cancelar assinatura de ${u.nome} e rebaixar para Starter?\n\nEsta ação é imediata.`))return;
+  const{error}=await SB.from("profiles").update({plan:"starter",sub_status:"canceled",overdue_since:null}).eq("id",u.id);
+  if(error){toast("Erro: "+error.message,"❌");return;}
+  await SB.from("plan_changes").insert({user_id:u.id,from_plan:u.plano.toLowerCase(),to_plan:"starter",from_status:u.status,to_status:"canceled",reason:"admin_manual",changed_by:CURRENT_USER?.id});
+  toast(`Assinatura de ${u.nome} cancelada. Plano rebaixado para Starter.`,"✅");
+  closeModal("modalUser");await loadUsersFromDB();renderUsers();
+}
+
+async function admRunCheckSubs(){
+  toast("Verificando vencimentos…","⏳");
+  try{
+    const session=await SB.auth.getSession();
+    const jwt=session?.data?.session?.access_token;
+    const r=await fetch(`${SUPA_URL}/functions/v1/check-subscriptions`,{
+      method:"POST",
+      headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"}
+    });
+    const d=await r.json();
+    if(d.ok){
+      toast(`Verificação concluída: ${d.processed} usuário(s) processado(s).`,"✅");
+      if(d.processed>0){await loadUsersFromDB();renderUsers();renderSubs();}
+    }else{toast("Erro na verificação: "+(d.error||"desconhecido"),"❌");}
+  }catch(e){toast("Erro ao verificar: "+e.message,"❌");}
+}
 
 /* ADMIN: ASSINATURAS */
 function paySt(s){
