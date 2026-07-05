@@ -1101,30 +1101,20 @@ function hideLoading(){
 
     <!-- Scrape.do pessoal (buscas de Mercado Livre sem limite compartilhado) -->
     <div class="card" style="margin-top:20px">
-      <div class="ch">🚀 Buscas de Mercado Livre com seu próprio crédito</div>
+      <div class="ch">🚀 Buscas de Mercado Livre sem limite</div>
       <div class="cb">
         <p style="font-size:12.5px;color:var(--mut);margin:0 0 12px">
           O <strong>Mercado Livre</strong> bloqueia buscas automatizadas sem um proxy — por isso usamos o serviço <strong>Scrape.do</strong>.
           Por padrão, você usa a cota compartilhada da plataforma (com um limite diário para garantir acesso a todos).
-          Conecte seu <strong>próprio token do Scrape.do</strong> (o plano grátis já vem com créditos mensais) e suas buscas de Mercado Livre passam a usar o <strong>seu crédito</strong>, sem depender da cota compartilhada.
-          <br><small style="opacity:.8">💡 O plano grátis do Scrape.do tem um limite mensal de créditos. Cadastre também um <strong>token de contingência</strong> (2ª conta) para não parar quando o crédito do principal acabar.</small>
+          Conecte seu <strong>próprio token do Scrape.do</strong> (grátis para começar) e suas buscas de Mercado Livre deixam de ter esse limite.
           <br><small style="opacity:.8">Não é necessário para Shopee ou as demais lojas — elas já funcionam sem isso.</small>
         </p>
-        <div class="field" style="margin:0 0 10px"><label>Token principal do Scrape.do</label>
-          <input id="scrapeDoTokenInput" placeholder="Cole aqui o token da sua conta Scrape.do" type="password"></div>
-        <div class="field" style="margin:0 0 10px"><label>Token de contingência (backup) <small style="opacity:.7;font-weight:400">— opcional</small></label>
-          <input id="scrapeDoToken2Input" placeholder="Token de uma 2ª conta Scrape.do (usado quando o principal esgota)" type="password"></div>
-        <button class="btn btn-volt btn-sm" onclick="salvarScrapeDoToken()">💾 Salvar tokens</button>
-        <p id="scrapeDoTokenStatus" style="font-size:12px;color:var(--mut);margin:10px 0 0"></p>
-        <div id="scrapeDoBackupAviso" style="display:none;margin:12px 0 0;padding:12px 14px;border:1px solid var(--volt);border-radius:10px;background:rgba(255,214,10,.08);position:relative">
-          <button onclick="document.getElementById('scrapeDoBackupAviso').style.display='none'" style="position:absolute;top:8px;right:10px;background:none;border:none;color:var(--mut);font-size:16px;cursor:pointer;line-height:1;padding:0" title="Fechar">✕</button>
-          <div style="font-size:12.5px;line-height:1.5;padding-right:20px">
-            <strong>⚠️ Importante — cadastre um token de contingência</strong><br>
-            Quando o crédito deste token principal acabar, suas buscas de Mercado Livre <strong>param</strong>.
-            Para não ter interrupção, crie uma <strong>segunda conta</strong> no Scrape.do (com outro e-mail) e cole o token dela no campo <em>"Token de contingência (backup)"</em> acima.
-            Assim, quando o principal esgotar, o backup entra <strong>automaticamente</strong>.
-          </div>
+        <div class="g2" style="gap:10px;align-items:end">
+          <div class="field" style="margin:0"><label>Seu token do Scrape.do</label>
+            <input id="scrapeDoTokenInput" placeholder="Cole aqui o token da sua conta Scrape.do" type="password"></div>
+          <button class="btn btn-volt btn-sm" onclick="salvarScrapeDoToken()">💾 Salvar token</button>
         </div>
+        <p id="scrapeDoTokenStatus" style="font-size:12px;color:var(--mut);margin:10px 0 0"></p>
         <p style="font-size:12px;margin:8px 0 0"><a href="https://dashboard.scrape.do" target="_blank" rel="noopener">Criar conta grátis no Scrape.do →</a></p>
       </div>
     </div>
@@ -1332,7 +1322,10 @@ function hideLoading(){
   <!-- ============ ADMIN: VISÃO GERAL ============ -->
   <section class="page" id="page-adm-visao">
     <div class="phead"><div><h1 class="pt">Visão Geral da Plataforma</h1><div class="psub">Métricas consolidadas de toda a Mega Links BR.</div></div>
-      <select style="max-width:170px"><option>Últimos 30 dias</option><option>Este mês</option><option>Este ano</option></select></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-ghost" onclick="refreshAdminVisao().then(()=>toast('Dados atualizados!','✅'))" style="font-size:12px">↻ Atualizar</button>
+        <select style="max-width:170px"><option>Últimos 30 dias</option><option>Este mês</option><option>Este ano</option></select>
+      </div></div>
     <div class="g4" id="admKpis" style="margin-bottom:20px"></div>
     <div class="g23">
       <div class="card"><div class="ch">💰 Receita (MRR) vs novos assinantes <span class="r">12 meses</span></div><div class="cb">
@@ -1587,25 +1580,7 @@ function hideLoading(){
 <div class="mbg" id="modalGrupo"><div class="modal">
   <div class="mh">Novo Grupo de Oferta <button class="mx" onclick="closeModal('modalGrupo')">×</button></div>
   <div class="mb"><div class="field"><label>Nome do Grupo de Oferta</label><input id="inNomeGrupo" placeholder="ex.: Achadinhos da Semana"></div>
-    <div class="field"><label>Nicho do grupo</label>
-      <select id="inNichoGrupo" onchange="onNichoChange()">
-        <option value="">Selecione o nicho…</option>
-        <option value="bebe">🍼 Bebê & Infantil</option>
-        <option value="casa">🏠 Casa & Decoração</option>
-        <option value="eletronicos">📱 Eletrônicos & Tech</option>
-        <option value="cozinha">🍳 Cozinha & Utilidades</option>
-        <option value="moda">👗 Moda & Acessórios</option>
-        <option value="beleza">💄 Beleza & Cuidados</option>
-        <option value="pet">🐾 Pet</option>
-        <option value="fitness">💪 Fitness & Esporte</option>
-        <option value="ferramentas">🔧 Ferramentas & Construção</option>
-        <option value="games">🎮 Games & Brinquedos</option>
-        <option value="outro">✨ Outro / Variados (sem nicho fixo)</option>
-      </select>
-    </div>
-    <div class="field" id="inNichoOutroWrap" style="display:none"><label>Nome do nicho / tema</label>
-      <input id="inNichoOutro" placeholder="ex.: Achadinhos, Ofertas do Dia, Variados"></div>
-    <div class="alert b" style="margin:0">💡 O nicho organiza seus grupos. <strong>"Outro / Variados"</strong> é pra quem quer misturar produtos de tudo no mesmo grupo. Cada Grupo de Oferta reúne canais, lojas e regras daquele tema.</div></div>
+    <div class="alert b" style="margin:0">💡 Nomeie pelo <strong>nicho</strong>. Cada Grupo de Oferta reúne canais, lojas e regras daquele nicho.</div></div>
   <div class="mf"><button class="btn btn-ghost" onclick="closeModal('modalGrupo')">Cancelar</button><button class="btn btn-volt" id="btnSalvarGrupo">Criar Grupo de Oferta</button></div>
 </div></div>
 
@@ -1750,8 +1725,6 @@ async function loadGroups(){
       db_id:r.id,
       id:r.id,
       nome:r.name,
-      niche:r.niche||null,
-      niche_label:r.niche_label||null,
       postAuto:r.post_auto_enabled,
       produtos:0,
       grupos_wa:0,
@@ -1837,79 +1810,41 @@ function renderCupons(){
 /* Scrape.do pessoal — buscas de Mercado Livre sem limite compartilhado */
 async function carregarScrapeDoStatus(){
   const input=document.getElementById("scrapeDoTokenInput");
-  const input2=document.getElementById("scrapeDoToken2Input");
   const status=document.getElementById("scrapeDoTokenStatus");
   if(!input||!status||!CURRENT_USER?.id)return;
   try{
-    const{data,error}=await SB.from("profiles").select("scrape_do_token,scrape_do_token_2,scrape_do_connected_at").eq("id",CURRENT_USER.id).maybeSingle();
+    const{data,error}=await SB.from("profiles").select("scrape_do_token,scrape_do_connected_at").eq("id",CURRENT_USER.id).maybeSingle();
     if(error)throw error;
     if(data?.scrape_do_token){
       input.placeholder="•••••••••••••••••••••• (token salvo)";
       const dt=data.scrape_do_connected_at?new Date(data.scrape_do_connected_at).toLocaleDateString("pt-BR"):"";
-      const temBackup=!!data?.scrape_do_token_2;
-      if(input2)input2.placeholder=temBackup?"•••••••••••••••••••••• (backup salvo)":"Token de uma 2ª conta Scrape.do (usado quando o principal esgota)";
-      // Se já tem backup, garante que o aviso de contingência fique oculto
-      const aviso=document.getElementById("scrapeDoBackupAviso");
-      if(aviso&&temBackup)aviso.style.display="none";
-      const backupMsg=temBackup
-        ?" 🔁 Token de contingência ativo — quando o principal esgotar, o backup entra automaticamente."
-        :" 💡 Dica: cadastre um token de contingência (2ª conta) para não parar quando o crédito do principal acabar.";
-      status.innerHTML=`✅ Token principal conectado${dt?` desde ${dt}`:""}. Suas buscas de Mercado Livre não usam mais a cota compartilhada.${backupMsg} <a href="#" onclick="removerScrapeDoToken();return false" style="color:var(--mut)">Remover tokens</a>`;
+      status.innerHTML=`✅ Token conectado${dt?` desde ${dt}`:""}. Suas buscas de Mercado Livre não usam mais a cota compartilhada. <a href="#" onclick="removerScrapeDoToken();return false" style="color:var(--mut)">Remover</a>`;
     }else{
       input.placeholder="Cole aqui o token da sua conta Scrape.do";
-      if(input2)input2.placeholder="Token de uma 2ª conta Scrape.do (usado quando o principal esgota)";
       status.textContent="Sem token pessoal conectado — suas buscas de Mercado Livre usam a cota compartilhada da plataforma.";
     }
   }catch(e){console.warn("carregarScrapeDoStatus:",e);}
 }
 async function salvarScrapeDoToken(){
   const input=document.getElementById("scrapeDoTokenInput");
-  const input2=document.getElementById("scrapeDoToken2Input");
   const token=(input?.value||"").trim();
-  const token2=(input2?.value||"").trim();
+  if(!token){toast("Cole o token do Scrape.do primeiro.","⚠️");return;}
   if(!CURRENT_USER?.id){toast("Sessão expirada.","⚠️");return;}
-
-  // Descobre o que já está salvo pra não sobrescrever com vazio quem só editou um campo
-  let jaTemPrincipal=false,jaTemBackup=false;
   try{
-    const{data}=await SB.from("profiles").select("scrape_do_token,scrape_do_token_2").eq("id",CURRENT_USER.id).maybeSingle();
-    jaTemPrincipal=!!data?.scrape_do_token;jaTemBackup=!!data?.scrape_do_token_2;
-  }catch(e){}
-
-  if(!token&&!jaTemPrincipal){toast("Cole ao menos o token principal do Scrape.do.","⚠️");return;}
-
-  const patch={};
-  if(token){patch.scrape_do_token=token;patch.scrape_do_connected_at=new Date().toISOString();}
-  if(token2)patch.scrape_do_token_2=token2;
-  if(!Object.keys(patch).length){toast("Nada para salvar — os campos estão vazios.","ℹ️");return;}
-
-  try{
-    const{error}=await SB.from("profiles").update(patch).eq("id",CURRENT_USER.id);
+    const{error}=await SB.from("profiles").update({scrape_do_token:token,scrape_do_connected_at:new Date().toISOString()}).eq("id",CURRENT_USER.id);
     if(error)throw error;
-    if(input)input.value="";
-    if(input2)input2.value="";
-
-    const salvouBackupAgora=!!token2;
-    const temBackupNoFinal=salvouBackupAgora||jaTemBackup;
-    const aviso=document.getElementById("scrapeDoBackupAviso");
-    if(temBackupNoFinal){
-      toast("Tokens salvos! Contingência ativa — o backup entra sozinho quando o principal esgotar. 🚀","✅");
-      if(aviso)aviso.style.display="none";
-    }else{
-      toast("Token principal salvo! Suas buscas de ML agora usam seu crédito. 🚀","✅");
-      // Aviso persistente (fica na tela até o usuário fechar no X): orienta cadastrar a 2ª conta
-      if(aviso)aviso.style.display="block";
-    }
+    input.value="";
+    toast("Token do Scrape.do conectado! Suas buscas de ML agora são ilimitadas.","🚀");
     carregarScrapeDoStatus();
   }catch(e){toast("Erro ao salvar: "+(e.message||""),"⛔");}
 }
 async function removerScrapeDoToken(){
   if(!CURRENT_USER?.id)return;
-  if(!confirm("Remover seus tokens pessoais do Scrape.do (principal e contingência)? Suas buscas de Mercado Livre voltam a usar a cota compartilhada."))return;
+  if(!confirm("Remover seu token pessoal do Scrape.do? Suas buscas de Mercado Livre voltam a usar a cota compartilhada."))return;
   try{
-    const{error}=await SB.from("profiles").update({scrape_do_token:null,scrape_do_token_2:null,scrape_do_connected_at:null}).eq("id",CURRENT_USER.id);
+    const{error}=await SB.from("profiles").update({scrape_do_token:null,scrape_do_connected_at:null}).eq("id",CURRENT_USER.id);
     if(error)throw error;
-    toast("Tokens removidos.","🗑️");
+    toast("Token removido.","🗑️");
     carregarScrapeDoStatus();
   }catch(e){toast("Erro ao remover: "+(e.message||""),"⛔");}
 }
@@ -2011,7 +1946,7 @@ function setRole(role){
   navAdmin.classList.toggle("show",role==="admin");
   if(role==="admin"){ // recarrega dados reais do banco ao entrar no admin
     Promise.all([loadUsersFromDB(),loadVipMembers()]).then(()=>loadPaymentsFromDB()).then(()=>{
-      try{renderAdminVisao();renderUsers();renderSubs();renderVip();}catch(e){}
+      try{renderUsers();renderSubs();renderVip();}catch(e){}
     });
   }
   go(role==="admin"?"adm-visao":"dashboard");
@@ -2066,7 +2001,10 @@ function go(page){
   if(page==="adm-suporte")setTimeout(()=>renderSuporte(),50);
   // Hook: ao entrar em Instâncias & Canais, recarrega com token já disponível
   if(page==="adm-instancias")setTimeout(()=>renderInstancias(),50);
-  if(page==="analitico")loadAnalyticsData();
+  // Hook: ao entrar na Visão Geral, recarrega dados reais do banco
+  if(page==="adm-visao")setTimeout(()=>{if(typeof SB!=="undefined"&&SB)refreshAdminVisao();},120);
+  // Hook: ao entrar no Analítico, carrega dados reais
+  if(page==="analitico")setTimeout(()=>{if(typeof SB!=="undefined"&&SB&&CURRENT_USER?.id)loadAnalitico();},120);
 }
 document.querySelectorAll(".nav").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
 document.querySelectorAll(".nav-cta").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
@@ -2090,72 +2028,80 @@ function spark(d,c){const w=86,h=30,mx=Math.max(...d),mn=Math.min(...d);
   const p=d.map((v,i)=>(i/(d.length-1)*w).toFixed(1)+","+(h-((v-mn)/(mx-mn||1))*(h-4)-2).toFixed(1)).join(" ");
   return `<svg class="sp" width="${w}" height="${h}"><polyline points="${p}" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"/></svg>`;}
 kpiRow.innerHTML=[
-  {l:"Cliques hoje",v:"0",d:"carregando...",up:1,c:"#19E27D",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
-  {l:"Posts enviados",v:"0",d:"carregando...",up:1,c:"#FFB020",s:[0,0,0,0,0,0,0,0,0,0,0,0]}
-].map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="kd" style="color:var(--mut)">${k.d}</div>${spark(k.s,k.c)}</div>`).join("");
+  {l:"Cliques hoje",v:"—",d:"carregando…",c:"#19E27D",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {l:"Cliques 14 dias",v:"—",d:"carregando…",c:"#39C0FF",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {l:"Posts enviados",v:"—",d:"carregando…",c:"#FFB020",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {l:"Links rastreados",v:"—",d:"carregando…",c:"#9B7DFF",s:[0,0,0,0,0,0,0,0,0,0,0,0]}
+].map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv" id="kpi_${k.l.replace(/\s/g,'_')}">${k.v}</div><div class="kd" style="color:var(--mut)" id="kpid_${k.l.replace(/\s/g,'_')}">${k.d}</div>${spark(k.s,k.c)}</div>`).join("");
 
-// Função para carregar dados reais de analytics
-async function loadAnalyticsData(){try{
-  const token=localStorage.getItem('sb-token');
-  if(!token)return;
-  const resp=await fetch('/functions/v1/analytics',{headers:{'Authorization':`Bearer ${token}`}});
-  if(!resp.ok)return;
-  const{clicks_today,posts_today,posts_by_group,clicks_history}=await resp.json();
-  
-  // Construir lista de grupos com posts
-  let postsDesc='';
-  if(Array.isArray(posts_by_group)&&posts_by_group.length>0){
-    postsDesc=posts_by_group.slice(0,3).map(p=>`${p.group_name}: ${p.post_count}`).join(' • ');
-  }
-  
-  // Atualizar KPIs com dados reais
-  const kpis=[
-    {l:"Cliques hoje",v:String(clicks_today),d:postsDesc?'atualizado em tempo real':'hoje',up:1,c:"#19E27D"},
-    {l:"Posts enviados",v:String(posts_today),d:postsDesc||'nenhum ainda',up:1,c:"#FFB020"}
-  ];
-  
-  // Gerar sparkline com dados reais
-  const spark_data=(clicks_history||[]).slice(-12).map(row=>row.total_clicks);
-  kpis[0].s=spark_data.length>0?spark_data.concat(Array(12-spark_data.length).fill(0)):[0,0,0,0,0,0,0,0,0,0,0,0];
-  kpiRow.innerHTML=kpis.map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="kd" style="color:var(--mut)">${k.d}</div>${spark(k.s,k.c)}</div>`).join("");
-  
-  // Atualizar gráfico com dados reais
-  if(clicks_history&&clicks_history.length>0){
-    const data=Array(14).fill(0);
-    const today=new Date();
-    clicks_history.forEach(row=>{
-      const date=new Date(row.day);
-      const daysAgo=Math.floor((today-date)/(1000*60*60*24));
-      if(daysAgo<14)data[13-daysAgo]=row.total_clicks;
+async function loadAnalitico(){
+  if(!SB||!CURRENT_USER?.id)return;
+  const uid=CURRENT_USER.id;
+  const hoje=new Date();hoje.setHours(0,0,0,0);
+  const quatorze=new Date(hoje);quatorze.setDate(quatorze.getDate()-13);
+  const temRastreamento=planTemRastreamento();
+
+  // ── Posts enviados ──
+  try{
+    const{data:postsData}=await SB
+      .from("scheduled_posts").select("sent_at")
+      .eq("user_id",uid).eq("status","sent")
+      .gte("sent_at",quatorze.toISOString());
+    const totalPosts=(postsData||[]).length;
+    const postsHoje=(postsData||[]).filter(p=>p.sent_at&&new Date(p.sent_at)>=hoje).length;
+    const elV=document.getElementById("kpi_Posts_enviados");
+    const elD=document.getElementById("kpid_Posts_enviados");
+    if(elV)elV.textContent=totalPosts.toLocaleString("pt-BR");
+    if(elD)elD.textContent="hoje: "+postsHoje+" · 14 dias";
+    // Gráfico de posts
+    const dias=Array.from({length:14},(_,i)=>{const d=new Date(quatorze);d.setDate(d.getDate()+i);return d;});
+    const chartData=dias.map(d=>{const next=new Date(d);next.setDate(next.getDate()+1);return (postsData||[]).filter(p=>p.sent_at&&new Date(p.sent_at)>=d&&new Date(p.sent_at)<next).length;});
+    renderAnaliticoChart(chartData,dias.map(d=>d.getDate()+"/"+(d.getMonth()+1)),totalPosts,"posts");
+  }catch(e){console.warn("loadAnalitico posts:",e);}
+
+  // ── Cliques (Elite/Infinity) ──
+  if(!temRastreamento){
+    // Gate visual para Starter/Pro
+    ["kpi_Cliques_hoje","kpi_Cliques_14_dias","kpi_Links_rastreados"].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.innerHTML='<span style="font-size:11px;color:var(--mut)">🔒 Elite+</span>';
     });
-    const W=720,H=220,P=34,mx=Math.max(Math.ceil(Math.max(...data)/200)*200,1);
-    const labels=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(13-i));return d.getDate()+"/"+(d.getMonth()+1);});
-    const x=i=>P+i*(W-P-10)/(data.length-1),y=v=>H-26-(v/mx)*(H-50);
-    let path="M"+x(0)+","+y(data[0]);
-    data.forEach((v,i)=>{if(i)path+=" L"+x(i)+","+y(v);});
-    const area=path+` L${x(13)},${H-26} L${x(0)},${H-26} Z`;
-    let grid="",lbl="";
-    for(let g=0;g<=4;g++){const v=mx*g/4,yy=y(v);grid+=`<line x1="${P}" x2="${W-8}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="3 4"/>`;lbl+=`<text x="${P-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`;}
-    const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="#19E27D" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
-    const xl=labels.map((t,i)=>i%2?"":`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${t}</text>`).join("");
-    if(chArea)chArea.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#19E27D" stop-opacity=".4"/><stop offset="1" stop-color="#19E27D" stop-opacity="0"/></linearGradient></defs>${grid}${lbl}<path d="${area}" fill="url(#ga)"/><path d="${path}" fill="none" stroke="url(#gr)" stroke-width="2.6" stroke-linecap="round"/>${dots}${xl}</svg>`;
-    if(chTot)chTot.textContent=data.reduce((a,b)=>a+b,0).toLocaleString("pt-BR")+" cliques";
+    ["kpid_Cliques_hoje","kpid_Cliques_14_dias","kpid_Links_rastreados"].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.textContent="disponível no plano Elite";
+    });
+    return;
   }
-}catch(e){console.error('Analytics:',e);}}
+  try{
+    const{data:clickData}=await SB
+      .from("v_clicks_by_link").select("clicks_today,clicks_14d,code")
+      .eq("user_id",uid);
+    const rows=clickData||[];
+    const clicksHoje=rows.reduce((a,r)=>a+Number(r.clicks_today||0),0);
+    const clicks14=rows.reduce((a,r)=>a+Number(r.clicks_14d||0),0);
+    const linksAtivos=rows.length;
+    const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+    set("kpi_Cliques_hoje",clicksHoje.toLocaleString("pt-BR"));
+    set("kpid_Cliques_hoje","cliques hoje");
+    set("kpi_Cliques_14_dias",clicks14.toLocaleString("pt-BR"));
+    set("kpid_Cliques_14_dias","últimos 14 dias");
+    set("kpi_Links_rastreados",linksAtivos.toLocaleString("pt-BR"));
+    set("kpid_Links_rastreados","links ativos");
+  }catch(e){console.warn("loadAnalitico cliques:",e);}
+}
 
-/* ================= AREA CHART ================= */
-(function(){const data=[0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-  const labels=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(13-i));return d.getDate()+"/"+(d.getMonth()+1);});
-  const W=720,H=220,P=34,mx=Math.max(Math.ceil(Math.max(...data)/200)*200,1);
-  if(!data||data.length<2||!chArea)return;
+function renderAnaliticoChart(data,labels,total,tipo){
+  if(!chArea)return;
+  const W=720,H=220,P=34,mx=Math.max(Math.ceil(Math.max(...data,1)/5)*5,1);
   const x=i=>P+i*(W-P-10)/(data.length-1),y=v=>H-26-(v/mx)*(H-50);
   let path="M"+x(0)+","+y(data[0]);data.forEach((v,i)=>{if(i)path+=" L"+x(i)+","+y(v);});
-  const area=path+` L${x(13)},${H-26} L${x(0)},${H-26} Z`;let grid="",lbl="";
-  for(let g=0;g<=4;g++){const v=mx*g/4,yy=y(v);grid+=`<line x1="${P}" x2="${W-8}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="3 4"/>`;lbl+=`<text x="${P-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`;}
-  const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="#19E27D" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
+  const area=path+` L${x(data.length-1)},${H-26} L${x(0)},${H-26} Z`;let grid="",lbl="";
+  for(let g=0;g<=4;g++){const v=Math.round(mx*g/4),yy=y(v);grid+=`<line x1="${P}" x2="${W-8}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="3 4"/>`;lbl+=`<text x="${P-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`;}
+  const color=tipo==="posts"?"#FFB020":"#19E27D";
+  const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="${color}" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
   const xl=labels.map((t,i)=>i%2?"":`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${t}</text>`).join("");
-  chArea.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#19E27D" stop-opacity=".4"/><stop offset="1" stop-color="#19E27D" stop-opacity="0"/></linearGradient></defs>${grid}${lbl}<path d="${area}" fill="url(#ga)"/><path d="${path}" fill="none" stroke="url(#gr)" stroke-width="2.6" stroke-linecap="round"/>${dots}${xl}</svg>`;
-  chTot.textContent=data.reduce((a,b)=>a+b,0).toLocaleString("pt-BR")+" cliques";})();
+  const gradId=tipo==="posts"?"gp":"ga";
+  chArea.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".4"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>${grid}${lbl}<path d="${area}" fill="url(#${gradId})"/><path d="${path}" fill="none" stroke="${color}" stroke-width="2.6" stroke-linecap="round"/>${dots}${xl}</svg>`;
+  if(chTot)chTot.textContent=total.toLocaleString("pt-BR")+" "+( tipo==="posts"?"posts enviados":"cliques");
+}
 
 /* ================= HEATMAP ================= */
 (function(){
@@ -2291,7 +2237,6 @@ async function fetchRadarLive(searchQ=""){
     return d.map(o=>({
       p:o.title,
       loja:o.source==="shopee"?"Shopee":o.source==="mercado_livre"?"Mercado Livre":o.source==="amazon"?"Amazon":o.source==="aliexpress"?"AliExpress":o.shop_name||o.source||"Outra",
-      source:o.source||null,
       de:Number(o.price_original||o.price||0),
       por:Number(o.price||0),
       off:o.discount_pct||0,
@@ -2449,7 +2394,7 @@ async function rgSalvarNoGrupo(){
     const pos=(last?.position||0)+1;
     const{error}=await SB.from("products").insert({
       title:nome,affiliate_url:link,price:por,price_original:de,
-      image_url:img,niche_group_id:gidDb,source:RG_OFERTA_ATUAL?.source||"manual",position:pos,
+      image_url:img,niche_group_id:gidDb,source:"radar",position:pos,
       coupon_code:cupom?.code||null,cta_text:ctaTexto,cta_random:ctaRandom,
       description:descExtras,
       user_id:CURRENT_USER?.id,
@@ -3402,43 +3347,20 @@ function mostraQRStatus(emoji,titulo,sub,cor){
 }
 
 /* ================= GRUPOS ================= */
-// Mostra/oculta o campo de texto livre quando o nicho é "Outro"
-function onNichoChange(){
-  const sel=document.getElementById("inNichoGrupo");
-  const wrap=document.getElementById("inNichoOutroWrap");
-  if(!sel||!wrap)return;
-  wrap.style.display=sel.value==="outro"?"block":"none";
-}
 btnAddGrupo.onclick=()=>{if(S.grupos.length>=S.planLimit){const f=myFeatures();toast(`Limite do plano ${f.label} atingido (${S.planLimit} grupo${S.planLimit>1?"s":""}). Faça upgrade!`,"⚠️");go("assinatura");return;}
-  inNomeGrupo.value="";
-  const selN=document.getElementById("inNichoGrupo");if(selN)selN.value="";
-  const outroN=document.getElementById("inNichoOutro");if(outroN)outroN.value="";
-  const wrapN=document.getElementById("inNichoOutroWrap");if(wrapN)wrapN.style.display="none";
-  openModal("modalGrupo");setTimeout(()=>inNomeGrupo.focus(),60);};
+  inNomeGrupo.value="";openModal("modalGrupo");setTimeout(()=>inNomeGrupo.focus(),60);};
 btnSalvarGrupo.onclick=async()=>{const nome=inNomeGrupo.value.trim();if(!nome){toast("Informe o nome.","⚠️");return;}
-  const nicho=document.getElementById("inNichoGrupo")?.value||"";
-  const nichoOutro=(document.getElementById("inNichoOutro")?.value||"").trim();
-  if(!nicho){toast("Selecione o nicho do grupo.","⚠️");return;}
-  if(nicho==="outro"&&!nichoOutro){toast("Dê um nome ao nicho (ex.: Achadinhos).","⚠️");return;}
-  const nicheLabel=nicho==="outro"?nichoOutro:null;
   const uid=CURRENT_USER?.id;
   if(uid){
-    const{data,error}=await SB.from("niche_groups").insert({user_id:uid,name:nome,post_auto_enabled:false,interval_minutes:10,niche:nicho,niche_label:nicheLabel}).select("id").single();
+    const{data,error}=await SB.from("niche_groups").insert({user_id:uid,name:nome,post_auto_enabled:false,interval_minutes:10}).select("id").single();
     if(error){toast("Erro ao criar grupo.","❌");console.error(error);return;}
-    S.grupos.push({db_id:data.id,id:data.id,nome,niche:nicho,niche_label:nicheLabel,postAuto:false,produtos:0,canais:0,intervalo:"N/A"});
+    S.grupos.push({db_id:data.id,id:data.id,nome,postAuto:false,produtos:0,canais:0,intervalo:"N/A"});
   }else{
     const fakeId="local_"+Date.now();
-    S.grupos.push({id:fakeId,nome,niche:nicho,niche_label:nicheLabel,postAuto:false,produtos:0,canais:0,intervalo:"N/A"});
+    S.grupos.push({id:fakeId,nome,postAuto:false,produtos:0,canais:0,intervalo:"N/A"});
     lsSave("grupos",S.grupos);
   }
   closeModal("modalGrupo");renderGrupos();renderOnb();toast("Grupo de Oferta criado!");};
-// Traduz o slug do nicho no rótulo com emoji para exibição. Para "outro", usa o texto livre do usuário.
-const NICHO_LABELS={bebe:"🍼 Bebê",casa:"🏠 Casa",eletronicos:"📱 Eletrônicos",cozinha:"🍳 Cozinha",moda:"👗 Moda",beleza:"💄 Beleza",pet:"🐾 Pet",fitness:"💪 Fitness",ferramentas:"🔧 Ferramentas",games:"🎮 Games"};
-function nichoLabelBonito(g){
-  if(!g)return"";
-  if(g.niche==="outro")return"✨ "+(g.niche_label||"Variados");
-  return NICHO_LABELS[g.niche]||"";
-}
 function renderGrupos(){const has=S.grupos.length>0;
   gVazio.style.display=has?"none":"block";gTabela.style.display=has?"block":"none";pillCount.textContent=S.grupos.length+"/"+S.planLimit;
   const banner=document.getElementById("grupoStarterBanner");
@@ -3480,7 +3402,7 @@ function renderGrupos(){const has=S.grupos.length>0;
       <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--bd)">
         <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none">📢</div>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.nome}${nichoLabelBonito(g)?` <span style="font-size:10px;font-weight:600;color:var(--mut);background:var(--bg2,rgba(255,255,255,.05));padding:2px 7px;border-radius:6px;margin-left:4px;white-space:nowrap">${nichoLabelBonito(g)}</span>`:""}</div>
+          <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.nome}</div>
           <div style="font-size:11px;color:var(--mut);font-family:var(--mono)">ID: ${(g.db_id||g.id||"").toString().slice(0,8)}…</div>
         </div>
       </div>
@@ -4442,24 +4364,7 @@ async function mlImportarLink(){
     });
     const d=await r.json();
     if(!d||(!d.title&&!d.name)){toast("Não foi possível extrair dados. Preencha manualmente.","⚠️");return;}
-    // Normaliza os preços que vieram do backend
-    let precoAtual=d.price_to||d.price||null;
-    let precoOrig=d.price_from||d.price_original||null;
-    const desc=d.discount_pct?Number(d.discount_pct):null;
-    // Deriva o preço que faltar, usando o desconto (quando só um dos dois veio)
-    if(precoAtual&&!precoOrig&&desc&&desc>0&&desc<100){
-      precoOrig=Math.round((Number(precoAtual)/(1-desc/100))*100)/100; // original = atual / (1 - desc%)
-    }else if(precoOrig&&!precoAtual&&desc&&desc>0&&desc<100){
-      precoAtual=Math.round((Number(precoOrig)*(1-desc/100))*100)/100; // atual = original * (1 - desc%)
-    }
-    console.log("[ML preços] price_to:",d.price_to,"price_from:",d.price_from,"desc:",d.discount_pct,"→ atual:",precoAtual,"orig:",precoOrig);
-    window._mlImportData={title:d.title||d.name,price:precoAtual,price_original:precoOrig,affiliate_url:link,image_url:d.image||d.thumbnail||d.image_url,discount_pct:d.discount_pct||null};
-    // Preenche automaticamente os campos de preço (o usuário ainda pode ajustar)
-    const inpOrig=document.getElementById("mlLinkPrecoOrig");
-    const inpAtual=document.getElementById("mlLinkPrecoAtual");
-    const fmt=v=>String(v).replace(".",",");
-    if(inpOrig&&precoOrig)inpOrig.value=fmt(precoOrig);
-    if(inpAtual&&precoAtual)inpAtual.value=fmt(precoAtual);
+    window._mlImportData={title:d.title||d.name,price:d.price||d.price_to,affiliate_url:link,image_url:d.image||d.thumbnail||d.image_url,discount_pct:d.discount_pct||null};
     const body=document.getElementById("mlImportBody");
     const prev=document.getElementById("mlImportPreview");
     if(body)body.innerHTML=`<div class="prod" style="align-items:center">
@@ -4484,7 +4389,7 @@ async function mlConfirmarImport(postarAgora=false){
   const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gid).order("position",{ascending:false}).limit(1).maybeSingle();
   const pos=(last?.position||0)+1;
   const row={
-    niche_group_id:gid,source:"mercado_livre",position:pos,
+    niche_group_id:gid,source:"link",position:pos,
     title:window._mlImportData?.title||"Produto ML",
     affiliate_url:link||window._mlImportData?.affiliate_url||"",
     image_url:window._mlImportData?.image_url||"",
@@ -4552,24 +4457,7 @@ async function prodImportarLink(){
     });
     const d=await r.json();
     if(!d||(!d.title&&!d.name)){toast("Não foi possível extrair dados do produto.","⚠️");return;}
-    // Normaliza os preços do backend e deriva o que faltar usando o desconto
-    let precoAtual=d.price_to||d.price||null;
-    let precoOrig=d.price_from||d.price_original||null;
-    const desc=d.discount_pct?Number(d.discount_pct):(d.discount?Number(d.discount):null);
-    if(precoAtual&&!precoOrig&&desc&&desc>0&&desc<100){
-      precoOrig=Math.round((Number(precoAtual)/(1-desc/100))*100)/100;
-    }else if(precoOrig&&!precoAtual&&desc&&desc>0&&desc<100){
-      precoAtual=Math.round((Number(precoOrig)*(1-desc/100))*100)/100;
-    }
-    console.log("[prod preços] price_to:",d.price_to,"price_from:",d.price_from,"desc:",d.discount_pct,"→ atual:",precoAtual,"orig:",precoOrig);
-    _prodImportData={title:d.title||d.name,price:precoAtual,price_original:precoOrig,affiliate_url:link,image_url:d.image||d.thumbnail||d.image_url,discount_pct:desc||null};
-    // Preenche automaticamente os campos de preço (o usuário ainda pode ajustar)
-    const inpOrig=document.getElementById("prodLinkPrecoOrig");
-    const inpAtual=document.getElementById("prodLinkPrecoAtual");
-    const fmt=v=>String(v).replace(".",",");
-    if(inpOrig&&precoOrig)inpOrig.value=fmt(precoOrig);
-    if(inpAtual&&precoAtual)inpAtual.value=fmt(precoAtual);
-    if(typeof prodCalcDesc==="function")try{prodCalcDesc();}catch(e){}
+    _prodImportData={title:d.title||d.name||d.name,price:d.price||d.price_to||d.price_from,affiliate_url:link,image_url:d.image||d.thumbnail||d.image_url,discount_pct:d.discount_pct||d.discount||null};
     const body=document.getElementById("prodImportBody");
     const prev=document.getElementById("prodImportPreview");
     if(body)body.innerHTML=`
@@ -4608,7 +4496,7 @@ async function prodConfirmarImport(postarAgora=false){
   const pos=(last?.position||0)+1;
 
   const row={
-    niche_group_id:gid,source:marketplaceSourceFromLink(link||_prodImportData?.affiliate_url),position:pos,
+    niche_group_id:gid,source:"link",position:pos,
     title:_prodImportData?.title||"",
     affiliate_url:link||_prodImportData?.affiliate_url||"",
     image_url:_prodImportData?.image_url||"",
@@ -5041,7 +4929,7 @@ function stPill(s){return s==="active"?'<span class="pill volt"><span class="d">
 
 /* ADMIN: VISÃO GERAL */
 function renderAdminVisao(){
-  // Exclui admins e VIPs das métricas financeiras
+  // Versão sync — apenas renderiza com USERS já em memória (chamada interna)
   const payingUsers=USERS.filter(u=>!u.is_vip&&!u.is_admin);
   const ativos=payingUsers.filter(u=>u.status==="active").length;
   const trial=payingUsers.filter(u=>u.status==="trial").length;
@@ -5052,14 +4940,50 @@ function renderAdminVisao(){
     ["Usuários ativos",ativos+"","#39C0FF",z],
     ["Em trial",trial+"","#FFB020",z],
     ["Churn mensal","—","#FF4D8D",z]
-  ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">aguardando dados</div>${spark(k[3],k[2])}</div>`).join("");
+  ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">dados reais</div>${spark(k[3],k[2])}</div>`).join("");
   const meses=["Jul","Ago","Set","Out","Nov","Dez","Jan","Fev","Mar","Abr","Mai","Jun"];const mrrV=z,novos=z;const mx=1;
   mrrChart.innerHTML=meses.map((m,i)=>`<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:3px"><div style="display:flex;gap:2px;align-items:flex-end;height:120px"><div class="bar" style="height:0%" data-t="${m}: sem dados"></div><div class="bar alt" style="height:0%" data-t="${m}: sem dados"></div></div><div style="text-align:center;font-size:9.5px;color:var(--mut)">${m}</div></div>`).join("");
   // distribuição real por plano
   const dist=[["STARTER",USERS.filter(u=>u.plano==="STARTER").length,"#10B981"],["PRO",USERS.filter(u=>u.plano==="PRO").length,"#3B82F6"],["ELITE",USERS.filter(u=>u.plano==="ELITE").length,"#8B5CF6"],["INFINITY",USERS.filter(u=>u.plano==="INFINITY").length,"#F59E0B"]];const tot=Math.max(1,dist.reduce((a,d)=>a+d[1],0));
   planDist.innerHTML=dist.map(d=>`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><strong>${d[0]}</strong><span style="color:var(--mut)">${d[1]} · ${Math.round(d[1]/tot*100)}%</span></div><div class="prog-mini"><i style="width:${d[1]/tot*100}%;background:${d[2]}"></i></div></div>`).join("");
-  opHealth.innerHTML=[["📱 Instâncias WhatsApp online","0","volt"],["📣 Canais validados (OWNER/ADMIN)","0","sky"],["⏱️ Posts na fila agora","0","gold"],["⚠️ Sessões desconectadas (24h)","0","red"]].map(h=>`<div class="qrow"><span>${h[0]}</span><span class="pill ${h[2]}" style="margin-left:auto">${h[1]}</span></div>`).join("");
   admFeed.innerHTML='<div class="feed"><span class="fic">•</span><span style="color:var(--mut)">Nenhuma atividade ainda. Os eventos aparecerão aqui conforme os clientes usarem a plataforma.</span></div>';
+}
+
+async function refreshAdminVisao(){
+  // Recarrega dados do banco e atualiza toda a Visão Geral
+  if(!SB)return;
+  // Indicador visual de carregamento
+  if(admKpis)admKpis.innerHTML='<div style="grid-column:1/-1;color:var(--mut);padding:12px 0;font-size:13px">⏳ Carregando dados…</div>';
+  if(opHealth)opHealth.innerHTML='<div style="color:var(--mut);font-size:13px;padding:8px 0">⏳ Buscando…</div>';
+  try{
+    // 1. Recarrega usuários do banco
+    await loadUsersFromDB();
+    // 2. Renderiza KPIs e distribuição de planos
+    renderAdminVisao();
+    // 3. Saúde da operação — dados reais do Supabase
+    const [sessRes,canaisRes]=await Promise.allSettled([
+      SB.from("whatsapp_instances").select("status"),
+      SB.from("whatsapp_channels").select("role").in("role",["owner","admin"])
+    ]);
+    // Instâncias WhatsApp
+    const sessData=sessRes.status==="fulfilled"&&!sessRes.value.error?(sessRes.value.data||[]):[];
+    const onlineCount=sessData.filter(s=>s.status==="connected"||s.status==="online").length;
+    const discCount=sessData.filter(s=>s.status==="disconnected"||s.status==="error").length;
+    // Fila de posts — tabela pode não existir ainda
+    const filaCount=0;
+    // Canais validados OWNER/ADMIN
+    const canaisCount=canaisRes.status==="fulfilled"&&!canaisRes.value.error?(canaisRes.value.data||[]).length:0;
+    opHealth.innerHTML=[
+      ["📱 Instâncias WhatsApp online",onlineCount+"","volt"],
+      ["📣 Canais validados (OWNER/ADMIN)",canaisCount+"","sky"],
+      ["⏱️ Posts na fila agora",filaCount+"","gold"],
+      ["⚠️ Sessões desconectadas (24h)",discCount+"","red"]
+    ].map(h=>`<div class="qrow"><span>${h[0]}</span><span class="pill ${h[2]}" style="margin-left:auto">${h[1]}</span></div>`).join("");
+  }catch(e){
+    console.error("refreshAdminVisao erro:",e);
+    renderAdminVisao(); // fallback com dados em memória
+    if(opHealth)opHealth.innerHTML='<div style="color:var(--mut);font-size:13px;padding:8px 0">⚠️ Erro ao buscar dados de saúde.</div>';
+  }
 }
 
 /* ADMIN: USUÁRIOS CRM */
@@ -5500,7 +5424,7 @@ async function loadVipMembers(){
   }catch(e){console.warn("loadVipMembers exception:",e);}
 }
 
-renderAdminVisao();renderUsers();renderSubs();renderSuporte();renderConfig();genQueue();renderQueue();renderAdminInstaResp();renderVip();
+renderAdminVisao();renderUsers();renderSubs();renderInstancias();renderSuporte();renderConfig();genQueue();renderQueue();renderAdminInstaResp();renderVip();
 
 function vipStatus(v){
   if(v.tipo==="vitalicio")return "vitalicio";
@@ -6037,17 +5961,14 @@ async function atualizarStatusQuotaML(elId){
   pararStatusQuotaML();
   _mlQuotaStatusElId=elId;
   try{
-    // Se o usuário tem token pessoal do Scrape.do conectado, usa o crédito dele (não a cota da plataforma)
+    // Se o usuário tem token pessoal do Scrape.do conectado, não há limite da plataforma
     if(CURRENT_USER?.id){
-      const{data:prof}=await SB.from("profiles").select("scrape_do_token,scrape_do_token_2").eq("id",CURRENT_USER.id).maybeSingle();
+      const{data:prof}=await SB.from("profiles").select("scrape_do_token").eq("id",CURRENT_USER.id).maybeSingle();
       if(prof?.scrape_do_token){
-        const temBackup=!!prof?.scrape_do_token_2;
         el.style.display="inline-flex";
         el.className="pill ml-status-green";
-        el.textContent=temBackup?"🟢 Seu token Scrape.do (+ backup)":"🟢 Seu token Scrape.do";
-        el.title=temBackup
-          ?"Você usa seu próprio crédito Scrape.do. Quando o principal esgotar, o token de contingência entra automaticamente."
-          :"Você usa seu próprio crédito Scrape.do (não a cota compartilhada). Dica: cadastre um token de contingência em Config Afiliados para não parar quando o crédito acabar.";
+        el.textContent="🟢 Buscas ilimitadas (seu token Scrape.do)";
+        el.title="Você tem um token pessoal do Scrape.do conectado — suas buscas de Mercado Livre não usam a cota compartilhada.";
         return;
       }
     }
@@ -6085,23 +6006,6 @@ function prDetectLojaFromUrl(link){
   if(l.includes("shein"))return "Shein";
   if(l.includes("natura"))return "Natura";
   return null;
-}
-
-// Mapeia um link (ou nome de loja) para um valor VÁLIDO do enum `marketplace` no banco.
-// Valores aceitos: shopee, amazon, aliexpress, magalu, mercado_livre, shein, natura, awin, terabyte, manual.
-// Nunca retorna algo fora do enum — o fallback seguro é "manual" (evita 400 Bad Request no insert).
-function marketplaceSourceFromLink(link){
-  const l=String(link||"").toLowerCase();
-  if(l.includes("shopee"))return "shopee";
-  if(l.includes("mercadolivre")||l.includes("mercadolibre")||l.includes("meli")||/mlb[-_]?\d/i.test(l))return "mercado_livre";
-  if(l.includes("amazon"))return "amazon";
-  if(l.includes("aliexpress"))return "aliexpress";
-  if(l.includes("magazineluiza")||l.includes("magalu"))return "magalu";
-  if(l.includes("shein"))return "shein";
-  if(l.includes("natura"))return "natura";
-  if(l.includes("awin"))return "awin";
-  if(l.includes("terabyte"))return "terabyte";
-  return "manual";
 }
 
 function prAutoBuscar(){
@@ -6159,8 +6063,36 @@ function prGerarLinkAfil(link,loja){
   }catch(e){return link+"?ref="+id;}
 }
 
-// Encurta qualquer link via is.gd (gratuito, sem autenticação)
-async function mlEncurtarLink(longUrl){
+// Planos com rastreamento de cliques habilitado
+function planTemRastreamento(){
+  return ["elite","infinity"].includes(MY_PLAN);
+}
+
+// Gera um código aleatório de 7 chars
+function gerarCode(){
+  return Math.random().toString(36).slice(2,9);
+}
+
+// Encurta link: Elite/Infinity → short link próprio com rastreamento
+//               Starter/Pro    → is.gd sem rastreamento (fallback)
+async function mlEncurtarLink(longUrl, postRef){
+  // Elite/Infinity: grava no banco e retorna /r/{code}
+  if(planTemRastreamento()&&SB&&CURRENT_USER?.id){
+    try{
+      const code=gerarCode();
+      const{error}=await SB.from("short_links").insert({
+        code,
+        long_url:longUrl,
+        destination:longUrl,
+        user_id:CURRENT_USER.id,
+        post_ref:postRef||null
+      });
+      if(!error){
+        return `${window.location.origin}/r/${code}`;
+      }
+    }catch(e){console.warn("[short-link] erro no banco:",e.message);}
+  }
+  // Fallback: is.gd via Edge Function (Starter/Pro ou se banco falhou)
   try{
     const r=await fetch(`${SUPA_URL}/functions/v1/ml-short-link`,{
       method:"POST",
@@ -6168,9 +6100,7 @@ async function mlEncurtarLink(longUrl){
       body:JSON.stringify({url:longUrl})
     });
     const d=await r.json();
-    console.log("[encurtar] status:",r.status,"resposta:",JSON.stringify(d).slice(0,200));
-    if(d.ok&&d.short_url){return d.short_url;}
-    console.warn("[encurtar] falhou:",d.error);
+    if(d.ok&&d.short_url)return d.short_url;
     return null;
   }catch(e){console.warn("[encurtar] erro:",e.message);return null;}
 }
@@ -6481,6 +6411,19 @@ async function prDisparar(){
   btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18"><path d="M13 2L4.5 13.5H11L10 22L19.5 10H13L13 2Z"/></svg> Disparar agora';
 
   if(ok>0){
+    // Grava na scheduled_posts para contagem no Analítico
+    try{
+      const uid=CURRENT_USER?.id;
+      if(uid&&SB){
+        const rows=[];
+        const agora=new Date().toISOString();
+        for(const g of grupos){
+          const gid=g.db_id||g.id;
+          rows.push({user_id:uid,group_id:gid,status:"sent",scheduled_for:agora,sent_at:agora});
+        }
+        if(rows.length)await SB.from("scheduled_posts").insert(rows);
+      }
+    }catch(e){console.warn("Erro ao registrar post no banco:",e);}
     // Tela de sucesso clara
     const step2=document.getElementById("prStep2");
     if(step2){
@@ -6733,6 +6676,8 @@ async function enterApp(profile){
   // entra sempre pela área de afiliado
   authGate.style.display="none";
   setRole("afiliado");
+  // carrega analítico em background
+  setTimeout(()=>{if(typeof loadAnalitico==="function")loadAnalitico();},500);
 }
 // Atualiza o rodapé do menu lateral com o plano real
 function updateRailFoot(profile){
