@@ -580,8 +580,7 @@ function hideLoading(){
     <div class="nav" data-page="canais-grupos"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M17 8a5 5 0 1 0-10 0c0 5-2 6-2 6h14s-2-1-2-6"/><path d="M10.5 19a1.7 1.7 0 0 0 3 0"/></svg>Grupos de Oferta</div>
     <div class="nav" data-page="conexao"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5z"/></svg>Conexão WhatsApp<span class="tag dot">QR</span></div>
     <div class="nav" data-page="config-telegram"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="m22 2-7 20-4-9-9-4 20-7z"/></svg>Config Telegram</div>
-    <div class="nav" data-page="instaresp" style="opacity:.6;pointer-events:none"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".6" fill="currentColor"/></svg>InstaResp<span class="tag" style="background:rgba(148,148,168,.2);color:var(--mut)">Breve</span></div>
-    <div class="lbl">Configurações</div>
+<div class="lbl">Configurações</div>
     <div class="nav" data-page="config-afiliados"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.4-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.2-.8.2-1.2z"/></svg>Config Afiliados</div>
 
     <div class="lbl">Conta & Crescimento</div>
@@ -606,8 +605,7 @@ function hideLoading(){
     <div class="lbl">Operação</div>
     <div class="nav" data-page="adm-instancias"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5z"/></svg>Instâncias & Canais</div>
     <div class="nav" data-page="adm-fila"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Fila de Posts<span class="tag dot" id="filaBadge">live</span></div>
-    <div class="nav" data-page="adm-instaresp"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".6" fill="currentColor"/></svg>InstaResp</div>
-    <div class="nav" data-page="adm-suporte"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>Suporte</div>
+<div class="nav" data-page="adm-suporte"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>Suporte</div>
     <div class="lbl">Sistema</div>
     <div class="nav" data-page="adm-config"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.4-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.2-.8.2-1.2z"/></svg>Config. Plataforma</div>
     <div style="padding:10px 12px 4px;display:flex;gap:12px;justify-content:center">
@@ -821,8 +819,10 @@ function hideLoading(){
   <section class="page on" id="page-dashboard">
     <div class="phead">
       <div><h1 class="pt" id="greeting">Boa tarde ⚡</h1><div class="psub">Resumo da sua operação na Mega Links BR.</div></div>
-      <div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="openDrawer()">✨ Gerar post com IA</button><button class="btn btn-volt" onclick="go('canais-grupos')">＋ Novo Grupo de Oferta</button></div>
+      <div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="openDrawer()" id="btnDashIA">✨ Gerar post com IA</button><button class="btn btn-volt" onclick="go('canais-grupos')">＋ Novo Grupo de Oferta</button></div>
     </div>
+    <!-- Banner de upgrade contextual (injetado via JS) -->
+    <div id="upgradeBannerDash"></div>
     <!-- CTA de Postagem — item PRINCIPAL da Dashboard -->
     <div onclick="go('post-relampago')" style="cursor:pointer;background:linear-gradient(135deg,rgba(255,107,43,.16),rgba(255,60,60,.08));border:1.5px solid rgba(255,107,43,.4);border-radius:var(--r);padding:24px 26px;margin-bottom:20px;display:flex;align-items:center;gap:18px;transition:.15s" onmouseover="this.style.borderColor='rgba(255,107,43,.7)'" onmouseout="this.style.borderColor='rgba(255,107,43,.4)'">
       <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#ff6b2b,#ff4040);display:flex;align-items:center;justify-content:center;font-size:28px;flex:none">⚡</div>
@@ -1037,6 +1037,7 @@ function hideLoading(){
       </div>
     </div>
     <div id="grupoStarterBanner" style="display:none;background:linear-gradient(135deg,rgba(245,197,24,.1),rgba(57,192,255,.05));border:1px solid rgba(245,197,24,.3);border-radius:12px;padding:14px 18px;margin-bottom:14px;align-items:center;gap:14px;font-size:13px">
+    <div id="grupoLimiteAlert" style="display:none;background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.4);border-radius:10px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;font-size:13px"></div>
       <span style="font-size:24px">💡</span>
       <div style="flex:1"><strong>Você está no plano Starter</strong> — configure seus Grupos de Oferta e dispare via <strong style="color:var(--gold)">⚡ Post Relâmpago</strong>. Para ativar automação de posts em loop, faça upgrade para Pro.</div>
       <button class="btn btn-gold btn-sm" onclick="go('assinatura')">Ver planos</button>
@@ -1061,39 +1062,7 @@ function hideLoading(){
   </section>
 
   <!-- ===== INSTARESP (Automação de Comentários IG) ===== -->
-  <section class="page" id="page-instaresp">
-    <div class="phead"><div><h1 class="pt">InstaResp <span class="pill volt"><span class="d"></span>NEW</span></h1><div class="psub">Responda comentários automaticamente e envie DMs com seus links de afiliado.
-      <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button></div></div>
-      <button class="btn btn-ghost" id="igDiscBtn" style="display:none" onclick="igDisconnect()">Desconectar</button></div>
-
-    <!-- Banner de trial (exibido via JS quando trial ativo) -->
-    <div id="igTrialBanner" class="alert y" style="display:none;font-size:13px;margin-bottom:16px"></div>
-
-    <!-- Card de conexão / métricas -->
-    <div id="igConnectCard">
-      <div class="card"><div class="cb" style="display:flex;align-items:center;gap:16px;padding:20px">
-        <div style="font-size:32px;flex:none">📸</div>
-        <div style="flex:1">
-          <h3 style="margin-bottom:4px;font-size:15px">Conectar Instagram</h3>
-          <p style="color:var(--tx2);font-size:13px;margin:0">Monitore comentários e envie DMs automáticas com links de afiliado.</p>
-        </div>
-        <button class="btn btn-volt" id="igConnBtn" onclick="igConnect()" style="flex:none">Conectar</button>
-      </div></div>
-    </div>
-    <div id="igMetrics" style="display:none">
-      <div class="g4" style="margin-bottom:20px" id="igKpis"></div>
-    </div>
-
-    <!-- Galeria de mídias — aparece após conectar -->
-    <div class="card" id="igGalleryCard" style="display:none"><div class="ch">🎬 Suas mídias <span class="r">clique em "Nova automação" sobre um post/reel</span></div>
-      <div class="cb"><div class="g4" id="igGallery"></div></div></div>
-
-    <!-- Automações ativas -->
-    <div class="card" id="igAutomCard" style="display:none"><div class="ch">🤖 Automações ativas <span class="r" id="igAutomCount">0</span></div>
-      <div style="overflow-x:auto"><table><thead><tr><th>Mídia</th><th>Gatilho</th><th>Resposta</th><th>Links</th><th>Disparos</th><th>Status</th><th></th></tr></thead><tbody id="igAutomBody"></tbody></table></div></div>
-  </section>
-
-  <!-- ===== CONFIG AFILIADOS ===== -->
+<!-- ===== CONFIG AFILIADOS ===== -->
   <section class="page" id="page-config-afiliados">
     <div class="phead"><div><h1 class="pt">Config Afiliados</h1><div class="psub">Conecte suas credenciais para importar produtos e converter links automaticamente.
       <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button></div></div></div>
@@ -1386,22 +1355,7 @@ function hideLoading(){
       <div class="card"><div class="ch">📜 Log ao vivo</div><div class="cb" id="queueLog" style="padding-top:6px;max-height:340px;overflow-y:auto"></div></div>
     </div>
   </section>
-
-  <!-- ============ ADMIN: INSTARESP ============ -->
-  <section class="page" id="page-adm-instaresp">
-    <div class="phead"><div><h1 class="pt">InstaResp · Monitoramento</h1><div class="psub">Automações de comentário, disparos e conversão por conta.</div></div>
-      <select style="max-width:170px"><option>Últimos 30 dias</option><option>Hoje</option><option>Este mês</option></select></div>
-    <div class="g4" id="irKpis" style="margin-bottom:20px"></div>
-    <div class="g23">
-      <div class="card"><div class="ch">📈 Disparos por dia <span class="r">14 dias</span></div><div class="cb"><div class="bar-track" id="irChart"></div>
-        <div class="legend"><span><i style="background:var(--volt)"></i> respostas públicas</span><span><i style="background:var(--sky)"></i> DMs enviadas</span></div></div></div>
-      <div class="card"><div class="ch">🏆 Top gatilhos</div><div class="cb" id="irTriggers"></div></div>
-    </div>
-    <div class="card"><div class="ch">👤 Contas conectadas</div><div style="overflow-x:auto"><table>
-      <thead><tr><th>Conta</th><th>Automações</th><th>Ativas</th><th>Disparos</th><th>DMs</th><th>Conversão</th></tr></thead><tbody id="irBody"></tbody></table></div></div>
-  </section>
-
-  <!-- ============ ADMIN: SUPORTE ============ -->
+<!-- ============ ADMIN: SUPORTE ============ -->
   <!-- ============ ADMIN: MEMBROS VIP ============ -->
   <section class="page" id="page-adm-vip">
     <div class="phead">
@@ -1655,24 +1609,6 @@ function hideLoading(){
     <button class="btn btn-ghost" onclick="closeModal('modalRadarGrupo')">Cancelar</button>
     <button class="btn btn-volt" onclick="rgSalvarNoGrupo()">➕ Adicionar ao Grupo</button>
   </div>
-</div></div>
-
-
-<!-- ===== MODAL NOVA AUTOMAÇÃO (InstaResp) ===== -->
-<div class="mbg" id="modalAutom"><div class="modal" style="max-width:600px">
-  <div class="mh">🤖 Nova automação de comentários <button class="mx" onclick="closeModal('modalAutom')">×</button></div>
-  <div class="mb">
-    <div id="automMediaInfo" class="prod" style="margin-bottom:16px"></div>
-    <div class="field"><label>Palavra-chave gatilho</label><input id="auKw" placeholder='ex.: quero'><div class="hint">Não diferencia maiúsculas/minúsculas.</div></div>
-    <div class="field"><label>Frase de resposta ao comentário</label><textarea id="auReply" rows="2" placeholder="Frases separadas por ; (alterna entre elas) ou digite: auto"></textarea><div class="hint">Use <span class="kbd">auto</span> para sortear entre 90+ frases prontas, ou separe variações com <span class="kbd">;</span>.</div></div>
-    <div class="field"><label>Texto enviado no Direct (DM)</label><textarea id="auDm" rows="2" placeholder="ex.: Aqui está o link que você pediu 👇"></textarea></div>
-    <div class="field"><label>Texto de destaque (acima dos botões)</label><input id="auHi" placeholder="ex.: VER NA SHOPEE"></div>
-    <label>Links de afiliado <span style="color:var(--mut);font-weight:400">(1 a 10 botões)</span></label>
-    <div id="auLinks" style="margin:8px 0"></div>
-    <button class="btn btn-ghost btn-sm" id="auAddLink">＋ Adicionar link</button>
-    <button class="btn btn-ghost btn-sm" onclick="autoFillAutom()" style="margin-left:6px">↺ Preencher automaticamente</button>
-  </div>
-  <div class="mf"><button class="btn btn-ghost" onclick="closeModal('modalAutom')">Cancelar</button><button class="btn btn-volt" id="auSave">Salvar automação</button></div>
 </div></div>
 
 <div class="tw" id="tw"></div>
@@ -3363,6 +3299,16 @@ btnSalvarGrupo.onclick=async()=>{const nome=inNomeGrupo.value.trim();if(!nome){t
   closeModal("modalGrupo");renderGrupos();renderOnb();toast("Grupo de Oferta criado!");};
 function renderGrupos(){const has=S.grupos.length>0;
   gVazio.style.display=has?"none":"block";gTabela.style.display=has?"block":"none";pillCount.textContent=S.grupos.length+"/"+S.planLimit;
+  // Alerta ao atingir 80% do limite de grupos
+  const pct=S.planLimit>0?S.grupos.length/S.planLimit:0;
+  const alertEl=document.getElementById("grupoLimiteAlert");
+  if(alertEl){
+    if(pct>=0.8&&pct<1&&S.planLimit<9999){
+      const f=myFeatures();
+      alertEl.style.display="flex";
+      alertEl.innerHTML=`<span>⚠️ Você usou <strong>${S.grupos.length}/${S.planLimit}</strong> grupos do plano ${f.label}. Faça upgrade antes de precisar!</span><button class="btn btn-gold btn-sm" onclick="go('assinatura')" style="flex:none">Ver planos</button>`;
+    }else{alertEl.style.display="none";}
+  }
   const banner=document.getElementById("grupoStarterBanner");
   if(banner)banner.style.display=(MY_PLAN==="starter")?"flex":"none";
   const hasPostAuto=!!(PLAN_FEATURES[MY_PLAN]||{}).wa_post_automation;
@@ -4031,6 +3977,14 @@ async function wireWaCanais(){
 let canaisVinc=[];
 async function vincularCanal(nome,link){
   const n=nome||"Meu canal";
+  // Trava wa_channels
+  const maxCh=lim("wa_channels")===-1?9999:lim("wa_channels");
+  const totalCanais=S.grupos.reduce((a,g)=>a+(g.canais||0),0);
+  if(totalCanais>=maxCh){
+    const f=myFeatures();
+    toast(`Limite de ${maxCh} canal${maxCh>1?"is":""} WA do plano ${f.label} atingido. Faça upgrade!`,"⚠️");
+    go("assinatura");return;
+  }
   const uid=CURRENT_USER?.id;
   const gid=S.grupoAtual?.db_id;
   if(uid&&gid){
@@ -4671,6 +4625,13 @@ async function tgCarregarCanais(){
 }
 
 async function tgValidarCanal(){
+  // Trava tg_channels
+  const maxTg=lim("tg_channels")===-1?9999:lim("tg_channels");
+  if(TG_CANAIS.length>=maxTg){
+    const f=myFeatures();
+    toast(`Limite de ${maxTg} canal${maxTg>1?"is":""} Telegram do plano ${f.label} atingido. Faça upgrade!`,"⚠️");
+    go("assinatura");return;
+  }
   const input=document.getElementById("tgChatInput");
   const grupoSel=document.getElementById("tgGrupoSelect");
   let chatId=(input?.value||"").trim();
@@ -4741,15 +4702,13 @@ const PAL=[
   {t:"Dashboard",ic:"🏠",go:"dashboard",k:"painel afiliado"},{t:"Radar de Ofertas",ic:"🛰️",go:"radar",k:"ofertas promo"},
   {t:"Analítico",ic:"📊",go:"analitico",k:"metricas cliques comissoes ctr horarios"},
   {t:"Conexão WhatsApp (QR)",ic:"📲",go:"conexao",k:"parear qr code numero"},{t:"Canais/Grupos",ic:"🔔",go:"canais-grupos",k:"grupo canal"},
-  {t:"InstaResp · automação de comentários",ic:"📸",go:"instaresp",k:"instagram comentario dm bot reels"},
-  {t:"Adicionar Grupo de Oferta",ic:"➕",act:()=>{setRole("afiliado");go("canais-grupos");btnAddGrupo.click();},k:"novo criar"},
+{t:"Adicionar Grupo de Oferta",ic:"➕",act:()=>{setRole("afiliado");go("canais-grupos");btnAddGrupo.click();},k:"novo criar"},
   {t:"Config Afiliados",ic:"⚙️",go:"config-afiliados",k:"credenciais shopee"},{t:"Assinatura e planos",ic:"💳",go:"assinatura",k:"upgrade pix"},
   {t:"FAQ",ic:"❓",go:"faq",k:"ajuda"},{t:"Abrir MegaIA",ic:"✨",act:()=>openDrawer(),k:"ia copiloto"},
   {t:"Alternar tema",ic:"🌓",act:()=>toggleTheme(),k:"dark light"},
   {t:"[Admin] Visão Geral",ic:"📊",act:()=>setRole("admin"),k:"admin metricas"},
   {t:"[Admin] Usuários / CRM",ic:"👥",act:()=>{setRole("admin");go("adm-usuarios");},k:"crm usuarios"},
   {t:"[Admin] Fila de Posts",ic:"⏱️",act:()=>{setRole("admin");go("adm-fila");},k:"scheduler fila"},
-  {t:"[Admin] InstaResp · monitor",ic:"📸",act:()=>{setRole("admin");go("adm-instaresp");},k:"instagram automacao disparos"},
   {t:"[Admin] Instâncias & Canais",ic:"📱",act:()=>{setRole("admin");go("adm-instancias");},k:"whatsapp sessoes"}
 ];
 let palSel=0;
@@ -4802,8 +4761,7 @@ function aiContextualSuggestions(){
     "radar":["Reescreva o título desta oferta","Sugira um post para essa promoção","Vale a pena divulgar essa?"],
     "editar-grupo":["Reescreva esse layout","Sugira variações de CTA","Qual nicho converte melhor?"],
     "post-relampago":["Melhore meu texto","Sugira 3 CTAs","Qual emoji usar?"],
-    "instaresp":["Resposta para comentário negativo","Ideia de gatilho viral","Como aumentar engajamento?"],
-    "config-afiliados":["Quais marketplaces mais convertem?","Dicas para Shopee","Estratégia multi-loja"],
+"config-afiliados":["Quais marketplaces mais convertem?","Dicas para Shopee","Estratégia multi-loja"],
     "assinatura":["Qual plano serve para mim?","Vale a pena upgrade?","Quanto economizo no anual?"],
     "canais-grupos":["Como crescer meu Grupo de Oferta?","Frequência ideal de posts","Como evitar bloqueio?"]
   };
@@ -4858,6 +4816,13 @@ function aiSendMsg(text){
 }
 
 function openDrawer(){
+  // Trava mega_ia — Starter não tem acesso
+  if(!myFeatures().mega_ia){
+    const prox=planRow("pro");
+    toast(`MegaIA disponível a partir do plano Pro (R$ ${brl(prox.price_month)}/mês).`,"🔒");
+    setTimeout(()=>go("assinatura"),1200);
+    return;
+  }
   drw.classList.add("open");
   // Limpa mensagens e mostra abertura personalizada
   if(!_aiSessionStarted){
@@ -5197,7 +5162,7 @@ async function fecharTicket(id){
   renderSuporte();
 }
 async function renderConfig(){
-  planLimitsCfg.innerHTML=["starter","pro","elite","premium"].map(k=>{const f=planRow(k);return `<div class="qrow"><strong>${f.label}</strong><span style="margin-left:auto;color:var(--mut)">${f.wa_groups} grupo${f.wa_groups>1?"s":""} · ${f.tg_channels} Telegram · ${f.ig_accounts} IG · R$ ${brl(Number(f.price_month))}</span></div>`;}).join("");
+  planLimitsCfg.innerHTML=["starter","pro","elite","premium"].map(k=>{const f=planRow(k);return `<div class="qrow"><strong>${f.label}</strong><span style="margin-left:auto;color:var(--mut)">${f.wa_groups} grupo${f.wa_groups>1?"s":""} · ${f.tg_channels} Telegram · R$ ${brl(Number(f.price_month))}</span></div>`;}).join("");
   integGrid.innerHTML="";
   const ig=document.createElement("div");ig.className="g3";
   // Integrações: status real onde possível, pendente onde não
@@ -5229,18 +5194,6 @@ async function renderConfig(){
 }
 
 /* ================= ADMIN: INSTARESP MONITOR ================= */
-function renderAdminInstaResp(){
-  const contas=[];
-  const totDisp=0, totDm=0, ativas=0;
-  irKpis.innerHTML=[["Automações ativas","0","#19E27D"],["Disparos (30d)","0","#39C0FF"],["DMs enviadas","0","#FF4D8D"],["Conversão média","—","#FFB020"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div></div>`).join("");
-  const dias=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(13-i));return d.getDate()+"/"+(d.getMonth()+1);});
-  const rep=dias.map(()=>0), dm=dias.map(()=>0);
-  const mx=1;
-  irChart.innerHTML=dias.map((d,i)=>`<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:3px"><div style="display:flex;gap:2px;align-items:flex-end;height:120px"><div class="bar" style="height:0%" data-t="${d}: sem dados"></div><div class="bar alt" style="height:0%" data-t="${d}: sem dados"></div></div><div style="text-align:center;font-size:9px;color:var(--mut)">${i%2?"":d}</div></div>`).join("");
-  irTriggers.innerHTML='<p style="color:var(--mut);font-size:13px">Sem dados de gatilhos ainda.</p>';
-  irBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--mut);padding:30px">Nenhuma conta Instagram conectada ainda.</td></tr>';
-}
-
 /* ================= INSTARESP (Instagram) ================= */
 const IG_STATE={connected:false,acc:null};
 const IG_MEDIA=[
@@ -5330,53 +5283,6 @@ function igDisconnect(){
   IG_STATE.connected=false;IG_STATE.acc=null;renderIG();toast("Instagram desconectado.","🔌");
 }
 
-function renderIG(){
-  const trial=igTrialInfo();
-
-  // Trial expirado → mostra tela de bloqueio
-  if(trial&&trial.iniciado&&trial.expirado){igMostraExpirado();return;}
-
-  const on=IG_STATE.connected;
-  igConnectCard.style.display=on?"none":"block";
-  igMetrics.style.display=on?"block":"none";
-  igGalleryCard.style.display=on?"block":"none";
-  igAutomCard.style.display=on?"block":"none";
-  igDiscBtn.style.display=on?"inline-flex":"none";
-
-  // Banner de trial ativo (quando conectado)
-  if(on&&trial&&trial.iniciado&&trial.ativo){
-    const cor=trial.diasRestantes<=2?"var(--pink)":"var(--gold)";
-    const aviso=document.getElementById("igTrialBanner");
-    if(aviso){
-      aviso.style.display="block";
-      aviso.innerHTML=`⏱️ Trial InstaResp: <strong style="color:${cor}">${trial.diasRestantes} dia${trial.diasRestantes!==1?"s":""} restante${trial.diasRestantes!==1?"s":""}</strong> · expira em ${trial.expDate.toLocaleDateString("pt-BR")} · <a href="#" onclick="go('assinatura');return false" style="color:var(--volt)">Fazer upgrade</a>`;
-    }
-  }
-
-  // Restaura o card de connect original se não estiver expirado
-  if(!on){
-    const orig=document.getElementById("igConnectCard");
-    if(orig&&!orig.querySelector(".btn-lg")){
-      orig.innerHTML=`<div class="card"><div class="cb locked" style="text-align:center;padding:32px 20px">
-        <div style="font-size:46px;margin-bottom:10px">📸</div>
-        <h3 style="margin-bottom:8px">Conectar Instagram</h3>
-        <p style="color:var(--tx2);max-width:360px;margin:0 auto 20px">Autorize o acesso à sua conta para monitorar comentários e enviar DMs automáticas com seus links de afiliado.</p>
-        ${trial&&!trial.iniciado?`<div class="alert y" style="font-size:12.5px;margin-bottom:16px;text-align:left">⏱️ Ao conectar, seu trial de <strong>${myFeatures().instaresp_trial_days} dias</strong> será iniciado.</div>`:""}
-        <button class="btn btn-lg" id="igConnBtn" style="background:linear-gradient(120deg,#f77737,#c13584,#833ab4);color:#fff" onclick="igConnect()">Conectar Instagram</button>
-        <div class="hint" style="margin-top:14px">Integração via Meta Graph API · aguardando aprovação do app</div>
-      </div></div>`;
-    }
-    return;
-  }
-
-  const a=IG_STATE.acc;
-  igKpis.innerHTML=[
-    ["Conta",a.username,"#FF4D8D"],["Seguidores",a.followers.toLocaleString("pt-BR"),"#9B7DFF"],
-    ["Ganho diário","+"+a.daily,"#19E27D"],["Automações",IG_AUTOM.length+"","#39C0FF"]
-  ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv" style="font-size:${k[1].length>10?"17px":"22px"}">${k[1]}</div></div>`).join("");
-  igGallery.innerHTML=IG_MEDIA.map(m=>`<div class="tut"><div class="th" style="background:linear-gradient(135deg,#833ab4,#c13584,#f77737)">${m.emoji} ${m.type}</div><div class="nm" style="font-size:12px;min-height:32px">${m.cap}</div><div class="mt">❤ ${m.likes} · 💬 ${m.com}</div><div style="padding:0 13px 13px"><button class="btn btn-volt btn-sm" style="width:100%;justify-content:center" onclick="novaAutom('${m.id}')">＋ Nova automação</button></div></div>`).join("");
-  renderAutomList();
-}
 function renderAutomList(){
   igAutomCount.textContent=IG_AUTOM.length;
   igAutomBody.innerHTML=IG_AUTOM.length?IG_AUTOM.map((a,i)=>{const m=IG_MEDIA.find(x=>x.id===a.mediaId)||{};
@@ -5435,7 +5341,7 @@ async function loadVipMembers(){
   }catch(e){console.warn("loadVipMembers exception:",e);}
 }
 
-renderAdminVisao();renderUsers();renderSubs();renderInstancias();renderSuporte();renderConfig();genQueue();renderQueue();renderAdminInstaResp();renderVip();
+renderAdminVisao();renderUsers();renderSubs();renderInstancias();renderSuporte();renderConfig();genQueue();renderQueue();renderVip();
 
 function vipStatus(v){
   if(v.tipo==="vitalicio")return "vitalicio";
@@ -6689,6 +6595,51 @@ async function enterApp(profile){
   setRole("afiliado");
   // carrega analítico em background
   setTimeout(()=>{if(typeof loadAnalitico==="function")loadAnalitico();},500);
+  // banner de upgrade contextual no dashboard
+  setTimeout(()=>renderUpgradeBanner(),600);
+}
+
+function renderUpgradeBanner(){
+  const el=document.getElementById("upgradeBannerDash");
+  if(!el)return;
+  const f=myFeatures();
+  const plan=MY_PLAN;
+  // Não exibe para Elite e Premium
+  if(plan==="elite"||plan==="premium"){el.innerHTML="";return;}
+
+  const proximo={starter:{key:"pro",label:"Pro",preco:"97,90",beneficio:"🤖 Automação 24/7 + MegaIA + 3 Grupos WA"},
+                 pro:{key:"elite",label:"Elite",preco:"157,90",beneficio:"🔥 8 Grupos · 20 Canais · Rastreamento de cliques"}};
+  const prox=proximo[plan];
+  if(!prox){el.innerHTML="";return;}
+
+  // Motivo contextual baseado no uso
+  let motivo="";
+  if(plan==="starter"&&!f.wa_post_automation)
+    motivo="Seus posts ainda são manuais — com Pro, a automação trabalha por você 24h.";
+  else if(plan==="starter"&&S.grupos.length>=S.planLimit)
+    motivo="Você atingiu o limite de grupos do Starter. Expanda sua operação no Pro.";
+  else if(plan==="pro"&&S.grupos.length>=S.planLimit)
+    motivo="Você está no limite de grupos do Pro. O Elite libera 8 grupos e rastreamento de cliques.";
+  else if(plan==="starter")
+    motivo="Automatize, use IA e escale — por R$ ${prox.preco}/mês.";
+
+  el.innerHTML=`<div style="background:linear-gradient(135deg,rgba(155,125,255,.12),rgba(57,192,255,.08));border:1px solid rgba(155,125,255,.35);border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:14px;margin-bottom:20px;flex-wrap:wrap">
+    <div style="font-size:22px;flex:none">🚀</div>
+    <div style="flex:1;min-width:180px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:2px">Upgrade para <span style="color:var(--volt)">${prox.label}</span> — R$ ${prox.preco}/mês</div>
+      <div style="font-size:12px;color:var(--tx2)">${motivo||prox.beneficio}</div>
+    </div>
+    <div style="display:flex;gap:8px;flex:none">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('upgradeBannerDash').style.display='none'">Fechar</button>
+      <button class="btn btn-gold btn-sm" onclick="go('assinatura')">Ver planos ↗</button>
+    </div>
+  </div>`;
+
+  // Pill no botão MegaIA se Starter
+  const btnIA=document.getElementById("btnDashIA");
+  if(btnIA&&!f.mega_ia){
+    btnIA.innerHTML='🔒 MegaIA <span style="background:var(--gold);color:#0c0c0e;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;margin-left:4px">PRO+</span>';
+  }
 }
 // Atualiza o rodapé do menu lateral com o plano real
 function updateRailFoot(profile){
@@ -6745,30 +6696,7 @@ function applyPlanGating(){
   // (aplicado dinamicamente em buildTabs via patchGeralPane — veja abaixo)
   window._planHasPostAuto = hasPostAuto;
 
-  /* ── 4. INSTARESP — contas IG e automações ── */
-  const maxIG       = f.ig_accounts===-1?9999:f.ig_accounts;
-  const maxAutom    = f.ig_automations===-1?9999:f.ig_automations;
-  const trialDays   = f.instaresp_trial_days||0;
-  const igPage      = document.getElementById("page-instaresp");
-  if(igPage){
-    const igBody = igPage.querySelector(".cont-inner")||igPage;
-    if(trialDays>0){
-      // plano com trial de InstaResp
-      showUpgradeBanner(igBody,
-        `InstaResp disponível por ${trialDays} dias grátis no plano ${f.label}. Após o período, faça upgrade para continuar.`);
-    } else if(maxIG<1||maxAutom<1){
-      showUpgradeBanner(igBody,"Seu plano não inclui InstaResp. Faça upgrade para automatizar comentários do Instagram.");
-      gateBtn(document.getElementById("igConnBtn"),false,"Faça upgrade para usar o InstaResp.");
-    } else {
-      removeGateBanner(igBody);
-      gateBtn(document.getElementById("igConnBtn"),true);
-    }
-    // guarda limites para uso em novaAutom/auSave
-    window._planMaxIG    = maxIG;
-    window._planMaxAutom = maxAutom;
-  }
-
-  /* ── 5. MARKETPLACES em Config Afiliados ── */
+  /* ── 4. MARKETPLACES em Config Afiliados ── */
   const maxMarket = f.marketplaces===-1?999:f.marketplaces;
   window._planMaxMarket = maxMarket;
   applyMarketplaceGating(maxMarket, f.label);
