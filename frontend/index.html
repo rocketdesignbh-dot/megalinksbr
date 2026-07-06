@@ -1540,6 +1540,12 @@ function hideLoading(){
   <div class="mf"><button class="btn btn-ghost" onclick="closeModal('modalGrupo')">Cancelar</button><button class="btn btn-volt" id="btnSalvarGrupo">Criar Grupo de Oferta</button></div>
 </div></div>
 
+<!-- ===== MODAL CHECKOUT PIX ===== -->
+<div class="mbg" id="modalCheckout"><div class="modal" style="max-width:440px">
+  <div class="mh"><div><div style="font-family:var(--disp)">Assinar plano <span id="ckPlanLabel"></span></div><div style="font-size:13px;color:var(--mut)" id="ckValor"></div></div><button class="mx" onclick="closeModal('modalCheckout')">×</button></div>
+  <div class="mb" id="ckBody" style="padding-top:8px"></div>
+</div></div>
+
 <div class="mbg" id="modalUser"><div class="modal" style="max-width:560px"><div id="userDetail"></div></div></div>
 
 <!-- ===== MODAL: ADICIONAR PRODUTO DO RADAR A UM GRUPO ===== -->
@@ -4599,11 +4605,47 @@ function renderPlans(){
       <ul>${p.f.map(f=>`<li>${f}</li>`).join("")}</ul>
       ${atual
         ?`<button class="btn btn-ghost btn-lg" disabled style="width:100%;justify-content:center;opacity:.7">SEU PLANO ATUAL</button>`
-        :`<button class="btn btn-volt btn-lg" style="width:100%;justify-content:center" onclick="toast('Checkout Pix ${p.n} (em breve).','💸')">⚡ ASSINAR VIA PIX</button>`}
+        :`<button class="btn btn-volt btn-lg" style="width:100%;justify-content:center" onclick="iniciarCheckout('${p.key}','${p.n}',${v})">⚡ ASSINAR VIA PIX</button>`}
     </div>`;
   }).join("");
 }
 document.querySelectorAll("[data-bill]").forEach(b=>b.onclick=()=>{S.bill=b.dataset.bill;document.querySelectorAll("[data-bill]").forEach(x=>x.classList.toggle("on",x===b));renderPlans();});
+
+// ── Checkout Asaas ──────────────────────────────────────────────
+let _checkoutPlan=null;
+async function iniciarCheckout(planKey,planLabel,valor){
+  if(!CURRENT_USER?.id){toast("Faça login para assinar.","🔒");return;}
+  _checkoutPlan=planKey;
+  // Abre modal de checkout
+  const m=document.getElementById("modalCheckout");
+  if(!m)return;
+  document.getElementById("ckPlanLabel").textContent=planLabel;
+  document.getElementById("ckValor").textContent="R$ "+brl(valor);
+  document.getElementById("ckBody").innerHTML=`<div style="text-align:center;padding:20px;color:var(--mut)">⏳ Gerando cobrança Pix…</div>`;
+  openModal("modalCheckout");
+  try{
+    const session=await SB.auth.getSession();
+    const jwt=session?.data?.session?.access_token;
+    const r=await fetch(`${SUPA_URL}/functions/v1/asaas-checkout`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+jwt},
+      body:JSON.stringify({plan:planKey,billing_type:"PIX"})
+    });
+    const d=await r.json();
+    if(!d.ok){toast("Erro ao gerar cobrança: "+(d.error||"tente novamente"),"❌");closeModal("modalCheckout");return;}
+    // Exibe Pix
+    document.getElementById("ckBody").innerHTML=`
+      <div style="text-align:center">
+        <div style="font-size:13px;color:var(--tx2);margin-bottom:14px">Escaneie o QR Code ou copie o código Pix abaixo:</div>
+        ${d.pix_copy_paste?`
+          <div style="background:var(--surf2);border-radius:10px;padding:12px;font-size:11px;word-break:break-all;margin-bottom:12px;font-family:monospace;color:var(--tx2)">${d.pix_copy_paste}</div>
+          <button class="btn btn-volt btn-sm" style="width:100%;justify-content:center;margin-bottom:12px" onclick="navigator.clipboard.writeText('${d.pix_copy_paste}').then(()=>toast('Código Pix copiado!','✅'))">📋 Copiar código Pix</button>
+        `:""}
+        ${d.invoice_url?`<a href="${d.invoice_url}" target="_blank" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-bottom:12px">🔗 Abrir fatura completa</a>`:""}
+        <div style="font-size:12px;color:var(--mut);margin-top:8px">Vencimento: ${d.due_date} · Após o pagamento seu plano é atualizado automaticamente.</div>
+      </div>`;
+  }catch(e){toast("Erro de conexão: "+e.message,"❌");closeModal("modalCheckout");}
+}
 
 /* ================= TELEGRAM ================= */
 let TG_CANAIS=[];
