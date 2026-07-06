@@ -499,6 +499,7 @@ function hideLoading(){
     <div class="auth-tabs"><button class="on" id="tabLogin">Entrar</button><button id="tabSignup">Criar conta</button></div>
     <div class="auth-err" id="authErr"></div>
     <div class="field" id="nameField" style="display:none"><label>Nome completo</label><input id="authName" placeholder="Seu nome"></div>
+    <div class="field" id="cpfField" style="display:none"><label>CPF / CNPJ <span style="color:var(--red)">*</span></label><input id="authCpf" placeholder="000.000.000-00" maxlength="18" oninput="let v=this.value.replace(/\D/g,'');if(v.length<=11)this.value=v.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');else this.value=v.replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2').substring(0,18)"></div>
     <div class="field"><label>E-mail</label><input id="authEmail" type="email" placeholder="voce@email.com" autocomplete="email"></div>
     <div class="field"><label>Senha</label><div class="pass-wrap"><input id="authPass" type="password" placeholder="••••••••" autocomplete="current-password"><button type="button" class="pass-toggle" id="passToggle" onclick="togglePassVis()" title="Mostrar/esconder senha">👁️</button></div></div>
     <button class="btn btn-volt" id="authSubmit" style="width:100%;justify-content:center">Entrar</button>
@@ -1187,7 +1188,7 @@ function hideLoading(){
       <div class="g2"><div class="field"><label>Nome</label><input id="mdNome" placeholder="Seu nome"></div><div class="field"><label>Sobrenome</label><input id="mdSobrenome" placeholder="Seu sobrenome"></div></div>
       <div class="field"><label>E-mail</label><input id="mdEmail" type="email" placeholder="seu@email.com"></div>
       <div class="g3"><div class="field"><label>País</label><select><option>+55 BR</option></select></div><div class="field"><label>DDD</label><input id="mdDDD" placeholder="11" maxlength="2"></div><div class="field"><label>Telefone</label><input id="mdTelefone" placeholder="9 9999-0000"></div></div>
-      <div class="field"><label>CPF / CNPJ</label><input id="mdCpf" placeholder="000.000.000-00"></div>
+      <div class="field"><label>CPF / CNPJ <span style="color:var(--red)">*</span></label><input id="mdCpf" placeholder="000.000.000-00" maxlength="18" oninput="let v=this.value.replace(/\D/g,'');if(v.length<=11)this.value=v.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');else this.value=v.replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2').substring(0,18)"><div id="mdCpfWarn" style="display:none;font-size:11.5px;color:var(--gold);margin-top:4px">⚠️ CPF obrigatório para pagamentos via Pix. Preencha e salve.</div></div>
       <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin:14px 0;color:var(--tx)"><input type="checkbox" checked style="width:auto"> Receber notificações via e-mail</label>
       <div class="alert" id="mdErr" style="display:none;margin-bottom:14px"></div>
       <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><button class="btn btn-volt" id="btnSalvarMeusDados" onclick="saveMeusDados()">Salvar</button><button class="btn btn-red" onclick="confirm('Excluir conta permanentemente?')">Excluir conta</button></div>
@@ -6541,6 +6542,7 @@ function setAuthErr(msg){authErr.style.display=msg?"block":"none";authErr.textCo
 function switchAuth(mode){authMode=mode;
   tabLogin.classList.toggle("on",mode==="login");tabSignup.classList.toggle("on",mode==="signup");
   nameField.style.display=mode==="signup"?"block":"none";
+  const cf=document.getElementById("cpfField");if(cf)cf.style.display=mode==="signup"?"block":"none";
   authTitle.textContent=mode==="signup"?"Criar sua conta":"Entrar na sua conta";
   authSubmit.textContent=mode==="signup"?"Criar conta":"Entrar";setAuthErr("");}
 tabLogin.onclick=()=>switchAuth("login");tabSignup.onclick=()=>switchAuth("signup");
@@ -6573,9 +6575,10 @@ async function doAuth(){
   authSubmit.disabled=true;authSubmit.textContent="Aguarde…";
   try{
     if(authMode==="signup"){
+      const cpfRaw=(document.getElementById("authCpf")?.value||"").replace(/\D/g,"");
+      if(!cpfRaw||cpfRaw.length<11){setAuthErr("Informe seu CPF (obrigatório para pagamentos via Pix).");return;}
       const{data,error}=await SB.auth.signUp({email,password:pass,options:{data:{full_name:authName.value.trim()}}});
       if(error){
-        // Se email já existe, Supabase retorna esse erro
         if(error.message?.includes("already registered")||error.message?.includes("User already exists")||error.message?.includes("email")){
           setAuthErr("Este e-mail já possui uma conta cadastrada. Faça login ou use outro e-mail.");
         }else{
@@ -6583,12 +6586,13 @@ async function doAuth(){
         }
         return;
       }
-      // ─── DETECTAR EMAIL JÁ EXISTENTE ───
-      // Supabase, por segurança, não retorna erro quando o email já existe.
-      // Em vez disso, retorna data.user com identities=[] (array vazio).
       if(data.user&&Array.isArray(data.user.identities)&&data.user.identities.length===0){
         setAuthErr("Este e-mail já possui uma conta cadastrada. Faça login ou use outro e-mail.");
         return;
+      }
+      // Salva CPF no perfil
+      if(data.user?.id&&SB){
+        await SB.from("profiles").update({cpf_cnpj:cpfRaw}).eq("id",data.user.id);
       }
       if(!data.session){setAuthErr("");toast("Conta criada! Confirme o e-mail (se exigido) e entre.","✉️");switchAuth("login");return;}
       await afterLogin(data.user);
@@ -6700,6 +6704,8 @@ async function enterApp(profile){
     }
     const mdCpfEl=document.getElementById("mdCpf");
     if(mdCpfEl&&profile.cpf_cnpj)mdCpfEl.value=profile.cpf_cnpj;
+    const mdCpfWarn=document.getElementById("mdCpfWarn");
+    if(mdCpfWarn)mdCpfWarn.style.display=(!profile.cpf_cnpj)?"block":"none";
     // Carregar user_display_id
     const displayIdEl=document.getElementById("displayUserId");
     if(displayIdEl&&profile.user_display_id){
