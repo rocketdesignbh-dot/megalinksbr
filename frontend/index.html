@@ -5412,7 +5412,7 @@ async function renderConfig(){
 const IG_STATE={connected:false,acc:null};;
 
 
-renderGrupos();renderOnb();renderPlans();renderFaq();renderRadar();renderIG();
+renderGrupos();renderOnb();renderPlans();renderFaq();renderRadar();
 /* ================= ADMIN: MEMBROS VIP ================= */
 let VIP_LIST=[]; // [{id,userId,userName,plan,tipo,exp,createdAt}] — sincronizado com vip_members no banco
 
@@ -6837,20 +6837,6 @@ function applyMarketplaceGating(max, planLabel){
   });
 }
 
-/* Guard em novaAutom: respeita limite de automações IG do plano */
-/* Override de novaAutom com gate de plano */
-(function(){
-  const _orig=window.novaAutom;
-  window.novaAutom=function(mediaId){
-    const maxAef=maxA===-1?9999:maxA;
-    if(IG_AUTOM.length>=maxAef){
-      const f=myFeatures();
-      toast(`Limite de ${maxAef} automação${maxAef>1?"ões":""} do plano ${f.label} atingido. Faça upgrade!`,"⚠️");
-      go("assinatura");return;
-    }
-    if(_orig)_orig.call(this,mediaId);
-  };
-})();
 
 async function signOut(){closeDD();if(SB){try{await SB.auth.signOut();}catch(e){}}
   IS_ADMIN=false;CURRENT_USER=null;authEmail.value="";authPass.value="";switchAuth("login");
