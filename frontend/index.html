@@ -4700,12 +4700,13 @@ async function iniciarCheckout(planKey,planLabel,valor){
     document.getElementById("ckBody").innerHTML=`
       <div style="text-align:center">
         <div style="font-size:13px;color:var(--tx2);margin-bottom:14px">Escaneie o QR Code ou copie o código Pix abaixo:</div>
+        ${d.pix_qr_code_image?`<img src="data:image/png;base64,${d.pix_qr_code_image}" style="width:180px;height:180px;border-radius:12px;margin-bottom:14px;border:1px solid var(--bd)" alt="QR Code Pix">`:""}
         ${d.pix_copy_paste?`
-          <div style="background:var(--surf2);border-radius:10px;padding:12px;font-size:11px;word-break:break-all;margin-bottom:12px;font-family:monospace;color:var(--tx2)">${d.pix_copy_paste}</div>
-          <button class="btn btn-volt btn-sm" style="width:100%;justify-content:center;margin-bottom:12px" onclick="navigator.clipboard.writeText('${d.pix_copy_paste}').then(()=>toast('Código Pix copiado!','✅'))">📋 Copiar código Pix</button>
+          <div style="background:var(--surf2);border-radius:10px;padding:12px;font-size:11px;word-break:break-all;margin-bottom:12px;font-family:monospace;color:var(--tx2);text-align:left">${d.pix_copy_paste}</div>
+          <button class="btn btn-volt btn-sm" style="width:100%;justify-content:center;margin-bottom:10px" onclick="navigator.clipboard.writeText('${d.pix_copy_paste}').then(()=>toast('Código Pix copiado!','✅'))">📋 Copiar código Pix</button>
         `:""}
-        ${d.invoice_url?`<a href="${d.invoice_url}" target="_blank" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-bottom:12px">🔗 Abrir fatura completa</a>`:""}
-        <div style="font-size:12px;color:var(--mut);margin-top:8px">Vencimento: ${d.due_date} · Após o pagamento seu plano é atualizado automaticamente.</div>
+        ${d.invoice_url?`<a href="${d.invoice_url}" target="_blank" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-bottom:12px;display:flex">🔗 Abrir fatura completa</a>`:""}
+        <div style="font-size:12px;color:var(--mut);margin-top:4px">Vencimento: ${d.due_date} · Após o pagamento seu plano é atualizado automaticamente.</div>
       </div>`;
   }catch(e){toast("Erro de conexão: "+e.message,"❌");closeModal("modalCheckout");}
 }
