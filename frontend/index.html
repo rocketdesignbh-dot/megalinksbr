@@ -4679,24 +4679,40 @@ let _checkoutPlan=null;
 async function iniciarCheckout(planKey,planLabel,valor){
   if(!CURRENT_USER?.id){toast("Faça login para assinar.","🔒");return;}
   _checkoutPlan=planKey;
-  // Abre modal de checkout
   const m=document.getElementById("modalCheckout");
   if(!m)return;
   document.getElementById("ckPlanLabel").textContent=planLabel;
   document.getElementById("ckValor").textContent="R$ "+brl(valor);
-  document.getElementById("ckBody").innerHTML=`<div style="text-align:center;padding:20px;color:var(--mut)">⏳ Gerando cobrança Pix…</div>`;
+  // Formulário de CPF/CNPJ antes de gerar o Pix
+  document.getElementById("ckBody").innerHTML=`
+    <div style="display:grid;gap:14px">
+      <div class="field" style="margin:0">
+        <label style="font-size:12px">CPF ou CNPJ <span style="color:var(--red)">*</span></label>
+        <input id="ckCpf" type="text" placeholder="000.000.000-00" maxlength="18" style="font-size:14px"
+          oninput="this.value=this.value.replace(/[^\\d]/g,'').replace(/(\\d{3})(\\d)/,'$1.$2').replace(/(\\d{3})(\\d)/,'$1.$2').replace(/(\\d{3})(\\d{1,2})$/,'$1-$2').substring(0,14)">
+        <div style="font-size:11px;color:var(--mut);margin-top:4px">Necessário para pagamento via Pix</div>
+      </div>
+      <button class="btn btn-volt" style="width:100%;justify-content:center" onclick="confirmarCheckout('${planKey}',${valor})">⚡ Gerar Pix — R$ ${brl(valor)}</button>
+      <div style="font-size:11px;color:var(--mut);text-align:center">Seus dados são usados apenas para emissão da cobrança e ficam salvos com segurança.</div>
+    </div>`;
   openModal("modalCheckout");
+}
+
+async function confirmarCheckout(planKey,valor){
+  const cpfInput=document.getElementById("ckCpf");
+  const cpf=(cpfInput?.value||"").replace(/\D/g,"");
+  if(cpf.length!==11&&cpf.length!==14){toast("Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.","⚠️");cpfInput?.focus();return;}
+  document.getElementById("ckBody").innerHTML='<div style="text-align:center;padding:20px;color:var(--mut)">⏳ Gerando cobrança Pix…</div>';
   try{
     const session=await SB.auth.getSession();
     const jwt=session?.data?.session?.access_token;
     const r=await fetch(`${SUPA_URL}/functions/v1/asaas-checkout`,{
       method:"POST",
       headers:{"Content-Type":"application/json","Authorization":"Bearer "+jwt},
-      body:JSON.stringify({plan:planKey,billing_type:"PIX"})
+      body:JSON.stringify({plan:planKey,billing_type:"PIX",cpf_cnpj:cpf})
     });
     const d=await r.json();
     if(!d.ok){toast("Erro ao gerar cobrança: "+(d.error||"tente novamente"),"❌");closeModal("modalCheckout");return;}
-    // Exibe Pix
     document.getElementById("ckBody").innerHTML=`
       <div style="text-align:center">
         <div style="font-size:13px;color:var(--tx2);margin-bottom:14px">Escaneie o QR Code ou copie o código Pix abaixo:</div>
