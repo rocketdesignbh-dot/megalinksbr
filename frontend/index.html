@@ -4593,7 +4593,7 @@ function buildPlansFromFeatures(){
     feats.push((f.tg_channels===-1?"✅ Telegram ilimitado":"✅ "+f.tg_channels+" Canal"+(f.tg_channels>1?"is":"")+" Telegram"));
     feats.push("✅ "+f.wa_connections+" Conexão"+(f.wa_connections>1?"ões":"")+" WhatsApp");
     feats.push(f.marketplaces===-1?"✅ Todos os marketplaces":"✅ "+f.marketplaces+" marketplaces");
-    feats.push(f.wa_post_automation?"✅ Automação de posts 24/7":"❌ Postagem manual");
+    feats.push(f.wa_post_automation?"✅ Automação de posts 24/7":"✅ Post Relâmpago (envio manual)");
     feats.push(f.mega_ia?"✅ MegaIA (geração com IA)":"❌ MegaIA");
     feats.push(f.click_tracking?"✅ Rastreamento de cliques":"❌ Rastreamento de cliques");
     feats.push("✅ Suporte "+({comunidade:"comunidade",email:"por e-mail",prioritario:"prioritário",vip:"VIP WhatsApp"}[f.support_level]||f.support_level));
@@ -4659,7 +4659,7 @@ function renderPlans(){
       ["Conexões WhatsApp",     p=>planRow(p).wa_connections],
       ["Canais Telegram",       p=>planRow(p).tg_channels===-1?"Ilimitado":planRow(p).tg_channels],
       ["Marketplaces",          p=>planRow(p).marketplaces===-1?"Todos":planRow(p).marketplaces],
-      ["Automação 24/7",        p=>planRow(p).wa_post_automation?"✅":"❌"],
+      ["Automação 24/7",        p=>planRow(p).wa_post_automation?"✅":"Manual"],
       ["MegaIA",                p=>planRow(p).mega_ia?"✅":"❌"],
       ["Rastreamento de cliques",p=>planRow(p).click_tracking?"✅":"❌"],
       ["Suporte",               p=>({comunidade:"Comunidade",email:"E-mail",prioritario:"Prioritário",vip:"VIP WhatsApp"}[planRow(p).support_level]||"—")],
