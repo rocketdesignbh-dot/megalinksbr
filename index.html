@@ -1196,32 +1196,18 @@ function hideLoading(){
 
   <!-- ===== ASSINATURA ===== -->
   <section class="page" id="page-assinatura">
-    <div class="phead"><div><h1 class="pt">Assinatura</h1><div class="psub">Gerencie seu plano, pagamento e benefícios.
-      <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button></div></div></div>
+    <div class="phead"><div><h1 class="pt">Assinatura</h1><div class="psub">Gerencie seu plano, pagamento e benefícios.</div></div></div>
 
-    <!-- Card de assinatura atual -->
-    <div class="card" id="myPlanCard">
-      <div class="cb" style="display:flex;align-items:center;gap:16px;padding:20px;flex-wrap:wrap">
-        <div style="font-size:36px;flex:none">💳</div>
-        <div style="flex:1;min-width:200px">
-          <div style="font-size:11.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Seu plano atual</div>
-          <div style="font-family:var(--disp);font-size:22px;font-weight:800;line-height:1.1" id="myPlanName">STARTER</div>
-          <div style="font-size:12.5px;color:var(--tx2);margin-top:3px" id="myPlanInfo">7 dias grátis · Sem cobrança</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <span class="pill volt"><span class="d"></span>ATIVO</span>
-          <span class="pill green"><span class="d"></span>EM DIA</span>
-        </div>
-      </div>
-    </div>
+    <!-- Card do plano atual dinâmico -->
+    <div id="myPlanCard" style="margin-bottom:24px"></div>
 
     <!-- Título + toggle -->
-    <div style="text-align:center;margin:32px 0 8px">
+    <div style="text-align:center;margin:8px 0 16px">
       <h2 style="font-size:24px;letter-spacing:-.02em">Escolha o plano ideal</h2>
-      <p style="color:var(--tx2);margin-top:6px;font-size:13.5px">Cancele quando quiser · Sem fidelidade · Pix ou cartão</p>
+      <p style="color:var(--tx2);margin-top:6px;font-size:13.5px">Cancele quando quiser · Sem fidelidade · Pagamento via Pix</p>
     </div>
 
-    <!-- Toggle Mensal/Anual com badge -->
+    <!-- Toggle Mensal/Anual -->
     <div class="bill-toggle">
       <button class="on" data-bill="m">Mensal</button>
       <button data-bill="a">Anual <span style="background:var(--volt);color:#0c0c0e;font-size:9px;font-weight:800;padding:2px 5px;border-radius:5px;margin-left:5px">-20%</span></button>
@@ -1229,6 +1215,39 @@ function hideLoading(){
 
     <!-- Grid de planos -->
     <div class="g4" id="plansGrid"></div>
+
+    <!-- Tabela comparativa -->
+    <div class="card" style="margin-top:32px;overflow-x:auto">
+      <div class="ch">📊 Comparativo completo</div>
+      <div class="cb" style="padding:0">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="border-bottom:1px solid var(--bd)">
+              <th style="text-align:left;padding:12px 16px;color:var(--mut);font-weight:600">Recurso</th>
+              <th style="text-align:center;padding:12px 8px">⚡ Starter</th>
+              <th style="text-align:center;padding:12px 8px">🚀 Pro</th>
+              <th style="text-align:center;padding:12px 8px;background:rgba(139,92,246,.08)">🔥 Elite</th>
+              <th style="text-align:center;padding:12px 8px">👑 Premium</th>
+            </tr>
+          </thead>
+          <tbody id="planCompareBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- FAQ rápido -->
+    <div class="g2" style="margin-top:24px;align-items:start">
+      <div class="card" style="margin:0"><div class="ch">❓ Dúvidas frequentes</div><div class="cb" style="display:grid;gap:14px">
+        <div><strong style="font-size:13px">Posso cancelar a qualquer momento?</strong><p style="font-size:12.5px;color:var(--tx2);margin:4px 0 0">Sim. Sem fidelidade, sem multa. O acesso continua até o fim do período pago.</p></div>
+        <div><strong style="font-size:13px">Como funciona o upgrade?</strong><p style="font-size:12.5px;color:var(--tx2);margin:4px 0 0">Assine o novo plano via Pix. Assim que o pagamento for confirmado, os recursos são liberados automaticamente.</p></div>
+        <div><strong style="font-size:13px">E se eu não renovar?</strong><p style="font-size:12.5px;color:var(--tx2);margin:4px 0 0">Após 3 dias de atraso você entra em período de carência. Após 15 dias sem pagamento o plano é rebaixado para Starter.</p></div>
+      </div></div>
+      <div class="card" style="margin:0"><div class="ch">💬 Precisa de ajuda?</div><div class="cb" style="display:grid;gap:12px">
+        <p style="font-size:13px;color:var(--tx2);margin:0">Dúvidas sobre cobranças, cancelamento ou upgrade? Fale com a gente.</p>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="go('suporte')">📩 Contatar suporte</button>
+        <p style="font-size:11px;color:var(--mut);text-align:center">suporte@megalinksbr.com.br · resposta em até 24h</p>
+      </div></div>
+    </div>
   </section>
 
   <!-- ===== FAQ ===== -->
@@ -1949,6 +1968,8 @@ function go(page){
   if(page==="adm-visao")setTimeout(()=>{if(typeof SB!=="undefined"&&SB)refreshAdminVisao();},120);
   // Hook: ao entrar no Analítico, carrega dados reais
   if(page==="analitico")setTimeout(()=>{if(typeof SB!=="undefined"&&SB&&CURRENT_USER?.id)loadAnalitico();},120);
+  // Hook: ao entrar em Assinatura, re-renderiza com dados frescos do plano
+  if(page==="assinatura")setTimeout(()=>renderPlans(),80);
 }
 document.querySelectorAll(".nav").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
 document.querySelectorAll(".nav-cta").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
@@ -2003,7 +2024,7 @@ async function loadAnalitico(){
     renderAnaliticoChart(chartData,dias.map(d=>d.getDate()+"/"+(d.getMonth()+1)),totalPosts,"posts");
   }catch(e){console.warn("loadAnalitico posts:",e);}
 
-  // ── Cliques (Elite/Infinity) ──
+  // ── Cliques (Elite/Premium) ──
   if(!temRastreamento){
     // Gate visual para Starter/Pro
     ["kpi_Cliques_hoje","kpi_Cliques_14_dias","kpi_Links_rastreados"].forEach(id=>{
@@ -4561,7 +4582,7 @@ function rp(){const g=id=>document.getElementById(id);if(!g("lpBub"))return;
   g("lpBub").innerHTML=`<span class="img">🎧</span>${esc(g("lpHead").value)}\n<b>${esc(g("lpTitle").value)}</b>\n<s>De R$ ${esc(g("lpDe").value)}</s> por <b>R$ ${esc(g("lpPor").value)} ${esc(g("lpSuf").value)}</b>\n💳 ${esc(g("lpParc").value)}\n${esc(g("lpCta").value)}\n<span class="lnk">👉 shope.ee/abc</span><span class="tm">14:32 ✓✓</span>`;}
 
 /* ================= PLANOS ================= */
-// Monta os cards de planos a partir da plan_features real (Starter/Pro/Elite/Infinity)
+// Monta os cards de planos a partir da plan_features real (Starter/Pro/Elite/Premium)
 function buildPlansFromFeatures(){
   const order=["starter","pro","elite","premium"];
   return order.map(key=>{
@@ -4588,6 +4609,27 @@ const PLAN_VIS={
 };
 function renderPlans(){
   const PLANS=buildPlansFromFeatures();
+  // Card plano atual
+  const mpc=document.getElementById("myPlanCard");
+  if(mpc){
+    const f=myFeatures();
+    const vis=PLAN_VIS[MY_PLAN]||PLAN_VIS.starter;
+    const statusLabel={active:"Ativo",trial:"Trial",past_due:"Em atraso",canceled:"Cancelado"}[f.sub_status||"active"]||"Ativo";
+    const statusColor={active:"volt",trial:"sky",past_due:"gold",canceled:"red"}[f.sub_status||"active"]||"volt";
+    mpc.innerHTML=`<div class="card" style="margin:0"><div class="cb" style="display:flex;align-items:center;gap:16px;padding:20px;flex-wrap:wrap">
+      <div style="width:56px;height:56px;border-radius:50%;background:${vis.grad};display:grid;place-items:center;font-size:28px;flex:none">${vis.ico}</div>
+      <div style="flex:1;min-width:180px">
+        <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Seu plano atual</div>
+        <div style="font-family:var(--disp);font-size:22px;font-weight:800">${f.label||MY_PLAN.toUpperCase()}</div>
+        <div style="font-size:12.5px;color:var(--tx2);margin-top:3px" id="myPlanInfo">R$ ${brl(Number(f.price_month))}/mês</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span class="pill ${statusColor}"><span class="d"></span>${statusLabel}</span>
+        ${MY_PLAN==="starter"?`<button class="btn btn-gold btn-sm" onclick="document.querySelector('.bill-toggle').scrollIntoView({behavior:'smooth'})">⬆️ Fazer upgrade</button>`:""}
+      </div>
+    </div></div>`;
+  }
+  // Grid de planos
   plansGrid.innerHTML=PLANS.map(p=>{
     const a=S.bill==="a",v=a?p.m*0.8:p.m;
     const atual=p.key===MY_PLAN;
@@ -4604,10 +4646,31 @@ function renderPlans(){
       </div>
       <ul>${p.f.map(f=>`<li>${f}</li>`).join("")}</ul>
       ${atual
-        ?`<button class="btn btn-ghost btn-lg" disabled style="width:100%;justify-content:center;opacity:.7">SEU PLANO ATUAL</button>`
+        ?`<button class="btn btn-ghost btn-lg" disabled style="width:100%;justify-content:center;opacity:.7">✅ SEU PLANO ATUAL</button>`
         :`<button class="btn btn-volt btn-lg" style="width:100%;justify-content:center" onclick="iniciarCheckout('${p.key}','${p.n}',${v})">⚡ ASSINAR VIA PIX</button>`}
     </div>`;
   }).join("");
+  // Tabela comparativa
+  const cmp=document.getElementById("planCompareBody");
+  if(cmp){
+    const rows=[
+      ["Grupos WhatsApp",       p=>planRow(p).wa_groups===-1?"Ilimitado":planRow(p).wa_groups],
+      ["Canais WhatsApp",       p=>planRow(p).wa_channels===-1?"Ilimitado":planRow(p).wa_channels],
+      ["Conexões WhatsApp",     p=>planRow(p).wa_connections],
+      ["Canais Telegram",       p=>planRow(p).tg_channels===-1?"Ilimitado":planRow(p).tg_channels],
+      ["Marketplaces",          p=>planRow(p).marketplaces===-1?"Todos":planRow(p).marketplaces],
+      ["Automação 24/7",        p=>planRow(p).wa_post_automation?"✅":"❌"],
+      ["MegaIA",                p=>planRow(p).mega_ia?"✅":"❌"],
+      ["Rastreamento de cliques",p=>planRow(p).click_tracking?"✅":"❌"],
+      ["Suporte",               p=>({comunidade:"Comunidade",email:"E-mail",prioritario:"Prioritário",vip:"VIP WhatsApp"}[planRow(p).support_level]||"—")],
+      ["Preço/mês",             p=>"R$ "+brl(Number(planRow(p).price_month))],
+    ];
+    const plans=["starter","pro","elite","premium"];
+    cmp.innerHTML=rows.map((r,i)=>`<tr style="border-bottom:1px solid var(--bd);${i%2===0?"background:rgba(255,255,255,.02)":""}">
+      <td style="padding:10px 16px;color:var(--tx2);font-size:12.5px">${r[0]}</td>
+      ${plans.map(p=>`<td style="text-align:center;padding:10px 8px;font-size:12.5px;font-weight:500;${p==="elite"?"background:rgba(139,92,246,.06)":""}">${r[1](p)}</td>`).join("")}
+    </tr>`).join("");
+  }
 }
 document.querySelectorAll("[data-bill]").forEach(b=>b.onclick=()=>{S.bill=b.dataset.bill;document.querySelectorAll("[data-bill]").forEach(x=>x.classList.toggle("on",x===b));renderPlans();});
 
@@ -5361,11 +5424,7 @@ let IG_AUTOM=[];
 let lastAutomCfg=null;
 let automMedia=null;
 
-/* ── Trial InstaResp ──
-   Chave: "ig_trial_start_<user_id>" no localStorage (fallback: sessionStorage)
-   Valor: ISO timestamp do momento da 1ª conexão Instagram.
-   Se o plano tiver instaresp_trial_days > 0, o trial começa aqui.
-*/
+
 function igTrialKey(){const u=typeof CURRENT_USER!=="undefined"?CURRENT_USER:null;return "ig_trial_start_"+(u&&u.id||"demo");}
 function igTrialStart(){
   const key=igTrialKey();
@@ -5458,7 +5517,6 @@ function autoFillAutom(){if(!lastAutomCfg){toast("Nenhuma config salva ainda par
   toast("Última configuração recuperada!","↺");}
 auSave.onclick=()=>{
   /* gate 2C — limite de automações do plano */
-  const maxA=window._planMaxAutom!=null?window._planMaxAutom:(lim("ig_automations")===-1?9999:lim("ig_automations"));
   if(IG_AUTOM.length>=maxA){const f=myFeatures();toast(`Limite de ${maxA} automação${maxA>1?"ões":""} do plano ${f.label} atingido. Faça upgrade!`,"⚠️");go("assinatura");return;}
   const kw=auKw.value.trim();if(!kw){toast("Defina a palavra-chave gatilho.","⚠️");return;}
   const links=[...auLinks.querySelectorAll(".prod")].map(r=>{const i=r.querySelectorAll("input");return {label:i[0].value.trim(),url:i[1].value.trim()};}).filter(l=>l.label||l.url);
@@ -5484,7 +5542,7 @@ async function loadVipMembers(){
       id:r.id,
       userId:r.user_id,
       userName:r.profiles?.full_name||r.profiles?.email||"—",
-      plan:(r.profiles?.plan||"infinity").toLowerCase(),
+      plan:(r.profiles?.plan||"premium").toLowerCase(),
       tipo:r.access_type==="lifetime"?"vitalicio":"expiravel",
       exp:r.expires_at,
       createdAt:r.created_at
@@ -6141,10 +6199,10 @@ function gerarCode(){
   return Math.random().toString(36).slice(2,9);
 }
 
-// Encurta link: Elite/Infinity → short link próprio com rastreamento
+// Encurta link: Elite/Premium → short link próprio com rastreamento
 //               Starter/Pro    → is.gd sem rastreamento (fallback)
 async function mlEncurtarLink(longUrl, postRef){
-  // Elite/Infinity: grava no banco e retorna /r/{code}
+  // Elite/Premium: grava no banco e retorna /r/{code}
   if(planTemRastreamento()&&SB&&CURRENT_USER?.id){
     try{
       const code=gerarCode();
@@ -6716,7 +6774,11 @@ async function enterApp(profile){
   try{
     const f=myFeatures();
     const pn=document.getElementById("myPlanName");if(pn)pn.textContent=f.label.toUpperCase();
-    const pi=document.getElementById("myPlanInfo");if(pi)pi.textContent=MY_PLAN==="starter"?"Trial · 7 dias grátis":`R$ ${brl(Number(f.price_month))}/mês · próximo pagamento em breve`;
+    const pi=document.getElementById("myPlanInfo");if(pi){
+      const st=profile?.sub_status||"active";
+      const stLabel={active:"Em dia",trial:"Trial",past_due:"Em atraso",canceled:"Cancelado"}[st]||"Ativo";
+      pi.textContent=`R$ ${brl(Number(f.price_month))}/mês · ${stLabel}`;
+    }
   }catch(e){}
   // preenche "Meus Dados" com o perfil real
   try{
@@ -6894,7 +6956,6 @@ function applyMarketplaceGating(max, planLabel){
 (function(){
   const _orig=window.novaAutom;
   window.novaAutom=function(mediaId){
-    const maxA=window._planMaxAutom!=null?window._planMaxAutom:lim("ig_automations");
     const maxAef=maxA===-1?9999:maxA;
     if(IG_AUTOM.length>=maxAef){
       const f=myFeatures();
