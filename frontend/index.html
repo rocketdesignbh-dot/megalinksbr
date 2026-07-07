@@ -5170,6 +5170,15 @@ async function admChangePlan(){
   const{error}=await SB.from("profiles").update({plan:newPlan,sub_status:"active"}).eq("id",u.id);
   if(error){toast("Erro ao alterar plano: "+error.message,"❌");return;}
   await SB.from("plan_changes").insert({user_id:u.id,from_plan:u.plano.toLowerCase(),to_plan:newPlan,from_status:u.status,to_status:"active",reason:"admin_manual",changed_by:CURRENT_USER?.id});
+  // E-mail de upgrade
+  if(u.email){
+    const session=await SB.auth.getSession();
+    fetch(`${SUPA_URL}/functions/v1/send-email`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+(session?.data?.session?.access_token||"")},
+      body:JSON.stringify({type:"upgrade",to:u.email,nome:u.nome,plano_antigo:u.plano.toLowerCase(),plano_novo:newPlan})
+    }).catch(()=>{});
+  }
   toast(`Plano de ${u.nome} alterado para ${planRow(newPlan).label}.`,"✅");
   await loadUsersFromDB();renderUsers();openUser(u.id);
 }
@@ -6593,6 +6602,14 @@ async function doAuth(){
       // Salva CPF no perfil
       if(data.user?.id&&SB){
         await SB.from("profiles").update({cpf_cnpj:cpfRaw}).eq("id",data.user.id);
+      }
+      // E-mail de boas-vindas
+      if(data.user?.email){
+        fetch(`${SUPA_URL}/functions/v1/send-email`,{
+          method:"POST",
+          headers:{"Content-Type":"application/json","Authorization":"Bearer "+(await SB.auth.getSession())?.data?.session?.access_token||""},
+          body:JSON.stringify({type:"boas_vindas",to:data.user.email,nome:authName.value.trim(),plano:"starter"})
+        }).catch(()=>{});
       }
       if(!data.session){setAuthErr("");toast("Conta criada! Confirme o e-mail (se exigido) e entre.","✉️");switchAuth("login");return;}
       await afterLogin(data.user);
