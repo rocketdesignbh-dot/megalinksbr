@@ -1,7 +1,8 @@
 # Mega Links BR · Front-end estático (para EasyPanel "App" via Dockerfile)
 FROM nginx:alpine
-RUN echo "2026-07-05T00:00:00Z" > /dev/null
+RUN echo "2026-07-07T00:00:00Z" > /dev/null
 COPY index.html /usr/share/nginx/html/index.html
+COPY revops.html /usr/share/nginx/html/revops.html
 COPY privacidade.html /usr/share/nginx/html/privacidade.html
 COPY termos.html /usr/share/nginx/html/termos.html
 COPY favicon.png /usr/share/nginx/html/favicon.png
