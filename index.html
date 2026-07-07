@@ -6653,7 +6653,7 @@ async function afterLogin(user){
   let profile={id:user.id,full_name:googleName||userEmail,is_admin:false,plan:"starter"};
 
   try{
-    const{data}=await SB.from("profiles").select("id,full_name,email,is_admin,plan,sub_status,user_display_id").eq("id",user.id).single();
+    const{data}=await SB.from("profiles").select("id,full_name,email,is_admin,plan,sub_status,user_display_id,trial_expires_at").eq("id",user.id).single();
     if(data)profile=Object.assign(profile,data);
 
     // Se veio do Google e o nome/email ainda não estão salvos, faz upsert
@@ -6680,6 +6680,35 @@ async function enterApp(profile){
   CURRENT_USER=CURRENT_USER||{};
   MY_PLAN=(profile.plan||"starter").toLowerCase();
   if(!PLAN_FEATURES[MY_PLAN])MY_PLAN="starter";
+
+  // Trava de trial expirado (só para não-admin e não-vip)
+  if(!profile.is_admin&&!profile.is_vip&&profile.sub_status==="canceled"&&!profile.demo){
+    const trialExp=profile.trial_expires_at?new Date(profile.trial_expires_at):null;
+    const isTrialExpired=trialExp&&trialExp<new Date();
+    if(isTrialExpired||profile.sub_status==="canceled"){
+      authGate.style.display="none";
+      document.body.innerHTML=`<div style="min-height:100vh;background:#0c0c0e;display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;padding:20px">
+        <div style="max-width:480px;width:100%;text-align:center">
+          <img src="/icon.png" style="width:72px;border-radius:50%;margin-bottom:20px">
+          <h1 style="color:#FFD33F;font-size:24px;font-weight:800;margin:0 0 12px">Seu trial encerrou</h1>
+          <p style="color:#aaa;font-size:15px;line-height:1.6;margin:0 0 28px">Seus 7 dias gratuitos chegaram ao fim. Escolha um plano para continuar automatizando suas vendas na Mega Links BR.</p>
+          <div style="display:grid;gap:12px;margin-bottom:24px">
+            <div style="background:#111118;border:1px solid #222;border-radius:12px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+              <div style="text-align:left"><div style="color:#10B981;font-weight:700;font-size:13px">⚡ STARTER</div><div style="color:#aaa;font-size:12px;margin-top:2px">Shopee · Post Relâmpago</div></div>
+              <button onclick="location.href='/'" style="background:#10B981;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">R$ 57,90/mês</button>
+            </div>
+            <div style="background:#111118;border:1px solid #8B5CF6;border-radius:12px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+              <div style="text-align:left"><div style="color:#8B5CF6;font-weight:700;font-size:13px">🔥 ELITE — MAIS POPULAR</div><div style="color:#aaa;font-size:12px;margin-top:2px">Automação 24/7 · MegaIA · Rastreamento</div></div>
+              <button onclick="location.href='/'" style="background:#8B5CF6;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">R$ 157,90/mês</button>
+            </div>
+          </div>
+          <button onclick="SB.auth.signOut().then(()=>location.reload())" style="background:transparent;border:1px solid #333;color:#666;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:13px">Sair da conta</button>
+        </div>
+      </div>`;
+      return;
+    }
+  }
+
   // verifica VIP expirado antes de entrar
   if(CURRENT_USER&&CURRENT_USER.id&&checkVipExpiry(CURRENT_USER.id))return;
   // carrega dados persistidos do usuário
