@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>RevOps · MegaLinksBR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#0b1220; --panel:#111a2c; --panel2:#16213a; --line:#22304d;
+  --ink:#e8edf7; --mut:#8b98b3; --dim:#5c6a87;
+  --money:#3ddc97; --risk:#f4a259; --danger:#ef6461; --info:#6c9bf5;
+  --radius:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;font-size:14px;min-height:100vh}
+h1,h2,h3{font-family:'Space Grotesk',sans-serif}
+.mono{font-family:'JetBrains Mono',monospace}
+button{cursor:pointer;font-family:inherit}
+input,select{font-family:inherit}
+
+/* ---------- LOGIN ---------- */
+#loginView{display:flex;align-items:center;justify-content:center;min-height:100vh}
+.loginCard{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:36px;width:360px}
+.loginCard h1{font-size:22px;margin-bottom:4px}
+.loginCard p{color:var(--mut);margin-bottom:24px;font-size:13px}
+.loginCard label{display:block;font-size:12px;color:var(--mut);margin:14px 0 6px}
+.loginCard input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--ink);font-size:14px}
+.loginCard input:focus{outline:2px solid var(--info);outline-offset:1px}
+.btn{background:var(--money);color:#06281a;border:none;border-radius:8px;padding:11px 16px;font-weight:600;font-size:14px;width:100%;margin-top:22px}
+.btn:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.5;cursor:default}
+.err{color:var(--danger);font-size:13px;margin-top:12px;display:none}
+
+/* ---------- SHELL ---------- */
+#appView{display:none;grid-template-columns:210px 1fr;min-height:100vh}
+aside{background:var(--panel);border-right:1px solid var(--line);padding:22px 14px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column}
+.logo{font-family:'Space Grotesk';font-weight:700;font-size:17px;padding:0 8px 20px;letter-spacing:.2px}
+.logo em{font-style:normal;color:var(--money)}
+nav a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--mut);text-decoration:none;font-size:13.5px;font-weight:500;margin-bottom:2px}
+nav a.on{background:var(--panel2);color:var(--ink)}
+nav a:hover{color:var(--ink)}
+.spacer{flex:1}
+.who{font-size:11.5px;color:var(--dim);padding:0 8px 10px;word-break:break-all}
+.out{background:none;border:1px solid var(--line);color:var(--mut);border-radius:8px;padding:8px;font-size:12.5px;width:100%}
+.out:hover{color:var(--ink);border-color:var(--dim)}
+main{padding:28px 32px;max-width:1240px}
+.pageTitle{font-size:20px;margin-bottom:2px}
+.pageSub{color:var(--mut);font-size:13px;margin-bottom:24px}
+.section{display:none}
+.section.on{display:block}
+
+/* ---------- KPIs ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:26px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+.kpi .lbl{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
+.kpi .val{font-family:'JetBrains Mono';font-size:24px;font-weight:600}
+.kpi.money .val{color:var(--money)}
+.kpi.risk .val{color:var(--risk)}
+.kpi.bad .val{color:var(--danger)}
+
+/* ---------- GRID / CARDS ---------- */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+.card h3{font-size:14px;margin-bottom:16px;color:var(--ink)}
+
+/* ---------- FUNIL (assinatura visual) ---------- */
+.funnelRow{display:grid;grid-template-columns:110px 1fr 96px;align-items:center;gap:12px;margin-bottom:11px}
+.funnelRow .st{font-size:12.5px;color:var(--mut)}
+.funnelBarWrap{background:var(--bg);border-radius:6px;height:26px;overflow:hidden}
+.funnelBar{height:100%;background:linear-gradient(90deg,var(--info),var(--money));border-radius:6px;min-width:2px;transition:width .6s ease}
+.funnelRow .nums{font-family:'JetBrains Mono';font-size:12px;text-align:right}
+.funnelRow .nums small{color:var(--dim);display:block;font-size:10.5px}
+
+/* ---------- BARRAS 7D ---------- */
+.bars{display:flex;align-items:flex-end;gap:8px;height:130px}
+.barCol{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.barCol .b{width:100%;background:var(--info);border-radius:4px 4px 0 0;min-height:2px;opacity:.85}
+.barCol .d{font-size:10px;color:var(--dim);font-family:'JetBrains Mono'}
+.barCol .n{font-size:10.5px;color:var(--mut);font-family:'JetBrains Mono'}
+
+/* ---------- PLANOS ---------- */
+.planRow{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+.planRow:last-child{border:none}
+.planRow b{font-family:'JetBrains Mono';font-weight:600}
+
+/* ---------- TABELA CLIENTES ---------- */
+.toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.toolbar input,.toolbar select{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--ink);font-size:13px}
+.toolbar input{flex:1;min-width:200px}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+thead th{text-align:left;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:600}
+tbody td{padding:12px 14px;border-bottom:1px solid var(--line);font-size:13px}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--panel2)}
+tbody tr:last-child td{border-bottom:none}
+.tag{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.tag.trial{background:#1c2c4d;color:var(--info)}
+.tag.customer{background:#0f3527;color:var(--money)}
+.tag.trial_expired{background:#3a2a16;color:var(--risk)}
+.tag.cancelled,.tag.churned{background:#3a1c1c;color:var(--danger)}
+.tag.lead{background:#252c3d;color:var(--mut)}
+.tag.healthy{background:#0f3527;color:var(--money)}
+.tag.neutral{background:#252c3d;color:var(--mut)}
+.tag.at_risk{background:#3a2a16;color:var(--risk)}
+.tag.never_logged_in{background:#3a1c1c;color:var(--danger)}
+.score{font-family:'JetBrains Mono';font-weight:600}
+.score.neg{color:var(--danger)}
+.score.pos{color:var(--money)}
+
+/* ---------- DRAWER TIMELINE ---------- */
+#drawer{position:fixed;top:0;right:-460px;width:440px;height:100vh;background:var(--panel);border-left:1px solid var(--line);padding:26px;overflow-y:auto;transition:right .28s ease;z-index:50}
+#drawer.open{right:0}
+#drawerBg{position:fixed;inset:0;background:rgba(4,8,16,.6);display:none;z-index:40}
+#drawerBg.open{display:block}
+#drawer h3{font-size:16px;margin-bottom:2px}
+#drawer .sub{color:var(--mut);font-size:12.5px;margin-bottom:20px;word-break:break-all}
+.tl{border-left:2px solid var(--line);padding-left:18px;margin-left:6px}
+.tlItem{position:relative;padding-bottom:18px}
+.tlItem::before{content:'';position:absolute;left:-24px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--info);border:2px solid var(--panel)}
+.tlItem.money::before{background:var(--money)}
+.tlItem.bad::before{background:var(--danger)}
+.tlItem .t{font-size:13px;font-weight:500}
+.tlItem .w{font-family:'JetBrains Mono';font-size:11px;color:var(--dim);margin-top:2px}
+.closeX{position:absolute;top:18px;right:18px;background:none;border:none;color:var(--mut);font-size:20px}
+.closeX:hover{color:var(--ink)}
+
+/* ---------- SCORE RULES ---------- */
+.ruleRow td input[type=number]{width:80px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;color:var(--ink);font-family:'JetBrains Mono';font-size:13px}
+.ruleRow td input[type=checkbox]{width:16px;height:16px;accent-color:var(--money)}
+.saveMini{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:6px 12px;font-size:12px}
+.saveMini:hover{border-color:var(--money);color:var(--money)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--money);color:var(--ink);padding:11px 20px;border-radius:8px;font-size:13px;display:none;z-index:60}
+
+.loading{color:var(--dim);font-size:13px;padding:30px;text-align:center}
+@media(max-width:900px){#appView{grid-template-columns:1fr}aside{position:static;height:auto;flex-direction:row;align-items:center;gap:6px;overflow-x:auto}.spacer,.who{display:none}.grid2{grid-template-columns:1fr}main{padding:18px}#drawer{width:100%;right:-100%}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginView">
+  <div class="loginCard">
+    <h1>RevOps <em style="color:var(--money);font-style:normal">·</em> MegaLinksBR</h1>
+    <p>Painel administrativo de receita e clientes</p>
+    <label for="lEmail">E-mail</label>
+    <input id="lEmail" type="email" autocomplete="username">
+    <label for="lPass">Senha</label>
+    <input id="lPass" type="password" autocomplete="current-password">
+    <button class="btn" id="lBtn" onclick="doLogin()">Entrar</button>
+    <div class="err" id="lErr"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appView">
+  <aside>
+    <div class="logo">Mega<em>RevOps</em></div>
+    <nav>
+      <a href="#" class="on" data-sec="dash" onclick="go('dash',this);return false">📊 Visão Geral</a>
+      <a href="#" data-sec="crm" onclick="go('crm',this);return false">👥 Clientes</a>
+      <a href="#" data-sec="rules" onclick="go('rules',this);return false">⚙️ Regras de Score</a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="who" id="whoami"></div>
+    <button class="out" onclick="doLogout()">Sair</button>
+  </aside>
+
+  <main>
+    <!-- DASH -->
+    <div class="section on" id="sec-dash">
+      <h2 class="pageTitle">Visão Geral</h2>
+      <div class="pageSub" id="dashUpdated">Carregando…</div>
+      <div class="kpis" id="kpis"></div>
+      <div class="grid2">
+        <div class="card">
+          <h3>Funil de conversão</h3>
+          <div id="funnel" class="loading">Carregando…</div>
+        </div>
+        <div class="card">
+          <h3>Atividade — últimos 7 dias</h3>
+          <div id="bars7" class="loading">Carregando…</div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <h3>Distribuição por plano</h3>
+          <div id="plans" class="loading">Carregando…</div>
+        </div>
+        <div class="card">
+          <h3>Cadastros — últimos 30 dias</h3>
+          <div id="signups30" class="loading">Carregando…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CRM -->
+    <div class="section" id="sec-crm">
+      <h2 class="pageTitle">Clientes</h2>
+      <div class="pageSub">Todos os usuários com estágio, saúde e score. Clique para ver a timeline.</div>
+      <div class="toolbar">
+        <input id="fSearch" placeholder="Buscar por nome ou e-mail…" oninput="renderUsers()">
+        <select id="fStage" onchange="renderUsers()">
+          <option value="">Todos os estágios</option>
+          <option value="trial">Trial</option>
+          <option value="trial_expired">Trial expirado</option>
+          <option value="customer">Cliente</option>
+          <option value="cancelled">Cancelado</option>
+          <option value="lead">Lead</option>
+        </select>
+        <select id="fHealth" onchange="renderUsers()">
+          <option value="">Toda saúde</option>
+          <option value="healthy">Saudável</option>
+          <option value="neutral">Neutro</option>
+          <option value="at_risk">Em risco</option>
+          <option value="never_logged_in">Nunca logou</option>
+          <option value="churned">Churn</option>
+        </select>
+      </div>
+      <table>
+        <thead><tr><th>Usuário</th><th>Plano</th><th>Estágio</th><th>Saúde</th><th>Score</th><th>Trial</th><th>Último login</th></tr></thead>
+        <tbody id="usersBody"><tr><td colspan="7" class="loading">Carregando…</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- RULES -->
+    <div class="section" id="sec-rules">
+      <h2 class="pageTitle">Regras de Score</h2>
+      <div class="pageSub">Pontuação atribuída a cada evento de comportamento. Ajuste e salve.</div>
+      <table>
+        <thead><tr><th>Evento</th><th>Descrição</th><th>Pontos</th><th>Ativa</th><th></th></tr></thead>
+        <tbody id="rulesBody"><tr><td colspan="5" class="loading">Carregando…</td></tr></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- DRAWER -->
+<div id="drawerBg" onclick="closeDrawer()"></div>
+<div id="drawer">
+  <button class="closeX" onclick="closeDrawer()">✕</button>
+  <h3 id="dName"></h3>
+  <div class="sub" id="dInfo"></div>
+  <div class="tl" id="dTimeline"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SB_URL='https://nxlfezpagporealqqbfj.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im54bGZlenBhZ3BvcmVhbHFxYmZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExODE2NzksImV4cCI6MjA5Njc1NzY3OX0.7mASjuTiaUj1Bd9F0YRl_o_Kwb2Y3bmN2RyRCaPZOfs';
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
+const EVENT_LABELS = {
+  user_signed_up:'Criou conta', user_logged_in:'Fez login', trial_started:'Iniciou trial',
+  post_created:'Criou post', post_sent:'Post enviado', link_created:'Criou link curto',
+  whatsapp_connected:'Conectou WhatsApp', payment_confirmed:'Pagamento confirmado',
+  plan_upgraded:'Upgrade de plano', plan_downgraded:'Downgrade de plano',
+  plan_changed:'Mudança de plano', subscription_cancelled:'Cancelou assinatura',
+  ticket_opened:'Abriu ticket'
+};
+const MONEY_EVENTS=['payment_confirmed','plan_upgraded'];
+const BAD_EVENTS=['subscription_cancelled','plan_downgraded','ticket_opened'];
+
+let allUsers=[];
+
+// ---------- AUTH ----------
+async function doLogin(){
+  const btn=document.getElementById('lBtn'), err=document.getElementById('lErr');
+  err.style.display='none'; btn.disabled=true; btn.textContent='Entrando…';
+  const email=document.getElementById('lEmail').value.trim();
+  const pass=document.getElementById('lPass').value;
+  const {data,error}=await sb.auth.signInWithPassword({email,password:pass});
+  if(error){err.textContent='Login inválido. Confira e-mail e senha.';err.style.display='block';btn.disabled=false;btn.textContent='Entrar';return;}
+  await afterAuth(data.user);
+  btn.disabled=false; btn.textContent='Entrar';
+}
+async function afterAuth(user){
+  const {data:prof}=await sb.from('profiles').select('is_admin,email').eq('id',user.id).single();
+  if(!prof||!prof.is_admin){
+    document.getElementById('lErr').textContent='Acesso restrito a administradores.';
+    document.getElementById('lErr').style.display='block';
+    await sb.auth.signOut(); return;
+  }
+  document.getElementById('whoami').textContent=prof.email||user.email;
+  document.getElementById('loginView').style.display='none';
+  document.getElementById('appView').style.display='grid';
+  loadDash(); loadUsers(); loadRules();
+}
+async function doLogout(){ await sb.auth.signOut(); location.reload(); }
+document.getElementById('lPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+(async()=>{ const {data}=await sb.auth.getSession(); if(data&&data.session) afterAuth(data.session.user); })();
+
+// ---------- NAV ----------
+function go(sec,el){
+  document.querySelectorAll('nav a').forEach(a=>a.classList.remove('on'));
+  el.classList.add('on');
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('on'));
+  document.getElementById('sec-'+sec).classList.add('on');
+}
+
+// ---------- HELPERS ----------
+const brl=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const dfmt=d=>d?new Date(d).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'—';
+const dtfmt=d=>d?new Date(d).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',2200);}
+
+// ---------- DASHBOARD ----------
+async function loadDash(){
+  const {data,error}=await sb.rpc('revops_dashboard');
+  if(error){document.getElementById('dashUpdated').textContent='Erro ao carregar métricas: '+error.message;return;}
+  const m=data;
+  document.getElementById('dashUpdated').textContent='Atualizado em '+dtfmt(m.generated_at);
+
+  const kpis=[
+    {l:'MRR',v:brl(m.mrr),c:'money'},
+    {l:'Receita 30 dias',v:brl(m.revenue_30d),c:'money'},
+    {l:'Receita total',v:brl(m.revenue_total),c:'money'},
+    {l:'Clientes ativos',v:m.customers_active,c:''},
+    {l:'Usuários totais',v:m.users_total,c:''},
+    {l:'Novos (30d)',v:m.users_new_30d,c:''},
+    {l:'Trials ativos',v:m.trials_active,c:''},
+    {l:'Trials expirando (7d)',v:m.trials_expiring_7d,c:'risk'},
+    {l:'Trials expirados',v:m.trials_expired,c:'risk'},
+    {l:'Em risco',v:m.at_risk,c:'risk'},
+    {l:'Nunca logaram',v:m.never_logged_in,c:'bad'},
+    {l:'Cancelados',v:m.customers_cancelled,c:'bad'}
+  ];
+  document.getElementById('kpis').innerHTML=kpis.map(k=>
+    `<div class="kpi ${k.c}"><div class="lbl">${k.l}</div><div class="val">${k.v}</div></div>`).join('');
+
+  // funil
+  const f=m.funnel, stages=[
+    ['Cadastros',f.signups],['Logaram',f.logged_in],['Ativados',f.activated],['Clientes',f.customers]
+  ];
+  const max=Math.max(1,...stages.map(s=>s[1]));
+  document.getElementById('funnel').classList.remove('loading');
+  document.getElementById('funnel').innerHTML=stages.map((s,i)=>{
+    const prev=i===0?s[1]:stages[i-1][1];
+    const conv=prev>0?Math.round(s[1]/prev*100):0;
+    return `<div class="funnelRow"><div class="st">${s[0]}</div>
+      <div class="funnelBarWrap"><div class="funnelBar" style="width:${Math.round(s[1]/max*100)}%"></div></div>
+      <div class="nums">${s[1]}<small>${i===0?'100%':conv+'% da etapa anterior'}</small></div></div>`;
+  }).join('')+`<div class="funnelRow"><div class="st" style="color:var(--danger)">Cancelados</div>
+      <div class="funnelBarWrap"><div class="funnelBar" style="width:${Math.round(f.cancelled/max*100)}%;background:var(--danger)"></div></div>
+      <div class="nums">${f.cancelled}<small>&nbsp;</small></div></div>`;
+
+  // barras 7d
+  renderBars('bars7', m.events_7d_by_day, 7);
+  // cadastros 30d
+  renderBars('signups30', m.signups_30d_by_day, 30);
+
+  // planos
+  const plans=m.plans_distribution||{};
+  const rows=Object.entries(plans).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('plans').classList.remove('loading');
+  document.getElementById('plans').innerHTML=rows.length
+    ? rows.map(([p,n])=>`<div class="planRow"><span>${esc(p)}</span><b>${n}</b></div>`).join('')
+    : '<div class="loading">Sem dados</div>';
+}
+
+function renderBars(elId, series, days){
+  const el=document.getElementById(elId);
+  el.classList.remove('loading');
+  const byDay={}; (series||[]).forEach(r=>byDay[r.day]=r.n);
+  const cols=[];
+  for(let i=days-1;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const key=d.toISOString().slice(0,10);
+    cols.push({key, lbl:String(d.getDate()).padStart(2,'0'), n:byDay[key]||0});
+  }
+  const max=Math.max(1,...cols.map(c=>c.n));
+  const show=days<=7;
+  el.innerHTML='<div class="bars">'+cols.map(c=>
+    `<div class="barCol"><div class="n">${c.n||''}</div><div class="b" style="height:${Math.max(2,Math.round(c.n/max*100))}%"></div>${show?`<div class="d">${c.lbl}</div>`:''}</div>`
+  ).join('')+'</div>';
+}
+
+// ---------- CRM ----------
+async function loadUsers(){
+  const {data,error}=await sb.from('revops_users_overview').select('*').order('created_at',{ascending:false});
+  if(error){document.getElementById('usersBody').innerHTML=`<tr><td colspan="7" class="loading">Erro: ${esc(error.message)}</td></tr>`;return;}
+  allUsers=data||[]; renderUsers();
+}
+function renderUsers(){
+  const q=(document.getElementById('fSearch').value||'').toLowerCase();
+  const st=document.getElementById('fStage').value;
+  const he=document.getElementById('fHealth').value;
+  const rows=allUsers.filter(u=>
+    (!q || (u.email||'').toLowerCase().includes(q) || (u.full_name||'').toLowerCase().includes(q)) &&
+    (!st || u.stage===st) && (!he || u.health===he)
+  );
+  const body=document.getElementById('usersBody');
+  if(!rows.length){body.innerHTML='<tr><td colspan="7" class="loading">Nenhum usuário encontrado com esses filtros.</td></tr>';return;}
+  const stageLbl={trial:'Trial',trial_expired:'Trial expirado',customer:'Cliente',cancelled:'Cancelado',lead:'Lead'};
+  const healthLbl={healthy:'Saudável',neutral:'Neutro',at_risk:'Em risco',never_logged_in:'Nunca logou',churned:'Churn'};
+  body.innerHTML=rows.map(u=>`<tr onclick="openTimeline('${u.id}')">
+    <td><div style="font-weight:500">${esc(u.full_name||'—')}</div><div style="color:var(--dim);font-size:11.5px">${esc(u.email||'')}</div></td>
+    <td>${esc(u.plan||'—')}</td>
+    <td><span class="tag ${u.stage}">${stageLbl[u.stage]||u.stage}</span></td>
+    <td><span class="tag ${u.health}">${healthLbl[u.health]||u.health}</span></td>
+    <td><span class="score ${u.score<0?'neg':(u.score>=50?'pos':'')}">${u.score}</span></td>
+    <td class="mono" style="font-size:12px">${u.stage==='trial'?u.trial_days_left+'d restantes':'—'}</td>
+    <td class="mono" style="font-size:12px">${dfmt(u.last_sign_in_at)}</td>
+  </tr>`).join('');
+}
+
+// ---------- TIMELINE ----------
+async function openTimeline(uid){
+  const u=allUsers.find(x=>x.id===uid); if(!u)return;
+  document.getElementById('dName').textContent=u.full_name||u.email;
+  document.getElementById('dInfo').textContent=`${u.email} · plano ${u.plan||'—'} · score ${u.score}`;
+  document.getElementById('dTimeline').innerHTML='<div class="loading">Carregando…</div>';
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerBg').classList.add('open');
+  const {data,error}=await sb.rpc('revops_user_timeline',{p_user_id:uid,p_limit:100});
+  if(error){document.getElementById('dTimeline').innerHTML=`<div class="loading">Erro: ${esc(error.message)}</div>`;return;}
+  if(!data||!data.length){document.getElementById('dTimeline').innerHTML='<div class="loading">Sem eventos registrados ainda.</div>';return;}
+  document.getElementById('dTimeline').innerHTML=data.map(e=>{
+    const cls=MONEY_EVENTS.includes(e.event_type)?'money':(BAD_EVENTS.includes(e.event_type)?'bad':'');
+    return `<div class="tlItem ${cls}"><div class="t">${esc(EVENT_LABELS[e.event_type]||e.event_type)}</div><div class="w">${dtfmt(e.occurred_at)}</div></div>`;
+  }).join('');
+}
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerBg').classList.remove('open');
+}
+
+// ---------- RULES ----------
+async function loadRules(){
+  const {data,error}=await sb.from('revops_score_rules').select('*').order('points',{ascending:false});
+  if(error){document.getElementById('rulesBody').innerHTML=`<tr><td colspan="5" class="loading">Erro: ${esc(error.message)}</td></tr>`;return;}
+  document.getElementById('rulesBody').innerHTML=(data||[]).map(r=>`<tr class="ruleRow">
+    <td class="mono" style="font-size:12px">${esc(r.event_type)}</td>
+    <td style="color:var(--mut)">${esc(r.label||'')}</td>
+    <td><input type="number" id="pts-${esc(r.event_type)}" value="${r.points}"></td>
+    <td><input type="checkbox" id="act-${esc(r.event_type)}" ${r.active?'checked':''}></td>
+    <td><button class="saveMini" onclick="saveRule('${esc(r.event_type)}')">Salvar</button></td>
+  </tr>`).join('');
+}
+async function saveRule(type){
+  const pts=parseInt(document.getElementById('pts-'+type).value,10)||0;
+  const act=document.getElementById('act-'+type).checked;
+  const {error}=await sb.from('revops_score_rules').update({points:pts,active:act,updated_at:new Date().toISOString()}).eq('event_type',type);
+  if(error){toast('Erro ao salvar: '+error.message);return;}
+  toast('Regra salva. Scores recalculados automaticamente.');
+}
+</script>
+</body>
+</html>
