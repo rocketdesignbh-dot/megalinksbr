@@ -2766,6 +2766,14 @@ feed.innerHTML='<div class="feed"><span class="fic">👋</span><span>Bem-vindo �
 /* ================= CONFIG AFILIADOS ================= */
 // Estado persistente das credenciais (sobrevive a navegação dentro da sessão)
 const CREDS_STATE={};
+// Marketplaces liberados por plano (por nome exato)
+const MARKET_PLAN={
+  starter:["Shopee"],
+  pro:["Shopee","Mercado Livre","Amazon"],
+  elite:null,
+  premium:null
+};
+
 const LOJAS=[
   {n:"AliExpress",e:"🛒",img:"",f:[
     {k:"APP KEY",pwd:false,ph:"Sua App Key do AliExpress"},
@@ -6860,14 +6868,6 @@ function applyPlanGating(){
 }
 
 /* Aplica gate nos cards de marketplaces em Config Afiliados */
-// Marketplaces liberados por plano (por nome exato)
-const MARKET_PLAN={
-  starter:["Shopee"],
-  pro:["Shopee","Mercado Livre","Amazon"],
-  elite:null,   // null = todos
-  premium:null  // null = todos
-};
-
 function applyMarketplaceGating(max, planLabel){
   if(!lojasGrid)return;
   const plan=MY_PLAN||"starter";
