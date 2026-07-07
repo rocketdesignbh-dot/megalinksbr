@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="pt-BR" data-theme="dark">
 <head>
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-53W6734J');</script>
+<!-- End Google Tag Manager -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mega Links BR · Plataforma de Afiliados</title>
@@ -487,6 +494,10 @@ function hideLoading(){
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-53W6734J"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
 <!-- ============ LOGIN GATE ============ -->
 <div class="authbg" id="authGate">
   <div class="authcard">
@@ -608,7 +619,7 @@ function hideLoading(){
     <div class="nav" data-page="adm-fila"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Fila de Posts<span class="tag dot" id="filaBadge">live</span></div>
 <div class="nav" data-page="adm-suporte"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>Suporte</div>
     <div class="lbl">Sistema</div>
-    <div class="nav" data-page="adm-config"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.4-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.2-.8.2-1.2z"/></svg>Config. Plataforma</div>
+    <div class="nav" data-page="adm-seo"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>SEO &amp; Marketing</div>
     <div style="padding:10px 12px 4px;display:flex;gap:12px;justify-content:center">
       <a href="/privacidade.html" target="_blank" style="font-size:11px;color:var(--mut);text-decoration:none;opacity:.7" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">Privacidade</a>
       <span style="font-size:11px;color:var(--mut);opacity:.4">·</span>
@@ -1505,6 +1516,61 @@ function hideLoading(){
     <div class="card"><div class="ch">🔌 Integrações</div><div class="cb" id="integGrid"></div></div>
   </section>
 
+  <section class="page" id="page-adm-seo">
+    <div class="phead"><div><h1 class="pt">🔍 SEO &amp; Marketing</h1><div class="psub">Meta tags, tags de rastreamento e eventos de conversão do site.</div></div></div>
+    <div class="g2">
+      <div class="card" style="margin:0"><div class="ch">🏷️ SEO — Página inicial</div><div class="cb">
+        <div class="field"><label>Title</label><input id="seoTitle" maxlength="70" placeholder="Título da página"></div>
+        <div class="field"><label>Meta description</label><textarea id="seoDesc" rows="2" maxlength="160" placeholder="Descrição para resultados de busca"></textarea></div>
+        <div class="field"><label>Palavras-chave (separadas por vírgula)</label><input id="seoKeywords" placeholder="ex.: automação whatsapp, radar mercado livre"></div>
+        <div class="field"><label>Open Graph — título</label><input id="seoOgTitle" placeholder="Título ao compartilhar (WhatsApp/redes)"></div>
+        <div class="field"><label>Open Graph — descrição</label><textarea id="seoOgDesc" rows="2"></textarea></div>
+        <div class="field"><label>Open Graph — imagem (URL)</label><input id="seoOgImage" placeholder="/banner.jpg"></div>
+        <div class="field"><label>URL canônica</label><input id="seoCanonical" placeholder="https://www.megalinksbr.com.br"></div>
+        <button class="btn btn-volt" id="btnSalvarSeo">Salvar SEO</button>
+      </div></div>
+
+      <div class="card" style="margin:0"><div class="ch">📡 Tracking &amp; Analytics</div><div class="cb">
+        <div class="alert b" style="font-size:12.5px">🟢 Google Tag Manager já está instalado no código (<span class="mono">GTM-53W6734J</span>). Adicione GA4, Meta Pixel, TikTok Pixel etc. direto lá dentro — sem precisar mexer em código de novo.</div>
+        <div class="field"><label>GA4 — Measurement ID</label><input id="mktGa4" placeholder="G-XXXXXXX"></div>
+        <div class="field"><label>Meta Pixel ID</label><input id="mktMetaPixel" placeholder="ex.: 1234567890"></div>
+        <div class="field"><label>TikTok Pixel ID</label><input id="mktTiktok" placeholder=""></div>
+        <div class="field"><label>LinkedIn Insight Partner ID</label><input id="mktLinkedin" placeholder=""></div>
+        <div class="field"><label>Google Ads ID</label><input id="mktGads" placeholder="AW-XXXXXXX"></div>
+        <div class="field"><label>Microsoft Clarity — Project ID</label><input id="mktClarity" placeholder=""></div>
+        <div class="field"><label>Hotjar — Site ID</label><input id="mktHotjar" placeholder=""></div>
+        <div class="field"><label>Verificação Google Search Console</label><input id="mktGsc" placeholder="conteúdo da meta tag de verificação"></div>
+        <div class="field"><label>Verificação Bing Webmaster</label><input id="mktBing" placeholder=""></div>
+        <button class="btn btn-volt" id="btnSalvarMkt">Salvar Tracking</button>
+        <div style="margin-top:10px;font-size:11.5px;color:var(--mut)">Esses IDs ficam salvos no banco pra referência/documentação. Como o rastreamento passa pelo GTM, ative-os direto no <a href="https://tagmanager.google.com" target="_blank" style="color:var(--volt)">painel do GTM</a>.</div>
+      </div></div>
+    </div>
+
+    <div class="g2">
+      <div class="card" style="margin:0"><div class="ch">🎯 Eventos de conversão</div><div class="cb" id="seoEventsInfo">
+        <div class="qrow"><strong>cadastro</strong><span class="pill volt" style="margin-left:auto">ativo</span></div>
+        <div class="qrow"><strong>login</strong><span class="pill volt" style="margin-left:auto">ativo</span></div>
+        <div class="qrow"><strong>trial_iniciado</strong><span class="pill volt" style="margin-left:auto">ativo</span></div>
+        <div class="qrow"><strong>compra</strong><span class="pill gray" style="margin-left:auto">pendente (server-side)</span></div>
+        <div class="qrow"><strong>assinatura</strong><span class="pill gray" style="margin-left:auto">pendente (server-side)</span></div>
+        <div class="qrow"><strong>cancelamento</strong><span class="pill gray" style="margin-left:auto">pendente (server-side)</span></div>
+        <div class="qrow"><strong>renovação</strong><span class="pill gray" style="margin-left:auto">pendente (server-side)</span></div>
+        <div class="alert" style="font-size:12px;margin-top:8px">Eventos de pagamento nascem no webhook do Asaas — precisam ser emitidos direto na Edge Function (próxima etapa).</div>
+      </div></div>
+
+      <div class="card" style="margin:0"><div class="ch">🔗 Gerador de UTM</div><div class="cb">
+        <div class="field"><label>URL base</label><input id="utmUrl" value="https://www.megalinksbr.com.br"></div>
+        <div class="field"><label>utm_source</label><input id="utmSource" placeholder="instagram, google, newsletter…"></div>
+        <div class="field"><label>utm_medium</label><input id="utmMedium" placeholder="cpc, social, email…"></div>
+        <div class="field"><label>utm_campaign</label><input id="utmCampaign" placeholder="lancamento_pro"></div>
+        <div class="field"><label>utm_term</label><input id="utmTerm" placeholder="(opcional)"></div>
+        <div class="field"><label>utm_content</label><input id="utmContent" placeholder="(opcional)"></div>
+        <button class="btn btn-ghost" id="btnGerarUtm">Gerar link</button>
+        <div class="field" style="margin-top:8px"><label>Link gerado</label><input id="utmResult" class="mono" readonly onclick="this.select()"></div>
+      </div></div>
+    </div>
+  </section>
+
   </main>
   <footer class="foot">© 2026 Mega Links BR · plataforma de automação para afiliados. <span class="kbd">Ctrl K</span> abre a busca · alterne <strong>Afiliado ⇄ Admin</strong> na lateral.</footer>
 </div>
@@ -1971,6 +2037,7 @@ function go(page){
   if(page==="analitico")setTimeout(()=>{if(typeof SB!=="undefined"&&SB&&CURRENT_USER?.id)loadAnalitico();},120);
   // Hook: ao entrar em Assinatura, re-renderiza com dados frescos do plano
   if(page==="assinatura")setTimeout(()=>renderPlans(),80);
+  if(page==="adm-seo")setTimeout(()=>renderSeoMarketing(),50);
 }
 document.querySelectorAll(".nav").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
 document.querySelectorAll(".nav-cta").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
@@ -6643,6 +6710,17 @@ authPass.addEventListener("keydown",e=>{if(e.key==="Enter")doAuth();});
 
 async function afterLogin(user){
   CURRENT_USER=user;
+  try{
+    const created=user.created_at?new Date(user.created_at).getTime():0;
+    const lastSignIn=user.last_sign_in_at?new Date(user.last_sign_in_at).getTime():0;
+    const isNovoCadastro=created&&lastSignIn&&(lastSignIn-created)<60000;
+    if(isNovoCadastro){
+      trackEvent("cadastro",{user_id:user.id,method:user.app_metadata?.provider||"email"});
+      trackEvent("trial_iniciado",{user_id:user.id});
+    }else{
+      trackEvent("login",{user_id:user.id,method:user.app_metadata?.provider||"email"});
+    }
+  }catch(e){}
   await loadPlanFeatures();
 
   // Dados que vêm do Google OAuth (ou signup normal)
@@ -7012,6 +7090,145 @@ async function bootAuth(){
   }
   authGate.style.display="flex"; // sem sessão → mostra login
 }
+
+/* ================= ADMIN: SEO & MARKETING ================= */
+async function renderSeoMarketing(){
+  if(!SB)return;
+  try{
+    const{data:seo}=await SB.from("seo_settings").select("*").eq("page_key","home").single();
+    if(seo){
+      seoTitle.value=seo.title||"";
+      seoDesc.value=seo.meta_description||"";
+      seoKeywords.value=(seo.keywords||[]).join(", ");
+      seoOgTitle.value=seo.og_title||"";
+      seoOgDesc.value=seo.og_description||"";
+      seoOgImage.value=seo.og_image||"";
+      seoCanonical.value=seo.canonical_url||"";
+    }
+  }catch(e){console.warn("renderSeoMarketing seo:",e);}
+  try{
+    const{data:mkt}=await SB.from("marketing_settings").select("*").eq("id",1).single();
+    if(mkt){
+      mktGa4.value=mkt.ga4_measurement_id||"";
+      mktMetaPixel.value=mkt.meta_pixel_id||"";
+      mktTiktok.value=mkt.tiktok_pixel_id||"";
+      mktLinkedin.value=mkt.linkedin_partner_id||"";
+      mktGads.value=mkt.google_ads_id||"";
+      mktClarity.value=mkt.clarity_project_id||"";
+      mktHotjar.value=mkt.hotjar_site_id||"";
+      mktGsc.value=mkt.search_console_verification||"";
+      mktBing.value=mkt.bing_verification||"";
+    }
+  }catch(e){console.warn("renderSeoMarketing mkt:",e);}
+}
+
+btnSalvarSeo?.addEventListener("click",async()=>{
+  if(!SB)return;
+  btnSalvarSeo.disabled=true;btnSalvarSeo.textContent="Salvando…";
+  try{
+    const payload={
+      page_key:"home",
+      title:seoTitle.value.trim(),
+      meta_description:seoDesc.value.trim(),
+      keywords:seoKeywords.value.split(",").map(s=>s.trim()).filter(Boolean),
+      og_title:seoOgTitle.value.trim(),
+      og_description:seoOgDesc.value.trim(),
+      og_image:seoOgImage.value.trim(),
+      canonical_url:seoCanonical.value.trim(),
+      updated_at:new Date().toISOString()
+    };
+    const{error}=await SB.from("seo_settings").upsert(payload,{onConflict:"page_key"});
+    if(error)throw error;
+    toast("SEO salvo com sucesso!","🟢");
+    applyDynamicSeo();
+  }catch(e){toast("Erro ao salvar SEO: "+e.message,"⚠️");}
+  finally{btnSalvarSeo.disabled=false;btnSalvarSeo.textContent="Salvar SEO";}
+});
+
+btnSalvarMkt?.addEventListener("click",async()=>{
+  if(!SB)return;
+  btnSalvarMkt.disabled=true;btnSalvarMkt.textContent="Salvando…";
+  try{
+    const payload={
+      id:1,
+      ga4_measurement_id:mktGa4.value.trim(),
+      meta_pixel_id:mktMetaPixel.value.trim(),
+      tiktok_pixel_id:mktTiktok.value.trim(),
+      linkedin_partner_id:mktLinkedin.value.trim(),
+      google_ads_id:mktGads.value.trim(),
+      clarity_project_id:mktClarity.value.trim(),
+      hotjar_site_id:mktHotjar.value.trim(),
+      search_console_verification:mktGsc.value.trim(),
+      bing_verification:mktBing.value.trim(),
+      updated_at:new Date().toISOString()
+    };
+    const{error}=await SB.from("marketing_settings").upsert(payload,{onConflict:"id"});
+    if(error)throw error;
+    toast("Configurações de tracking salvas!","🟢");
+  }catch(e){toast("Erro ao salvar tracking: "+e.message,"⚠️");}
+  finally{btnSalvarMkt.disabled=false;btnSalvarMkt.textContent="Salvar Tracking";}
+});
+
+btnGerarUtm?.addEventListener("click",()=>{
+  const base=utmUrl.value.trim()||"https://www.megalinksbr.com.br";
+  const params=new URLSearchParams();
+  if(utmSource.value.trim())params.set("utm_source",utmSource.value.trim());
+  if(utmMedium.value.trim())params.set("utm_medium",utmMedium.value.trim());
+  if(utmCampaign.value.trim())params.set("utm_campaign",utmCampaign.value.trim());
+  if(utmTerm.value.trim())params.set("utm_term",utmTerm.value.trim());
+  if(utmContent.value.trim())params.set("utm_content",utmContent.value.trim());
+  const qs=params.toString();
+  utmResult.value=qs?`${base}?${qs}`:base;
+});
+
+/* ================= TRACKING: dataLayer + eventos de conversão ================= */
+window.dataLayer=window.dataLayer||[];
+function trackEvent(eventName,extra){
+  try{ window.dataLayer.push(Object.assign({event:eventName},extra||{})); }catch(e){}
+  try{
+    if(SB){
+      const params=new URLSearchParams(location.search);
+      SB.from("conversion_events").insert({
+        event_name:eventName,
+        user_id:(extra&&extra.user_id)||CURRENT_USER?.id||null,
+        source:"client",
+        utm_source:params.get("utm_source"),
+        utm_medium:params.get("utm_medium"),
+        utm_campaign:params.get("utm_campaign"),
+        utm_term:params.get("utm_term"),
+        utm_content:params.get("utm_content"),
+        metadata:extra||{}
+      }).then(()=>{}).catch(()=>{});
+    }
+  }catch(e){}
+}
+
+/* ================= SEO: meta tags dinâmicas a partir do banco ================= */
+async function applyDynamicSeo(){
+  if(!SB)return;
+  try{
+    const{data}=await SB.from("seo_settings").select("*").eq("page_key","home").single();
+    if(!data)return;
+    if(data.title)document.title=data.title;
+    const setMeta=(sel,attr,val)=>{if(!val)return;let el=document.querySelector(sel);if(el)el.setAttribute(attr,val);};
+    setMeta('meta[name="description"]','content',data.meta_description);
+    setMeta('meta[property="og:title"]','content',data.og_title);
+    setMeta('meta[property="og:description"]','content',data.og_description);
+    setMeta('meta[property="og:image"]','content',data.og_image);
+    if(data.canonical_url){
+      let link=document.querySelector('link[rel="canonical"]');
+      if(!link){link=document.createElement("link");link.rel="canonical";document.head.appendChild(link);}
+      link.href=data.canonical_url;
+    }
+    if(data.schema_jsonld){
+      let s=document.getElementById("seoSchemaJsonLd");
+      if(!s){s=document.createElement("script");s.type="application/ld+json";s.id="seoSchemaJsonLd";document.head.appendChild(s);}
+      s.textContent=typeof data.schema_jsonld==="string"?data.schema_jsonld:JSON.stringify(data.schema_jsonld);
+    }
+  }catch(e){console.warn("applyDynamicSeo:",e);}
+}
+applyDynamicSeo();
+
 bootAuth();
 </script>
 <script>

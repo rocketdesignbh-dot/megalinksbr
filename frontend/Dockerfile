@@ -8,6 +8,8 @@ COPY termos.html /usr/share/nginx/html/termos.html
 COPY favicon.png /usr/share/nginx/html/favicon.png
 COPY icon.png /usr/share/nginx/html/icon.png
 COPY banner.jpg /usr/share/nginx/html/banner.jpg
+COPY sitemap.xml /usr/share/nginx/html/sitemap.xml
+COPY robots.txt /usr/share/nginx/html/robots.txt
 RUN cat <<'NGINXEOF' > /etc/nginx/conf.d/default.conf
 resolver 8.8.8.8 8.8.4.4 valid=10s ipv6=off;
 resolver_timeout 5s;
