@@ -205,6 +205,7 @@ tbody tr:last-child td{border-bottom:none}
       <a href="#" class="on" data-sec="dash" onclick="go('dash',this);return false">📊 Visão Geral</a>
       <a href="#" data-sec="crm" onclick="go('crm',this);return false">👥 Clientes</a>
       <a href="#" data-sec="kanban" onclick="go('kanban',this);return false">🗂️ Pipeline Kanban</a>
+      <a href="#" data-sec="automations" onclick="go('automations',this);return false">⚡ Automações</a>
       <a href="#" data-sec="rules" onclick="go('rules',this);return false">⚙️ Regras de Score</a>
     </nav>
     <div class="spacer"></div>
@@ -274,6 +275,38 @@ tbody tr:last-child td{border-bottom:none}
       <h2 class="pageTitle">Pipeline Kanban</h2>
       <div class="pageSub">Arraste os cards entre colunas para mover usuários no funil. Cada movimentação é registrada na timeline.</div>
       <div class="kanbanWrap" id="kanbanBoard"></div>
+    </div>
+
+    <!-- AUTOMAÇÕES -->
+    <div class="section" id="sec-automations">
+      <h2 class="pageTitle">Automações</h2>
+      <div class="pageSub">Gatilhos automáticos de email disparados diariamente às 09h. Cada disparo aparece na timeline do usuário.</div>
+      <div class="grid2" style="margin-bottom:20px">
+        <div class="card">
+          <h3>Gatilhos configurados</h3>
+          <div id="autoConfig" class="loading">Carregando…</div>
+        </div>
+        <div class="card">
+          <h3>Últimos disparos</h3>
+          <div id="autoLog" class="loading">Carregando…</div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Testar disparo manual</h3>
+        <p style="color:var(--mut);font-size:13px;margin-bottom:16px">Dispara a automação selecionada agora (útil para testar). Só envia para quem ainda não recebeu hoje.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <select id="testAuto" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--ink);font-size:13px">
+            <option value="">Selecione a automação…</option>
+            <option value="trial_expiring_3d">Trial expirando em 3 dias</option>
+            <option value="trial_expired_d1">Trial expirado há 1 dia</option>
+            <option value="trial_expired_d3">Trial expirado há 3 dias</option>
+            <option value="reengagement_7d">Sem login há 7 dias</option>
+            <option value="reengagement_14d">Sem login há 14 dias</option>
+          </select>
+          <button class="saveMini" onclick="runAutomation()" style="padding:9px 18px;font-size:13px">▶ Disparar agora</button>
+        </div>
+        <div id="autoResult" style="margin-top:14px;font-size:13px;color:var(--mut)"></div>
+      </div>
     </div>
 
     <!-- RULES -->
@@ -364,6 +397,7 @@ function go(sec,el){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('on'));
   document.getElementById('sec-'+sec).classList.add('on');
   if(sec==='kanban') buildKanban();
+  if(sec==='automations') loadAutomations();
 }
 
 // ---------- HELPERS ----------
@@ -607,6 +641,74 @@ async function confirmMove(){
 }
 
 function cancelMove(){ document.getElementById('noteModal').classList.remove('open'); dragUser=null; }
+
+// ---------- AUTOMAÇÕES ----------
+async function loadAutomations(){
+  const [{data:cfg,error:e1},{data:log,error:e2}] = await Promise.all([
+    sb.from('revops_automation_config').select('*').order('automation'),
+    sb.from('revops_automation_log').select('*').order('triggered_at',{ascending:false}).limit(20)
+  ]);
+
+  const cfgEl=document.getElementById('autoConfig');
+  cfgEl.classList.remove('loading');
+  if(e1){ cfgEl.innerHTML=`<div class="loading">Erro: ${esc(e1.message)}</div>`; }
+  else {
+    cfgEl.innerHTML=(cfg||[]).map(c=>`
+      <div class="planRow" style="align-items:center">
+        <span>${esc(c.label||c.automation)}</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:11px;color:${c.enabled?'var(--money)':'var(--dim)'}">${c.enabled?'Ativo':'Inativo'}</span>
+          <input type="checkbox" ${c.enabled?'checked':''} style="width:16px;height:16px;accent-color:var(--money);cursor:pointer"
+            onchange="toggleAutomation('${esc(c.automation)}',this.checked)">
+        </div>
+      </div>`).join('');
+  }
+
+  const logEl=document.getElementById('autoLog');
+  logEl.classList.remove('loading');
+  if(e2){ logEl.innerHTML=`<div class="loading">Erro: ${esc(e2.message)}</div>`; }
+  else if(!log||!log.length){ logEl.innerHTML='<div class="loading">Nenhum disparo registrado ainda.</div>'; }
+  else {
+    logEl.innerHTML=log.map(l=>`
+      <div class="planRow" style="flex-direction:column;align-items:flex-start;gap:3px">
+        <div style="display:flex;width:100%;justify-content:space-between">
+          <span style="font-weight:500;font-size:12.5px">${esc(l.automation)}</span>
+          <span class="tag ${l.status==='sent'?'customer':'cancelled'}" style="font-size:10px">${l.status}</span>
+        </div>
+        <span style="font-size:11px;color:var(--dim)">${dtfmt(l.triggered_at)}</span>
+      </div>`).join('');
+  }
+}
+
+async function toggleAutomation(automation, enabled){
+  const {error}=await sb.from('revops_automation_config')
+    .update({enabled, updated_at: new Date().toISOString()})
+    .eq('automation', automation);
+  if(error){ toast('Erro: '+error.message); return; }
+  toast(`Automação ${enabled?'ativada':'desativada'} ✓`);
+}
+
+async function runAutomation(){
+  const auto=document.getElementById('testAuto').value;
+  if(!auto){ toast('Selecione uma automação primeiro.'); return; }
+  const res=document.getElementById('autoResult');
+  res.textContent='Disparando…'; res.style.color='var(--mut)';
+  try {
+    const r=await fetch('https://nxlfezpagporealqqbfj.supabase.co/functions/v1/revops-automations',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({automation: auto})
+    });
+    const data=await r.json();
+    const n=data.results?.[auto]??0;
+    res.textContent=`✓ Disparado! ${n} email(s) enviado(s).`;
+    res.style.color='var(--money)';
+    setTimeout(()=>loadAutomations(), 1500);
+  } catch(e) {
+    res.textContent='Erro: '+e.message;
+    res.style.color='var(--danger)';
+  }
+}
 
 // ---------- RULES ----------
 async function loadRules(){
