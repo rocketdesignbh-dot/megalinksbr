@@ -135,6 +135,44 @@ tbody tr:last-child td{border-bottom:none}
 .saveMini:hover{border-color:var(--money);color:var(--money)}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--money);color:var(--ink);padding:11px 20px;border-radius:8px;font-size:13px;display:none;z-index:60}
 
+/* ---------- KANBAN ---------- */
+.kanbanWrap{display:flex;gap:14px;overflow-x:auto;padding-bottom:16px;min-height:calc(100vh - 200px)}
+.kanbanWrap::-webkit-scrollbar{height:6px}
+.kanbanWrap::-webkit-scrollbar-track{background:var(--bg)}
+.kanbanWrap::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+.kCol{flex:0 0 240px;display:flex;flex-direction:column;gap:0}
+.kColHead{padding:12px 14px;border-radius:10px 10px 0 0;font-family:'Space Grotesk';font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:space-between}
+.kColHead .cnt{background:rgba(0,0,0,.25);border-radius:20px;padding:2px 9px;font-size:11px;font-weight:600}
+.kColBody{background:var(--panel);border:1px solid var(--line);border-top:none;border-radius:0 0 10px 10px;min-height:400px;padding:8px;display:flex;flex-direction:column;gap:7px;transition:background .15s}
+.kColBody.drag-over{background:var(--panel2);border-color:var(--info)}
+.kCard{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:11px 13px;cursor:grab;user-select:none;transition:box-shadow .15s,transform .15s}
+.kCard:active{cursor:grabbing}
+.kCard.dragging{opacity:.4;transform:scale(.97)}
+.kCard .cn{font-weight:600;font-size:13px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kCard .ce{font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:7px}
+.kCard .cf{display:flex;align-items:center;justify-content:space-between}
+.kCard .cs{font-family:'JetBrains Mono';font-size:11px;font-weight:600}
+.kCard .cs.pos{color:var(--money)}
+.kCard .cs.neg{color:var(--danger)}
+.kCard .ch{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600}
+.kCard .ch.healthy{background:#0f3527;color:var(--money)}
+.kCard .ch.neutral{background:#252c3d;color:var(--mut)}
+.kCard .ch.at_risk{background:#3a2a16;color:var(--risk)}
+.kCard .ch.never_logged_in,.kCard .ch.churned{background:#3a1c1c;color:var(--danger)}
+.kEmpty{color:var(--dim);font-size:12px;text-align:center;padding:24px 8px}
+/* Modal de nota ao mover */
+#noteModal{position:fixed;inset:0;background:rgba(4,8,16,.7);z-index:70;display:none;align-items:center;justify-content:center}
+#noteModal.open{display:flex}
+.noteBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;width:380px}
+.noteBox h4{font-size:15px;margin-bottom:4px}
+.noteBox p{color:var(--mut);font-size:12.5px;margin-bottom:18px}
+.noteBox textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--ink);font-size:13px;resize:vertical;min-height:80px;font-family:inherit}
+.noteBox textarea:focus{outline:2px solid var(--info);outline-offset:1px}
+.noteBox .actions{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+.noteBox .btnSec{background:none;border:1px solid var(--line);color:var(--mut);border-radius:8px;padding:9px 16px;font-size:13px}
+.noteBox .btnSec:hover{color:var(--ink)}
+.noteBox .btnPri{background:var(--money);color:#06281a;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600}
+
 .loading{color:var(--dim);font-size:13px;padding:30px;text-align:center}
 @media(max-width:900px){#appView{grid-template-columns:1fr}aside{position:static;height:auto;flex-direction:row;align-items:center;gap:6px;overflow-x:auto}.spacer,.who{display:none}.grid2{grid-template-columns:1fr}main{padding:18px}#drawer{width:100%;right:-100%}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -163,6 +201,7 @@ tbody tr:last-child td{border-bottom:none}
     <nav>
       <a href="#" class="on" data-sec="dash" onclick="go('dash',this);return false">📊 Visão Geral</a>
       <a href="#" data-sec="crm" onclick="go('crm',this);return false">👥 Clientes</a>
+      <a href="#" data-sec="kanban" onclick="go('kanban',this);return false">🗂️ Pipeline Kanban</a>
       <a href="#" data-sec="rules" onclick="go('rules',this);return false">⚙️ Regras de Score</a>
     </nav>
     <div class="spacer"></div>
@@ -227,6 +266,13 @@ tbody tr:last-child td{border-bottom:none}
       </table>
     </div>
 
+    <!-- KANBAN -->
+    <div class="section" id="sec-kanban">
+      <h2 class="pageTitle">Pipeline Kanban</h2>
+      <div class="pageSub">Arraste os cards entre colunas para mover usuários no funil. Cada movimentação é registrada na timeline.</div>
+      <div class="kanbanWrap" id="kanbanBoard"></div>
+    </div>
+
     <!-- RULES -->
     <div class="section" id="sec-rules">
       <h2 class="pageTitle">Regras de Score</h2>
@@ -249,6 +295,19 @@ tbody tr:last-child td{border-bottom:none}
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- MODAL NOTA KANBAN -->
+<div id="noteModal">
+  <div class="noteBox">
+    <h4 id="noteModalTitle">Mover usuário</h4>
+    <p id="noteModalSub"></p>
+    <textarea id="noteText" placeholder="Adicione uma observação (opcional)…"></textarea>
+    <div class="actions">
+      <button class="btnSec" onclick="cancelMove()">Cancelar</button>
+      <button class="btnPri" onclick="confirmMove()">Confirmar</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const SB_URL='https://nxlfezpagporealqqbfj.supabase.co';
@@ -301,6 +360,7 @@ function go(sec,el){
   el.classList.add('on');
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('on'));
   document.getElementById('sec-'+sec).classList.add('on');
+  if(sec==='kanban') buildKanban();
 }
 
 // ---------- HELPERS ----------
@@ -383,9 +443,16 @@ function renderBars(elId, series, days){
 
 // ---------- CRM ----------
 async function loadUsers(){
-  const {data,error}=await sb.from('revops_users_overview').select('*').order('created_at',{ascending:false});
+  const [{data,error},{data:overrides}] = await Promise.all([
+    sb.from('revops_users_overview').select('*').order('created_at',{ascending:false}),
+    sb.from('revops_kanban_overrides').select('user_id,stage')
+  ]);
   if(error){document.getElementById('usersBody').innerHTML=`<tr><td colspan="7" class="loading">Erro: ${esc(error.message)}</td></tr>`;return;}
-  allUsers=data||[]; renderUsers();
+  const overMap={};
+  (overrides||[]).forEach(o => overMap[o.user_id]=o.stage);
+  allUsers=(data||[]).map(u=>({...u, kanban_stage: overMap[u.id]||null}));
+  renderUsers();
+  buildKanban();
 }
 function renderUsers(){
   const q=(document.getElementById('fSearch').value||'').toLowerCase();
@@ -430,6 +497,113 @@ function closeDrawer(){
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('drawerBg').classList.remove('open');
 }
+
+// ---------- KANBAN ----------
+const KANBAN_COLS = [
+  { id:'lead',         label:'Lead',            color:'#2a3a5c' },
+  { id:'trial',        label:'Trial',           color:'#1c2c4d' },
+  { id:'trial_expired',label:'Trial Expirado',  color:'#3a2a16' },
+  { id:'hot',          label:'🔥 Quente',        color:'#3a2010' },
+  { id:'customer',     label:'Cliente',         color:'#0f3527' },
+  { id:'at_risk',      label:'⚠️ Em Risco',      color:'#3a2a00' },
+  { id:'cancelled',    label:'Cancelado',       color:'#3a1c1c' },
+];
+
+let kanbanData = {};       // { stage: [user,...] }
+let dragUser   = null;
+let pendingMove= {};       // { user_id, new_stage }
+
+function buildKanban(){
+  // Distribui usuários: override manual > stage automático
+  kanbanData = {};
+  KANBAN_COLS.forEach(c => kanbanData[c.id] = []);
+
+  allUsers.forEach(u => {
+    // estágio manual salvo (do override) ou automático
+    const st = u.kanban_stage || u.stage;
+    const col = kanbanData[st] ? st : (u.stage in kanbanData ? u.stage : 'lead');
+    kanbanData[col].push(u);
+  });
+
+  const board = document.getElementById('kanbanBoard');
+  board.innerHTML = '';
+
+  KANBAN_COLS.forEach(col => {
+    const users = kanbanData[col.id] || [];
+    const colEl = document.createElement('div');
+    colEl.className = 'kCol';
+    colEl.innerHTML = `
+      <div class="kColHead" style="background:${col.color}">
+        <span>${col.label}</span>
+        <span class="cnt">${users.length}</span>
+      </div>
+      <div class="kColBody" id="kcol-${col.id}" data-col="${col.id}">
+        ${users.length === 0 ? '<div class="kEmpty">Nenhum usuário</div>' : users.map(u => cardHTML(u)).join('')}
+      </div>`;
+    board.appendChild(colEl);
+  });
+
+  // Drag events nas colunas
+  board.querySelectorAll('.kColBody').forEach(body => {
+    body.addEventListener('dragover', e => { e.preventDefault(); body.classList.add('drag-over'); });
+    body.addEventListener('dragleave', () => body.classList.remove('drag-over'));
+    body.addEventListener('drop', e => {
+      e.preventDefault();
+      body.classList.remove('drag-over');
+      if(!dragUser) return;
+      const newStage = body.dataset.col;
+      if(newStage === dragUser.kanban_stage || newStage === dragUser.stage) return;
+      pendingMove = { user_id: dragUser.id, new_stage: newStage };
+      document.getElementById('noteModalTitle').textContent =
+        `Mover ${dragUser.full_name || dragUser.email}`;
+      document.getElementById('noteModalSub').textContent =
+        `Para: ${KANBAN_COLS.find(c=>c.id===newStage)?.label || newStage}`;
+      document.getElementById('noteText').value = '';
+      document.getElementById('noteModal').classList.add('open');
+    });
+  });
+
+  // Drag events nos cards
+  board.querySelectorAll('.kCard').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      dragUser = allUsers.find(u => u.id === card.dataset.uid);
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+    card.addEventListener('click', () => openTimeline(card.dataset.uid));
+  });
+}
+
+function cardHTML(u){
+  const scoreClass = u.score < 0 ? 'neg' : (u.score >= 50 ? 'pos' : '');
+  const healthLbl  = {healthy:'Saudável',neutral:'Neutro',at_risk:'Em risco',
+                      never_logged_in:'Nunca logou',churned:'Churn'}[u.health] || u.health;
+  return `<div class="kCard" draggable="true" data-uid="${u.id}">
+    <div class="cn">${esc(u.full_name||'Sem nome')}</div>
+    <div class="ce">${esc(u.email||'')}</div>
+    <div class="cf">
+      <span class="cs ${scoreClass}">${u.score>0?'+':''}${u.score} pts</span>
+      <span class="ch ${u.health}">${healthLbl}</span>
+    </div>
+  </div>`;
+}
+
+async function confirmMove(){
+  const { user_id, new_stage } = pendingMove;
+  const note = document.getElementById('noteText').value.trim() || null;
+  document.getElementById('noteModal').classList.remove('open');
+  const { error } = await sb.rpc('revops_move_card',
+    { p_user_id: user_id, p_new_stage: new_stage, p_note: note });
+  if(error){ toast('Erro ao mover: '+error.message); return; }
+  // Atualiza local sem recarregar tudo
+  const u = allUsers.find(x => x.id === user_id);
+  if(u) u.kanban_stage = new_stage;
+  buildKanban();
+  toast('Card movido ✓ — evento registrado na timeline.');
+}
+
+function cancelMove(){ document.getElementById('noteModal').classList.remove('open'); dragUser=null; }
 
 // ---------- RULES ----------
 async function loadRules(){
