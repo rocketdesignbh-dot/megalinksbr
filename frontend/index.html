@@ -2882,18 +2882,18 @@ const LOJAS=[
   ],dica:`<p>Para encontrar suas credenciais:</p><ol><li>Acesse <a href="https://portals.aliexpress.com" target="_blank" style="color:var(--volt)">portals.aliexpress.com</a></li><li>Vá em <strong>Tools → API Access</strong></li><li>Copie o <strong>App Key</strong> e <strong>App Secret</strong></li></ol>`},
   {n:"Amazon",e:"📦",img:"",f:[
     {k:"ID de Associado",pwd:false,ph:"Ex: megalinks-20"},
-    {k:"ACCESS KEY",pwd:false,ph:"Sua Access Key ID"},
-    {k:"SECRET KEY",pwd:true,ph:"Sua Secret Access Key"}
-  ],dica:`<p>Para encontrar suas credenciais:</p><ol><li>Acesse <a href="https://affiliate-program.amazon.com.br" target="_blank" style="color:var(--volt)">affiliate-program.amazon.com.br</a></li><li>Vá em <strong>Ferramentas → API de Publicidade</strong></li><li>Crie ou copie suas chaves</li></ol>`},
+    {k:"ACCESS KEY",pwd:false,ph:"Sua Access Key ID",optional:true},
+    {k:"SECRET KEY",pwd:true,ph:"Sua Secret Access Key",optional:true}
+  ],dica:`<p><strong>1. ID de Associado (obrigatório)</strong> — é o código escolhido ao criar sua conta em <a href="https://associados.amazon.com.br" target="_blank" style="color:var(--volt)">associados.amazon.com.br</a> (formato "seusite-20"), disponível em <strong>Configuração da conta → IDs de Rastreamento</strong>. Só com ele você já consegue gerar e postar links de afiliado.</p><p style="margin-top:8px"><strong>2. Access Key / Secret Key (opcional)</strong> — só são necessárias para busca automática de produtos (PA-API). Gere em <strong>Portal de Associados → aba "API de Divulgação de Produtos" → Gerenciar credenciais</strong>. A Amazon costuma liberar essa API só depois de registrar vendas qualificadas pelo programa — até lá, use o ID de Associado normalmente e cole os links manualmente.</p>`},
   {n:"AWIN",e:"🔗",img:"",f:[
     {k:"ID do Publisher",pwd:false,ph:"Seu Publisher ID numérico"},
     {k:"API TOKEN",pwd:true,ph:"Token de acesso à API"}
   ],dica:`<p>Para encontrar suas credenciais:</p><ol><li>Acesse <a href="https://ui.awin.com" target="_blank" style="color:var(--volt)">ui.awin.com</a></li><li>Vá em <strong>Account → API Credentials</strong></li><li>Copie o <strong>Publisher ID</strong> e gere um <strong>Token</strong></li></ol>`},
   {n:"Shopee",e:"🧡",img:"",f:[
     {k:"ID de Afiliado",pwd:false,ph:"Seu ID numérico de afiliado Shopee"},
-    {k:"App Key",pwd:false,ph:"Sua App Key (Open Platform)"},
-    {k:"App Secret",pwd:true,ph:"Sua App Secret (Open Platform)"}
-  ],dica:`<p>Para encontrar suas credenciais:</p><ol><li>Acesse <a href="https://affiliate.shopee.com.br" target="_blank" style="color:var(--volt)">affiliate.shopee.com.br</a> → seu <strong>ID de Afiliado</strong></li><li>Para App Key/Secret: acesse <a href="https://open.shopee.com" target="_blank" style="color:var(--volt)">open.shopee.com</a> → <strong>My Apps</strong></li></ol><div class="alert y" style="margin-top:8px;font-size:12px">⚠️ Não confunda ID de Afiliado com código de indicação — é composto apenas por números.</div>`},
+    {k:"App Key",pwd:false,ph:"Sua App Key (Open Platform)",optional:true},
+    {k:"App Secret",pwd:true,ph:"Sua App Secret (Open Platform)",optional:true}
+  ],dica:`<p><strong>1. ID de Afiliado (obrigatório)</strong> — acesse <a href="https://affiliate.shopee.com.br" target="_blank" style="color:var(--volt)">affiliate.shopee.com.br</a> e copie o ID numérico do seu perfil. Só com isso você já consegue gerar e postar links de afiliado.</p><p style="margin-top:8px"><strong>2. App Key / App Secret (opcional)</strong> — só são necessários para busca automática de produtos Shopee no Radar. Exigem um cadastro à parte em <a href="https://open.shopee.com" target="_blank" style="color:var(--volt)">open.shopee.com</a> → <strong>My Apps</strong> (sujeito a aprovação da Shopee). Sem eles, você continua podendo colar links manualmente.</p><div class="alert y" style="margin-top:8px;font-size:12px">⚠️ Não confunda ID de Afiliado (só números, do site de afiliados) com App Key (do Open Platform) — são cadastros diferentes.</div>`},
   {n:"Magalu",e:"💙",img:"",f:[
     {k:"Nome da Loja",pwd:false,ph:"Slug da sua loja no Magalu"}
   ],dica:`<p>Para encontrar:</p><ol><li>Acesse <a href="https://www.magazinevoce.com.br" target="_blank" style="color:var(--volt)">magazinevoce.com.br</a></li><li>Copie o <strong>nome/slug</strong> da sua loja</li></ol>`},
@@ -2944,7 +2944,7 @@ function abrirModalLoja(li){
   const campos=l.f.map(f=>{
     const val=(saved[f.k]||"").replace(/"/g,"&quot;");
     return `<div class="field">
-      <label>${f.k}${f.k.includes("Secret")||f.k.includes("TOKEN")||f.k.includes("Cookie")?" <span style='color:var(--mut);font-weight:400;font-size:11px'>(privado)</span>":""}</label>
+      <label>${f.k}${f.optional?" <span style='color:var(--mut);font-weight:400;font-size:11px'>(opcional)</span>":""}${f.k.includes("Secret")||f.k.includes("TOKEN")||f.k.includes("Cookie")?" <span style='color:var(--mut);font-weight:400;font-size:11px'>(privado)</span>":""}</label>
       <div class="pass-wrap">
         <input data-loja="${l.n}" data-field="${f.k}" ${f.pwd?'type="password"':''} placeholder="${f.ph}" value="${val}" style="padding-right:${f.pwd?"40px":"12px"}">
         ${f.pwd?`<button class="pass-toggle" type="button" onclick="this.previousElementSibling.type=this.previousElementSibling.type==='password'?'text':'password';this.textContent=this.previousElementSibling.type==='password'?'👁️':'🙈'">👁️</button>`:""}
@@ -2987,12 +2987,15 @@ function mlAbrirOAuth(l,li,con,saved){
       <div style="color:var(--mut);font-size:12px">User ID ML: <code>${saved.ml_user_id||"—"}</code></div>
       <div style="color:var(--mut);font-size:12px;margin-top:2px">Token: ${saved.token_obtained_at?new Date(saved.token_obtained_at).toLocaleString("pt-BR"):"—"}</div>
     </div>`:""}
-        <div class="field" style="margin-bottom:12px">
-      <label>Etiqueta ML <span style="color:var(--mut);font-weight:400;font-size:11px">(ex: anan1844639)</span></label>
+        <div class="alert y" style="font-size:12px;margin-bottom:12px">
+      <strong>Onde encontrar esses dois valores:</strong> no Mercado Livre, passe o mouse no seu nome → <strong>Afiliados</strong> → <strong>Gerador de Links</strong> e gere um link de qualquer produto. Na URL gerada, copie o número depois de <code>matt_tool=</code> (é o "matt_tool ID") e o texto depois de <code>matt_word=</code> (é a "Etiqueta ML"). Esses dois campos são opcionais, mas sem eles suas vendas do ML não ficam corretamente atribuídas à sua conta de afiliado.
+    </div>
+    <div class="field" style="margin-bottom:12px">
+      <label>Etiqueta ML <span style="color:var(--mut);font-weight:400;font-size:11px">(opcional · vem do parâmetro matt_word, ex: anan1844639)</span></label>
       <input id="mlEtiqueta" placeholder="Seu nick/etiqueta de afiliado ML" value="${saved['Etiqueta ML']||''}" style="width:100%">
     </div>
     <div class="field" style="margin-bottom:16px">
-      <label>matt_tool ID <span style="color:var(--mut);font-weight:400;font-size:11px">(ex: 18051249)</span></label>
+      <label>matt_tool ID <span style="color:var(--mut);font-weight:400;font-size:11px">(opcional · vem do parâmetro matt_tool, ex: 18051249)</span></label>
       <input id="mlMattTool" placeholder="ID numérico do painel ML Afiliados" value="${saved['matt_tool ID']||''}" style="width:100%">
     </div>
     <button class="btn btn-ghost" style="width:100%;justify-content:center;gap:10px;font-size:13px;padding:10px;margin-bottom:4px" onclick="mlIniciarOAuth('${uid}')">
