@@ -98,17 +98,17 @@ img.mark{border-radius:50%;background:transparent}
 .nav .tag{margin-left:auto;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px}
 .nav .tag.dot{background:var(--volt);color:#0c0c0e}
 .nav .tag.gold{background:var(--gold);color:#0c0c0e}
-.nav .tag.orange{background:#ff6b2b;color:#fff;animation:pulse-orange 2s infinite}
+.nav .tag.orange{background:var(--pink);color:#fff;animation:pulse-orange 2s infinite}
 @keyframes pulse-orange{0%,100%{opacity:1}50%{opacity:.7}}
 @keyframes pulse-red-bg{0%,100%{background:rgba(255,60,60,.18);box-shadow:0 0 0 0 rgba(255,60,60,.4)}50%{background:rgba(255,60,60,.32);box-shadow:0 0 0 5px rgba(255,60,60,0)}}
 @keyframes blink-green-bg{0%,100%{background:rgba(60,220,120,.18)}50%{background:rgba(60,220,120,.42)}}
 .ml-status-red{color:#ff6b6b !important;border-color:rgba(255,60,60,.45) !important;animation:pulse-red-bg 1.6s infinite}
 .ml-status-green{color:#3fd67a !important;border-color:rgba(60,220,120,.45) !important;animation:blink-green-bg 1.1s infinite}
-.nav-cta{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:var(--r-sm);cursor:pointer;border:1px solid rgba(255,107,43,.4);position:relative;transition:.15s;background:linear-gradient(135deg,rgba(255,107,43,.15),rgba(255,60,60,.08));font-size:13px;font-weight:700;color:#ff6b2b;margin-bottom:4px}
-.nav-cta svg{width:17px;height:17px;flex:none;stroke:#ff6b2b}
-.nav-cta:hover{background:linear-gradient(135deg,rgba(255,107,43,.25),rgba(255,60,60,.14));transform:translateX(2px)}
-.nav-cta.active{background:linear-gradient(135deg,rgba(255,107,43,.3),rgba(255,60,60,.18)) !important;border-color:rgba(255,107,43,.6) !important;box-shadow:0 0 16px rgba(255,107,43,.15)}
-.nav-cta.active::before{content:"";position:absolute;left:-10px;top:7px;bottom:7px;width:2.5px;border-radius:2px;background:#ff6b2b}
+.nav-cta{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:var(--r-sm);cursor:pointer;border:1px solid rgba(255,77,141,.4);position:relative;transition:.15s;background:linear-gradient(135deg,rgba(255,77,141,.15),rgba(255,81,104,.08));font-size:13px;font-weight:700;color:var(--pink);margin-bottom:4px}
+.nav-cta svg{width:17px;height:17px;flex:none;stroke:var(--pink)}
+.nav-cta:hover{background:linear-gradient(135deg,rgba(255,77,141,.25),rgba(255,81,104,.14));transform:translateX(2px)}
+.nav-cta.active{background:linear-gradient(135deg,rgba(255,77,141,.3),rgba(255,81,104,.18)) !important;border-color:rgba(255,77,141,.6) !important;box-shadow:0 0 16px rgba(255,77,141,.15)}
+.nav-cta.active::before{content:"";position:absolute;left:-10px;top:7px;bottom:7px;width:2.5px;border-radius:2px;background:var(--pink)}
 
 .role-switch{display:flex;background:var(--bg);border-radius:var(--r-sm);padding:3px;gap:3px;margin:10px 10px 0}
 .role-switch button{flex:1;padding:6px;border-radius:6px;background:transparent;border:none;color:var(--mut);font-size:11.5px;font-weight:600;transition:.12s;display:flex;align-items:center;justify-content:center;gap:5px}
@@ -666,7 +666,7 @@ function hideLoading(){
   <section class="page" id="page-post-relampago">
     <div class="phead">
       <div>
-        <h1 class="pt" style="color:#ff6b2b">⚡ Postar Agora</h1>
+        <h1 class="pt" style="color:var(--pink)">⚡ Postar Agora</h1>
         <div class="psub">Viu uma oferta? Cole o link, ajuste e dispare para seus canais em segundos.</div>
       
       <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button></div>
@@ -824,13 +824,13 @@ function hideLoading(){
       <div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="openDrawer()">✨ Gerar post com IA</button><button class="btn btn-volt" onclick="go('canais-grupos')">＋ Novo Grupo de Oferta</button></div>
     </div>
     <!-- CTA de Postagem — item PRINCIPAL da Dashboard -->
-    <div onclick="go('post-relampago')" style="cursor:pointer;background:linear-gradient(135deg,rgba(255,107,43,.16),rgba(255,60,60,.08));border:1.5px solid rgba(255,107,43,.4);border-radius:var(--r);padding:24px 26px;margin-bottom:20px;display:flex;align-items:center;gap:18px;transition:.15s" onmouseover="this.style.borderColor='rgba(255,107,43,.7)'" onmouseout="this.style.borderColor='rgba(255,107,43,.4)'">
-      <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#ff6b2b,#ff4040);display:flex;align-items:center;justify-content:center;font-size:28px;flex:none">⚡</div>
+    <div onclick="go('post-relampago')" style="cursor:pointer;background:linear-gradient(135deg,rgba(255,77,141,.16),rgba(255,81,104,.08));border:1.5px solid rgba(255,77,141,.4);border-radius:var(--r);padding:24px 26px;margin-bottom:20px;display:flex;align-items:center;gap:18px;transition:.15s" onmouseover="this.style.borderColor='rgba(255,77,141,.7)'" onmouseout="this.style.borderColor='rgba(255,77,141,.4)'">
+      <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--pink),var(--red));display:flex;align-items:center;justify-content:center;font-size:28px;flex:none">⚡</div>
       <div style="flex:1">
-        <div style="font-family:var(--disp);font-weight:800;font-size:18px;color:#ff6b2b">Postar Agora</div>
+        <div style="font-family:var(--disp);font-weight:800;font-size:18px;color:var(--pink)">Postar Agora</div>
         <div style="font-size:13px;color:var(--tx2);margin-top:3px">Viu uma oferta? Cole o link, ajuste e dispare para seus canais em segundos.</div>
       </div>
-      <svg viewBox="0 0 24 24" fill="none" stroke="#ff6b2b" stroke-width="2" width="22" style="flex:none"><path d="M9 18l6-6-6-6"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--pink)" stroke-width="2" width="22" style="flex:none"><path d="M9 18l6-6-6-6"/></svg>
     </div>
     <!-- Comece por aqui — só aparece enquanto o onboarding não estiver 100% completo -->
     <div class="card" id="onbCard" style="display:none">
