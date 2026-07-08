@@ -856,6 +856,35 @@ app.post('/ml-search', verifyToken, async (req, res) => {
     res.json({ ok: true, total: unique.length, results: unique, errors });
 });
 
+// ── Fetch direto com cookie de sessão do ML (sem Scrape.do) ────────────────
+// Alternativa ao proxy residencial: usa o cookie de sessão autenticada do próprio
+// afiliado (colado manualmente em Config Afiliados) pra tentar ler a página como se
+// fosse o navegador dele. Não gasta crédito do Scrape.do. IMPORTANTE: a requisição
+// ainda sai do IP da VPS (não do IP residencial do usuário) — pode não driblar 100%
+// o bloqueio de IP do ML, mas é uma tentativa gratuita antes de cair no Scrape.do.
+async function fetchWithMlCookie(targetUrl, cookie) {
+    if (!cookie) return { ok: false, html: null };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+        const r = await fetch(targetUrl, {
+            headers: { ...ML_BROWSER_HEADERS, Cookie: cookie },
+            signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        if (!r.ok) {
+            console.log(`[ml-cookie] HTTP ${r.status} — cookie pode ter expirado ou IP da VPS bloqueado`);
+            return { ok: false, html: null, lastStatus: r.status };
+        }
+        const html = await r.text();
+        return { ok: true, html };
+    } catch (e) {
+        clearTimeout(timeout);
+        console.warn(`[ml-cookie] erro: ${e.name === 'AbortError' ? 'timeout' : e.message}`);
+        return { ok: false, html: null };
+    }
+}
+
 // ── Failover de tokens Scrape.do ───────────────────────────────────────────
 // O Scrape.do sinaliza "sem créditos / assinatura suspensa" com HTTP 401 — e esse
 // 401 NÃO consome crédito (fonte: doc oficial de status codes). Então é seguro
@@ -927,6 +956,7 @@ app.get('/ml-product', verifyToken, async (req, res) => {
 
     const userToken = (req.query.userScrapeToken || '').trim();
     const userToken2 = (req.query.userScrapeToken2 || '').trim();
+    const userMlCookie = (req.query.userMlCookie || '').trim();
     const platformToken = process.env.SCRAPE_DO_TOKEN || '';
     const usingPersonalToken = !!(userToken || userToken2);
 
@@ -936,8 +966,8 @@ app.get('/ml-product', verifyToken, async (req, res) => {
         { token: userToken2, label: 'backup' },
         { token: platformToken, label: 'plataforma' },
     ];
-    if (!tokenChain.some(t => (t.token || '').trim())) {
-        return res.status(400).json({ ok: false, error: 'Nenhum token Scrape.do disponível' });
+    if (!userMlCookie && !tokenChain.some(t => (t.token || '').trim())) {
+        return res.status(400).json({ ok: false, error: 'Nenhum token Scrape.do ou cookie do ML disponível' });
     }
 
     // NOTA: removida a tentativa via api.mercadolibre.com/items SEM super=true (residencial) —
@@ -959,18 +989,43 @@ app.get('/ml-product', verifyToken, async (req, res) => {
         let scrape = { ok: false, html: null, tokenUsed: null, lastStatus: 0 };
         let title = '';
         let $ = null;
-        // Tenta cada URL-alvo até extrair um título válido
-        for (const targetUrl of targetUrls) {
-            scrape = await scrapeDoWithFailover(targetUrl, tokenChain);
-            if (!scrape.ok) continue;
-            const cheerio = require('cheerio');
-            $ = cheerio.load(scrape.html);
-            title = ($('h1.ui-pdp-title').first().text().trim()
-                || $('h1').first().text().trim()
-                || $('meta[property="og:title"]').attr('content')?.trim()
-                || '').slice(0, 200);
-            if (title) { console.log(`[ml-product] título OK em ${targetUrl.slice(0, 60)}`); break; }
-            console.log(`[ml-product] sem título em ${targetUrl.slice(0, 60)} — tentando próxima URL`);
+
+        // Tenta primeiro com o cookie de sessão do usuário (gratuito, sem Scrape.do)
+        if (userMlCookie) {
+            for (const targetUrl of targetUrls) {
+                const cookieTry = await fetchWithMlCookie(targetUrl, userMlCookie);
+                if (!cookieTry.ok) continue;
+                const cheerio = require('cheerio');
+                const $c = cheerio.load(cookieTry.html);
+                const t = ($c('h1.ui-pdp-title').first().text().trim()
+                    || $c('h1').first().text().trim()
+                    || $c('meta[property="og:title"]').attr('content')?.trim()
+                    || '').slice(0, 200);
+                if (t) {
+                    console.log(`[ml-product] título OK via cookie pessoal em ${targetUrl.slice(0, 60)}`);
+                    scrape = { ok: true, html: cookieTry.html, tokenUsed: 'cookie_pessoal', lastStatus: 200 };
+                    $ = $c; title = t;
+                    break;
+                }
+                console.log(`[ml-product] cookie pessoal sem título em ${targetUrl.slice(0, 60)} — tentando próxima URL`);
+            }
+            if (!scrape.ok) console.log('[ml-product] cookie pessoal não retornou título em nenhuma URL — caindo pro Scrape.do');
+        }
+
+        // Se o cookie não funcionou (ou não foi informado), usa o Scrape.do como antes
+        if (!scrape.ok && tokenChain.some(t => (t.token || '').trim())) {
+            for (const targetUrl of targetUrls) {
+                scrape = await scrapeDoWithFailover(targetUrl, tokenChain);
+                if (!scrape.ok) continue;
+                const cheerio = require('cheerio');
+                $ = cheerio.load(scrape.html);
+                title = ($('h1.ui-pdp-title').first().text().trim()
+                    || $('h1').first().text().trim()
+                    || $('meta[property="og:title"]').attr('content')?.trim()
+                    || '').slice(0, 200);
+                if (title) { console.log(`[ml-product] título OK em ${targetUrl.slice(0, 60)}`); break; }
+                console.log(`[ml-product] sem título em ${targetUrl.slice(0, 60)} — tentando próxima URL`);
+            }
         }
 
         if (!scrape.ok) {
@@ -979,7 +1034,9 @@ app.get('/ml-product', verifyToken, async (req, res) => {
                 ok: false,
                 error: semCredito
                     ? 'Créditos do Scrape.do esgotados em todos os tokens. Cadastre um token de contingência ou aguarde a renovação.'
-                    : `Scrape.do falhou (HTTP ${scrape.lastStatus})`,
+                    : userMlCookie
+                        ? 'Cookie do ML expirado/inválido e Scrape.do também falhou. Atualize o cookie ou preencha manualmente.'
+                        : `Scrape.do falhou (HTTP ${scrape.lastStatus})`,
                 creditsExhausted: semCredito,
             });
         }

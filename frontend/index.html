@@ -1114,6 +1114,36 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
 
+    <!-- Cookie do ML (alternativa experimental ao Scrape.do) -->
+    <div class="card" style="margin-top:20px">
+      <div class="ch">🍪 Cookie do Mercado Livre (alternativa experimental)</div>
+      <div class="cb">
+        <p style="font-size:12.5px;color:var(--mut);margin:0 0 12px">
+          O Scrape.do vem sinalizando bloqueio dos IPs dele pelo Mercado Livre. Como alternativa, você pode conectar o <strong>cookie da sua própria sessão logada no ML</strong> —
+          quando disponível, o sistema tenta usar esse cookie <strong>antes</strong> do Scrape.do (não gasta crédito). Isso é experimental: por rodar no nosso servidor
+          (não no seu navegador), pode não funcionar sempre. Se falhar, o sistema cai automaticamente pro Scrape.do como já funciona hoje.
+        </p>
+        <div class="alert y" style="font-size:12.5px;margin-bottom:14px">
+          ⚠️ <strong>Cuidado:</strong> esse cookie equivale a estar logado na sua conta do ML. Guarde-o só aqui, nunca compartilhe com outras pessoas.
+          Ele expira periodicamente — se as buscas pararem de funcionar, é só repetir o passo a passo abaixo e colar um cookie novo.
+        </div>
+        <div class="alert b" style="font-size:12.5px;margin-bottom:14px">
+          <strong>Passo a passo:</strong>
+          <ol style="margin:6px 0 0;padding-left:18px">
+            <li>Abra o <strong>Mercado Livre</strong> em outra aba, logado com a sua conta de afiliado.</li>
+            <li>Pressione <strong>F12</strong> para abrir o DevTools do navegador e clique na aba <strong>"Network"</strong> (Rede).</li>
+            <li>Pressione <strong>F5</strong> para recarregar a página.</li>
+            <li>Clique em qualquer requisição da lista que aparecer e procure, nos <strong>"Request Headers"</strong> (Cabeçalhos da requisição), o campo <strong>"cookie:"</strong>.</li>
+            <li>Copie todo o valor desse campo (é bem longo) e cole no campo abaixo.</li>
+          </ol>
+        </div>
+        <div class="field" style="margin-bottom:10px"><label>Seu cookie do Mercado Livre</label>
+          <textarea id="mlCookieInput" rows="3" placeholder="Cole aqui o valor do header cookie: (ex: ssid=...; _d2id=...; ...)" style="width:100%;font-family:var(--mono);font-size:11px;resize:vertical"></textarea></div>
+        <button class="btn btn-volt btn-sm" onclick="salvarMlCookie()">💾 Salvar cookie</button>
+        <p id="mlCookieStatus" style="font-size:12px;color:var(--mut);margin:10px 0 0"></p>
+      </div>
+    </div>
+
     <!-- Meus Cupons -->
     <div class="card" style="margin-top:20px">
       <div class="ch">🏷️ Meus Cupons</div>
@@ -1919,6 +1949,46 @@ async function removerScrapeDoToken(){
     carregarScrapeDoStatus();
   }catch(e){toast("Erro ao remover: "+(e.message||""),"⛔");}
 }
+/* Cookie do ML — alternativa experimental ao Scrape.do (bloqueio de IP) */
+async function carregarMlCookieStatus(){
+  const input=document.getElementById("mlCookieInput");
+  const status=document.getElementById("mlCookieStatus");
+  if(!input||!status||!CURRENT_USER?.id)return;
+  try{
+    const{data,error}=await SB.from("profiles").select("ml_session_cookie,ml_cookie_updated_at").eq("id",CURRENT_USER.id).maybeSingle();
+    if(error)throw error;
+    if(data?.ml_session_cookie){
+      input.placeholder="•••••••••••••••••••••• (cookie salvo)";
+      const dt=data.ml_cookie_updated_at?new Date(data.ml_cookie_updated_at).toLocaleDateString("pt-BR"):"";
+      status.innerHTML=`✅ Cookie conectado${dt?` desde ${dt}`:""}. Se as buscas de ML pararem de funcionar, atualize o cookie. <a href="#" onclick="removerMlCookie();return false" style="color:var(--mut)">Remover</a>`;
+    }else{
+      status.textContent="Sem cookie conectado — o sistema usa só o Scrape.do (token pessoal ou cota compartilhada) para o Mercado Livre.";
+    }
+  }catch(e){console.warn("carregarMlCookieStatus:",e);}
+}
+async function salvarMlCookie(){
+  const input=document.getElementById("mlCookieInput");
+  const cookie=(input?.value||"").trim();
+  if(!cookie){toast("Cole o cookie do Mercado Livre primeiro.","⚠️");return;}
+  if(!CURRENT_USER?.id){toast("Sessão expirada.","⚠️");return;}
+  try{
+    const{error}=await SB.from("profiles").update({ml_session_cookie:cookie,ml_cookie_updated_at:new Date().toISOString()}).eq("id",CURRENT_USER.id);
+    if(error)throw error;
+    input.value="";
+    toast("Cookie do ML conectado! O sistema vai tentar usá-lo antes do Scrape.do.","🍪");
+    carregarMlCookieStatus();
+  }catch(e){toast("Erro ao salvar: "+(e.message||""),"⛔");}
+}
+async function removerMlCookie(){
+  if(!CURRENT_USER?.id)return;
+  if(!confirm("Remover o cookie salvo do Mercado Livre?"))return;
+  try{
+    const{error}=await SB.from("profiles").update({ml_session_cookie:null,ml_cookie_updated_at:null}).eq("id",CURRENT_USER.id);
+    if(error)throw error;
+    toast("Cookie removido.","🗑️");
+    carregarMlCookieStatus();
+  }catch(e){toast("Erro ao remover: "+(e.message||""),"⛔");}
+}
 async function cupomAdicionar(){
   const loja=document.getElementById("cupomNovaLoja")?.value;
   const codigo=document.getElementById("cupomNovoCodigo")?.value?.trim();
@@ -2066,6 +2136,7 @@ function go(page){
     setTimeout(()=>{
       if(typeof renderCupons==="function")renderCupons();
       if(typeof carregarScrapeDoStatus==="function")carregarScrapeDoStatus();
+      if(typeof carregarMlCookieStatus==="function")carregarMlCookieStatus();
     },50);
   }
   // Hook: ao entrar no admin suporte, recarrega tickets reais
