@@ -2395,7 +2395,7 @@ async function fetchRadarLive(searchQ=""){
       img:o.image_url||"",
       cat:o.category||"",
       kw:o.keyword||"",
-      link:o.affiliate_url||"",
+      link:(o.affiliate_url||"").split("#")[0].split("%23")[0],
       ts:o.fetched_at||""
     }));
   }catch(e){return null;}
