@@ -2964,9 +2964,9 @@ const LOJAS=[
   ],dica:`<p>Para encontrar suas credenciais:</p><ol><li>Acesse <a href="https://portals.aliexpress.com" target="_blank" style="color:var(--volt)">portals.aliexpress.com</a></li><li>Vá em <strong>Tools → API Access</strong></li><li>Copie o <strong>App Key</strong> e <strong>App Secret</strong></li></ol>`},
   {n:"Amazon",e:"📦",img:"",f:[
     {k:"ID de Associado",pwd:false,ph:"Ex: megalinks-20"},
-    {k:"ACCESS KEY",pwd:false,ph:"Sua Access Key ID",optional:true},
-    {k:"SECRET KEY",pwd:true,ph:"Sua Secret Access Key",optional:true}
-  ],dica:`<p><strong>1. ID de Associado (obrigatório)</strong> — é o código escolhido ao criar sua conta em <a href="https://associados.amazon.com.br" target="_blank" style="color:var(--volt)">associados.amazon.com.br</a> (formato "seusite-20"), disponível em <strong>Configuração da conta → IDs de Rastreamento</strong>. Só com ele você já consegue gerar e postar links de afiliado.</p><p style="margin-top:8px"><strong>2. Access Key / Secret Key (opcional)</strong> — só são necessárias para busca automática de produtos (PA-API). Gere em <strong>Portal de Associados → aba "API de Divulgação de Produtos" → Gerenciar credenciais</strong>. A Amazon costuma liberar essa API só depois de registrar vendas qualificadas pelo programa — até lá, use o ID de Associado normalmente e cole os links manualmente.</p>`},
+    {k:"ACCESS KEY",pwd:false,ph:"Sua Access Key ID",optional:true,advanced:true},
+    {k:"SECRET KEY",pwd:true,ph:"Sua Secret Access Key",optional:true,advanced:true}
+  ],dica:`<div>✅ <strong>Não tem Access Key/Secret Key? Sem problema!</strong> Preenchendo só o <strong>ID de Associado</strong> abaixo, o sistema já gera sozinho um link comissionado (parâmetro <code>tag=</code>) — é o código escolhido ao criar sua conta em <a href="https://associados.amazon.com.br" target="_blank" style="color:var(--volt)">associados.amazon.com.br</a> (formato "seusite-20"), disponível em <strong>Configuração da conta → IDs de Rastreamento</strong>.</div><p style="margin-top:8px">As <strong>Opções avançadas</strong> abaixo (Access Key/Secret Key) só são necessárias se você quiser busca automática de produtos via PA-API. Gere em <strong>Portal de Associados → aba "API de Divulgação de Produtos" → Gerenciar credenciais</strong>. A Amazon costuma liberar essa API só depois de registrar vendas qualificadas pelo programa — até lá, o ID de Associado sozinho já funciona normalmente.</p>`},
   {n:"AWIN",e:"🔗",img:"",f:[
     {k:"ID do Publisher",pwd:false,ph:"Seu Publisher ID numérico"},
     {k:"API TOKEN",pwd:true,ph:"Token de acesso à API"}
@@ -6308,8 +6308,13 @@ function prGerarLinkAfil(link,loja){
       if(!mattTool&&!etiqueta)return cleanLink;
       try{const u=new URL(cleanLink);if(mattTool)u.searchParams.set("matt_tool",mattTool);if(etiqueta)u.searchParams.set("matt_word",etiqueta);u.searchParams.set("matt_medium","affiliates");return u.toString();}catch(e){return cleanLink;}
     }
-    // Amazon: tag
-    if(loja==="Amazon"){u.searchParams.set("tag",id);return u.toString();}
+    // Amazon: tag — usa especificamente o ID de Associado (nao o primeiro campo preenchido),
+    // pra nao acabar colando Access Key/Secret Key no parametro tag por engano
+    if(loja==="Amazon"){
+      const tag=(cred["ID de Associado"]||"").trim();
+      if(!tag)return link;
+      u.searchParams.set("tag",tag);return u.toString();
+    }
     // Outros: adiciona parâmetro ref
     u.searchParams.set("ref",id);return u.toString();
   }catch(e){return link+"?ref="+id;}
