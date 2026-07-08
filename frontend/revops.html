@@ -139,6 +139,7 @@ tbody tr:last-child td{border-bottom:none}
 .ruleRow td input[type=number]{width:80px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;color:var(--ink);font-family:'JetBrains Mono';font-size:13px}
 .ruleRow td input[type=checkbox]{width:16px;height:16px;accent-color:var(--money)}
 .saveMini{background:var(--panel2);border:1px solid var(--line2);color:var(--ink);border-radius:6px;padding:6px 12px;font-size:12px}
+.saveMini.on{border-color:var(--brand);color:var(--brand)}
 .saveMini:hover{border-color:var(--brand);color:var(--brand)}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--brand);color:var(--ink);padding:11px 20px;border-radius:8px;font-size:13px;display:none;z-index:60;box-shadow:var(--glow)}
 
@@ -223,6 +224,7 @@ tbody tr:last-child td{border-bottom:none}
       <a href="#" class="on" data-sec="dash" onclick="go('dash',this);return false">📊 Visão Geral</a>
       <a href="#" data-sec="crm" onclick="go('crm',this);return false">👥 Clientes</a>
       <a href="#" data-sec="kanban" onclick="go('kanban',this);return false">🗂️ Pipeline Kanban</a>
+      <a href="#" data-sec="analytics" onclick="go('analytics',this);return false">📈 Analytics</a>
       <a href="#" data-sec="tasks" onclick="go('tasks',this);return false">✅ Tarefas</a>
       <a href="#" data-sec="audit" onclick="go('audit',this);return false">📋 Auditoria</a>
       <a href="#" data-sec="ia" onclick="go('ia',this);return false">🤖 IA Insights</a>
@@ -305,6 +307,83 @@ tbody tr:last-child td{border-bottom:none}
       <h2 class="pageTitle">Pipeline Kanban</h2>
       <div class="pageSub">Arraste os cards entre colunas para mover usuários no funil. Cada movimentação é registrada na timeline.</div>
       <div class="kanbanWrap" id="kanbanBoard"></div>
+    </div>
+
+    <!-- ANALYTICS -->
+    <div class="section" id="sec-analytics">
+      <h2 class="pageTitle">Analytics</h2>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+        <div class="pageSub" style="margin:0;flex:1">Visão detalhada por período, origem, canal e comportamento.</div>
+        <div style="display:flex;gap:8px">
+          <button class="saveMini anPeriod on" data-days="7"  onclick="setAnalyticsPeriod(7,this)">7d</button>
+          <button class="saveMini anPeriod"    data-days="30" onclick="setAnalyticsPeriod(30,this)">30d</button>
+          <button class="saveMini anPeriod"    data-days="60" onclick="setAnalyticsPeriod(60,this)">60d</button>
+          <button class="saveMini anPeriod"    data-days="90" onclick="setAnalyticsPeriod(90,this)">90d</button>
+        </div>
+      </div>
+
+      <!-- KPIs rápidos do período -->
+      <div class="kpis" id="anKpis" style="margin-bottom:20px"></div>
+
+      <!-- Funil do período -->
+      <div class="grid2" style="margin-bottom:14px">
+        <div class="card">
+          <h3>Funil do período</h3>
+          <div id="anFunnel"></div>
+        </div>
+        <div class="card">
+          <h3>Cadastros por dia</h3>
+          <div id="anSignups"></div>
+        </div>
+      </div>
+
+      <!-- Origem e canal -->
+      <div class="grid2" style="margin-bottom:14px">
+        <div class="card">
+          <h3>Origem (UTM Source)</h3>
+          <div id="anSource"></div>
+        </div>
+        <div class="card">
+          <h3>Canal (UTM Medium)</h3>
+          <div id="anMedium"></div>
+        </div>
+      </div>
+
+      <!-- Comportamento -->
+      <div class="grid2" style="margin-bottom:14px">
+        <div class="card">
+          <h3>Eventos por tipo</h3>
+          <div id="anEvents"></div>
+        </div>
+        <div class="card">
+          <h3>Estágio atual dos usuários</h3>
+          <div id="anStage"></div>
+        </div>
+      </div>
+
+      <!-- Receita e Posts -->
+      <div class="grid2" style="margin-bottom:14px">
+        <div class="card">
+          <h3>Receita por dia</h3>
+          <div id="anRevenue"></div>
+        </div>
+        <div class="card">
+          <h3>Posts enviados por dia</h3>
+          <div id="anPosts"></div>
+        </div>
+      </div>
+
+      <!-- Campanhas e automações -->
+      <div class="grid2">
+        <div class="card">
+          <h3>Top campanhas UTM</h3>
+          <div id="anCampaign"></div>
+        </div>
+        <div class="card">
+          <h3>Automações disparadas</h3>
+          <div id="anAuto"></div>
+        </div>
+      </div>
     </div>
 
     <!-- TAREFAS -->
@@ -493,6 +572,7 @@ function go(sec,el){
   el.classList.add('on');
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('on'));
   document.getElementById('sec-'+sec).classList.add('on');
+  if(sec==='analytics') loadAnalytics();
   if(sec==='kanban') buildKanban();
   if(sec==='automations') loadAutomations();
   if(sec==='ia') loadIA();
@@ -714,6 +794,102 @@ async function loadDrawerTasks(uid){
       <div style="flex:1;font-size:12.5px">${esc(t.title)}</div>
       <div style="font-size:10.5px;color:${t.due_date&&new Date(t.due_date)<new Date()?'var(--danger)':'var(--dim)'}">${t.due_date||''}</div>
     </div>`).join('');
+}
+
+// ---------- ANALYTICS ----------
+let anDays = 7;
+let anData  = null;
+
+async function loadAnalytics(){
+  const kpis = document.getElementById('anKpis');
+  kpis.innerHTML = '<div class="loading">Carregando…</div>';
+  const { data, error } = await sb.rpc('revops_analytics', { p_days: anDays });
+  if(error){ kpis.innerHTML=`<div class="loading">Erro: ${esc(error.message)}</div>`; return; }
+  anData = data;
+  renderAnalytics();
+}
+
+function setAnalyticsPeriod(days, el){
+  anDays = days;
+  document.querySelectorAll('.anPeriod').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  loadAnalytics();
+}
+
+function renderAnalytics(){
+  if(!anData) return;
+  const d = anData;
+
+  // KPIs
+  const f = d.funnel||{};
+  const revTotal = (d.revenue_by_day||[]).reduce((s,r)=>s+Number(r.total||0),0);
+  const postsTotal = (d.posts_by_day||[]).reduce((s,r)=>s+Number(r.n||0),0);
+  document.getElementById('anKpis').innerHTML = [
+    {l:`Cadastros (${anDays}d)`, v: f.signups||0, c:''},
+    {l:`Logaram (${anDays}d)`,   v: f.logged_in||0, c:''},
+    {l:`Ativados (${anDays}d)`,  v: f.activated||0, c:''},
+    {l:`Pagaram (${anDays}d)`,   v: f.paid||0, c:'brand'},
+    {l:`Receita (${anDays}d)`,   v: brl(revTotal), c:'brand'},
+    {l:`Posts enviados (${anDays}d)`, v: postsTotal, c:''},
+  ].map(k=>`<div class="kpi ${k.c}"><div class="lbl">${k.l}</div><div class="val">${k.v}</div></div>`).join('');
+
+  // Funil
+  const funnelStages=[['Cadastros',f.signups||0],['Logaram',f.logged_in||0],['Ativados',f.activated||0],['Pagaram',f.paid||0]];
+  const fMax=Math.max(1,...funnelStages.map(s=>s[1]));
+  document.getElementById('anFunnel').innerHTML = funnelStages.map((s,i)=>{
+    const prev=i===0?s[1]:funnelStages[i-1][1];
+    const conv=prev>0?Math.round(s[1]/prev*100):0;
+    return `<div class="funnelRow"><div class="st">${s[0]}</div>
+      <div class="funnelBarWrap"><div class="funnelBar" style="width:${Math.round(s[1]/fMax*100)}%"></div></div>
+      <div class="nums">${s[1]}<small>${i===0?'100%':conv+'%'}</small></div></div>`;
+  }).join('');
+
+  // Barras helpers
+  renderAnBars('anSignups',  d.signups_by_day||[],  'day','n',  'var(--info)');
+  renderAnBars('anRevenue',  d.revenue_by_day||[],  'day','total','var(--brand)');
+  renderAnBars('anPosts',    d.posts_by_day||[],    'day','n',  'var(--money)');
+
+  // Listas horizontais
+  renderAnList('anSource',   d.by_utm_source||[],   'source',   'n');
+  renderAnList('anMedium',   d.by_utm_medium||[],   'medium',   'n');
+  renderAnList('anEvents',   d.events_by_type||[],  'event_type','n');
+  renderAnList('anStage',    d.stage_dist||[],       'stage',    'n');
+  renderAnList('anCampaign', d.by_utm_campaign||[], 'campaign', 'n');
+  renderAnList('anAuto',     d.automations_by_type||[],'automation','sent');
+}
+
+function renderAnBars(elId, series, keyX, keyY, color){
+  const el = document.getElementById(elId);
+  if(!series.length){ el.innerHTML='<div class="loading">Sem dados no período.</div>'; return; }
+  const max = Math.max(1,...series.map(r=>Number(r[keyY]||0)));
+  el.innerHTML = '<div class="bars">' + series.map(r=>{
+    const v = Number(r[keyY]||0);
+    const lbl = String(r[keyX]||'').slice(5); // remove ano
+    return `<div class="barCol">
+      <div class="n" style="font-size:9px">${v||''}</div>
+      <div class="b" style="height:${Math.max(2,Math.round(v/max*100))}%;background:${color}"></div>
+      <div class="d">${lbl}</div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+function renderAnList(elId, series, keyLabel, keyVal){
+  const el = document.getElementById(elId);
+  if(!series.length){ el.innerHTML='<div class="loading">Sem dados no período.</div>'; return; }
+  const max = Math.max(1,...series.map(r=>Number(r[keyVal]||0)));
+  el.innerHTML = series.slice(0,8).map(r=>{
+    const v = Number(r[keyVal]||0);
+    const pct = Math.round(v/max*100);
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px">
+        <span style="color:var(--ink)">${esc(String(r[keyLabel]||'—'))}</span>
+        <span class="mono" style="font-size:11px;color:var(--brand)">${v}</span>
+      </div>
+      <div style="background:var(--bg);border-radius:4px;height:5px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:var(--info);border-radius:4px"></div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ---------- AUDITORIA ----------
