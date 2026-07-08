@@ -18,6 +18,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta property="og:description" content="Mais que links, conexões que geram resultados. Automatize sua divulgação de ofertas.">
 <meta property="og:image" content="/banner.jpg">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://www.megalinksbr.com.br">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Mega Links BR · Automação para Afiliados">
+<meta name="twitter:description" content="Mais que links, conexões que geram resultados. Automatize sua divulgação de ofertas.">
+<meta name="twitter:image" content="/banner.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -1539,7 +1544,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="field"><label>Google Ads ID</label><input id="mktGads" placeholder="AW-XXXXXXX"></div>
         <div class="field"><label>Microsoft Clarity — Project ID</label><input id="mktClarity" placeholder=""></div>
         <div class="field"><label>Hotjar — Site ID</label><input id="mktHotjar" placeholder=""></div>
-        <div class="field"><label>Verificação Google Search Console</label><input id="mktGsc" placeholder="conteúdo da meta tag de verificação"></div>
+        <div class="field"><label>Verificação Google Search Console</label><input id="mktGsc" placeholder="conteúdo da meta tag de verificação"></div><div style="font-size:11px;color:var(--mut);margin:-6px 0 8px">Alternativa mais simples: no Search Console, escolha o método de verificação "Google Tag Manager" — como o GTM já está instalado, verifica na hora, sem precisar preencher esse campo.</div>
         <div class="field"><label>Verificação Bing Webmaster</label><input id="mktBing" placeholder=""></div>
         <button class="btn btn-volt" id="btnSalvarMkt">Salvar Tracking</button>
         <div style="margin-top:10px;font-size:11.5px;color:var(--mut)">Esses IDs ficam salvos no banco pra referência/documentação. Como o rastreamento passa pelo GTM, ative-os direto no <a href="https://tagmanager.google.com" target="_blank" style="color:var(--volt)">painel do GTM</a>.</div>
@@ -7206,26 +7211,44 @@ function trackEvent(eventName,extra){
 /* ================= SEO: meta tags dinâmicas a partir do banco ================= */
 async function applyDynamicSeo(){
   if(!SB)return;
+  const setMeta=(sel,attr,val)=>{if(!val)return;let el=document.querySelector(sel);if(el)el.setAttribute(attr,val);};
+  const upsertMetaName=(name,val)=>{
+    if(!val)return;
+    let el=document.querySelector(`meta[name="${name}"]`);
+    if(!el){el=document.createElement("meta");el.setAttribute("name",name);document.head.appendChild(el);}
+    el.setAttribute("content",val);
+  };
   try{
     const{data}=await SB.from("seo_settings").select("*").eq("page_key","home").single();
-    if(!data)return;
-    if(data.title)document.title=data.title;
-    const setMeta=(sel,attr,val)=>{if(!val)return;let el=document.querySelector(sel);if(el)el.setAttribute(attr,val);};
-    setMeta('meta[name="description"]','content',data.meta_description);
-    setMeta('meta[property="og:title"]','content',data.og_title);
-    setMeta('meta[property="og:description"]','content',data.og_description);
-    setMeta('meta[property="og:image"]','content',data.og_image);
-    if(data.canonical_url){
-      let link=document.querySelector('link[rel="canonical"]');
-      if(!link){link=document.createElement("link");link.rel="canonical";document.head.appendChild(link);}
-      link.href=data.canonical_url;
+    if(data){
+      if(data.title)document.title=data.title;
+      setMeta('meta[name="description"]','content',data.meta_description);
+      setMeta('meta[property="og:title"]','content',data.og_title);
+      setMeta('meta[property="og:description"]','content',data.og_description);
+      setMeta('meta[property="og:image"]','content',data.og_image);
+      setMeta('meta[name="twitter:title"]','content',data.og_title);
+      setMeta('meta[name="twitter:description"]','content',data.og_description);
+      setMeta('meta[name="twitter:image"]','content',data.og_image);
+      if(data.canonical_url){
+        let link=document.querySelector('link[rel="canonical"]');
+        if(!link){link=document.createElement("link");link.rel="canonical";document.head.appendChild(link);}
+        link.href=data.canonical_url;
+        setMeta('meta[property="og:url"]','content',data.canonical_url);
+      }
+      if(data.schema_jsonld){
+        let s=document.getElementById("seoSchemaJsonLd");
+        if(!s){s=document.createElement("script");s.type="application/ld+json";s.id="seoSchemaJsonLd";document.head.appendChild(s);}
+        s.textContent=typeof data.schema_jsonld==="string"?data.schema_jsonld:JSON.stringify(data.schema_jsonld);
+      }
     }
-    if(data.schema_jsonld){
-      let s=document.getElementById("seoSchemaJsonLd");
-      if(!s){s=document.createElement("script");s.type="application/ld+json";s.id="seoSchemaJsonLd";document.head.appendChild(s);}
-      s.textContent=typeof data.schema_jsonld==="string"?data.schema_jsonld:JSON.stringify(data.schema_jsonld);
+  }catch(e){console.warn("applyDynamicSeo (seo_settings):",e);}
+  try{
+    const{data:mkt}=await SB.from("marketing_settings").select("search_console_verification,bing_verification").eq("id",1).single();
+    if(mkt){
+      upsertMetaName("google-site-verification",mkt.search_console_verification);
+      upsertMetaName("msvalidate.01",mkt.bing_verification);
     }
-  }catch(e){console.warn("applyDynamicSeo:",e);}
+  }catch(e){console.warn("applyDynamicSeo (marketing_settings):",e);}
 }
 applyDynamicSeo();
 
