@@ -1624,6 +1624,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div class="palbg" id="palbg"><div class="pal"><input id="palInput" placeholder="Buscar páginas e ações…"><div class="pall" id="pall"></div></div></div>
 
 <!-- ============ MODAIS ============ -->
+<div class="mbg" id="modalBoasVindas"><div class="modal">
+  <div class="mh">🎉 Bem-vindo(a) à Mega Links BR<button class="mx" onclick="fecharBoasVindas()">×</button></div>
+  <div class="mb">
+    <p style="margin:0 0 14px;color:var(--tx2);font-size:13.5px">Oi, <strong id="bvNome" style="color:var(--tx)"></strong>! Sua conta foi criada e o trial já está ativo. Em 3 passos você já sai divulgando ofertas automaticamente:</p>
+    <ul class="osteps" style="margin:0 0 4px">
+      <li><span class="ostep"></span>Parear seu WhatsApp (QR Code)</li>
+      <li><span class="ostep"></span>Criar seu primeiro Grupo de Oferta</li>
+      <li><span class="ostep"></span>Configurar seus links de afiliado</li>
+    </ul>
+    <div class="alert b" style="margin-top:14px;font-size:12.5px">💡 Esse passo a passo continua disponível a qualquer momento no card "Comece por aqui" do seu Dashboard.</div>
+  </div>
+  <div class="mf">
+    <button class="btn btn-ghost" onclick="fecharBoasVindas()">Explorar sozinho</button>
+    <button class="btn btn-volt" onclick="fecharBoasVindas('conexao')">Vamos começar →</button>
+  </div>
+</div></div>
 <div class="mbg" id="modalGrupo"><div class="modal">
   <div class="mh">Novo Grupo de Oferta <button class="mx" onclick="closeModal('modalGrupo')">×</button></div>
   <div class="mb"><div class="field"><label>Nome do Grupo de Oferta</label><input id="inNomeGrupo" placeholder="ex.: Achadinhos da Semana"></div>
@@ -6736,7 +6752,7 @@ async function afterLogin(user){
   let profile={id:user.id,full_name:googleName||userEmail,is_admin:false,plan:"starter"};
 
   try{
-    const{data}=await SB.from("profiles").select("id,full_name,email,is_admin,plan,sub_status,user_display_id,trial_expires_at").eq("id",user.id).single();
+    const{data}=await SB.from("profiles").select("id,full_name,email,is_admin,plan,sub_status,user_display_id,trial_expires_at,welcome_seen_at").eq("id",user.id).single();
     if(data)profile=Object.assign(profile,data);
 
     // Se veio do Google e o nome/email ainda não estão salvos, faz upsert
@@ -6865,6 +6881,22 @@ async function enterApp(profile){
   setTimeout(()=>{if(typeof loadAnalitico==="function")loadAnalitico();},500);
   // banner de upgrade contextual no dashboard
   setTimeout(()=>renderUpgradeBanner(),600);
+  // Boas-vindas — só na primeira vez que o usuário entra (welcome_seen_at ainda nulo)
+  if(!profile.welcome_seen_at){
+    setTimeout(()=>{
+      const bvNome=document.getElementById("bvNome");
+      if(bvNome)bvNome.textContent=(profile.full_name||"").trim().split(" ")[0]||"";
+      if(typeof openModal==="function")openModal("modalBoasVindas");
+    },700);
+  }
+}
+
+async function fecharBoasVindas(irPara){
+  if(typeof closeModal==="function")closeModal("modalBoasVindas");
+  try{
+    if(SB&&CURRENT_USER?.id)await SB.from("profiles").update({welcome_seen_at:new Date().toISOString()}).eq("id",CURRENT_USER.id);
+  }catch(e){console.warn("fecharBoasVindas:",e);}
+  if(irPara&&typeof go==="function")go(irPara);
 }
 
 function renderUpgradeBanner(){
