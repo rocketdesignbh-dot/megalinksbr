@@ -6704,9 +6704,17 @@ async function doAuth(){
         setAuthErr("Este e-mail já possui uma conta cadastrada. Faça login ou use outro e-mail.");
         return;
       }
-      // Salva CPF no perfil
+      // Salva CPF + UTM de origem no perfil (UTM só é capturado aqui, no momento do cadastro —
+      // é o único ponto em que faz sentido, pra atribuição de origem em revops_events)
       if(data.user?.id&&SB){
-        await SB.from("profiles").update({cpf_cnpj:cpfRaw}).eq("id",data.user.id);
+        const _utm=new URLSearchParams(location.search);
+        const _utmData={cpf_cnpj:cpfRaw};
+        if(_utm.get("utm_source"))_utmData.signup_utm_source=_utm.get("utm_source");
+        if(_utm.get("utm_medium"))_utmData.signup_utm_medium=_utm.get("utm_medium");
+        if(_utm.get("utm_campaign"))_utmData.signup_utm_campaign=_utm.get("utm_campaign");
+        if(_utm.get("utm_term"))_utmData.signup_utm_term=_utm.get("utm_term");
+        if(_utm.get("utm_content"))_utmData.signup_utm_content=_utm.get("utm_content");
+        await SB.from("profiles").update(_utmData).eq("id",data.user.id);
       }
       // E-mail de boas-vindas
       if(data.user?.email){
@@ -7218,26 +7226,13 @@ btnGerarUtm?.addEventListener("click",()=>{
   utmResult.value=qs?`${base}?${qs}`:base;
 });
 
-/* ================= TRACKING: dataLayer + eventos de conversão ================= */
+/* ================= TRACKING: dataLayer (bridge pro GTM) ================= */
+// Fonte única de verdade dos eventos é o revops_events (gravado via trigger no banco —
+// confiável mesmo se o JS falhar ou um ad blocker bloquear a chamada). Esta função só
+// espelha o evento pro dataLayer, pra disparar tags/pixels configurados no GTM.
 window.dataLayer=window.dataLayer||[];
 function trackEvent(eventName,extra){
   try{ window.dataLayer.push(Object.assign({event:eventName},extra||{})); }catch(e){}
-  try{
-    if(SB){
-      const params=new URLSearchParams(location.search);
-      SB.from("conversion_events").insert({
-        event_name:eventName,
-        user_id:(extra&&extra.user_id)||CURRENT_USER?.id||null,
-        source:"client",
-        utm_source:params.get("utm_source"),
-        utm_medium:params.get("utm_medium"),
-        utm_campaign:params.get("utm_campaign"),
-        utm_term:params.get("utm_term"),
-        utm_content:params.get("utm_content"),
-        metadata:extra||{}
-      }).then(()=>{}).catch(()=>{});
-    }
-  }catch(e){}
 }
 
 /* ================= SEO: meta tags dinâmicas a partir do banco ================= */
