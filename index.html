@@ -2911,10 +2911,9 @@ const LOJAS=[
 ];
 
 function lojaConectada(n){
-  // ML usa scraping via wa-engine (sem token necessário)
-  if(n==="Mercado Livre") return true;
   const c=CREDS_STATE[n];
   if(!c)return false;
+  if(n==="Mercado Livre") return !!(c.access_token||c.ml_user_id);
   return Object.values(c).some(v=>v&&String(v).trim());
 }
 
