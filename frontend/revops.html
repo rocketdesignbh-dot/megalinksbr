@@ -246,16 +246,6 @@ tbody tr:last-child td{border-bottom:none}
           <div id="signups30" class="loading">Carregando…</div>
         </div>
       </div>
-      <div class="grid2">
-        <div class="card">
-          <h3>Origem dos cadastros (UTM)</h3>
-          <div id="utmSource" class="loading">Carregando…</div>
-        </div>
-        <div class="card">
-          <h3>Campanhas (UTM)</h3>
-          <div id="utmCampaign" class="loading">Carregando…</div>
-        </div>
-      </div>
     </div>
 
     <!-- CRM -->
@@ -280,9 +270,18 @@ tbody tr:last-child td{border-bottom:none}
           <option value="never_logged_in">Nunca logou</option>
           <option value="churned">Churn</option>
         </select>
+        <select id="fSource" onchange="renderUsers()">
+          <option value="">Toda origem</option>
+          <option value="google">Google</option>
+          <option value="instagram">Instagram</option>
+          <option value="facebook">Facebook</option>
+          <option value="tiktok">TikTok</option>
+          <option value="organic">Orgânico</option>
+          <option value="indicacao">Indicação</option>
+        </select>
       </div>
       <table>
-        <thead><tr><th>Usuário</th><th>Plano</th><th>Estágio</th><th>Saúde</th><th>Score</th><th>Trial</th><th>Último login</th></tr></thead>
+        <thead><tr><th>Usuário</th><th>Plano</th><th>Estágio</th><th>Saúde</th><th>Score</th><th>Origem UTM</th><th>Último login</th></tr></thead>
         <tbody id="usersBody"><tr><td colspan="7" class="loading">Carregando…</td></tr></tbody>
       </table>
     </div>
@@ -476,21 +475,6 @@ async function loadDash(){
   document.getElementById('plans').innerHTML=rows.length
     ? rows.map(([p,n])=>`<div class="planRow"><span>${esc(p)}</span><b>${n}</b></div>`).join('')
     : '<div class="loading">Sem dados</div>';
-
-  // origem UTM dos cadastros (captado no signup, ver profiles.signup_utm_*)
-  const utmSrc=m.signups_by_utm_source||{};
-  const utmSrcRows=Object.entries(utmSrc).sort((a,b)=>b[1]-a[1]);
-  document.getElementById('utmSource').classList.remove('loading');
-  document.getElementById('utmSource').innerHTML=utmSrcRows.length
-    ? utmSrcRows.map(([s,n])=>`<div class="planRow"><span>${esc(s)}</span><b>${n}</b></div>`).join('')
-    : '<div class="loading">Sem dados</div>';
-
-  const utmCamp=m.signups_by_utm_campaign||{};
-  const utmCampRows=Object.entries(utmCamp).sort((a,b)=>b[1]-a[1]);
-  document.getElementById('utmCampaign').classList.remove('loading');
-  document.getElementById('utmCampaign').innerHTML=utmCampRows.length
-    ? utmCampRows.map(([c,n])=>`<div class="planRow"><span>${esc(c)}</span><b>${n}</b></div>`).join('')
-    : '<div class="loading">Nenhum cadastro com campanha rastreada ainda</div>';
 }
 
 function renderBars(elId, series, days){
@@ -517,9 +501,18 @@ async function loadUsers(){
     sb.from('revops_kanban_overrides').select('user_id,stage')
   ]);
   if(error){document.getElementById('usersBody').innerHTML=`<tr><td colspan="7" class="loading">Erro: ${esc(error.message)}</td></tr>`;return;}
+
+  // Buscar UTMs separado (não estão na view)
+  const {data:utms} = await sb.from('profiles')
+    .select('id,signup_utm_source,signup_utm_medium,signup_utm_campaign');
+  const utmMap={};
+  (utms||[]).forEach(u=>utmMap[u.id]={
+    source:u.signup_utm_source, medium:u.signup_utm_medium, campaign:u.signup_utm_campaign
+  });
+
   const overMap={};
-  (overrides||[]).forEach(o => overMap[o.user_id]=o.stage);
-  allUsers=(data||[]).map(u=>({...u, kanban_stage: overMap[u.id]||null}));
+  (overrides||[]).forEach(o=>overMap[o.user_id]=o.stage);
+  allUsers=(data||[]).map(u=>({...u, kanban_stage:overMap[u.id]||null, ...(utmMap[u.id]||{})}));
   renderUsers();
   buildKanban();
 }
@@ -527,30 +520,36 @@ function renderUsers(){
   const q=(document.getElementById('fSearch').value||'').toLowerCase();
   const st=document.getElementById('fStage').value;
   const he=document.getElementById('fHealth').value;
+  const src=document.getElementById('fSource').value;
   const rows=allUsers.filter(u=>
     (!q || (u.email||'').toLowerCase().includes(q) || (u.full_name||'').toLowerCase().includes(q)) &&
-    (!st || u.stage===st) && (!he || u.health===he)
+    (!st || u.stage===st) && (!he || u.health===he) &&
+    (!src || (u.source||'').toLowerCase().includes(src))
   );
   const body=document.getElementById('usersBody');
   if(!rows.length){body.innerHTML='<tr><td colspan="7" class="loading">Nenhum usuário encontrado com esses filtros.</td></tr>';return;}
   const stageLbl={trial:'Trial',trial_expired:'Trial expirado',customer:'Cliente',cancelled:'Cancelado',lead:'Lead'};
   const healthLbl={healthy:'Saudável',neutral:'Neutro',at_risk:'Em risco',never_logged_in:'Nunca logou',churned:'Churn'};
-  body.innerHTML=rows.map(u=>`<tr onclick="openTimeline('${u.id}')">
-    <td><div style="font-weight:500">${esc(u.full_name||'—')}</div><div style="color:var(--dim);font-size:11.5px">${esc(u.email||'')}</div></td>
+  body.innerHTML=rows.map(u=>{
+    const utm = u.source ? `<div style="font-size:11px;color:var(--info)">${esc(u.source)}${u.medium?'/<span style="color:var(--mut)">'+esc(u.medium)+'</span>':''}</div>${u.campaign?`<div style="font-size:10px;color:var(--dim)">${esc(u.campaign)}</div>`:''}` : '<span style="color:var(--dim);font-size:11px">—</span>';
+    return `<tr onclick="openTimeline('${u.id}')">
+    <td><div style="font-weight:600">${esc(u.full_name||'—')}</div><div style="color:var(--dim);font-size:11.5px">${esc(u.email||'')}</div></td>
     <td>${esc(u.plan||'—')}</td>
     <td><span class="tag ${u.stage}">${stageLbl[u.stage]||u.stage}</span></td>
     <td><span class="tag ${u.health}">${healthLbl[u.health]||u.health}</span></td>
     <td><span class="score ${u.score<0?'neg':(u.score>=50?'pos':'')}">${u.score}</span></td>
-    <td class="mono" style="font-size:12px">${u.stage==='trial'?u.trial_days_left+'d restantes':'—'}</td>
+    <td>${utm}</td>
     <td class="mono" style="font-size:12px">${dfmt(u.last_sign_in_at)}</td>
-  </tr>`).join('');
+  </tr>`;
+  }).join('');
 }
 
 // ---------- TIMELINE ----------
 async function openTimeline(uid){
   const u=allUsers.find(x=>x.id===uid); if(!u)return;
   document.getElementById('dName').textContent=u.full_name||u.email;
-  document.getElementById('dInfo').textContent=`${u.email} · plano ${u.plan||'—'} · score ${u.score}`;
+  const utmInfo = [u.source,u.medium,u.campaign].filter(Boolean).join(' · ');
+  document.getElementById('dInfo').textContent=`${u.email} · plano ${u.plan||'—'} · score ${u.score}${utmInfo?' · '+utmInfo:''}`;
   document.getElementById('dTimeline').innerHTML='<div class="loading">Carregando…</div>';
   document.getElementById('drawer').classList.add('open');
   document.getElementById('drawerBg').classList.add('open');
