@@ -1,5 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /r/
-
-Sitemap: https://www.megalinksbr.com.br/sitemap.xml
