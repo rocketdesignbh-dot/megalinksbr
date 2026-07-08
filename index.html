@@ -1532,6 +1532,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="field"><label>Open Graph — descrição</label><textarea id="seoOgDesc" rows="2"></textarea></div>
         <div class="field"><label>Open Graph — imagem (URL)</label><input id="seoOgImage" placeholder="/banner.jpg"></div>
         <div class="field"><label>URL canônica</label><input id="seoCanonical" placeholder="https://www.megalinksbr.com.br"></div>
+        <div class="field"><label>Schema.org (JSON-LD)</label><textarea id="seoSchema" rows="8" class="mono" placeholder="Cole aqui um JSON-LD válido (schema.org)"></textarea>
+          <div style="font-size:11px;color:var(--mut);margin-top:4px">Dados estruturados pro Google entender a empresa/produto (rich results). Precisa ser um JSON válido — não inclua nota/avaliação fictícia, isso viola as diretrizes do Google.</div>
+        </div>
         <button class="btn btn-volt" id="btnSalvarSeo">Salvar SEO</button>
       </div></div>
 
@@ -7149,6 +7152,7 @@ async function renderSeoMarketing(){
       seoOgDesc.value=seo.og_description||"";
       seoOgImage.value=seo.og_image||"";
       seoCanonical.value=seo.canonical_url||"";
+      seoSchema.value=seo.schema_jsonld?JSON.stringify(seo.schema_jsonld,null,2):"";
     }
   }catch(e){console.warn("renderSeoMarketing seo:",e);}
   try{
@@ -7182,6 +7186,13 @@ btnSalvarSeo?.addEventListener("click",async()=>{
       canonical_url:seoCanonical.value.trim(),
       updated_at:new Date().toISOString()
     };
+    const _schemaRaw=seoSchema.value.trim();
+    if(_schemaRaw){
+      try{payload.schema_jsonld=JSON.parse(_schemaRaw);}
+      catch(e){toast("Schema.org inválido — verifique o JSON antes de salvar.","⚠️");btnSalvarSeo.disabled=false;btnSalvarSeo.textContent="Salvar SEO";return;}
+    }else{
+      payload.schema_jsonld=null;
+    }
     const{error}=await SB.from("seo_settings").upsert(payload,{onConflict:"page_key"});
     if(error)throw error;
     toast("SEO salvo com sucesso!","🟢");
