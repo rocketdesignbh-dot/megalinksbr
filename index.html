@@ -13,7 +13,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <title>Mega Links BR · Plataforma de Afiliados</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/icon.png">
-<meta name="description" content="Mega Links BR — plataforma de automação para afiliados. Divulgue ofertas automaticamente em grupos e canais de WhatsApp, Telegram e Instagram.">
+<meta name="description" content="Mega Links BR — plataforma de automação para afiliados. Divulgue ofertas automaticamente em grupos e canais de WhatsApp e Telegram.">
 <meta property="og:title" content="Mega Links BR · Automação para Afiliados">
 <meta property="og:description" content="Mais que links, conexões que geram resultados. Automatize sua divulgação de ofertas.">
 <meta property="og:image" content="/banner.jpg">
@@ -1078,7 +1078,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div id="tabPanes"></div>
   </section>
 
-  <!-- ===== INSTARESP (Automação de Comentários IG) ===== -->
 <!-- ===== CONFIG AFILIADOS ===== -->
   <section class="page" id="page-config-afiliados">
     <div class="phead"><div><h1 class="pt">Config Afiliados</h1><div class="psub">Conecte suas credenciais para importar produtos e converter links automaticamente.
@@ -2042,10 +2041,10 @@ async function loadCreds(){
 
 /* ================= PLANOS REAIS (plan_features) — definido cedo, antes de qualquer uso ================= */
 const PLAN_FALLBACK={
-  starter:{plan:"starter",label:"Starter",color:"#10B981",price_month:57.90,wa_groups:1,wa_channels:2,wa_connections:1,wa_post_automation:false,tg_channels:1,tg_post_automation:false,ig_accounts:0,ig_automations:0,instaresp_trial_days:0,marketplaces:1,links_simultaneous:10,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:false,support_level:"comunidade",sort_order:1},
-  pro:{plan:"pro",label:"Pro",color:"#3B82F6",price_month:97.90,wa_groups:3,wa_channels:6,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,ig_accounts:0,ig_automations:0,instaresp_trial_days:0,marketplaces:3,links_simultaneous:30,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:true,support_level:"email",sort_order:2},
-  elite:{plan:"elite",label:"Elite",color:"#8B5CF6",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,ig_accounts:0,ig_automations:0,instaresp_trial_days:0,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",sort_order:3},
-  premium:{plan:"premium",label:"Premium",color:"#F59E0B",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,ig_accounts:0,ig_automations:0,instaresp_trial_days:0,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",sort_order:4}
+  starter:{plan:"starter",label:"Starter",color:"#10B981",price_month:57.90,wa_groups:1,wa_channels:2,wa_connections:1,wa_post_automation:false,tg_channels:1,tg_post_automation:false,marketplaces:1,links_simultaneous:10,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:false,support_level:"comunidade",sort_order:1},
+  pro:{plan:"pro",label:"Pro",color:"#3B82F6",price_month:97.90,wa_groups:3,wa_channels:6,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,marketplaces:3,links_simultaneous:30,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:true,support_level:"email",sort_order:2},
+  elite:{plan:"elite",label:"Elite",color:"#8B5CF6",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",sort_order:3},
+  premium:{plan:"premium",label:"Premium",color:"#F59E0B",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",sort_order:4}
 };
 let PLAN_FEATURES={...PLAN_FALLBACK};
 let MY_PLAN="starter";
@@ -3812,7 +3811,6 @@ ia:`
   <div class="card" style="margin:0"><div class="ch" style="color:var(--volt)">Depois (com IA)</div><div class="cb"><div class="msg ai" style="max-width:100%;border-color:rgba(25,226,125,.4)">🎧 <b>FONE BLUETOOTH XYZ</b>\n💸 Apenas <b>R$ 9,99 no Pix</b>\n⚡ Estoque limitado!\n👉 shope.ee/abc</div></div></div></div>
   <div style="display:flex;gap:10px;margin-top:12px"><button class="btn btn-volt" onclick="toast('Preferência de IA salva!')">Ativar IA</button><button class="btn btn-ghost" onclick="openDrawer()">✨ Abrir MegaIA</button></div>`,
 site:`<div class="card"><div class="cb locked"><div class="li">🚀</div><h3 style="margin-bottom:6px">Site de ofertas — upgrade necessário</h3><p style="color:var(--tx2);max-width:430px;margin:0 auto 16px">Publique seus produtos em um site próprio. A partir do plano PRO.</p><button class="btn btn-gold" onclick="setRole('afiliado');go('assinatura')">Fazer upgrade</button></div></div>`,
-instagram:`<div class="alert r">⛔ Conecte uma conta do Instagram para respostas e postagens automáticas.</div><div class="card"><div class="cb" style="text-align:center;padding:42px 20px"><div style="font-size:42px;margin-bottom:10px">📸</div><h3 style="margin-bottom:6px">Conectar Instagram</h3><button class="btn" style="background:linear-gradient(120deg,#f77737,#c13584,#833ab4);color:#fff;margin-top:12px" onclick="toast('Login com Instagram (demo).','📸')">Login com Instagram</button></div></div>`,
 wagrupos:`<div id="wagruposPane"></div>`,
 aliexpress:`<div class="alert y">⚠️ Configure suas credenciais AliExpress em Config Afiliados para importar produtos.</div><div class="card"><div class="ch">🛍️ Painel de produtos</div><div class="cb"><div class="locked" style="padding:26px"><p style="color:var(--tx2)">Nenhum produto ainda.</p></div></div></div>`,
 manual:`
@@ -5031,7 +5029,7 @@ async function tgEnviarTeste(){
 }
 /* ================= FAQ ================= */
 const FCATS=["Perguntas Gerais","WhatsApp & Canais","Programas de Afiliados","Assinatura","Recursos Avançados","Problemas Técnicos"];
-const FAQS=[["Perguntas Gerais","O que é a Mega Links BR?","Uma plataforma de automação para afiliados: encontra ofertas nas lojas, converte seus links de afiliado e publica automaticamente em grupos e canais do WhatsApp, Telegram e Instagram."],["WhatsApp & Canais","Como conecto meu número?","Em Conexão WhatsApp, informe o número e gere o QR Code. No celular, vá em WhatsApp → Aparelhos conectados → Conectar um aparelho e escaneie."],["WhatsApp & Canais","Posso postar em Canais do WhatsApp?","Sim. Em Editar Grupo → WhatsApp-CANAIS, cole o link do canal e clique em Buscar canal. Só é possível vincular canais onde você é Dono (OWNER) ou Admin."],["Programas de Afiliados","Quais lojas são suportadas?","AliExpress, Amazon, AWIN, Shopee, Magalu, Mercado Livre, Shein, Natura e TerabyteShop, além de produtos manuais."],["Assinatura","Como funciona o trial?","O plano STARTER oferece 7 dias grátis com 1 grupo de configuração e marca de água nos posts."],["Recursos Avançados","O que é a MegaIA?","Nossa IA (BETA) que reescreve mensagens, gera legendas e sugere os melhores horários de postagem."],["Problemas Técnicos","Meu post parou de sair. O que fazer?","Verifique se a sessão WhatsApp continua conectada e se o grupo está com Post Auto ativo dentro da janela de horário configurada."]];
+const FAQS=[["Perguntas Gerais","O que é a Mega Links BR?","Uma plataforma de automação para afiliados: encontra ofertas nas lojas, converte seus links de afiliado e publica automaticamente em grupos e canais do WhatsApp e Telegram."],["WhatsApp & Canais","Como conecto meu número?","Em Conexão WhatsApp, informe o número e gere o QR Code. No celular, vá em WhatsApp → Aparelhos conectados → Conectar um aparelho e escaneie."],["WhatsApp & Canais","Posso postar em Canais do WhatsApp?","Sim. Em Editar Grupo → WhatsApp-CANAIS, cole o link do canal e clique em Buscar canal. Só é possível vincular canais onde você é Dono (OWNER) ou Admin."],["Programas de Afiliados","Quais lojas são suportadas?","AliExpress, Amazon, AWIN, Shopee, Magalu, Mercado Livre, Shein, Natura e TerabyteShop, além de produtos manuais."],["Assinatura","Como funciona o trial?","O plano STARTER oferece 7 dias grátis com 1 grupo de configuração e marca de água nos posts."],["Recursos Avançados","O que é a MegaIA?","Nossa IA (BETA) que reescreve mensagens, gera legendas e sugere os melhores horários de postagem."],["Problemas Técnicos","Meu post parou de sair. O que fazer?","Verifique se a sessão WhatsApp continua conectada e se o grupo está com Post Auto ativo dentro da janela de horário configurada."]];
 let faqCat="Perguntas Gerais";
 faqCats.innerHTML=FCATS.map(c=>`<button class="fc${c===faqCat?" on":""}" data-cat="${c}">${c}</button>`).join("");
 function renderFaq(){const q=faqSearch.value.toLowerCase();const list=FAQS.filter(f=>q?(f[1]+f[2]).toLowerCase().includes(q):f[0]===faqCat);
@@ -5629,7 +5627,6 @@ async function renderConfig(){
     {icon:"🟢",name:"Supabase",desc:"Banco de dados · Auth · Edge Functions",check:async()=>{try{const r=await fetch(SUPA_URL+"/auth/v1/health",{headers:{apikey:SUPA_KEY}});return r.ok?"conectado":"erro HTTP "+r.status;}catch(e){return "sem resposta";}}},
     {icon:"📲",name:"WhatsApp Engine",desc:"wa-engine · Baileys · "+WA_ENGINE_URL.replace("https://",""),check:async()=>{try{const r=await fetch(WA_ENGINE_URL+"/health",{headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}});const d=await r.json();return d.ok?"operacional":"erro";}catch(e){return "sem resposta";}}},
     {icon:"🛒",name:"Shopee API",desc:"Affiliate API · aguardando aprovação",check:async()=>"pendente aprovação"},
-    {icon:"📸",name:"Meta / Instagram",desc:"Graph API · app em revisão",check:async()=>"pendente aprovação"},
     {icon:"📦",name:"Amazon PA-API",desc:"Product Advertising API",check:async()=>"não configurado"},
     {icon:"🤖",name:"MegaIA (OpenAI)",desc:"GPT · reescrita e sugestões",check:async()=>"não configurado"},
   ];
@@ -5651,10 +5648,6 @@ async function renderConfig(){
     if(el){const cls=statusColor[st]||"gray";el.className=`pill ${cls}`;el.innerHTML=`<span class="d"></span>${st}`;}
   }
 }
-
-/* ================= ADMIN: INSTARESP MONITOR ================= */
-/* ================= INSTARESP (Instagram) ================= */
-const IG_STATE={connected:false,acc:null};;
 
 
 renderGrupos();renderOnb();renderPlans();renderFaq();renderRadar();
