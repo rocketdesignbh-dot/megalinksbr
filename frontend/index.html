@@ -497,6 +497,7 @@ function hideLoading(){
 @keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<meta name="google-site-verification" content="5GKJb71jXb3XSwWIcnrzlZpDcegrGb-Gs2piII9mh84" />
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -6874,10 +6875,10 @@ async function afterLogin(user){
   const googleAvatar=(user.user_metadata&&user.user_metadata.avatar_url)||"";
   const userEmail=user.email||"";
 
-  let profile={id:user.id,full_name:googleName||userEmail,is_admin:false,plan:"starter"};
+  let profile={id:user.id,full_name:googleName||userEmail,is_admin:false,is_vip:false,plan:"starter"};
 
   try{
-    const{data}=await SB.from("profiles").select("id,full_name,email,is_admin,plan,sub_status,user_display_id,trial_expires_at,welcome_seen_at").eq("id",user.id).single();
+    const{data}=await SB.from("profiles").select("id,full_name,email,is_admin,is_vip,plan,sub_status,user_display_id,trial_expires_at,welcome_seen_at").eq("id",user.id).single();
     if(data)profile=Object.assign(profile,data);
 
     // Se veio do Google e o nome/email ainda não estão salvos, faz upsert
@@ -6906,7 +6907,8 @@ async function enterApp(profile){
   if(!PLAN_FEATURES[MY_PLAN])MY_PLAN="starter";
 
   // Trava de trial expirado (só para não-admin e não-vip)
-  if(!profile.is_admin&&!profile.is_vip&&profile.sub_status==="canceled"&&!profile.demo){
+  if(profile.is_vip){/*VIP tem acesso livre*/}
+  else if(!profile.is_admin&&profile.sub_status==="canceled"&&!profile.demo){
     const trialExp=profile.trial_expires_at?new Date(profile.trial_expires_at):null;
     const isTrialExpired=trialExp&&trialExp<new Date();
     if(isTrialExpired||profile.sub_status==="canceled"){
