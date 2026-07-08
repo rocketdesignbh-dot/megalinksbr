@@ -5194,7 +5194,7 @@ aiSend.onclick=()=>aiSendMsg();
 aiInput.addEventListener("keydown",e=>{if(e.key==="Enter")aiSendMsg();});
 
 /* ================= ADMIN: DADOS ================= */
-const PLANO_V={STARTER:0,STARTER_:59.9,PRO:99.9,ELITE:159.9,INFINITY:229.9};
+const PLANO_V={STARTER:0,STARTER_:57.9,PRO:97.9,ELITE:157.9,PREMIUM:297.9};
 function avColor(i){const c=["#19E27D","#39C0FF","#FFB020","#FF4D8D","#9B7DFF"];return c[i%c.length];}
 // USERS agora vem do banco (vazio até existirem clientes reais)
 let USERS=[];
@@ -5261,7 +5261,7 @@ function renderAdminVisao(){
   const meses=["Jul","Ago","Set","Out","Nov","Dez","Jan","Fev","Mar","Abr","Mai","Jun"];const mrrV=z,novos=z;const mx=1;
   mrrChart.innerHTML=meses.map((m,i)=>`<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:3px"><div style="display:flex;gap:2px;align-items:flex-end;height:120px"><div class="bar" style="height:0%" data-t="${m}: sem dados"></div><div class="bar alt" style="height:0%" data-t="${m}: sem dados"></div></div><div style="text-align:center;font-size:9.5px;color:var(--mut)">${m}</div></div>`).join("");
   // distribuição real por plano
-  const dist=[["STARTER",USERS.filter(u=>u.plano==="STARTER").length,"#10B981"],["PRO",USERS.filter(u=>u.plano==="PRO").length,"#3B82F6"],["ELITE",USERS.filter(u=>u.plano==="ELITE").length,"#8B5CF6"],["INFINITY",USERS.filter(u=>u.plano==="INFINITY").length,"#F59E0B"]];const tot=Math.max(1,dist.reduce((a,d)=>a+d[1],0));
+  const dist=[["STARTER",USERS.filter(u=>u.plano==="STARTER").length,"#10B981"],["PRO",USERS.filter(u=>u.plano==="PRO").length,"#3B82F6"],["ELITE",USERS.filter(u=>u.plano==="ELITE").length,"#8B5CF6"],["PREMIUM",USERS.filter(u=>u.plano==="PREMIUM").length,"#F59E0B"]];const tot=Math.max(1,dist.reduce((a,d)=>a+d[1],0));
   planDist.innerHTML=dist.map(d=>`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><strong>${d[0]}</strong><span style="color:var(--mut)">${d[1]} · ${Math.round(d[1]/tot*100)}%</span></div><div class="prog-mini"><i style="width:${d[1]/tot*100}%;background:${d[2]}"></i></div></div>`).join("");
   admFeed.innerHTML='<div class="feed"><span class="fic">•</span><span style="color:var(--mut)">Nenhuma atividade ainda. Os eventos aparecerão aqui conforme os clientes usarem a plataforma.</span></div>';
 }
