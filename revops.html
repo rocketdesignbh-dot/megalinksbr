@@ -142,7 +142,18 @@ tbody tr:last-child td{border-bottom:none}
 .saveMini:hover{border-color:var(--brand);color:var(--brand)}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--brand);color:var(--ink);padding:11px 20px;border-radius:8px;font-size:13px;display:none;z-index:60;box-shadow:var(--glow)}
 
-/* ---------- KANBAN ---------- */
+/* ---------- IA LABELS ---------- */
+.iaLabel{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.iaLabel.hot{background:rgba(255,81,104,.2);color:var(--danger)}
+.iaLabel.warm{background:rgba(245,197,24,.15);color:var(--brand)}
+.iaLabel.cold{background:var(--panel2);color:var(--dim)}
+.iaLabel.at_risk{background:rgba(255,160,90,.15);color:#ffaa5a}
+.iaLabel.loyal{background:rgba(34,197,94,.15);color:var(--money)}
+.iaLabel.neutral{background:var(--panel2);color:var(--mut)}
+.prob{font-family:'JetBrains Mono';font-size:12px;font-weight:600}
+.prob.hi{color:var(--money)}
+.prob.mid{color:var(--brand)}
+.prob.lo{color:var(--dim)}
 .kanbanWrap{display:flex;gap:14px;overflow-x:auto;padding-bottom:16px;padding-right:32px;min-height:calc(100vh - 180px);width:100%}
 .kanbanWrap::-webkit-scrollbar{height:6px}
 .kanbanWrap::-webkit-scrollbar-track{background:var(--bg)}
@@ -212,6 +223,7 @@ tbody tr:last-child td{border-bottom:none}
       <a href="#" class="on" data-sec="dash" onclick="go('dash',this);return false">📊 Visão Geral</a>
       <a href="#" data-sec="crm" onclick="go('crm',this);return false">👥 Clientes</a>
       <a href="#" data-sec="kanban" onclick="go('kanban',this);return false">🗂️ Pipeline Kanban</a>
+      <a href="#" data-sec="ia" onclick="go('ia',this);return false">🤖 IA Insights</a>
       <a href="#" data-sec="automations" onclick="go('automations',this);return false">⚡ Automações</a>
       <a href="#" data-sec="rules" onclick="go('rules',this);return false">⚙️ Regras de Score</a>
     </nav>
@@ -291,6 +303,23 @@ tbody tr:last-child td{border-bottom:none}
       <h2 class="pageTitle">Pipeline Kanban</h2>
       <div class="pageSub">Arraste os cards entre colunas para mover usuários no funil. Cada movimentação é registrada na timeline.</div>
       <div class="kanbanWrap" id="kanbanBoard"></div>
+    </div>
+
+    <!-- IA INSIGHTS -->
+    <div class="section" id="sec-ia">
+      <h2 class="pageTitle">IA Insights</h2>
+      <div class="pageSub">Análise comportamental por GPT-4o mini. Atualizada diariamente às 06h ou sob demanda.</div>
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;font-size:13px;color:var(--mut)">Gera insights para todos os usuários ativos (max 50 por rodada).</div>
+          <button class="saveMini" id="btnRunIA" onclick="runIA()" style="padding:9px 18px;font-size:13px">🤖 Analisar todos agora</button>
+        </div>
+        <div id="iaRunResult" style="margin-top:10px;font-size:13px;color:var(--mut)"></div>
+      </div>
+      <table>
+        <thead><tr><th>Usuário</th><th>Classificação</th><th>Compra</th><th>Churn</th><th>Abandono</th><th>Próxima ação sugerida</th><th>Gerado em</th></tr></thead>
+        <tbody id="iaBody"><tr><td colspan="7" class="loading">Clique em "Analisar todos" para gerar os primeiros insights.</td></tr></tbody>
+      </table>
     </div>
 
     <!-- AUTOMAÇÕES -->
@@ -414,6 +443,7 @@ function go(sec,el){
   document.getElementById('sec-'+sec).classList.add('on');
   if(sec==='kanban') buildKanban();
   if(sec==='automations') loadAutomations();
+  if(sec==='ia') loadIA();
 }
 
 // ---------- HELPERS ----------
@@ -564,6 +594,58 @@ async function openTimeline(uid){
 function closeDrawer(){
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('drawerBg').classList.remove('open');
+}
+
+// ---------- IA INSIGHTS ----------
+const IA_LABELS = { hot:'🔥 Quente', warm:'🌡️ Morno', cold:'❄️ Frio', at_risk:'⚠️ Em Risco', loyal:'💎 Fiel', neutral:'— Neutro' };
+
+async function loadIA(){
+  const { data, error } = await sb
+    .from('revops_ia_insights')
+    .select('*')
+    .order('generated_at', { ascending: false });
+  const body = document.getElementById('iaBody');
+  if(error){ body.innerHTML=`<tr><td colspan="7" class="loading">Erro: ${esc(error.message)}</td></tr>`; return; }
+  if(!data||!data.length){ body.innerHTML='<tr><td colspan="7" class="loading">Nenhum insight gerado ainda. Clique em "Analisar todos agora".</td></tr>'; return; }
+
+  body.innerHTML = data.map(r => {
+    const u = allUsers.find(x => x.id === r.user_id);
+    const probClass = p => p >= 60 ? 'hi' : p >= 30 ? 'mid' : 'lo';
+    return `<tr onclick="openTimeline('${r.user_id}')" style="cursor:pointer">
+      <td>
+        <div style="font-weight:600">${esc(u?.full_name||'—')}</div>
+        <div style="color:var(--dim);font-size:11.5px">${esc(u?.email||r.user_id)}</div>
+      </td>
+      <td><span class="iaLabel ${r.label}">${IA_LABELS[r.label]||r.label}</span></td>
+      <td><span class="prob ${probClass(r.buy_prob)}">${r.buy_prob}%</span></td>
+      <td><span class="prob ${probClass(r.churn_prob)}">${r.churn_prob}%</span></td>
+      <td><span class="prob ${probClass(r.abandon_prob)}">${r.abandon_prob}%</span></td>
+      <td style="color:var(--mut);font-size:12.5px;max-width:280px">${esc(r.next_action||'—')}</td>
+      <td class="mono" style="font-size:11px;color:var(--dim)">${dfmt(r.generated_at)}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function runIA(){
+  const btn = document.getElementById('btnRunIA');
+  const res = document.getElementById('iaRunResult');
+  btn.disabled = true; btn.textContent = '⏳ Analisando…';
+  res.textContent = 'Processando usuários com GPT-4o mini…'; res.style.color='var(--mut)';
+  try {
+    const r = await fetch('https://nxlfezpagporealqqbfj.supabase.co/functions/v1/revops-ia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ limit: 50 })
+    });
+    const data = await r.json();
+    res.textContent = `✓ ${data.processed ?? 0} usuário(s) analisado(s).`;
+    res.style.color = 'var(--money)';
+    setTimeout(() => loadIA(), 1000);
+  } catch(e) {
+    res.textContent = 'Erro: ' + e.message;
+    res.style.color = 'var(--danger)';
+  }
+  btn.disabled = false; btn.textContent = '🤖 Analisar todos agora';
 }
 
 // ---------- KANBAN ----------
