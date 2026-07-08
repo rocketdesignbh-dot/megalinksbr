@@ -1068,6 +1068,150 @@ app.get('/ml-product', verifyToken, async (req, res) => {
     }
 });
 
+// ===== Amazon: PA-API (Access Key + Secret Key) com fallback de scraping (so Partner Tag) =====
+function amazonSigV4(method, host, path, region, service, payload, accessKey, secretKey, amzDate, dateStamp, amzTarget) {
+    const hmac = (key, msg) => require('crypto').createHmac('sha256', key).update(msg, 'utf8').digest();
+    const sha256Hex = (msg) => require('crypto').createHash('sha256').update(msg, 'utf8').digest('hex');
+    const canonicalUri = path;
+    const canonicalQuerystring = '';
+    const canonicalHeaders = `content-encoding:amz-1.0\ncontent-type:application/json; charset=utf-8\nhost:${host}\nx-amz-date:${amzDate}\nx-amz-target:${amzTarget}\n`;
+    const signedHeaders = 'content-encoding;content-type;host;x-amz-date;x-amz-target';
+    const payloadHash = sha256Hex(payload);
+    const canonicalRequest = `${method}\n${canonicalUri}\n${canonicalQuerystring}\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+    const algorithm = 'AWS4-HMAC-SHA256';
+    const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+    const stringToSign = `${algorithm}\n${amzDate}\n${credentialScope}\n${sha256Hex(canonicalRequest)}`;
+    const kDate = hmac('AWS4' + secretKey, dateStamp);
+    const kRegion = hmac(kDate, region);
+    const kService = hmac(kRegion, service);
+    const kSigning = hmac(kService, 'aws4_request');
+    const signature = require('crypto').createHmac('sha256', kSigning).update(stringToSign, 'utf8').digest('hex');
+    return `${algorithm} Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+}
+
+async function amazonPaApiSearch(keyword, partnerTag, accessKey, secretKey) {
+    const host = 'webservices.amazon.com.br';
+    const region = 'us-east-1';
+    const service = 'ProductAdvertisingAPI';
+    const amzTarget = 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems';
+    const path = '/paapi5/searchitems';
+    const payload = JSON.stringify({
+        Keywords: keyword,
+        Resources: ['Images.Primary.Large', 'ItemInfo.Title', 'Offers.Listings.Price', 'Offers.Listings.SavingBasis'],
+        PartnerTag: partnerTag, PartnerType: 'Associates', Marketplace: 'www.amazon.com.br',
+    });
+    const now = new Date();
+    const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
+    const dateStamp = amzDate.slice(0, 8);
+    const authorizationHeader = amazonSigV4('POST', host, path, region, service, payload, accessKey, secretKey, amzDate, dateStamp, amzTarget);
+    const r = await axios.post(`https://${host}${path}`, payload, {
+        headers: {
+            'content-encoding': 'amz-1.0',
+            'content-type': 'application/json; charset=utf-8',
+            'host': host,
+            'x-amz-date': amzDate,
+            'x-amz-target': amzTarget,
+            'Authorization': authorizationHeader,
+        },
+        timeout: 10000,
+        validateStatus: () => true,
+    });
+    if (r.status !== 200) {
+        throw new Error(`PA-API: ${r.data?.Errors?.[0]?.Message || `HTTP ${r.status}`}`);
+    }
+    const items = r.data?.SearchResult?.Items || [];
+    return items.map(item => {
+        const listing = item.Offers?.Listings?.[0];
+        const price = listing?.Price?.Amount ?? null;
+        const savingBasis = listing?.SavingBasis?.Amount ?? null;
+        const discountPct = savingBasis && price && savingBasis > price
+            ? Math.round((1 - price / savingBasis) * 100) : 0;
+        return {
+            source: 'amazon',
+            item_id: String(item.ASIN || ''),
+            title: item.ItemInfo?.Title?.DisplayValue || '',
+            price: price || 0,
+            price_original: savingBasis || price || 0,
+            discount_pct: discountPct,
+            image_url: item.Images?.Primary?.Large?.URL || '',
+            product_link: item.DetailPageURL || '',
+            affiliate_url: item.DetailPageURL || '',
+        };
+    }).filter(it => it.item_id && it.title);
+}
+
+async function amazonScrapeSearch(keyword, partnerTag) {
+    const url = `https://www.amazon.com.br/s?k=${encodeURIComponent(keyword)}`;
+    const r = await axios.get(url, {
+        headers: ML_BROWSER_HEADERS,
+        timeout: 10000,
+        validateStatus: () => true,
+    });
+    if (r.status !== 200 || !r.data) return [];
+    const cheerio = require('cheerio');
+    const $ = cheerio.load(r.data);
+    const results = [];
+    $('div[data-component-type="s-search-result"]').each((i, el) => {
+        if (i >= 15) return;
+        const asin = $(el).attr('data-asin');
+        if (!asin) return;
+        const title = $(el).find('h2 span').first().text().trim();
+        if (!title) return;
+        const priceWhole = $(el).find('.a-price:not(.a-text-price) .a-price-whole').first().text().replace(/\D/g, '');
+        const priceFraction = $(el).find('.a-price:not(.a-text-price) .a-price-fraction').first().text().replace(/\D/g, '') || '00';
+        const price = priceWhole ? parseFloat(`${priceWhole}.${priceFraction}`) : 0;
+        const origText = $(el).find('.a-text-price .a-offscreen').first().text().replace(/[^\d,.]/g, '').replace(',', '.');
+        const priceOriginal = origText ? parseFloat(origText) : price;
+        const image = $(el).find('img.s-image').first().attr('src') || '';
+        const discountPct = priceOriginal && price && priceOriginal > price
+            ? Math.round((1 - price / priceOriginal) * 100) : 0;
+        results.push({
+            source: 'amazon',
+            item_id: asin,
+            title,
+            price: price || 0,
+            price_original: priceOriginal || price || 0,
+            discount_pct: discountPct,
+            image_url: image,
+            product_link: `https://www.amazon.com.br/dp/${asin}?tag=${encodeURIComponent(partnerTag)}`,
+            affiliate_url: `https://www.amazon.com.br/dp/${asin}?tag=${encodeURIComponent(partnerTag)}`,
+        });
+    });
+    return results;
+}
+
+app.post('/amazon-search', verifyToken, async (req, res) => {
+    const { keywords = [], limit = 10, partnerTag = '', accessKey = '', secretKey = '' } = req.body || {};
+    if (!partnerTag) return res.json({ ok: false, error: 'partnerTag obrigatorio', results: [] });
+    const kws = keywords.length ? keywords : ['fone bluetooth', 'air fryer', 'smartwatch'];
+    const perKw = Math.min(Number(limit) || 10, 20);
+    const usaPaApi = !!(accessKey && secretKey && partnerTag);
+    const errors = [];
+
+    const settled = await Promise.all(kws.map(async (kw) => {
+        try {
+            const items = usaPaApi
+                ? await amazonPaApiSearch(kw, partnerTag, accessKey, secretKey)
+                : await amazonScrapeSearch(kw, partnerTag);
+            return items.slice(0, perKw);
+        } catch (e) {
+            errors.push(`${kw}: ${e.message}`);
+            return [];
+        }
+    }));
+
+    const seen = new Set();
+    const unique = [];
+    for (const item of settled.flat()) {
+        if (seen.has(item.item_id)) continue;
+        seen.add(item.item_id);
+        unique.push(item);
+    }
+
+    console.log(`[amazon-search] método=${usaPaApi ? 'pa-api' : 'scraping'} keywords=${kws.length} resultados=${unique.length} erros=${errors.length}`);
+    res.json({ ok: true, total: unique.length, results: unique, errors, method: usaPaApi ? 'pa-api' : 'scraping' });
+});
+
 // -- Groups list --
 app.get('/groups', verifyToken, async (req, res) => {
     let session = null;
