@@ -1097,12 +1097,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <br><small style="opacity:.8">Não é necessário para Shopee ou as demais lojas — elas já funcionam sem isso.</small>
         </p>
         <div class="alert b" style="font-size:12.5px;margin-bottom:14px">
-          <strong>Passo a passo:</strong>
-          <ol style="margin:6px 0 0;padding-left:18px">
-            <li>Clique em <strong>"Criar conta grátis no Scrape.do"</strong> abaixo e cadastre seu e-mail (não pede cartão de crédito — você ganha 1.000 créditos grátis).</li>
-            <li>Depois de entrar, o <strong>token da API</strong> já aparece na tela inicial do painel (dashboard), normalmente no topo, com um botão para copiar.</li>
-            <li>Copie esse token (uma sequência de letras e números) e cole no campo abaixo.</li>
-          </ol>
+          <div>
+            <strong>Passo a passo:</strong>
+            <ol style="margin:6px 0 0;padding-left:18px">
+              <li>Clique em <strong>"Criar conta grátis no Scrape.do"</strong> abaixo e cadastre seu e-mail (não pede cartão de crédito — você ganha 1.000 créditos grátis).</li>
+              <li>Depois de entrar, o <strong>token da API</strong> já aparece na tela inicial do painel (dashboard), normalmente no topo, com um botão para copiar.</li>
+              <li>Copie esse token (uma sequência de letras e números) e cole no campo abaixo.</li>
+            </ol>
+          </div>
         </div>
         <div class="g2" style="gap:10px;align-items:end">
           <div class="field" style="margin:0"><label>Seu token do Scrape.do</label>
@@ -1124,18 +1126,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           (não no seu navegador), pode não funcionar sempre. Se falhar, o sistema cai automaticamente pro Scrape.do como já funciona hoje.
         </p>
         <div class="alert y" style="font-size:12.5px;margin-bottom:14px">
-          ⚠️ <strong>Cuidado:</strong> esse cookie equivale a estar logado na sua conta do ML. Guarde-o só aqui, nunca compartilhe com outras pessoas.
-          Ele expira periodicamente — se as buscas pararem de funcionar, é só repetir o passo a passo abaixo e colar um cookie novo.
+          <div>⚠️ <strong>Cuidado:</strong> esse cookie equivale a estar logado na sua conta do ML. Guarde-o só aqui, nunca compartilhe com outras pessoas.
+          Ele expira periodicamente — se as buscas pararem de funcionar, é só repetir o passo a passo abaixo e colar um cookie novo.</div>
         </div>
         <div class="alert b" style="font-size:12.5px;margin-bottom:14px">
-          <strong>Passo a passo:</strong>
-          <ol style="margin:6px 0 0;padding-left:18px">
-            <li>Abra o <strong>Mercado Livre</strong> em outra aba, logado com a sua conta de afiliado.</li>
-            <li>Pressione <strong>F12</strong> para abrir o DevTools do navegador e clique na aba <strong>"Network"</strong> (Rede).</li>
-            <li>Pressione <strong>F5</strong> para recarregar a página.</li>
-            <li>Clique em qualquer requisição da lista que aparecer e procure, nos <strong>"Request Headers"</strong> (Cabeçalhos da requisição), o campo <strong>"cookie:"</strong>.</li>
-            <li>Copie todo o valor desse campo (é bem longo) e cole no campo abaixo.</li>
-          </ol>
+          <div>
+            <strong>Passo a passo:</strong>
+            <ol style="margin:6px 0 0;padding-left:18px">
+              <li>Abra o <strong>Mercado Livre</strong> em outra aba, logado com a sua conta de afiliado.</li>
+              <li>Pressione <strong>F12</strong> para abrir o DevTools do navegador e clique na aba <strong>"Network"</strong> (Rede).</li>
+              <li>Pressione <strong>F5</strong> para recarregar a página.</li>
+              <li>Clique em qualquer requisição da lista que aparecer e procure, nos <strong>"Request Headers"</strong> (Cabeçalhos da requisição), o campo <strong>"cookie:"</strong>.</li>
+              <li>Copie todo o valor desse campo (é bem longo) e cole no campo abaixo.</li>
+            </ol>
+          </div>
         </div>
         <div class="field" style="margin-bottom:10px"><label>Seu cookie do Mercado Livre</label>
           <textarea id="mlCookieInput" rows="3" placeholder="Cole aqui o valor do header cookie: (ex: ssid=...; _d2id=...; ...)" style="width:100%;font-family:var(--mono);font-size:11px;resize:vertical"></textarea></div>
@@ -3067,7 +3071,7 @@ function mlAbrirOAuth(l,li,con,saved){
       <div style="color:var(--mut);font-size:12px;margin-top:2px">Token: ${saved.token_obtained_at?new Date(saved.token_obtained_at).toLocaleString("pt-BR"):"—"}</div>
     </div>`:""}
         <div class="alert y" style="font-size:12px;margin-bottom:12px">
-      <strong>Onde encontrar esses dois valores:</strong> no Mercado Livre, passe o mouse no seu nome → <strong>Afiliados</strong> → <strong>Gerador de Links</strong> e gere um link de qualquer produto. Na URL gerada, copie o número depois de <code>matt_tool=</code> (é o "matt_tool ID") e o texto depois de <code>matt_word=</code> (é a "Etiqueta ML"). Esses dois campos são opcionais, mas sem eles suas vendas do ML não ficam corretamente atribuídas à sua conta de afiliado.
+      <div><strong>Onde encontrar esses dois valores:</strong> no Mercado Livre, passe o mouse no seu nome → <strong>Afiliados</strong> → <strong>Gerador de Links</strong> e gere um link de qualquer produto. Na URL gerada, copie o número depois de <code>matt_tool=</code> (é o "matt_tool ID") e o texto depois de <code>matt_word=</code> (é a "Etiqueta ML"). Esses dois campos são opcionais, mas sem eles suas vendas do ML não ficam corretamente atribuídas à sua conta de afiliado.</div>
     </div>
     <div class="field" style="margin-bottom:12px">
       <label>Etiqueta ML <span style="color:var(--mut);font-weight:400;font-size:11px">(opcional · vem do parâmetro matt_word, ex: anan1844639)</span></label>
