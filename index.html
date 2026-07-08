@@ -2514,6 +2514,10 @@ function rgUpdatePreview(){
     else{bub.style.background="";bub.style.color="";}
   }
 }
+function rgLojaToMarketplace(loja){
+  const map={"Shopee":"shopee","Mercado Livre":"mercado_livre","Amazon":"amazon","AliExpress":"aliexpress","Shein":"shein","Magalu":"magalu","Natura":"natura","Awin":"awin","Terabyte":"terabyte"};
+  return map[loja]||"manual";
+}
 async function rgSalvarNoGrupo(){
   const gid=document.getElementById("rgGrupoSel")?.value;
   if(!gid){toast("Selecione um Grupo de Oferta.","⚠️");return;}
@@ -2542,7 +2546,7 @@ async function rgSalvarNoGrupo(){
     const pos=(last?.position||0)+1;
     const{error}=await SB.from("products").insert({
       title:nome,affiliate_url:link,price:por,price_original:de,
-      image_url:img,niche_group_id:gidDb,source:"radar",position:pos,
+      image_url:img,niche_group_id:gidDb,source:rgLojaToMarketplace(RG_OFERTA_ATUAL?.loja),position:pos,
       coupon_code:cupom?.code||null,cta_text:ctaTexto,cta_random:ctaRandom,
       description:descExtras,
       user_id:CURRENT_USER?.id,
