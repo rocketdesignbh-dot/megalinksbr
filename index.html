@@ -2694,6 +2694,7 @@ async function radarDispararBusca(){
     // Determina lojas baseado no filtro selecionado
     const filtroIncluiML=radarFilter==="Todas"||radarFilter==="Mercado Livre";
     const buscaShopee=radarFilter==="Todas"||radarFilter==="Shopee";
+    const buscaAmazon=radarFilter==="Todas"||radarFilter==="Amazon";
     // ML: só dispara busca NOVA (gasta crédito Scrape.do) quando o usuário digitou algo específico.
     // Sem palavra-chave, mostraria a mesma categoria do rodízio automático — não vale o crédito.
     const buscaML=filtroIncluiML&&!!keyword;
@@ -2707,6 +2708,7 @@ async function radarDispararBusca(){
     const sourcesBackend=[];
     if(buscaML)sourcesBackend.push("mercado_livre");
     if(buscaShopee)sourcesBackend.push("shopee");
+    if(buscaAmazon)sourcesBackend.push("amazon");
 
     if(sourcesBackend.length){
       const body={sources:sourcesBackend};
