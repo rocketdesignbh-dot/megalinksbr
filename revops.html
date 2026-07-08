@@ -224,6 +224,7 @@ tbody tr:last-child td{border-bottom:none}
       <a href="#" class="on" data-sec="dash" onclick="go('dash',this);return false">📊 Visão Geral</a>
       <a href="#" data-sec="crm" onclick="go('crm',this);return false">👥 Clientes</a>
       <a href="#" data-sec="kanban" onclick="go('kanban',this);return false">🗂️ Pipeline Kanban</a>
+      <a href="#" data-sec="financeiro" onclick="go('financeiro',this);return false">💰 Financeiro</a>
       <a href="#" data-sec="analytics" onclick="go('analytics',this);return false">📈 Analytics</a>
       <a href="#" data-sec="tasks" onclick="go('tasks',this);return false">✅ Tarefas</a>
       <a href="#" data-sec="audit" onclick="go('audit',this);return false">📋 Auditoria</a>
@@ -307,6 +308,85 @@ tbody tr:last-child td{border-bottom:none}
       <h2 class="pageTitle">Pipeline Kanban</h2>
       <div class="pageSub">Arraste os cards entre colunas para mover usuários no funil. Cada movimentação é registrada na timeline.</div>
       <div class="kanbanWrap" id="kanbanBoard"></div>
+    </div>
+
+    <!-- FINANCEIRO -->
+    <div class="section" id="sec-financeiro">
+      <h2 class="pageTitle">Financeiro</h2>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+        <div class="pageSub" style="margin:0;flex:1">Receitas, despesas e fluxo de caixa da MegaLinksBR.</div>
+        <div style="display:flex;gap:8px">
+          <button class="saveMini finPeriod on" data-m="3"  onclick="setFinPeriod(3,this)">3m</button>
+          <button class="saveMini finPeriod"    data-m="6"  onclick="setFinPeriod(6,this)">6m</button>
+          <button class="saveMini finPeriod"    data-m="12" onclick="setFinPeriod(12,this)">12m</button>
+        </div>
+      </div>
+
+      <!-- KPIs financeiros -->
+      <div class="kpis" id="finKpis" style="margin-bottom:20px"></div>
+
+      <!-- Fluxo de caixa -->
+      <div class="card" style="margin-bottom:14px">
+        <h3>Fluxo de caixa — Receita vs Despesa por mês</h3>
+        <div id="finFluxo" style="margin-top:16px"></div>
+      </div>
+
+      <!-- Receita e despesa por categoria -->
+      <div class="grid2" style="margin-bottom:14px">
+        <div class="card">
+          <h3>Receita por plano</h3>
+          <div id="finRevPlan"></div>
+        </div>
+        <div class="card">
+          <h3>Despesas por categoria</h3>
+          <div id="finExpCat"></div>
+        </div>
+      </div>
+
+      <!-- Método de pagamento e clientes ativos -->
+      <div class="grid2" style="margin-bottom:14px">
+        <div class="card">
+          <h3>Método de pagamento</h3>
+          <div id="finMethod"></div>
+        </div>
+        <div class="card">
+          <h3>Clientes ativos e MRR por cliente</h3>
+          <div id="finCustomers"></div>
+        </div>
+      </div>
+
+      <!-- Cadastrar despesa + histórico -->
+      <div class="grid2">
+        <div class="card">
+          <h3>Cadastrar despesa</h3>
+          <div style="display:grid;gap:10px;margin-top:12px">
+            <input id="expDesc" placeholder="Descrição (ex: Supabase Pro)" style="background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:9px 12px;color:var(--ink);font-size:13px;font-family:inherit">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <select id="expCat" style="background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:9px 12px;color:var(--ink);font-size:13px;font-family:inherit">
+                <option value="infra">🖥️ Infraestrutura</option>
+                <option value="marketing">📣 Marketing</option>
+                <option value="ferramentas">🔧 Ferramentas</option>
+                <option value="pessoal">👤 Pessoal</option>
+                <option value="outros">📦 Outros</option>
+              </select>
+              <input id="expAmount" type="number" step="0.01" placeholder="Valor (R$)" style="background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:9px 12px;color:var(--ink);font-size:13px;font-family:inherit">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center">
+              <input id="expDate" type="date" style="background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:9px 12px;color:var(--ink);font-size:13px;font-family:inherit">
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut);cursor:pointer">
+                <input type="checkbox" id="expRecurrent" style="width:16px;height:16px;accent-color:var(--brand)">
+                Recorrente mensal
+              </label>
+            </div>
+            <input id="expNotes" placeholder="Observações (opcional)" style="background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:9px 12px;color:var(--ink);font-size:13px;font-family:inherit">
+            <button class="btn" style="margin:0" onclick="saveExpense()">+ Salvar despesa</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Últimas despesas</h3>
+          <div id="finExpList" class="loading" style="margin-top:12px">Carregando…</div>
+        </div>
+      </div>
     </div>
 
     <!-- ANALYTICS -->
@@ -572,6 +652,7 @@ function go(sec,el){
   el.classList.add('on');
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('on'));
   document.getElementById('sec-'+sec).classList.add('on');
+  if(sec==='financeiro') loadFinanceiro();
   if(sec==='analytics') loadAnalytics();
   if(sec==='kanban') buildKanban();
   if(sec==='automations') loadAutomations();
@@ -794,6 +875,184 @@ async function loadDrawerTasks(uid){
       <div style="flex:1;font-size:12.5px">${esc(t.title)}</div>
       <div style="font-size:10.5px;color:${t.due_date&&new Date(t.due_date)<new Date()?'var(--danger)':'var(--dim)'}">${t.due_date||''}</div>
     </div>`).join('');
+}
+
+// ---------- FINANCEIRO ----------
+let finMonths = 3;
+let finData   = null;
+const CAT_LABEL = { infra:'🖥️ Infra', marketing:'📣 Marketing', ferramentas:'🔧 Ferramentas', pessoal:'👤 Pessoal', outros:'📦 Outros' };
+const METHOD_LABEL = { PIX:'PIX', BOLETO:'Boleto', CREDIT_CARD:'Cartão de Crédito', pix:'PIX', boleto:'Boleto', credit_card:'Cartão' };
+
+async function loadFinanceiro(){
+  document.getElementById('finKpis').innerHTML='<div class="loading">Carregando…</div>';
+  const {data,error} = await sb.rpc('revops_financeiro',{p_months:finMonths});
+  if(error){document.getElementById('finKpis').innerHTML=`<div class="loading">Erro: ${esc(error.message)}</div>`;return;}
+  finData = data;
+  renderFinanceiro();
+}
+
+function setFinPeriod(m, el){
+  finMonths = m;
+  document.querySelectorAll('.finPeriod').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  loadFinanceiro();
+}
+
+function renderFinanceiro(){
+  if(!finData) return;
+  const d = finData;
+
+  // Calcular totais
+  const totalRevenue  = (d.revenue_by_month||[]).reduce((s,r)=>s+Number(r.revenue||0),0);
+  const totalExpenses = (d.expenses_by_month||[]).reduce((s,r)=>s+Number(r.expenses||0),0);
+  const profit        = totalRevenue - totalExpenses;
+  const recurExp      = Number(d.monthly_recurring_expenses||0);
+
+  // KPIs
+  document.getElementById('finKpis').innerHTML = [
+    {l:'MRR',                  v: brl(d.mrr||0),      c:'brand'},
+    {l:'ARR',                  v: brl(d.arr||0),      c:'brand'},
+    {l:`Receita (${finMonths}m)`, v: brl(totalRevenue), c:'brand'},
+    {l:`Despesas (${finMonths}m)`,v: brl(totalExpenses),c: totalExpenses>0?'risk':''},
+    {l:'Lucro do período',     v: brl(profit),         c: profit>=0?'brand':'bad'},
+    {l:'Despesas recorrentes/mês', v: brl(recurExp),   c:'risk'},
+    {l:'Clientes ativos',      v: (d.active_customers||[]).length, c:''},
+    {l:'Margem do período',    v: totalRevenue>0?Math.round(profit/totalRevenue*100)+'%':'—', c: profit>=0?'brand':'bad'},
+  ].map(k=>`<div class="kpi ${k.c}"><div class="lbl">${k.l}</div><div class="val">${k.v}</div></div>`).join('');
+
+  // Fluxo de caixa — tabela por mês
+  const allMonths = [...new Set([
+    ...(d.revenue_by_month||[]).map(r=>r.month),
+    ...(d.expenses_by_month||[]).map(r=>r.month)
+  ])].sort();
+  const revMap  = Object.fromEntries((d.revenue_by_month||[]).map(r=>[r.month,Number(r.revenue||0)]));
+  const expMap  = Object.fromEntries((d.expenses_by_month||[]).map(r=>[r.month,Number(r.expenses||0)]));
+
+  document.getElementById('finFluxo').innerHTML = allMonths.length ? `
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="text-align:left;padding:8px 12px;font-size:11px;color:var(--mut);text-transform:uppercase;border-bottom:1px solid var(--line)">Mês</th>
+        <th style="text-align:right;padding:8px 12px;font-size:11px;color:var(--mut);text-transform:uppercase;border-bottom:1px solid var(--line)">Receita</th>
+        <th style="text-align:right;padding:8px 12px;font-size:11px;color:var(--mut);text-transform:uppercase;border-bottom:1px solid var(--line)">Despesa</th>
+        <th style="text-align:right;padding:8px 12px;font-size:11px;color:var(--mut);text-transform:uppercase;border-bottom:1px solid var(--line)">Resultado</th>
+        <th style="padding:8px 12px;font-size:11px;color:var(--mut);text-transform:uppercase;border-bottom:1px solid var(--line)">Barra</th>
+      </tr></thead>
+      <tbody>${allMonths.map(m=>{
+        const rev = revMap[m]||0;
+        const exp = expMap[m]||0;
+        const res = rev - exp;
+        const maxVal = Math.max(1,...allMonths.map(mm=>Math.max(revMap[mm]||0,expMap[mm]||0)));
+        return `<tr style="border-bottom:1px solid var(--line)">
+          <td style="padding:10px 12px;font-family:'JetBrains Mono';font-size:12px">${m}</td>
+          <td style="padding:10px 12px;text-align:right;color:var(--money);font-family:'JetBrains Mono';font-size:12px">${brl(rev)}</td>
+          <td style="padding:10px 12px;text-align:right;color:var(--danger);font-family:'JetBrains Mono';font-size:12px">${brl(exp)}</td>
+          <td style="padding:10px 12px;text-align:right;font-family:'JetBrains Mono';font-size:12px;font-weight:700;color:${res>=0?'var(--brand)':'var(--danger)'}">${brl(res)}</td>
+          <td style="padding:10px 12px;min-width:120px">
+            <div style="display:flex;flex-direction:column;gap:3px">
+              <div style="background:var(--bg);border-radius:3px;height:6px;overflow:hidden">
+                <div style="width:${Math.round(rev/maxVal*100)}%;height:100%;background:var(--money);border-radius:3px"></div>
+              </div>
+              <div style="background:var(--bg);border-radius:3px;height:6px;overflow:hidden">
+                <div style="width:${Math.round(exp/maxVal*100)}%;height:100%;background:var(--danger);border-radius:3px"></div>
+              </div>
+            </div>
+          </td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>` : '<div class="loading">Sem dados no período. Pagamentos aparecerão aqui quando o Asaas estiver em produção.</div>';
+
+  // Listas
+  renderFinList('finRevPlan',  d.revenue_by_plan||[],   'plan',     'total', brl);
+  renderFinList('finExpCat',   d.expenses_by_category||[],'category','total', brl, CAT_LABEL);
+  renderFinList('finMethod',   d.revenue_by_method||[], 'method',   'total', brl, METHOD_LABEL);
+
+  // Clientes ativos
+  const cust = d.active_customers||[];
+  document.getElementById('finCustomers').innerHTML = cust.length
+    ? cust.map(c=>`
+        <div class="planRow">
+          <div>
+            <div style="font-weight:600;font-size:13px">${esc(c.full_name||c.email)}</div>
+            <div style="font-size:11px;color:var(--dim)">${esc(c.email)}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="color:var(--brand);font-family:'JetBrains Mono';font-weight:700">${brl(c.mrr_value)}<span style="font-size:10px;color:var(--dim)">/mês</span></div>
+            <div style="font-size:10px;color:var(--dim)">${esc(c.plan)}</div>
+          </div>
+        </div>`).join('')
+    : '<div class="loading">Nenhum cliente ativo ainda.</div>';
+
+  // Lista de despesas recentes
+  renderExpenseList(d.recent_expenses||[]);
+}
+
+function renderFinList(elId, series, keyLabel, keyVal, fmt=v=>v, labelMap={}){
+  const el = document.getElementById(elId);
+  if(!series.length){el.innerHTML='<div class="loading">Sem dados.</div>';return;}
+  const max = Math.max(1,...series.map(r=>Number(r[keyVal]||0)));
+  el.innerHTML = '<div style="margin-top:8px">'+series.map(r=>{
+    const v = Number(r[keyVal]||0);
+    const lbl = labelMap[r[keyLabel]] || r[keyLabel] || '—';
+    return `<div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px">
+        <span>${esc(String(lbl))}</span>
+        <span class="mono" style="font-size:11px;color:var(--brand)">${fmt(v)}</span>
+      </div>
+      <div style="background:var(--bg);border-radius:4px;height:5px">
+        <div style="width:${Math.round(v/max*100)}%;height:100%;background:var(--info);border-radius:4px"></div>
+      </div>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+function renderExpenseList(expenses){
+  const el = document.getElementById('finExpList');
+  el.classList.remove('loading');
+  if(!expenses.length){el.innerHTML='<div style="color:var(--dim);font-size:13px">Nenhuma despesa cadastrada ainda.</div>';return;}
+  el.innerHTML = expenses.map(e=>`
+    <div class="planRow" style="flex-direction:column;align-items:flex-start;gap:4px">
+      <div style="display:flex;width:100%;justify-content:space-between;align-items:center">
+        <div>
+          <span style="font-weight:600;font-size:13px">${esc(e.description)}</span>
+          ${e.recurrent?'<span style="margin-left:6px;font-size:10px;background:rgba(245,197,24,.15);color:var(--brand);padding:1px 6px;border-radius:10px;font-weight:700">↻ recorrente</span>':''}
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="color:var(--danger);font-family:'JetBrains Mono';font-weight:700;font-size:13px">${brl(e.amount)}</span>
+          <button onclick="deleteExpense('${e.id}')" style="background:none;border:none;color:var(--dim);font-size:14px;cursor:pointer" title="Excluir">✕</button>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--dim)">${CAT_LABEL[e.category]||e.category} · ${e.expense_date}</div>
+      ${e.notes?`<div style="font-size:11.5px;color:var(--mut)">${esc(e.notes)}</div>`:''}
+    </div>`).join('');
+}
+
+async function saveExpense(){
+  const desc   = document.getElementById('expDesc').value.trim();
+  const cat    = document.getElementById('expCat').value;
+  const amount = parseFloat(document.getElementById('expAmount').value);
+  const date   = document.getElementById('expDate').value || new Date().toISOString().slice(0,10);
+  const rec    = document.getElementById('expRecurrent').checked;
+  const notes  = document.getElementById('expNotes').value.trim()||null;
+  if(!desc){toast('Digite a descrição.');return;}
+  if(!amount||isNaN(amount)){toast('Digite o valor.');return;}
+  const {error} = await sb.from('revops_expenses').insert({
+    description:desc, category:cat, amount, recurrent:rec, expense_date:date, notes
+  });
+  if(error){toast('Erro: '+error.message);return;}
+  await sb.rpc('revops_audit',{p_action:'expense_created',p_detail:{description:desc,amount,category:cat}});
+  document.getElementById('expDesc').value='';
+  document.getElementById('expAmount').value='';
+  document.getElementById('expNotes').value='';
+  document.getElementById('expRecurrent').checked=false;
+  toast('Despesa salva ✓');
+  loadFinanceiro();
+}
+
+async function deleteExpense(id){
+  if(!confirm('Excluir esta despesa?')) return;
+  await sb.from('revops_expenses').delete().eq('id',id);
+  toast('Despesa removida.');
+  loadFinanceiro();
 }
 
 // ---------- ANALYTICS ----------
