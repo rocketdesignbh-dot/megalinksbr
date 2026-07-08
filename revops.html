@@ -223,6 +223,8 @@ tbody tr:last-child td{border-bottom:none}
       <a href="#" class="on" data-sec="dash" onclick="go('dash',this);return false">📊 Visão Geral</a>
       <a href="#" data-sec="crm" onclick="go('crm',this);return false">👥 Clientes</a>
       <a href="#" data-sec="kanban" onclick="go('kanban',this);return false">🗂️ Pipeline Kanban</a>
+      <a href="#" data-sec="tasks" onclick="go('tasks',this);return false">✅ Tarefas</a>
+      <a href="#" data-sec="audit" onclick="go('audit',this);return false">📋 Auditoria</a>
       <a href="#" data-sec="ia" onclick="go('ia',this);return false">🤖 IA Insights</a>
       <a href="#" data-sec="automations" onclick="go('automations',this);return false">⚡ Automações</a>
       <a href="#" data-sec="rules" onclick="go('rules',this);return false">⚙️ Regras de Score</a>
@@ -305,6 +307,39 @@ tbody tr:last-child td{border-bottom:none}
       <div class="kanbanWrap" id="kanbanBoard"></div>
     </div>
 
+    <!-- TAREFAS -->
+    <div class="section" id="sec-tasks">
+      <h2 class="pageTitle">Tarefas</h2>
+      <div class="pageSub">Todas as tarefas abertas de todos os usuários. Para adicionar, abra o card de um usuário no CRM ou Kanban.</div>
+      <div class="toolbar">
+        <select id="fTaskDone" onchange="loadTasks()">
+          <option value="false">Em aberto</option>
+          <option value="true">Concluídas</option>
+          <option value="">Todas</option>
+        </select>
+        <select id="fTaskPri" onchange="loadTasks()">
+          <option value="">Toda prioridade</option>
+          <option value="high">Alta</option>
+          <option value="normal">Normal</option>
+          <option value="low">Baixa</option>
+        </select>
+      </div>
+      <table>
+        <thead><tr><th>Tarefa</th><th>Usuário</th><th>Prioridade</th><th>Vencimento</th><th>Status</th><th></th></tr></thead>
+        <tbody id="tasksBody"><tr><td colspan="6" class="loading">Carregando…</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- AUDITORIA -->
+    <div class="section" id="sec-audit">
+      <h2 class="pageTitle">Auditoria</h2>
+      <div class="pageSub">Registro de todas as ações realizadas pelo admin no RevOps.</div>
+      <table>
+        <thead><tr><th>Ação</th><th>Detalhe</th><th>Usuário alvo</th><th>Quando</th></tr></thead>
+        <tbody id="auditBody"><tr><td colspan="4" class="loading">Carregando…</td></tr></tbody>
+      </table>
+    </div>
+
     <!-- IA INSIGHTS -->
     <div class="section" id="sec-ia">
       <h2 class="pageTitle">IA Insights</h2>
@@ -372,6 +407,23 @@ tbody tr:last-child td{border-bottom:none}
   <button class="closeX" onclick="closeDrawer()">✕</button>
   <h3 id="dName"></h3>
   <div class="sub" id="dInfo"></div>
+
+  <!-- Adicionar tarefa -->
+  <div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:18px">
+    <div style="font-size:12px;font-weight:700;color:var(--mut);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em">Nova Tarefa</div>
+    <input id="taskTitle" placeholder="Ex: Ligar para o cliente…" style="width:100%;background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;color:var(--ink);font-size:13px;font-family:inherit;margin-bottom:8px">
+    <div style="display:flex;gap:8px">
+      <input id="taskDue" type="date" style="flex:1;background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;color:var(--ink);font-size:13px;font-family:inherit">
+      <select id="taskPri" style="flex:1;background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;color:var(--ink);font-size:13px;font-family:inherit">
+        <option value="normal">Normal</option>
+        <option value="high">Alta</option>
+        <option value="low">Baixa</option>
+      </select>
+      <button class="saveMini" onclick="addTask()">+ Adicionar</button>
+    </div>
+    <div id="drawerTasks" style="margin-top:12px"></div>
+  </div>
+
   <div class="tl" id="dTimeline"></div>
 </div>
 
@@ -444,6 +496,8 @@ function go(sec,el){
   if(sec==='kanban') buildKanban();
   if(sec==='automations') loadAutomations();
   if(sec==='ia') loadIA();
+  if(sec==='tasks') loadTasks();
+  if(sec==='audit') loadAudit();
 }
 
 // ---------- HELPERS ----------
@@ -577,12 +631,15 @@ function renderUsers(){
 // ---------- TIMELINE ----------
 async function openTimeline(uid){
   const u=allUsers.find(x=>x.id===uid); if(!u)return;
+  drawerUserId = uid;
   document.getElementById('dName').textContent=u.full_name||u.email;
   const utmInfo = [u.source,u.medium,u.campaign].filter(Boolean).join(' · ');
   document.getElementById('dInfo').textContent=`${u.email} · plano ${u.plan||'—'} · score ${u.score}${utmInfo?' · '+utmInfo:''}`;
   document.getElementById('dTimeline').innerHTML='<div class="loading">Carregando…</div>';
+  document.getElementById('drawerTasks').innerHTML='';
   document.getElementById('drawer').classList.add('open');
   document.getElementById('drawerBg').classList.add('open');
+  loadDrawerTasks(uid);
   const {data,error}=await sb.rpc('revops_user_timeline',{p_user_id:uid,p_limit:100});
   if(error){document.getElementById('dTimeline').innerHTML=`<div class="loading">Erro: ${esc(error.message)}</div>`;return;}
   if(!data||!data.length){document.getElementById('dTimeline').innerHTML='<div class="loading">Sem eventos registrados ainda.</div>';return;}
@@ -594,6 +651,117 @@ async function openTimeline(uid){
 function closeDrawer(){
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('drawerBg').classList.remove('open');
+}
+
+// ---------- TAREFAS ----------
+let drawerUserId = null;
+const PRI_LABEL = { high:'🔴 Alta', normal:'🟡 Normal', low:'🟢 Baixa' };
+
+async function loadTasks(){
+  const done = document.getElementById('fTaskDone').value;
+  const pri  = document.getElementById('fTaskPri').value;
+  let q = sb.from('revops_tasks').select('*').order('due_date',{ascending:true}).order('created_at',{ascending:false});
+  if(done !== '') q = q.eq('done', done === 'true');
+  if(pri)  q = q.eq('priority', pri);
+  const {data,error} = await q.limit(100);
+  const body = document.getElementById('tasksBody');
+  if(error){body.innerHTML=`<tr><td colspan="6" class="loading">Erro: ${esc(error.message)}</td></tr>`;return;}
+  if(!data||!data.length){body.innerHTML='<tr><td colspan="6" class="loading">Nenhuma tarefa encontrada.</td></tr>';return;}
+  body.innerHTML = data.map(t => {
+    const u = allUsers.find(x=>x.id===t.user_id);
+    const overdue = !t.done && t.due_date && new Date(t.due_date) < new Date();
+    return `<tr>
+      <td style="font-weight:500">${esc(t.title)}</td>
+      <td style="font-size:12.5px;color:var(--mut)">${esc(u?.full_name||u?.email||'—')}</td>
+      <td>${PRI_LABEL[t.priority]||t.priority}</td>
+      <td class="mono" style="font-size:12px;color:${overdue?'var(--danger)':'var(--mut)'}">${t.due_date||'—'}</td>
+      <td><span class="tag ${t.done?'customer':'trial'}">${t.done?'✓ Feita':'Aberta'}</span></td>
+      <td>${!t.done?`<button class="saveMini" onclick="completeTask('${t.id}')">✓ Concluir</button>`:''}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function addTask(){
+  if(!drawerUserId){toast('Abra um usuário primeiro.');return;}
+  const title = document.getElementById('taskTitle').value.trim();
+  if(!title){toast('Digite o título da tarefa.');return;}
+  const due   = document.getElementById('taskDue').value || null;
+  const pri   = document.getElementById('taskPri').value;
+  const {error} = await sb.from('revops_tasks').insert({user_id:drawerUserId,title,due_date:due,priority:pri});
+  if(error){toast('Erro: '+error.message);return;}
+  await sb.rpc('revops_audit',{p_action:'task_created',p_target_id:drawerUserId,p_detail:{title}});
+  document.getElementById('taskTitle').value='';
+  document.getElementById('taskDue').value='';
+  toast('Tarefa adicionada ✓');
+  loadDrawerTasks(drawerUserId);
+}
+
+async function completeTask(id){
+  await sb.from('revops_tasks').update({done:true,done_at:new Date().toISOString()}).eq('id',id);
+  await sb.rpc('revops_audit',{p_action:'task_completed',p_detail:{task_id:id}});
+  toast('Tarefa concluída ✓');
+  loadTasks();
+  if(drawerUserId) loadDrawerTasks(drawerUserId);
+}
+
+async function loadDrawerTasks(uid){
+  const {data} = await sb.from('revops_tasks').select('*').eq('user_id',uid).eq('done',false).order('due_date');
+  const el = document.getElementById('drawerTasks');
+  if(!data||!data.length){el.innerHTML='<div style="font-size:12px;color:var(--dim)">Nenhuma tarefa aberta.</div>';return;}
+  el.innerHTML = data.map(t=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)">
+      <button onclick="completeTask('${t.id}')" style="background:none;border:1px solid var(--line2);border-radius:4px;width:18px;height:18px;color:var(--mut);font-size:10px;flex-shrink:0">✓</button>
+      <div style="flex:1;font-size:12.5px">${esc(t.title)}</div>
+      <div style="font-size:10.5px;color:${t.due_date&&new Date(t.due_date)<new Date()?'var(--danger)':'var(--dim)'}">${t.due_date||''}</div>
+    </div>`).join('');
+}
+
+// ---------- AUDITORIA ----------
+const AUDIT_LABELS = {
+  kanban_move:'📌 Kanban movido', score_edit:'⚙️ Score editado',
+  automation_toggle:'⚡ Automação alterada', ia_run:'🤖 IA rodada',
+  task_created:'✅ Tarefa criada', task_completed:'✓ Tarefa concluída',
+  manual_send:'📨 Envio manual'
+};
+
+async function loadAudit(){
+  const {data,error} = await sb.from('revops_audit_log').select('*').order('created_at',{ascending:false}).limit(100);
+  const body = document.getElementById('auditBody');
+  if(error){body.innerHTML=`<tr><td colspan="4" class="loading">Erro: ${esc(error.message)}</td></tr>`;return;}
+  if(!data||!data.length){body.innerHTML='<tr><td colspan="4" class="loading">Nenhuma ação registrada ainda.</td></tr>';return;}
+  body.innerHTML = data.map(r=>{
+    const u = allUsers.find(x=>x.id===r.target_id);
+    return `<tr>
+      <td style="font-weight:500">${AUDIT_LABELS[r.action]||r.action}</td>
+      <td style="font-size:12px;color:var(--mut)">${esc(JSON.stringify(r.detail||{}))}</td>
+      <td style="font-size:12.5px">${esc(u?.full_name||u?.email||'—')}</td>
+      <td class="mono" style="font-size:11px;color:var(--dim)">${dtfmt(r.created_at)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ---------- AUTOMAÇÕES POR ETAPA (executadas após move_card) ----------
+async function runKanbanAutomations(userId, automations){
+  if(!automations||!automations.length) return;
+  const u = allUsers.find(x=>x.id===userId);
+  if(!u) return;
+  for(const auto of automations){
+    if(auto.action_type==='send_email' && auto.email_type){
+      await fetch('https://nxlfezpagporealqqbfj.supabase.co/functions/v1/send-email',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          type: auto.email_type,
+          to: u.email,
+          nome: u.full_name||u.email.split('@')[0]
+        })
+      });
+      await sb.rpc('revops_audit',{
+        p_action:'manual_send', p_target_id:userId,
+        p_detail:{trigger:'kanban_move',email_type:auto.email_type,label:auto.label}
+      });
+    }
+  }
 }
 
 // ---------- IA INSIGHTS ----------
@@ -743,14 +911,19 @@ async function confirmMove(){
   const { user_id, new_stage } = pendingMove;
   const note = document.getElementById('noteText').value.trim() || null;
   document.getElementById('noteModal').classList.remove('open');
-  const { error } = await sb.rpc('revops_move_card',
+  const { data, error } = await sb.rpc('revops_move_card',
     { p_user_id: user_id, p_new_stage: new_stage, p_note: note });
   if(error){ toast('Erro ao mover: '+error.message); return; }
-  // Atualiza local sem recarregar tudo
   const u = allUsers.find(x => x.id === user_id);
   if(u) u.kanban_stage = new_stage;
   buildKanban();
   toast('Card movido ✓ — evento registrado na timeline.');
+  // Disparar automações configuradas para essa etapa
+  const automations = data?.automations || [];
+  if(automations.length){
+    await runKanbanAutomations(user_id, automations);
+    toast(`Card movido ✓ — ${automations.length} automação(ões) disparada(s).`);
+  }
 }
 
 function cancelMove(){ document.getElementById('noteModal').classList.remove('open'); dragUser=null; }
