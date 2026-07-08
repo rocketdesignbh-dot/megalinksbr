@@ -514,6 +514,13 @@ tbody tr:last-child td{border-bottom:none}
         <thead><tr><th>Usuário</th><th>Classificação</th><th>Compra</th><th>Churn</th><th>Abandono</th><th>Próxima ação sugerida</th><th>Gerado em</th></tr></thead>
         <tbody id="iaBody"><tr><td colspan="7" class="loading">Clique em "Analisar todos" para gerar os primeiros insights.</td></tr></tbody>
       </table>
+
+      <h3 style="margin:28px 0 4px">📲 Ofertas sugeridas (aguardando aprovação)</h3>
+      <div class="pageSub" style="margin-bottom:14px">A IA identifica usuários engajados (trial acabando ou uso intenso) e sugere uma oferta. Nada é enviado sem sua aprovação.</div>
+      <table>
+        <thead><tr><th>Usuário</th><th>Oferta</th><th>Motivo da IA</th><th>Mensagem</th><th>Ações</th></tr></thead>
+        <tbody id="offersBody"><tr><td colspan="5" class="loading">Carregando…</td></tr></tbody>
+      </table>
     </div>
 
     <!-- AUTOMAÇÕES -->
@@ -656,7 +663,7 @@ function go(sec,el){
   if(sec==='analytics') loadAnalytics();
   if(sec==='kanban') buildKanban();
   if(sec==='automations') loadAutomations();
-  if(sec==='ia') loadIA();
+  if(sec==='ia'){ loadIA(); loadOffers(); }
   if(sec==='tasks') loadTasks();
   if(sec==='audit') loadAudit();
 }
@@ -1229,6 +1236,68 @@ async function loadIA(){
   }).join('');
 }
 
+const OFFER_LABELS = { trial_upgrade:'🎁 1º mês grátis', engaged_upgrade:'💚 20% de desconto (upgrade)' };
+
+async function loadOffers(){
+  const body = document.getElementById('offersBody');
+  const { data, error } = await sb
+    .from('revops_offers')
+    .select('*')
+    .eq('status','pending')
+    .order('created_at', { ascending: false });
+  if(!body) return;
+  if(error){ body.innerHTML=`<tr><td colspan="5" class="loading">Erro: ${esc(error.message)}</td></tr>`; return; }
+  if(!data||!data.length){ body.innerHTML='<tr><td colspan="5" class="loading">Nenhuma oferta pendente no momento.</td></tr>'; return; }
+
+  body.innerHTML = data.map(o => {
+    const u = allUsers.find(x => x.id === o.user_id);
+    return `<tr>
+      <td>
+        <div style="font-weight:600">${esc(u?.full_name||'—')}</div>
+        <div style="color:var(--dim);font-size:11.5px">${esc(u?.email||o.user_id)}</div>
+      </td>
+      <td>${OFFER_LABELS[o.offer_type]||esc(o.offer_type)}</td>
+      <td style="color:var(--mut);font-size:12.5px;max-width:220px">${esc(o.reasoning||'—')}</td>
+      <td style="color:var(--mut);font-size:12.5px;max-width:280px;white-space:pre-wrap">${esc(o.message)}</td>
+      <td style="white-space:nowrap">
+        <button class="saveMini" style="padding:6px 12px;font-size:12px" onclick="approveOffer('${o.id}')">✓ Aprovar e enviar</button>
+        <button class="saveMini" style="padding:6px 12px;font-size:12px;background:var(--danger,#c0392b)" onclick="rejectOffer('${o.id}')">✕ Recusar</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function approveOffer(offerId){
+  if(!confirm('Confirma o envio dessa oferta por WhatsApp para o usuário?')) return;
+  try {
+    const r = await fetch('https://nxlfezpagporealqqbfj.supabase.co/functions/v1/revops-offer-send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ offer_id: offerId, action: 'approve' })
+    });
+    const data = await r.json();
+    toast(data.ok ? '✓ Oferta enviada por WhatsApp' : ('Falha ao enviar: ' + (data.error||'erro desconhecido')));
+  } catch(e) {
+    toast('Erro: ' + e.message);
+  }
+  loadOffers();
+}
+
+async function rejectOffer(offerId){
+  try {
+    const r = await fetch('https://nxlfezpagporealqqbfj.supabase.co/functions/v1/revops-offer-send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ offer_id: offerId, action: 'reject' })
+    });
+    await r.json();
+    toast('Oferta recusada');
+  } catch(e) {
+    toast('Erro: ' + e.message);
+  }
+  loadOffers();
+}
+
 async function runIA(){
   const btn = document.getElementById('btnRunIA');
   const res = document.getElementById('iaRunResult');
@@ -1243,6 +1312,7 @@ async function runIA(){
     const data = await r.json();
     res.textContent = `✓ ${data.processed ?? 0} usuário(s) analisado(s).`;
     res.style.color = 'var(--money)';
+    setTimeout(() => loadOffers(), 1200);
     setTimeout(() => loadIA(), 1000);
   } catch(e) {
     res.textContent = 'Erro: ' + e.message;
