@@ -1549,6 +1549,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="alert b" style="font-size:12.5px">🟢 Google Tag Manager já está instalado no código (<span class="mono">GTM-53W6734J</span>). Adicione GA4, Meta Pixel, TikTok Pixel etc. direto lá dentro — sem precisar mexer em código de novo.</div>
         <div class="field"><label>GA4 — Measurement ID</label><input id="mktGa4" placeholder="G-XXXXXXX"></div>
         <div class="field"><label>Meta Pixel ID</label><input id="mktMetaPixel" placeholder="ex.: 1234567890"></div>
+        <div class="field"><label>Meta CAPI — Test Event Code <span style="font-weight:400;color:var(--mut)">(opcional)</span></label><input id="mktCapiTest" placeholder="ex.: TEST12345"></div><div style="font-size:11px;color:var(--mut);margin:-6px 0 8px">Cole aqui o código de teste do "Test Events" (Gerenciador de Eventos do Meta) só enquanto estiver testando — sem isso os eventos vão direto pra produção. 🟢 Conversion API (server-side) já está implementada: cadastro e trial iniciado são enviados automaticamente pro Meta via servidor, com deduplicação contra o Pixel do navegador. Falta só você gerar o Access Token no Gerenciador de Eventos e me enviar pra eu configurar como secret.</div>
         <div class="field"><label>TikTok Pixel ID</label><input id="mktTiktok" placeholder=""></div>
         <div class="field"><label>LinkedIn Insight Partner ID</label><input id="mktLinkedin" placeholder=""></div>
         <div class="field"><label>Google Ads ID</label><input id="mktGads" placeholder="AW-XXXXXXX"></div>
@@ -7171,6 +7172,7 @@ async function renderSeoMarketing(){
     if(mkt){
       mktGa4.value=mkt.ga4_measurement_id||"";
       mktMetaPixel.value=mkt.meta_pixel_id||"";
+      mktCapiTest.value=mkt.meta_capi_test_event_code||"";
       mktTiktok.value=mkt.tiktok_pixel_id||"";
       mktLinkedin.value=mkt.linkedin_partner_id||"";
       mktGads.value=mkt.google_ads_id||"";
@@ -7220,6 +7222,7 @@ btnSalvarMkt?.addEventListener("click",async()=>{
       id:1,
       ga4_measurement_id:mktGa4.value.trim(),
       meta_pixel_id:mktMetaPixel.value.trim(),
+      meta_capi_test_event_code:mktCapiTest.value.trim(),
       tiktok_pixel_id:mktTiktok.value.trim(),
       linkedin_partner_id:mktLinkedin.value.trim(),
       google_ads_id:mktGads.value.trim(),
@@ -7248,13 +7251,38 @@ btnGerarUtm?.addEventListener("click",()=>{
   utmResult.value=qs?`${base}?${qs}`:base;
 });
 
-/* ================= TRACKING: dataLayer (bridge pro GTM) ================= */
+/* ================= TRACKING: dataLayer (bridge pro GTM) + Conversion API (server-side) ================= */
 // Fonte única de verdade dos eventos é o revops_events (gravado via trigger no banco —
-// confiável mesmo se o JS falhar ou um ad blocker bloquear a chamada). Esta função só
-// espelha o evento pro dataLayer, pra disparar tags/pixels configurados no GTM.
+// confiável mesmo se o JS falhar ou um ad blocker bloquear a chamada). Esta função:
+// 1) espelha o evento pro dataLayer, pra disparar tags/pixels configurados no GTM;
+// 2) pra eventos de conversão relevantes, também dispara a Meta Conversion API via Edge
+//    Function (server-side — funciona mesmo com ad blocker ou Safari ITP bloqueando o pixel
+//    do navegador). event_id é compartilhado entre os dois pra o Meta deduplicar o evento.
 window.dataLayer=window.dataLayer||[];
+const CAPI_EVENTS=new Set(["cadastro","trial_iniciado"]);
+function _getCookie(name){
+  const m=document.cookie.match(new RegExp("(?:^|; )"+name+"=([^;]*)"));
+  return m?decodeURIComponent(m[1]):null;
+}
 function trackEvent(eventName,extra){
-  try{ window.dataLayer.push(Object.assign({event:eventName},extra||{})); }catch(e){}
+  const eventId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+"_"+Math.random().toString(36).slice(2)));
+  try{ window.dataLayer.push(Object.assign({event:eventName,event_id:eventId},extra||{})); }catch(e){}
+  if(CAPI_EVENTS.has(eventName)){
+    try{
+      fetch(`${SUPA_URL}/functions/v1/capi-send`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          event_name:eventName,
+          event_id:eventId,
+          email:CURRENT_USER?.email||undefined,
+          event_source_url:location.href,
+          fbp:_getCookie("_fbp"),
+          fbc:_getCookie("_fbc")
+        })
+      }).catch(()=>{});
+    }catch(e){}
+  }
 }
 
 /* ================= SEO: meta tags dinâmicas a partir do banco ================= */
