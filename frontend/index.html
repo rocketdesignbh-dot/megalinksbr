@@ -2468,11 +2468,9 @@ function rrow(o){
 }
 
 function lojaIcon(loja){
-  if(loja==="Mercado Livre") return "🛒 ";
-  if(loja==="Shopee") return "🛍️ ";
-  if(loja==="Amazon") return "📦 ";
-  if(loja==="AliExpress") return "🌐 ";
-  return "";
+  const fb={"Mercado Livre":"🛒","Shopee":"🛍️","Amazon":"📦","AliExpress":"🌐"}[loja];
+  if(!fb)return "";
+  return lojaLogoImg(loja,fb,14)+" ";
 }
 
 function compartilharGrupo(){
@@ -2744,7 +2742,7 @@ async function renderRadar(forceRefresh){
     radarFiltersEl.innerHTML=[
       `<button class="fc ${radarFilter==="Todas"?"on":""}" onclick="radarFilter='Todas';renderRadar()">🏪 Todas</button>`,
       ...todasLojas.map(l=>{
-        const icone=lojaIcone[l]||"🏷️";
+        const icone=lojaLogoImg(l,lojaIcone[l]||"🏷️",16);
         const temDados=lojasNoDados.includes(l);
         const conectada=lojaConectada(l);
         const label=temDados?" ✓":(conectada?" (clique Buscar agora)":"");
@@ -2821,6 +2819,17 @@ feed.innerHTML='<div class="feed"><span class="fic">👋</span><span>Bem-vindo �
 /* ================= CONFIG AFILIADOS ================= */
 // Estado persistente das credenciais (sobrevive a navegação dentro da sessão)
 const CREDS_STATE={};
+// Dominios oficiais p/ buscar a logo pequena de cada marketplace (favicon), sem precisar de conta/token
+const LOJA_DOMINIO={"AliExpress":"aliexpress.com","Amazon":"amazon.com.br","AWIN":"awin.com","Shopee":"shopee.com.br","Magalu":"magazineluiza.com.br","Mercado Livre":"mercadolivre.com.br","Natura":"natura.com.br","Shein":"shein.com","TerabyteShop":"terabyteshop.com.br"};
+// Retorna um <img> com a logo real do marketplace; se falhar ao carregar, cai automaticamente pro emoji de fallback
+function lojaLogoImg(nome,fallback,size){
+  size=size||18;
+  const dom=LOJA_DOMINIO[nome];
+  const fb=(fallback||"").replace(/'/g,"\\'");
+  if(!dom)return fallback||"";
+  return `<img src="https://www.google.com/s2/favicons?domain=${dom}&sz=128" alt="${nome}" width="${size}" height="${size}" style="object-fit:contain;border-radius:5px;vertical-align:-4px;flex:none" loading="lazy" onerror="this.outerHTML='${fb}'">`;
+}
+
 const LOJAS=[
   {n:"AliExpress",e:"🛒",img:"",f:[
     {k:"APP KEY",pwd:false,ph:"Sua App Key do AliExpress"},
@@ -2871,7 +2880,7 @@ function renderLojas(){
     const con=lojaConectada(l.n);
     return `<div class="card" style="margin:0" id="loja-card-${li}">
       <div class="cb" style="display:flex;align-items:center;gap:12px;padding:16px">
-        <div style="width:44px;height:44px;border-radius:10px;background:var(--bg3);display:grid;place-items:center;font-size:24px;flex:none">${l.e}</div>
+        <div style="width:44px;height:44px;border-radius:10px;background:var(--bg3);display:grid;place-items:center;font-size:24px;flex:none;overflow:hidden">${lojaLogoImg(l.n,l.e,30)}</div>
         <div style="flex:1">
           <div style="font-weight:700;font-size:14px">${l.n}</div>
           <span class="pill ${con?"volt":"gray"}" style="margin-top:4px;font-size:11px"><span class="d"></span>${con?"Conectado":"Não configurado"}</span>
