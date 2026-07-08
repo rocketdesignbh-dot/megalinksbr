@@ -6801,7 +6801,8 @@ async function enterApp(profile){
   if(!PLAN_FEATURES[MY_PLAN])MY_PLAN="starter";
 
   // Trava de trial expirado (só para não-admin e não-vip)
-  if(!profile.is_admin&&profile.sub_status==="canceled"&&!profile.demo){
+  if(profile.is_vip){/*VIP tem acesso livre*/}
+  else if(!profile.is_admin&&profile.sub_status==="canceled"&&!profile.demo){
     const trialExp=profile.trial_expires_at?new Date(profile.trial_expires_at):null;
     const isTrialExpired=trialExp&&trialExp<new Date();
     if(isTrialExpired||profile.sub_status==="canceled"){
