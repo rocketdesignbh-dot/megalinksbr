@@ -798,7 +798,7 @@ app.post('/ml-search', verifyToken, async (req, res) => {
                 const title = ($a.text() || $c.find('h2').first().text() || '').trim();
                 let link = ($a.attr('href') || '').trim();
                 if (!title || !link) return;
-                link = link.split('#')[0];
+                link = link.split(/#|%23/i)[0]; // corta fragmento literal (#) OU já percent-encoded (%23) — o HTML do ML às vezes serve o href com o fragmento de tracking pré-codificado, quebrando o link final
 
                 // preco atual
                 let $cur = $c.find('.poly-price__current').first();
