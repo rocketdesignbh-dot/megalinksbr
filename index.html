@@ -5146,15 +5146,35 @@ function aiQuickAction(tipo){
   if(acoes[tipo])aiSendMsg(acoes[tipo]);
 }
 
-function aiSendMsg(text){
+let _aiHistory=[];
+
+async function aiSendMsg(text){
   const q=(text||aiInput.value).trim();if(!q)return;
   aiInput.value="";
   aiPush(esc(q),"me");
   const tp=aiTyping();
-  setTimeout(()=>{
+  const onPage=document.querySelector(".page.on");
+  const contexto=onPage?onPage.id.replace("page-",""):"dashboard";
+  try{
+    const session=await SB.auth.getSession();
+    const jwt=session?.data?.session?.access_token;
+    const r=await fetch(`${SUPA_URL}/functions/v1/mega-ia`,{
+      method:"POST",
+      headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"},
+      body:JSON.stringify({acao:"chat",mensagem:q,contexto,historico:_aiHistory})
+    });
+    const d=await r.json();
+    if(d.success&&d.texto){
+      tp.innerHTML=d.texto;
+      _aiHistory.push({role:"user",content:q},{role:"assistant",content:d.texto});
+      if(_aiHistory.length>12)_aiHistory=_aiHistory.slice(-12);
+    }else{
+      tp.innerHTML=aiAns(q);
+    }
+  }catch(e){
     tp.innerHTML=aiAns(q);
-    aiBody.scrollTop=aiBody.scrollHeight;
-  },700+Math.random()*400);
+  }
+  aiBody.scrollTop=aiBody.scrollHeight;
 }
 
 function openDrawer(){
