@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="pt-BR" data-theme="dark">
 <head>
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-5SHB77PR');</script>
+<!-- End Google Tag Manager -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mega Links BR · Plataforma de Afiliados</title>
@@ -11,6 +18,11 @@
 <meta property="og:description" content="Mais que links, conexões que geram resultados. Automatize sua divulgação de ofertas.">
 <meta property="og:image" content="/banner.jpg">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://www.megalinksbr.com.br">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Mega Links BR · Automação para Afiliados">
+<meta name="twitter:description" content="Mais que links, conexões que geram resultados. Automatize sua divulgação de ofertas.">
+<meta name="twitter:image" content="/banner.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -487,6 +499,10 @@ function hideLoading(){
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5SHB77PR"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
 <!-- ============ LOGIN GATE ============ -->
 <div class="authbg" id="authGate">
   <div class="authcard">
@@ -499,6 +515,7 @@ function hideLoading(){
     <div class="auth-tabs"><button class="on" id="tabLogin">Entrar</button><button id="tabSignup">Criar conta</button></div>
     <div class="auth-err" id="authErr"></div>
     <div class="field" id="nameField" style="display:none"><label>Nome completo</label><input id="authName" placeholder="Seu nome"></div>
+    <div class="field" id="cpfField" style="display:none"><label>CPF / CNPJ <span style="color:var(--red)">*</span></label><input id="authCpf" placeholder="000.000.000-00" maxlength="18" oninput="let v=this.value.replace(/\D/g,'');if(v.length<=11)this.value=v.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');else this.value=v.replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2').substring(0,18)"></div>
     <div class="field"><label>E-mail</label><input id="authEmail" type="email" placeholder="voce@email.com" autocomplete="email"></div>
     <div class="field"><label>Senha</label><div class="pass-wrap"><input id="authPass" type="password" placeholder="••••••••" autocomplete="current-password"><button type="button" class="pass-toggle" id="passToggle" onclick="togglePassVis()" title="Mostrar/esconder senha">👁️</button></div></div>
     <button class="btn btn-volt" id="authSubmit" style="width:100%;justify-content:center">Entrar</button>
@@ -580,7 +597,7 @@ function hideLoading(){
     <div class="nav" data-page="canais-grupos"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M17 8a5 5 0 1 0-10 0c0 5-2 6-2 6h14s-2-1-2-6"/><path d="M10.5 19a1.7 1.7 0 0 0 3 0"/></svg>Grupos de Oferta</div>
     <div class="nav" data-page="conexao"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5z"/></svg>Conexão WhatsApp<span class="tag dot">QR</span></div>
     <div class="nav" data-page="config-telegram"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="m22 2-7 20-4-9-9-4 20-7z"/></svg>Config Telegram</div>
-    <div class="lbl">Configurações</div>
+<div class="lbl">Configurações</div>
     <div class="nav" data-page="config-afiliados"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.4-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.2-.8.2-1.2z"/></svg>Config Afiliados</div>
 
     <div class="lbl">Conta & Crescimento</div>
@@ -605,9 +622,9 @@ function hideLoading(){
     <div class="lbl">Operação</div>
     <div class="nav" data-page="adm-instancias"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5z"/></svg>Instâncias & Canais</div>
     <div class="nav" data-page="adm-fila"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Fila de Posts<span class="tag dot" id="filaBadge">live</span></div>
-    <div class="nav" data-page="adm-suporte"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>Suporte</div>
+<div class="nav" data-page="adm-suporte"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>Suporte</div>
     <div class="lbl">Sistema</div>
-    <div class="nav" data-page="adm-config"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.4-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.2-.8.2-1.2z"/></svg>Config. Plataforma</div>
+    <div class="nav" data-page="adm-seo"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>SEO &amp; Marketing</div>
     <div style="padding:10px 12px 4px;display:flex;gap:12px;justify-content:center">
       <a href="/privacidade.html" target="_blank" style="font-size:11px;color:var(--mut);text-decoration:none;opacity:.7" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">Privacidade</a>
       <span style="font-size:11px;color:var(--mut);opacity:.4">·</span>
@@ -660,7 +677,7 @@ function hideLoading(){
   </header>
 
   <main class="wrap" id="wrap">
-  <!-- ===== POSTAR AGORA ===== -->
+  <!-- ===== POST RELÂMPAGO ===== -->
   <section class="page" id="page-post-relampago">
     <div class="phead">
       <div>
@@ -819,8 +836,10 @@ function hideLoading(){
   <section class="page on" id="page-dashboard">
     <div class="phead">
       <div><h1 class="pt" id="greeting">Boa tarde ⚡</h1><div class="psub">Resumo da sua operação na Mega Links BR.</div></div>
-      <div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="openDrawer()">✨ Gerar post com IA</button><button class="btn btn-volt" onclick="go('canais-grupos')">＋ Novo Grupo de Oferta</button></div>
+      <div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="openDrawer()" id="btnDashIA">✨ Gerar post com IA</button><button class="btn btn-volt" onclick="go('canais-grupos')">＋ Novo Grupo de Oferta</button></div>
     </div>
+    <!-- Banner de upgrade contextual (injetado via JS) -->
+    <div id="upgradeBannerDash"></div>
     <!-- CTA de Postagem — item PRINCIPAL da Dashboard -->
     <div onclick="go('post-relampago')" style="cursor:pointer;background:linear-gradient(135deg,rgba(255,77,141,.16),rgba(255,81,104,.08));border:1.5px solid rgba(255,77,141,.4);border-radius:var(--r);padding:24px 26px;margin-bottom:20px;display:flex;align-items:center;gap:18px;transition:.15s" onmouseover="this.style.borderColor='rgba(255,77,141,.7)'" onmouseout="this.style.borderColor='rgba(255,77,141,.4)'">
       <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--pink),var(--red));display:flex;align-items:center;justify-content:center;font-size:28px;flex:none">⚡</div>
@@ -1035,8 +1054,9 @@ function hideLoading(){
       </div>
     </div>
     <div id="grupoStarterBanner" style="display:none;background:linear-gradient(135deg,rgba(245,197,24,.1),rgba(57,192,255,.05));border:1px solid rgba(245,197,24,.3);border-radius:12px;padding:14px 18px;margin-bottom:14px;align-items:center;gap:14px;font-size:13px">
+    <div id="grupoLimiteAlert" style="display:none;background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.4);border-radius:10px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;font-size:13px"></div>
       <span style="font-size:24px">💡</span>
-      <div style="flex:1"><strong>Você está no plano Starter</strong> — configure seus Grupos de Oferta e dispare via <strong style="color:var(--gold)">⚡ Postar Agora</strong>. Para ativar automação de posts em loop, faça upgrade para Pro.</div>
+      <div style="flex:1"><strong>Você está no plano Starter</strong> — configure seus Grupos de Oferta e dispare via <strong style="color:var(--gold)">⚡ Post Relâmpago</strong>. Para ativar automação de posts em loop, faça upgrade para Pro.</div>
       <button class="btn btn-gold btn-sm" onclick="go('assinatura')">Ver planos</button>
     </div>
     <div class="card">
@@ -1058,7 +1078,7 @@ function hideLoading(){
     <div id="tabPanes"></div>
   </section>
 
-  <!-- ===== CONFIG AFILIADOS ===== -->
+<!-- ===== CONFIG AFILIADOS ===== -->
   <section class="page" id="page-config-afiliados">
     <div class="phead"><div><h1 class="pt">Config Afiliados</h1><div class="psub">Conecte suas credenciais para importar produtos e converter links automaticamente.
       <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button></div></div></div>
@@ -1071,7 +1091,7 @@ function hideLoading(){
         <p style="font-size:12.5px;color:var(--tx2);margin:0 0 12px">
           O <strong>Mercado Livre</strong> bloqueia buscas automatizadas sem um proxy — por isso usamos o serviço <strong>Scrape.do</strong>.
           Por padrão, você usa a cota compartilhada da plataforma (com um limite diário para garantir acesso a todos).
-          Conecte seu <strong>próprio token do Scrape.do</strong> (grátis para começar) e suas buscas de Mercado Livre deixam de ter esse limite.
+          Conecte seu <strong>próprio token do Scrape.do</strong> e suas buscas de Mercado Livre deixam de ter esse limite.
           <br><small style="opacity:.8">Não é necessário para Shopee ou as demais lojas — elas já funcionam sem isso.</small>
         </p>
         <div class="alert b" style="font-size:12.5px;margin-bottom:14px">
@@ -1098,7 +1118,7 @@ function hideLoading(){
     <div class="card" style="margin-top:20px">
       <div class="ch">🍪 Cookie do Mercado Livre (alternativa experimental)</div>
       <div class="cb">
-        <p style="font-size:12.5px;color:var(--mut);margin:0 0 12px">
+        <p style="font-size:12.5px;color:var(--tx2);margin:0 0 12px">
           O Scrape.do vem sinalizando bloqueio dos IPs dele pelo Mercado Livre. Como alternativa, você pode conectar o <strong>cookie da sua própria sessão logada no ML</strong> —
           quando disponível, o sistema tenta usar esse cookie <strong>antes</strong> do Scrape.do (não gasta crédito). Isso é experimental: por rodar no nosso servidor
           (não no seu navegador), pode não funcionar sempre. Se falhar, o sistema cai automaticamente pro Scrape.do como já funciona hoje.
@@ -1130,7 +1150,7 @@ function hideLoading(){
     <div class="card" style="margin-top:20px">
       <div class="ch">🏷️ Meus Cupons</div>
       <div class="cb">
-        <p style="font-size:12.5px;color:var(--tx2);margin:0 0 14px">Cadastre seus cupons por loja para usá-los rapidamente no Postar Agora.</p>
+        <p style="font-size:12.5px;color:var(--tx2);margin:0 0 14px">Cadastre seus cupons por loja para usá-los rapidamente no Post Relâmpago.</p>
         <div class="g2" style="gap:10px;align-items:end;margin-bottom:14px">
           <div class="field" style="margin:0"><label>Loja</label>
             <select id="cupomNovaLoja"></select></div>
@@ -1225,7 +1245,7 @@ function hideLoading(){
       <div class="g2"><div class="field"><label>Nome</label><input id="mdNome" placeholder="Seu nome"></div><div class="field"><label>Sobrenome</label><input id="mdSobrenome" placeholder="Seu sobrenome"></div></div>
       <div class="field"><label>E-mail</label><input id="mdEmail" type="email" placeholder="seu@email.com"></div>
       <div class="g3"><div class="field"><label>País</label><select><option>+55 BR</option></select></div><div class="field"><label>DDD</label><input id="mdDDD" placeholder="11" maxlength="2"></div><div class="field"><label>Telefone</label><input id="mdTelefone" placeholder="9 9999-0000"></div></div>
-      <div class="field"><label>CPF / CNPJ</label><input id="mdCpf" placeholder="000.000.000-00"></div>
+      <div class="field"><label>CPF / CNPJ <span style="color:var(--red)">*</span></label><input id="mdCpf" placeholder="000.000.000-00" maxlength="18" oninput="let v=this.value.replace(/\D/g,'');if(v.length<=11)this.value=v.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');else this.value=v.replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2').substring(0,18)"><div id="mdCpfWarn" style="display:none;font-size:11.5px;color:var(--gold);margin-top:4px">⚠️ CPF obrigatório para pagamentos via Pix. Preencha e salve.</div></div>
       <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin:14px 0;color:var(--tx)"><input type="checkbox" checked style="width:auto"> Receber notificações via e-mail</label>
       <div class="alert" id="mdErr" style="display:none;margin-bottom:14px"></div>
       <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px"><button class="btn btn-volt" id="btnSalvarMeusDados" onclick="saveMeusDados()">Salvar</button><button class="btn btn-red" onclick="confirm('Excluir conta permanentemente?')">Excluir conta</button></div>
@@ -1234,32 +1254,18 @@ function hideLoading(){
 
   <!-- ===== ASSINATURA ===== -->
   <section class="page" id="page-assinatura">
-    <div class="phead"><div><h1 class="pt">Assinatura</h1><div class="psub">Gerencie seu plano, pagamento e benefícios.
-      <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button></div></div></div>
+    <div class="phead"><div><h1 class="pt">Assinatura</h1><div class="psub">Gerencie seu plano, pagamento e benefícios.</div></div></div>
 
-    <!-- Card de assinatura atual -->
-    <div class="card" id="myPlanCard">
-      <div class="cb" style="display:flex;align-items:center;gap:16px;padding:20px;flex-wrap:wrap">
-        <div style="font-size:36px;flex:none">💳</div>
-        <div style="flex:1;min-width:200px">
-          <div style="font-size:11.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Seu plano atual</div>
-          <div style="font-family:var(--disp);font-size:22px;font-weight:800;line-height:1.1" id="myPlanName">STARTER</div>
-          <div style="font-size:12.5px;color:var(--tx2);margin-top:3px" id="myPlanInfo">7 dias grátis · Sem cobrança</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <span class="pill volt"><span class="d"></span>ATIVO</span>
-          <span class="pill green"><span class="d"></span>EM DIA</span>
-        </div>
-      </div>
-    </div>
+    <!-- Card do plano atual dinâmico -->
+    <div id="myPlanCard" style="margin-bottom:24px"></div>
 
     <!-- Título + toggle -->
-    <div style="text-align:center;margin:32px 0 8px">
+    <div style="text-align:center;margin:8px 0 16px">
       <h2 style="font-size:24px;letter-spacing:-.02em">Escolha o plano ideal</h2>
-      <p style="color:var(--tx2);margin-top:6px;font-size:13.5px">Cancele quando quiser · Sem fidelidade · Pix ou cartão</p>
+      <p style="color:var(--tx2);margin-top:6px;font-size:13.5px">Cancele quando quiser · Sem fidelidade · Pagamento via Pix</p>
     </div>
 
-    <!-- Toggle Mensal/Anual com badge -->
+    <!-- Toggle Mensal/Anual -->
     <div class="bill-toggle">
       <button class="on" data-bill="m">Mensal</button>
       <button data-bill="a">Anual <span style="background:var(--volt);color:#0c0c0e;font-size:9px;font-weight:800;padding:2px 5px;border-radius:5px;margin-left:5px">-20%</span></button>
@@ -1267,6 +1273,39 @@ function hideLoading(){
 
     <!-- Grid de planos -->
     <div class="g4" id="plansGrid"></div>
+
+    <!-- Tabela comparativa -->
+    <div class="card" style="margin-top:32px;overflow-x:auto">
+      <div class="ch">📊 Comparativo completo</div>
+      <div class="cb" style="padding:0">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="border-bottom:1px solid var(--bd)">
+              <th style="text-align:left;padding:12px 16px;color:var(--mut);font-weight:600">Recurso</th>
+              <th style="text-align:center;padding:12px 8px">⚡ Starter</th>
+              <th style="text-align:center;padding:12px 8px">🚀 Pro</th>
+              <th style="text-align:center;padding:12px 8px;background:rgba(139,92,246,.08)">🔥 Elite</th>
+              <th style="text-align:center;padding:12px 8px">👑 Premium</th>
+            </tr>
+          </thead>
+          <tbody id="planCompareBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- FAQ rápido -->
+    <div class="g2" style="margin-top:24px;align-items:start">
+      <div class="card" style="margin:0"><div class="ch">❓ Dúvidas frequentes</div><div class="cb" style="display:grid;gap:14px">
+        <div><strong style="font-size:13px">Posso cancelar a qualquer momento?</strong><p style="font-size:12.5px;color:var(--tx2);margin:4px 0 0">Sim. Sem fidelidade, sem multa. O acesso continua até o fim do período pago.</p></div>
+        <div><strong style="font-size:13px">Como funciona o upgrade?</strong><p style="font-size:12.5px;color:var(--tx2);margin:4px 0 0">Assine o novo plano via Pix. Assim que o pagamento for confirmado, os recursos são liberados automaticamente.</p></div>
+        <div><strong style="font-size:13px">E se eu não renovar?</strong><p style="font-size:12.5px;color:var(--tx2);margin:4px 0 0">Após 3 dias de atraso você entra em período de carência. Após 15 dias sem pagamento o plano é rebaixado para Starter.</p></div>
+      </div></div>
+      <div class="card" style="margin:0"><div class="ch">💬 Precisa de ajuda?</div><div class="cb" style="display:grid;gap:12px">
+        <p style="font-size:13px;color:var(--tx2);margin:0">Dúvidas sobre cobranças, cancelamento ou upgrade? Fale com a gente.</p>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="go('suporte')">📩 Contatar suporte</button>
+        <p style="font-size:11px;color:var(--mut);text-align:center">suporte@megalinksbr.com.br · resposta em até 24h</p>
+      </div></div>
+    </div>
   </section>
 
   <!-- ===== FAQ ===== -->
@@ -1329,7 +1368,10 @@ function hideLoading(){
   <!-- ============ ADMIN: VISÃO GERAL ============ -->
   <section class="page" id="page-adm-visao">
     <div class="phead"><div><h1 class="pt">Visão Geral da Plataforma</h1><div class="psub">Métricas consolidadas de toda a Mega Links BR.</div></div>
-      <select style="max-width:170px"><option>Últimos 30 dias</option><option>Este mês</option><option>Este ano</option></select></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-ghost" onclick="refreshAdminVisao().then(()=>toast('Dados atualizados!','✅'))" style="font-size:12px">↻ Atualizar</button>
+        <select style="max-width:170px"><option>Últimos 30 dias</option><option>Este mês</option><option>Este ano</option></select>
+      </div></div>
     <div class="g4" id="admKpis" style="margin-bottom:20px"></div>
     <div class="g23">
       <div class="card"><div class="ch">💰 Receita (MRR) vs novos assinantes <span class="r">12 meses</span></div><div class="cb">
@@ -1359,7 +1401,9 @@ function hideLoading(){
 
   <!-- ============ ADMIN: ASSINATURAS & RECEITA ============ -->
   <section class="page" id="page-adm-assinaturas">
-    <div class="phead"><div><h1 class="pt">Assinaturas & Receita</h1><div class="psub">Acompanhe MRR, inadimplência e cobranças.</div></div></div>
+    <div class="phead"><div><h1 class="pt">Assinaturas & Receita</h1><div class="psub">Acompanhe MRR, inadimplência e cobranças.</div></div>
+      <button class="btn btn-ghost btn-sm" onclick="admRunCheckSubs()" title="Verifica vencimentos e rebaixa inadimplentes automaticamente">⚙️ Verificar vencimentos</button>
+    </div>
     <div class="g4" id="subKpis" style="margin-bottom:20px"></div>
     <div class="g23" style="margin-bottom:20px">
       <div class="card"><div class="ch">📈 Receita (últimos 6 meses)</div><div class="cb"><div class="bar-track" id="finChart"></div></div></div>
@@ -1390,8 +1434,7 @@ function hideLoading(){
       <div class="card"><div class="ch">📜 Log ao vivo</div><div class="cb" id="queueLog" style="padding-top:6px;max-height:340px;overflow-y:auto"></div></div>
     </div>
   </section>
-
-  <!-- ============ ADMIN: SUPORTE ============ -->
+<!-- ============ ADMIN: SUPORTE ============ -->
   <!-- ============ ADMIN: MEMBROS VIP ============ -->
   <section class="page" id="page-adm-vip">
     <div class="phead">
@@ -1448,7 +1491,7 @@ function hideLoading(){
             <option value="starter">Starter</option>
             <option value="pro" selected>Pro</option>
             <option value="elite">Elite</option>
-            <option value="infinity">Infinity</option>
+            <option value="premium">Premium</option>
           </select>
         </div>
         <div class="field"><label>Tipo de acesso</label>
@@ -1519,6 +1562,72 @@ function hideLoading(){
     <div class="card"><div class="ch">🔌 Integrações</div><div class="cb" id="integGrid"></div></div>
   </section>
 
+  <section class="page" id="page-adm-seo">
+    <div class="phead"><div><h1 class="pt">🔍 SEO &amp; Marketing</h1><div class="psub">Meta tags, tags de rastreamento e eventos de conversão do site.</div></div></div>
+    <div class="g2">
+      <div class="card" style="margin:0"><div class="ch">🏷️ SEO — Página inicial</div><div class="cb">
+        <div class="field"><label>Página</label>
+          <select id="seoPageKey">
+            <option value="home">Página inicial (home)</option>
+            <option value="termos">Termos de Uso</option>
+            <option value="privacidade">Política de Privacidade</option>
+          </select>
+        </div>
+        <div class="field"><label>Title</label><input id="seoTitle" maxlength="70" placeholder="Título da página"></div>
+        <div class="field"><label>Meta description</label><textarea id="seoDesc" rows="2" maxlength="160" placeholder="Descrição para resultados de busca"></textarea></div>
+        <div class="field"><label>Palavras-chave (separadas por vírgula)</label><input id="seoKeywords" placeholder="ex.: automação whatsapp, radar mercado livre"></div>
+        <div class="field"><label>Open Graph — título</label><input id="seoOgTitle" placeholder="Título ao compartilhar (WhatsApp/redes)"></div>
+        <div class="field"><label>Open Graph — descrição</label><textarea id="seoOgDesc" rows="2"></textarea></div>
+        <div class="field"><label>Open Graph — imagem (URL)</label><input id="seoOgImage" placeholder="/banner.jpg"></div>
+        <div class="field"><label>URL canônica</label><input id="seoCanonical" placeholder="https://www.megalinksbr.com.br"></div>
+        <div class="field"><label>Schema.org (JSON-LD)</label><textarea id="seoSchema" rows="8" class="mono" placeholder="Cole aqui um JSON-LD válido (schema.org)"></textarea>
+          <div style="font-size:11px;color:var(--mut);margin-top:4px">Dados estruturados pro Google entender a empresa/produto (rich results). Precisa ser um JSON válido — não inclua nota/avaliação fictícia, isso viola as diretrizes do Google.</div>
+        </div>
+        <button class="btn btn-volt" id="btnSalvarSeo">Salvar SEO</button>
+      </div></div>
+
+      <div class="card" style="margin:0"><div class="ch">📡 Tracking &amp; Analytics</div><div class="cb">
+        <div class="alert b" style="font-size:12.5px">🟢 Google Tag Manager já está instalado no código (<span class="mono">GTM-5SHB77PR</span>). Adicione GA4, Meta Pixel, TikTok Pixel etc. direto lá dentro — sem precisar mexer em código de novo.</div>
+        <div class="field"><label>GA4 — Measurement ID</label><input id="mktGa4" placeholder="G-XXXXXXX"></div>
+        <div class="field"><label>Meta Pixel ID</label><input id="mktMetaPixel" placeholder="ex.: 1234567890"></div>
+        <div class="field"><label>Meta CAPI — Test Event Code <span style="font-weight:400;color:var(--mut)">(opcional)</span></label><input id="mktCapiTest" placeholder="ex.: TEST12345"></div><div style="font-size:11px;color:var(--mut);margin:-6px 0 8px">Cole aqui o código de teste do "Test Events" (Gerenciador de Eventos do Meta) só enquanto estiver testando — sem isso os eventos vão direto pra produção. 🟢 Conversion API (server-side) já está implementada: cadastro e trial iniciado são enviados automaticamente pro Meta via servidor, com deduplicação contra o Pixel do navegador. Falta só você gerar o Access Token no Gerenciador de Eventos e me enviar pra eu configurar como secret.</div>
+        <div class="field"><label>TikTok Pixel ID</label><input id="mktTiktok" placeholder=""></div>
+        <div class="field"><label>LinkedIn Insight Partner ID</label><input id="mktLinkedin" placeholder=""></div>
+        <div class="field"><label>Google Ads ID</label><input id="mktGads" placeholder="AW-XXXXXXX"></div>
+        <div class="field"><label>Microsoft Clarity — Project ID</label><input id="mktClarity" placeholder=""></div>
+        <div class="field"><label>Hotjar — Site ID</label><input id="mktHotjar" placeholder=""></div>
+        <div class="field"><label>Verificação Google Search Console</label><input id="mktGsc" placeholder="conteúdo da meta tag de verificação"></div><div style="font-size:11px;color:var(--mut);margin:-6px 0 8px">Alternativa mais simples: no Search Console, escolha o método de verificação "Google Tag Manager" — como o GTM já está instalado, verifica na hora, sem precisar preencher esse campo.</div>
+        <div class="field"><label>Verificação Bing Webmaster</label><input id="mktBing" placeholder=""></div>
+        <button class="btn btn-volt" id="btnSalvarMkt">Salvar Tracking</button>
+        <div style="margin-top:10px;font-size:11.5px;color:var(--mut)">Esses IDs ficam salvos no banco pra referência/documentação. Como o rastreamento passa pelo GTM, ative-os direto no <a href="https://tagmanager.google.com" target="_blank" style="color:var(--volt)">painel do GTM</a>.</div>
+      </div></div>
+    </div>
+
+    <div class="g2">
+      <div class="card" style="margin:0"><div class="ch">🎯 Eventos de conversão</div><div class="cb" id="seoEventsInfo">
+        <div class="qrow"><strong>cadastro</strong><span class="pill volt" style="margin-left:auto">ativo</span></div>
+        <div class="qrow"><strong>login</strong><span class="pill volt" style="margin-left:auto">ativo</span></div>
+        <div class="qrow"><strong>trial_iniciado</strong><span class="pill volt" style="margin-left:auto">ativo</span></div>
+        <div class="qrow"><strong>compra</strong><span class="pill gray" style="margin-left:auto">pendente (server-side)</span></div>
+        <div class="qrow"><strong>assinatura</strong><span class="pill gray" style="margin-left:auto">pendente (server-side)</span></div>
+        <div class="qrow"><strong>cancelamento</strong><span class="pill gray" style="margin-left:auto">pendente (server-side)</span></div>
+        <div class="qrow"><strong>renovação</strong><span class="pill gray" style="margin-left:auto">pendente (server-side)</span></div>
+        <div class="alert" style="font-size:12px;margin-top:8px">Eventos de pagamento nascem no webhook do Asaas — precisam ser emitidos direto na Edge Function (próxima etapa).</div>
+      </div></div>
+
+      <div class="card" style="margin:0"><div class="ch">🔗 Gerador de UTM</div><div class="cb">
+        <div class="field"><label>URL base</label><input id="utmUrl" value="https://www.megalinksbr.com.br"></div>
+        <div class="field"><label>utm_source</label><input id="utmSource" placeholder="instagram, google, newsletter…"></div>
+        <div class="field"><label>utm_medium</label><input id="utmMedium" placeholder="cpc, social, email…"></div>
+        <div class="field"><label>utm_campaign</label><input id="utmCampaign" placeholder="lancamento_pro"></div>
+        <div class="field"><label>utm_term</label><input id="utmTerm" placeholder="(opcional)"></div>
+        <div class="field"><label>utm_content</label><input id="utmContent" placeholder="(opcional)"></div>
+        <button class="btn btn-ghost" id="btnGerarUtm">Gerar link</button>
+        <div class="field" style="margin-top:8px"><label>Link gerado</label><input id="utmResult" class="mono" readonly onclick="this.select()"></div>
+      </div></div>
+    </div>
+  </section>
+
   </main>
   <footer class="foot">© 2026 Mega Links BR · plataforma de automação para afiliados. <span class="kbd">Ctrl K</span> abre a busca · alterne <strong>Afiliado ⇄ Admin</strong> na lateral.</footer>
 </div>
@@ -1567,11 +1676,33 @@ function hideLoading(){
 <div class="palbg" id="palbg"><div class="pal"><input id="palInput" placeholder="Buscar páginas e ações…"><div class="pall" id="pall"></div></div></div>
 
 <!-- ============ MODAIS ============ -->
+<div class="mbg" id="modalBoasVindas"><div class="modal">
+  <div class="mh">🎉 Bem-vindo(a) à Mega Links BR<button class="mx" onclick="fecharBoasVindas()">×</button></div>
+  <div class="mb">
+    <p style="margin:0 0 14px;color:var(--tx2);font-size:13.5px">Oi, <strong id="bvNome" style="color:var(--tx)"></strong>! Sua conta foi criada e o trial já está ativo. Em 3 passos você já sai divulgando ofertas automaticamente:</p>
+    <ul class="osteps" style="margin:0 0 4px">
+      <li><span class="ostep"></span>Parear seu WhatsApp (QR Code)</li>
+      <li><span class="ostep"></span>Criar seu primeiro Grupo de Oferta</li>
+      <li><span class="ostep"></span>Configurar seus links de afiliado</li>
+    </ul>
+    <div class="alert b" style="margin-top:14px;font-size:12.5px">💡 Esse passo a passo continua disponível a qualquer momento no card "Comece por aqui" do seu Dashboard.</div>
+  </div>
+  <div class="mf">
+    <button class="btn btn-ghost" onclick="fecharBoasVindas()">Explorar sozinho</button>
+    <button class="btn btn-volt" onclick="fecharBoasVindas('conexao')">Vamos começar →</button>
+  </div>
+</div></div>
 <div class="mbg" id="modalGrupo"><div class="modal">
   <div class="mh">Novo Grupo de Oferta <button class="mx" onclick="closeModal('modalGrupo')">×</button></div>
   <div class="mb"><div class="field"><label>Nome do Grupo de Oferta</label><input id="inNomeGrupo" placeholder="ex.: Achadinhos da Semana"></div>
     <div class="alert b" style="margin:0">💡 Nomeie pelo <strong>nicho</strong>. Cada Grupo de Oferta reúne canais, lojas e regras daquele nicho.</div></div>
   <div class="mf"><button class="btn btn-ghost" onclick="closeModal('modalGrupo')">Cancelar</button><button class="btn btn-volt" id="btnSalvarGrupo">Criar Grupo de Oferta</button></div>
+</div></div>
+
+<!-- ===== MODAL CHECKOUT PIX ===== -->
+<div class="mbg" id="modalCheckout"><div class="modal" style="max-width:440px">
+  <div class="mh"><div><div style="font-family:var(--disp)">Assinar plano <span id="ckPlanLabel"></span></div><div style="font-size:13px;color:var(--mut)" id="ckValor"></div></div><button class="mx" onclick="closeModal('modalCheckout')">×</button></div>
+  <div class="mb" id="ckBody" style="padding-top:8px"></div>
 </div></div>
 
 <div class="mbg" id="modalUser"><div class="modal" style="max-width:560px"><div id="userDetail"></div></div></div>
@@ -1910,10 +2041,10 @@ async function loadCreds(){
 
 /* ================= PLANOS REAIS (plan_features) — definido cedo, antes de qualquer uso ================= */
 const PLAN_FALLBACK={
-  starter:{plan:"starter",label:"Starter",color:"#10B981",price_month:59.90,wa_groups:1,wa_channels:1,wa_connections:1,wa_post_automation:false,tg_channels:1,tg_post_automation:false,marketplaces:2,links_simultaneous:10,ads_creation:"basica",radar:true,support_level:"comunidade",sort_order:1},
-  pro:{plan:"pro",label:"Pro",color:"#3B82F6",price_month:99.90,wa_groups:3,wa_channels:3,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,marketplaces:3,links_simultaneous:30,ads_creation:"completa",radar:true,support_level:"email",sort_order:2},
-  elite:{plan:"elite",label:"Elite",color:"#8B5CF6",price_month:159.90,wa_groups:6,wa_channels:6,wa_connections:2,wa_post_automation:true,tg_channels:8,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,support_level:"prioritario",sort_order:3},
-  infinity:{plan:"infinity",label:"Infinity",color:"#F59E0B",price_month:229.90,wa_groups:20,wa_channels:25,wa_connections:5,wa_post_automation:true,tg_channels:25,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,support_level:"vip",sort_order:4}
+  starter:{plan:"starter",label:"Starter",color:"#10B981",price_month:57.90,wa_groups:1,wa_channels:2,wa_connections:1,wa_post_automation:false,tg_channels:1,tg_post_automation:false,marketplaces:1,links_simultaneous:10,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:false,support_level:"comunidade",sort_order:1},
+  pro:{plan:"pro",label:"Pro",color:"#3B82F6",price_month:97.90,wa_groups:3,wa_channels:6,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,marketplaces:3,links_simultaneous:30,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:true,support_level:"email",sort_order:2},
+  elite:{plan:"elite",label:"Elite",color:"#8B5CF6",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",sort_order:3},
+  premium:{plan:"premium",label:"Premium",color:"#F59E0B",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",sort_order:4}
 };
 let PLAN_FEATURES={...PLAN_FALLBACK};
 let MY_PLAN="starter";
@@ -1958,7 +2089,7 @@ function setRole(role){
   navAdmin.classList.toggle("show",role==="admin");
   if(role==="admin"){ // recarrega dados reais do banco ao entrar no admin
     Promise.all([loadUsersFromDB(),loadVipMembers()]).then(()=>loadPaymentsFromDB()).then(()=>{
-      try{renderAdminVisao();renderUsers();renderSubs();renderVip();}catch(e){}
+      try{renderUsers();renderSubs();renderVip();}catch(e){}
     });
   }
   go(role==="admin"?"adm-visao":"dashboard");
@@ -1975,7 +2106,7 @@ function go(page){
   window.scrollTo({top:0});closeDD();
   if(page==="adm-fila") startQueue(); else stopQueue();
   if(page!=="post-relampago"&&typeof pararStatusQuotaML==="function")pararStatusQuotaML();
-  // Hook: se entrou no Postar Agora via Radar, carrega a oferta pré-selecionada
+  // Hook: se entrou no Post Relâmpago via Radar, carrega a oferta pré-selecionada
   if(page==="post-relampago"&&window.PR_PRE_FROM_RADAR&&typeof prCarregarOfertaDoRadar==="function"){
     setTimeout(()=>prCarregarOfertaDoRadar(),50);
   }
@@ -2014,6 +2145,13 @@ function go(page){
   if(page==="adm-suporte")setTimeout(()=>renderSuporte(),50);
   // Hook: ao entrar em Instâncias & Canais, recarrega com token já disponível
   if(page==="adm-instancias")setTimeout(()=>renderInstancias(),50);
+  // Hook: ao entrar na Visão Geral, recarrega dados reais do banco
+  if(page==="adm-visao")setTimeout(()=>{if(typeof SB!=="undefined"&&SB)refreshAdminVisao();},120);
+  // Hook: ao entrar no Analítico, carrega dados reais
+  if(page==="analitico")setTimeout(()=>{if(typeof SB!=="undefined"&&SB&&CURRENT_USER?.id)loadAnalitico();},120);
+  // Hook: ao entrar em Assinatura, re-renderiza com dados frescos do plano
+  if(page==="assinatura")setTimeout(()=>renderPlans(),80);
+  if(page==="adm-seo")setTimeout(()=>renderSeoMarketing(),50);
 }
 document.querySelectorAll(".nav").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
 document.querySelectorAll(".nav-cta").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
@@ -2037,25 +2175,80 @@ function spark(d,c){const w=86,h=30,mx=Math.max(...d),mn=Math.min(...d);
   const p=d.map((v,i)=>(i/(d.length-1)*w).toFixed(1)+","+(h-((v-mn)/(mx-mn||1))*(h-4)-2).toFixed(1)).join(" ");
   return `<svg class="sp" width="${w}" height="${h}"><polyline points="${p}" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"/></svg>`;}
 kpiRow.innerHTML=[
-  {l:"Cliques hoje",v:"0",d:"aguardando dados",up:1,c:"#19E27D",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
-  {l:"Comissões estimadas",v:"R$ 0,00",d:"aguardando dados",up:1,c:"#39C0FF",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
-  {l:"Posts enviados",v:"0",d:"aguardando dados",up:1,c:"#FFB020",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
-  {l:"CTR médio",v:"—",d:"aguardando dados",up:1,c:"#FF4D8D",s:[0,0,0,0,0,0,0,0,0,0,0,0]}
-].map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="kd" style="color:var(--mut)">${k.d}</div>${spark(k.s,k.c)}</div>`).join("");
+  {l:"Cliques hoje",v:"—",d:"carregando…",c:"#19E27D",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {l:"Cliques 14 dias",v:"—",d:"carregando…",c:"#39C0FF",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {l:"Posts enviados",v:"—",d:"carregando…",c:"#FFB020",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {l:"Links rastreados",v:"—",d:"carregando…",c:"#9B7DFF",s:[0,0,0,0,0,0,0,0,0,0,0,0]}
+].map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv" id="kpi_${k.l.replace(/\s/g,'_')}">${k.v}</div><div class="kd" style="color:var(--mut)" id="kpid_${k.l.replace(/\s/g,'_')}">${k.d}</div>${spark(k.s,k.c)}</div>`).join("");
 
-/* ================= AREA CHART ================= */
-(function(){const data=[0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-  const labels=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(13-i));return d.getDate()+"/"+(d.getMonth()+1);});
-  const W=720,H=220,P=34,mx=Math.max(Math.ceil(Math.max(...data)/200)*200,1);
-  if(!data||data.length<2||!chArea)return;
+async function loadAnalitico(){
+  if(!SB||!CURRENT_USER?.id)return;
+  const uid=CURRENT_USER.id;
+  const hoje=new Date();hoje.setHours(0,0,0,0);
+  const quatorze=new Date(hoje);quatorze.setDate(quatorze.getDate()-13);
+  const temRastreamento=planTemRastreamento();
+
+  // ── Posts enviados ──
+  try{
+    const{data:postsData}=await SB
+      .from("scheduled_posts").select("sent_at")
+      .eq("user_id",uid).eq("status","sent")
+      .gte("sent_at",quatorze.toISOString());
+    const totalPosts=(postsData||[]).length;
+    const postsHoje=(postsData||[]).filter(p=>p.sent_at&&new Date(p.sent_at)>=hoje).length;
+    const elV=document.getElementById("kpi_Posts_enviados");
+    const elD=document.getElementById("kpid_Posts_enviados");
+    if(elV)elV.textContent=totalPosts.toLocaleString("pt-BR");
+    if(elD)elD.textContent="hoje: "+postsHoje+" · 14 dias";
+    // Gráfico de posts
+    const dias=Array.from({length:14},(_,i)=>{const d=new Date(quatorze);d.setDate(d.getDate()+i);return d;});
+    const chartData=dias.map(d=>{const next=new Date(d);next.setDate(next.getDate()+1);return (postsData||[]).filter(p=>p.sent_at&&new Date(p.sent_at)>=d&&new Date(p.sent_at)<next).length;});
+    renderAnaliticoChart(chartData,dias.map(d=>d.getDate()+"/"+(d.getMonth()+1)),totalPosts,"posts");
+  }catch(e){console.warn("loadAnalitico posts:",e);}
+
+  // ── Cliques (Elite/Premium) ──
+  if(!temRastreamento){
+    // Gate visual para Starter/Pro
+    ["kpi_Cliques_hoje","kpi_Cliques_14_dias","kpi_Links_rastreados"].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.innerHTML='<span style="font-size:11px;color:var(--mut)">🔒 Elite+</span>';
+    });
+    ["kpid_Cliques_hoje","kpid_Cliques_14_dias","kpid_Links_rastreados"].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.textContent="disponível no plano Elite";
+    });
+    return;
+  }
+  try{
+    const{data:clickData}=await SB
+      .from("v_clicks_by_link").select("clicks_today,clicks_14d,code")
+      .eq("user_id",uid);
+    const rows=clickData||[];
+    const clicksHoje=rows.reduce((a,r)=>a+Number(r.clicks_today||0),0);
+    const clicks14=rows.reduce((a,r)=>a+Number(r.clicks_14d||0),0);
+    const linksAtivos=rows.length;
+    const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+    set("kpi_Cliques_hoje",clicksHoje.toLocaleString("pt-BR"));
+    set("kpid_Cliques_hoje","cliques hoje");
+    set("kpi_Cliques_14_dias",clicks14.toLocaleString("pt-BR"));
+    set("kpid_Cliques_14_dias","últimos 14 dias");
+    set("kpi_Links_rastreados",linksAtivos.toLocaleString("pt-BR"));
+    set("kpid_Links_rastreados","links ativos");
+  }catch(e){console.warn("loadAnalitico cliques:",e);}
+}
+
+function renderAnaliticoChart(data,labels,total,tipo){
+  if(!chArea)return;
+  const W=720,H=220,P=34,mx=Math.max(Math.ceil(Math.max(...data,1)/5)*5,1);
   const x=i=>P+i*(W-P-10)/(data.length-1),y=v=>H-26-(v/mx)*(H-50);
   let path="M"+x(0)+","+y(data[0]);data.forEach((v,i)=>{if(i)path+=" L"+x(i)+","+y(v);});
-  const area=path+` L${x(13)},${H-26} L${x(0)},${H-26} Z`;let grid="",lbl="";
-  for(let g=0;g<=4;g++){const v=mx*g/4,yy=y(v);grid+=`<line x1="${P}" x2="${W-8}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="3 4"/>`;lbl+=`<text x="${P-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`;}
-  const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="#19E27D" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
+  const area=path+` L${x(data.length-1)},${H-26} L${x(0)},${H-26} Z`;let grid="",lbl="";
+  for(let g=0;g<=4;g++){const v=Math.round(mx*g/4),yy=y(v);grid+=`<line x1="${P}" x2="${W-8}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="3 4"/>`;lbl+=`<text x="${P-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`;}
+  const color=tipo==="posts"?"#FFB020":"#19E27D";
+  const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="${color}" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
   const xl=labels.map((t,i)=>i%2?"":`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${t}</text>`).join("");
-  chArea.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#19E27D" stop-opacity=".4"/><stop offset="1" stop-color="#19E27D" stop-opacity="0"/></linearGradient></defs>${grid}${lbl}<path d="${area}" fill="url(#ga)"/><path d="${path}" fill="none" stroke="url(#gr)" stroke-width="2.6" stroke-linecap="round"/>${dots}${xl}</svg>`;
-  chTot.textContent=data.reduce((a,b)=>a+b,0).toLocaleString("pt-BR")+" cliques";})();
+  const gradId=tipo==="posts"?"gp":"ga";
+  chArea.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".4"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>${grid}${lbl}<path d="${area}" fill="url(#${gradId})"/><path d="${path}" fill="none" stroke="${color}" stroke-width="2.6" stroke-linecap="round"/>${dots}${xl}</svg>`;
+  if(chTot)chTot.textContent=total.toLocaleString("pt-BR")+" "+( tipo==="posts"?"posts enviados":"cliques");
+}
 
 /* ================= HEATMAP ================= */
 (function(){
@@ -2214,9 +2407,9 @@ function isOfertaNova(ts){
   return Date.now()-t<60*60*1000; // 1h
 }
 
-// Envia oferta para o Postar Agora já preenchido
+// Envia oferta para o Post Relâmpago já preenchido
 function postarOferta(o){
-  // Preenche pré-seleção do Postar Agora com os dados da oferta
+  // Preenche pré-seleção do Post Relâmpago com os dados da oferta
   try{
     window.PR_PRE_FROM_RADAR={
       link:o.link||"",
@@ -2229,7 +2422,7 @@ function postarOferta(o){
       comm:o.comm||0
     };
   }catch(e){}
-  toast(`Abrindo Postar Agora com "${(o.p||"").slice(0,40)}…"`,"⚡");
+  toast(`Abrindo Post Relâmpago com "${(o.p||"").slice(0,40)}…"`,"⚡");
   setTimeout(()=>go("post-relampago"),250);
 }
 
@@ -2247,7 +2440,7 @@ function abrirAdicionarGrupo(o){
   document.getElementById("rgDe").value=o.de?String(o.de).replace(".",","):"";
   document.getElementById("rgPor").value=por?String(typeof por==="number"?por.toFixed(2):por).replace(".",","):"";
   document.getElementById("rgImg").value=o.img||""; // campo oculto, preenchido automaticamente quando vem do Radar
-  // Link: encurta automaticamente (mesmo padrão do Postar Agora)
+  // Link: encurta automaticamente (mesmo padrão do Post Relâmpago)
   const linkEl=document.getElementById("rgLink");
   linkEl.value=o.link||"";
   linkEl.placeholder="Cole o link do produto";
@@ -2754,6 +2947,14 @@ feed.innerHTML='<div class="feed"><span class="fic">👋</span><span>Bem-vindo �
 /* ================= CONFIG AFILIADOS ================= */
 // Estado persistente das credenciais (sobrevive a navegação dentro da sessão)
 const CREDS_STATE={};
+// Marketplaces liberados por plano (por nome exato)
+const MARKET_PLAN={
+  starter:["Shopee"],
+  pro:["Shopee","Mercado Livre","Amazon"],
+  elite:null,
+  premium:null
+};
+
 // Dominios oficiais p/ buscar a logo pequena de cada marketplace (favicon), sem precisar de conta/token
 const LOJA_DOMINIO={"AliExpress":"aliexpress.com","Amazon":"amazon.com.br","AWIN":"awin.com","Shopee":"shopee.com.br","Magalu":"magazineluiza.com.br","Mercado Livre":"mercadolivre.com.br","Natura":"natura.com.br","Shein":"shein.com","TerabyteShop":"terabyteshop.com.br"};
 // Retorna um <img> com a logo real do marketplace; se falhar ao carregar, cai automaticamente pro emoji de fallback
@@ -2803,10 +3004,9 @@ const LOJAS=[
 ];
 
 function lojaConectada(n){
-  // ML usa scraping via wa-engine (sem token necessário)
-  if(n==="Mercado Livre") return true;
   const c=CREDS_STATE[n];
   if(!c)return false;
+  if(n==="Mercado Livre") return !!(c.access_token||c.ml_user_id);
   return Object.values(c).some(v=>v&&String(v).trim());
 }
 
@@ -3337,6 +3537,16 @@ btnSalvarGrupo.onclick=async()=>{const nome=inNomeGrupo.value.trim();if(!nome){t
   closeModal("modalGrupo");renderGrupos();renderOnb();toast("Grupo de Oferta criado!");};
 function renderGrupos(){const has=S.grupos.length>0;
   gVazio.style.display=has?"none":"block";gTabela.style.display=has?"block":"none";pillCount.textContent=S.grupos.length+"/"+S.planLimit;
+  // Alerta ao atingir 80% do limite de grupos
+  const pct=S.planLimit>0?S.grupos.length/S.planLimit:0;
+  const alertEl=document.getElementById("grupoLimiteAlert");
+  if(alertEl){
+    if(pct>=0.8&&pct<1&&S.planLimit<9999){
+      const f=myFeatures();
+      alertEl.style.display="flex";
+      alertEl.innerHTML=`<span>⚠️ Você usou <strong>${S.grupos.length}/${S.planLimit}</strong> grupos do plano ${f.label}. Faça upgrade antes de precisar!</span><button class="btn btn-gold btn-sm" onclick="go('assinatura')" style="flex:none">Ver planos</button>`;
+    }else{alertEl.style.display="none";}
+  }
   const banner=document.getElementById("grupoStarterBanner");
   if(banner)banner.style.display=(MY_PLAN==="starter")?"flex":"none";
   const hasPostAuto=!!(PLAN_FEATURES[MY_PLAN]||{}).wa_post_automation;
@@ -3469,12 +3679,12 @@ async function loadTabProdCounts(){
 }
 function editarGrupo(id,tab){S.grupoAtual=S.grupos.find(g=>String(g.id)===String(id)||String(g.db_id)===String(id));if(!S.grupoAtual){toast("Grupo não encontrado.","⚠️");return;}egNome.textContent=S.grupoAtual.nome+" · ID "+id;_tabProdCounts={};loadTabProdCounts().then(()=>buildTabs());go("editar-grupo");if(tab)setTimeout(()=>{const t=document.querySelector(`.etab[data-tab="${tab}"]`);if(t)t.click();},250);}
 
-// ⚡ Dispara um grupo via Postar Agora (Starter)
+// ⚡ Dispara um grupo via Post Relâmpago (Starter)
 function dispararGrupo(id){
   const g=S.grupos.find(x=>x.id===id);if(!g)return;
-  // Marca o grupo como pré-selecionado para o Postar Agora
+  // Marca o grupo como pré-selecionado para o Post Relâmpago
   try{window.PR_PRE_SELECT_GRUPO=g.id;}catch(e){}
-  toast(`Abrindo Postar Agora com o grupo "${g.nome}"…`,"⚡");
+  toast(`Abrindo Post Relâmpago com o grupo "${g.nome}"…`,"⚡");
   setTimeout(()=>go("post-relampago"),200);
 }
 
@@ -3551,7 +3761,7 @@ geral:`
     </span></div><div class="cb"><div style="display:grid;gap:8px" id="lojasAtivas"></div>
       <div class="field" style="margin-top:14px"><label>🏷️ Cupom padrão deste grupo (opcional)</label>
         <select id="pgCupomPadrao"><option value="">— Nenhum —</option></select>
-        <small style="color:var(--mut);display:block;margin-top:4px">Pré-selecionado automaticamente no Postar Agora ao escolher este grupo.</small>
+        <small style="color:var(--mut);display:block;margin-top:4px">Pré-selecionado automaticamente no Post Relâmpago ao escolher este grupo.</small>
       </div>
     </div></div>
   </div>
@@ -4004,6 +4214,14 @@ async function wireWaCanais(){
 let canaisVinc=[];
 async function vincularCanal(nome,link){
   const n=nome||"Meu canal";
+  // Trava wa_channels
+  const maxCh=lim("wa_channels")===-1?9999:lim("wa_channels");
+  const totalCanais=S.grupos.reduce((a,g)=>a+(g.canais||0),0);
+  if(totalCanais>=maxCh){
+    const f=myFeatures();
+    toast(`Limite de ${maxCh} canal${maxCh>1?"is":""} WA do plano ${f.label} atingido. Faça upgrade!`,"⚠️");
+    go("assinatura");return;
+  }
   const uid=CURRENT_USER?.id;
   const gid=S.grupoAtual?.db_id;
   if(uid&&gid){
@@ -4379,7 +4597,7 @@ async function mlConfirmarImport(postarAgora=false){
   if(postarAgora){
     window.PR_PRE_FROM_RADAR={nome:row.title,foto:row.image_url,de:row.price_original?String(row.price_original):"",por:row.price?String(row.price):"",link:row.affiliate_url,loja:"Mercado Livre"};
     go("post-relampago");
-    toast("Produto carregado no Postar Agora!","⚡");
+    toast("Produto carregado no Post Relâmpago!","⚡");
   }else{
     setTimeout(()=>{const t=document.querySelector('.tab[data-tab="prod-lista"]');if(t)t.click();},600);
     wireProdLista();
@@ -4504,7 +4722,7 @@ async function prodConfirmarImport(postarAgora=false){
   toast("Produto salvo! ✅","📦");
 
   if(postarAgora){
-    // Abre Postar Agora com produto preenchido
+    // Abre Post Relâmpago com produto preenchido
     window.PR_PRE_FROM_RADAR={
       nome:row.title,foto:row.image_url,
       de:row.price_original?String(row.price_original):"",
@@ -4512,7 +4730,7 @@ async function prodConfirmarImport(postarAgora=false){
       link:row.affiliate_url,loja:null
     };
     go("post-relampago");
-    toast("Produto carregado no Postar Agora!","⚡");
+    toast("Produto carregado no Post Relâmpago!","⚡");
   }else{
     setTimeout(()=>{
       const tabMeus=document.querySelector('.etab[data-tab="prod-meus"]');
@@ -4552,7 +4770,7 @@ async function prodAdicionarManual(postarAgora=false){
   if(postarAgora){
     window.PR_PRE_FROM_RADAR={nome,foto:img||"",de:precoOrig?String(precoOrig):"",por:preco?String(preco):"",link,loja:null};
     go("post-relampago");
-    toast("Produto carregado no Postar Agora!","⚡");
+    toast("Produto carregado no Post Relâmpago!","⚡");
   }else{
     setTimeout(()=>{const tabMeus=document.querySelector('.etab[data-tab="prod-meus"]');if(tabMeus)tabMeus.click();},600);
     wireProdLista();
@@ -4572,31 +4790,57 @@ function rp(){const g=id=>document.getElementById(id);if(!g("lpBub"))return;
   g("lpBub").innerHTML=`<span class="img">🎧</span>${esc(g("lpHead").value)}\n<b>${esc(g("lpTitle").value)}</b>\n<s>De R$ ${esc(g("lpDe").value)}</s> por <b>R$ ${esc(g("lpPor").value)} ${esc(g("lpSuf").value)}</b>\n💳 ${esc(g("lpParc").value)}\n${esc(g("lpCta").value)}\n<span class="lnk">👉 shope.ee/abc</span><span class="tm">14:32 ✓✓</span>`;}
 
 /* ================= PLANOS ================= */
-// Monta os cards de planos a partir da plan_features real (Starter/Pro/Elite/Infinity)
+// Monta os cards de planos a partir da plan_features real (Starter/Pro/Elite/Premium)
 function buildPlansFromFeatures(){
-  const order=["starter","pro","elite","infinity"];
+  const order=["starter","pro","elite","premium"];
   return order.map(key=>{
     const f=planRow(key);
     const feats=[];
-    feats.push((f.wa_groups===-1?"Grupos ilimitados":f.wa_groups+" Grupo"+(f.wa_groups>1?"s":""))+" de WhatsApp");
-    feats.push((f.tg_channels===-1?"Canais Telegram ilimitados":f.tg_channels+" Canal"+(f.tg_channels>1?"is":"")+" Telegram"));
-    feats.push((f.wa_connections===-1?"Conexões ilimitadas":f.wa_connections+" Conexão"+(f.wa_connections>1?"ões":"")+" WhatsApp"));
-    feats.push(f.marketplaces===-1?"Todos os marketplaces":f.marketplaces+" marketplaces");
-    feats.push(f.wa_post_automation?"Automação de posts ✓":"Postagem manual");
-    feats.push("Criação de anúncios "+(f.ads_creation==="completa_ia"?"completa + IA":f.ads_creation==="completa"?"completa":"básica"));
-    feats.push("Suporte "+({comunidade:"comunidade",email:"por e-mail",prioritario:"prioritário",vip:"VIP/WhatsApp"}[f.support_level]||f.support_level));
-    return {key,n:f.label.toUpperCase(),m:Number(f.price_month),pop:key==="pro",sub:key==="infinity"?"Máxima performance":"",f:feats};
+    feats.push((f.wa_groups===-1?"✅ Grupos WA ilimitados":"✅ "+f.wa_groups+" Grupo"+(f.wa_groups>1?"s":"")+" de WhatsApp"));
+    feats.push((f.wa_channels===-1?"✅ Canais WA ilimitados":"✅ "+f.wa_channels+" Canal"+(f.wa_channels>1?"is":"")+" WA"));
+    feats.push((f.tg_channels===-1?"✅ Telegram ilimitado":"✅ "+f.tg_channels+" Canal"+(f.tg_channels>1?"is":"")+" Telegram"));
+    feats.push("✅ "+f.wa_connections+" Conexão"+(f.wa_connections>1?"ões":"")+" WhatsApp");
+    feats.push(f.marketplaces===-1?"✅ Todos os marketplaces":
+      f.marketplaces===1?"✅ Shopee":
+      f.marketplaces===3?"✅ Shopee, Mercado Livre e Amazon":
+      "✅ "+f.marketplaces+" marketplaces");
+    feats.push(f.wa_post_automation?"✅ Automação de posts 24/7":"✅ Post Relâmpago (envio manual)");
+    feats.push(f.mega_ia?"✅ MegaIA (geração com IA)":"❌ MegaIA");
+    feats.push(f.click_tracking?"✅ Rastreamento de cliques":"❌ Rastreamento de cliques");
+    feats.push("✅ Suporte "+({comunidade:"comunidade",email:"por e-mail",prioritario:"prioritário",vip:"VIP WhatsApp"}[f.support_level]||f.support_level));
+    return {key,n:f.label.toUpperCase(),m:Number(f.price_month),pop:key==="elite",sub:key==="premium"?"Máxima operação":"",f:feats};
   });
 }
 function brl(v){return v.toFixed(2).replace(".",",");}
 const PLAN_VIS={
   starter:{ico:"⚡",grad:"linear-gradient(135deg,#8B95FF,#5B68FF)",sub:"Para quem está começando"},
-  pro:    {ico:"💎",grad:"linear-gradient(135deg,#FF6CBF,#9B7DFF)",sub:"Perfeito para profissionais"},
-  elite:  {ico:"🔥",grad:"linear-gradient(135deg,#FFB020,#FF6B6B)",sub:"Para grandes operações"},
-  infinity:{ico:"♾️",grad:"linear-gradient(135deg,#F5C518,#FF8A00)",sub:"Máxima performance"}
+  pro:    {ico:"🚀",grad:"linear-gradient(135deg,#FF6CBF,#9B7DFF)",sub:"Automação + IA para escalar"},
+  elite:  {ico:"🔥",grad:"linear-gradient(135deg,#FFB020,#FF6B6B)",sub:"Rastreamento + escala total"},
+  premium:{ico:"👑",grad:"linear-gradient(135deg,#F5C518,#FF8A00)",sub:"O melhor da plataforma"}
 };
 function renderPlans(){
   const PLANS=buildPlansFromFeatures();
+  // Card plano atual
+  const mpc=document.getElementById("myPlanCard");
+  if(mpc){
+    const f=myFeatures();
+    const vis=PLAN_VIS[MY_PLAN]||PLAN_VIS.starter;
+    const statusLabel={active:"Ativo",trial:"Trial",past_due:"Em atraso",canceled:"Cancelado"}[f.sub_status||"active"]||"Ativo";
+    const statusColor={active:"volt",trial:"sky",past_due:"gold",canceled:"red"}[f.sub_status||"active"]||"volt";
+    mpc.innerHTML=`<div class="card" style="margin:0"><div class="cb" style="display:flex;align-items:center;gap:16px;padding:20px;flex-wrap:wrap">
+      <div style="width:56px;height:56px;border-radius:50%;background:${vis.grad};display:grid;place-items:center;font-size:28px;flex:none">${vis.ico}</div>
+      <div style="flex:1;min-width:180px">
+        <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Seu plano atual</div>
+        <div style="font-family:var(--disp);font-size:22px;font-weight:800">${f.label||MY_PLAN.toUpperCase()}</div>
+        <div style="font-size:12.5px;color:var(--tx2);margin-top:3px" id="myPlanInfo">R$ ${brl(Number(f.price_month))}/mês</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span class="pill ${statusColor}"><span class="d"></span>${statusLabel}</span>
+        ${MY_PLAN==="starter"?`<button class="btn btn-gold btn-sm" onclick="document.querySelector('.bill-toggle').scrollIntoView({behavior:'smooth'})">⬆️ Fazer upgrade</button>`:""}
+      </div>
+    </div></div>`;
+  }
+  // Grid de planos
   plansGrid.innerHTML=PLANS.map(p=>{
     const a=S.bill==="a",v=a?p.m*0.8:p.m;
     const atual=p.key===MY_PLAN;
@@ -4613,12 +4857,92 @@ function renderPlans(){
       </div>
       <ul>${p.f.map(f=>`<li>${f}</li>`).join("")}</ul>
       ${atual
-        ?`<button class="btn btn-ghost btn-lg" disabled style="width:100%;justify-content:center;opacity:.7">SEU PLANO ATUAL</button>`
-        :`<button class="btn btn-volt btn-lg" style="width:100%;justify-content:center" onclick="toast('Checkout Pix ${p.n} (em breve).','💸')">⚡ ASSINAR VIA PIX</button>`}
+        ?`<button class="btn btn-ghost btn-lg" disabled style="width:100%;justify-content:center;opacity:.7">✅ SEU PLANO ATUAL</button>`
+        :`<button class="btn btn-volt btn-lg" style="width:100%;justify-content:center" onclick="iniciarCheckout('${p.key}','${p.n}',${v})">⚡ ASSINAR VIA PIX</button>`}
     </div>`;
   }).join("");
+  // Tabela comparativa
+  const cmp=document.getElementById("planCompareBody");
+  if(cmp){
+    const rows=[
+      ["Grupos WhatsApp",       p=>planRow(p).wa_groups===-1?"Ilimitado":planRow(p).wa_groups],
+      ["Canais WhatsApp",       p=>planRow(p).wa_channels===-1?"Ilimitado":planRow(p).wa_channels],
+      ["Conexões WhatsApp",     p=>planRow(p).wa_connections],
+      ["Canais Telegram",       p=>planRow(p).tg_channels===-1?"Ilimitado":planRow(p).tg_channels],
+      ["Marketplaces",p=>{
+        const m=planRow(p).marketplaces;
+        if(m===-1)return"Todos";
+        if(m===1)return"Shopee";
+        if(m===3)return"Shopee, ML, Amazon";
+        return m+" lojas";
+      }],
+      ["Automação 24/7",        p=>planRow(p).wa_post_automation?"✅":"Manual"],
+      ["MegaIA",                p=>planRow(p).mega_ia?"✅":"❌"],
+      ["Rastreamento de cliques",p=>planRow(p).click_tracking?"✅":"❌"],
+      ["Suporte",               p=>({comunidade:"Comunidade",email:"E-mail",prioritario:"Prioritário",vip:"VIP WhatsApp"}[planRow(p).support_level]||"—")],
+      ["Preço/mês",             p=>"R$ "+brl(Number(planRow(p).price_month))],
+    ];
+    const plans=["starter","pro","elite","premium"];
+    cmp.innerHTML=rows.map((r,i)=>`<tr style="border-bottom:1px solid var(--bd);${i%2===0?"background:rgba(255,255,255,.02)":""}">
+      <td style="padding:10px 16px;color:var(--tx2);font-size:12.5px">${r[0]}</td>
+      ${plans.map(p=>`<td style="text-align:center;padding:10px 8px;font-size:12.5px;font-weight:500;${p==="elite"?"background:rgba(139,92,246,.06)":""}">${r[1](p)}</td>`).join("")}
+    </tr>`).join("");
+  }
 }
 document.querySelectorAll("[data-bill]").forEach(b=>b.onclick=()=>{S.bill=b.dataset.bill;document.querySelectorAll("[data-bill]").forEach(x=>x.classList.toggle("on",x===b));renderPlans();});
+
+// ── Checkout Asaas ──────────────────────────────────────────────
+let _checkoutPlan=null;
+async function iniciarCheckout(planKey,planLabel,valor){
+  if(!CURRENT_USER?.id){toast("Faça login para assinar.","🔒");return;}
+  _checkoutPlan=planKey;
+  const m=document.getElementById("modalCheckout");
+  if(!m)return;
+  document.getElementById("ckPlanLabel").textContent=planLabel;
+  document.getElementById("ckValor").textContent="R$ "+brl(valor);
+  // Formulário de CPF/CNPJ antes de gerar o Pix
+  document.getElementById("ckBody").innerHTML=`
+    <div style="display:grid;gap:14px">
+      <div class="field" style="margin:0">
+        <label style="font-size:12px">CPF ou CNPJ <span style="color:var(--red)">*</span></label>
+        <input id="ckCpf" type="text" placeholder="000.000.000-00" maxlength="18" style="font-size:14px"
+          oninput="this.value=this.value.replace(/[^\\d]/g,'').replace(/(\\d{3})(\\d)/,'$1.$2').replace(/(\\d{3})(\\d)/,'$1.$2').replace(/(\\d{3})(\\d{1,2})$/,'$1-$2').substring(0,14)">
+        <div style="font-size:11px;color:var(--mut);margin-top:4px">Necessário para pagamento via Pix</div>
+      </div>
+      <button class="btn btn-volt" style="width:100%;justify-content:center" onclick="confirmarCheckout('${planKey}',${valor})">⚡ Gerar Pix — R$ ${brl(valor)}</button>
+      <div style="font-size:11px;color:var(--mut);text-align:center">Seus dados são usados apenas para emissão da cobrança e ficam salvos com segurança.</div>
+    </div>`;
+  openModal("modalCheckout");
+}
+
+async function confirmarCheckout(planKey,valor){
+  const cpfInput=document.getElementById("ckCpf");
+  const cpf=(cpfInput?.value||"").replace(/\D/g,"");
+  if(cpf.length!==11&&cpf.length!==14){toast("Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.","⚠️");cpfInput?.focus();return;}
+  document.getElementById("ckBody").innerHTML='<div style="text-align:center;padding:20px;color:var(--mut)">⏳ Gerando cobrança Pix…</div>';
+  try{
+    const session=await SB.auth.getSession();
+    const jwt=session?.data?.session?.access_token;
+    const r=await fetch(`${SUPA_URL}/functions/v1/asaas-checkout`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+jwt},
+      body:JSON.stringify({plan:planKey,billing_type:"PIX",cpf_cnpj:cpf})
+    });
+    const d=await r.json();
+    if(!d.ok){toast("Erro ao gerar cobrança: "+(d.error||"tente novamente"),"❌");closeModal("modalCheckout");return;}
+    document.getElementById("ckBody").innerHTML=`
+      <div style="text-align:center">
+        <div style="font-size:13px;color:var(--tx2);margin-bottom:14px">Escaneie o QR Code ou copie o código Pix abaixo:</div>
+        ${d.pix_qr_code_image?`<img src="data:image/png;base64,${d.pix_qr_code_image}" style="width:180px;height:180px;border-radius:12px;margin-bottom:14px;border:1px solid var(--bd)" alt="QR Code Pix">`:""}
+        ${d.pix_copy_paste?`
+          <div style="background:var(--surf2);border-radius:10px;padding:12px;font-size:11px;word-break:break-all;margin-bottom:12px;font-family:monospace;color:var(--tx2);text-align:left">${d.pix_copy_paste}</div>
+          <button class="btn btn-volt btn-sm" style="width:100%;justify-content:center;margin-bottom:10px" onclick="navigator.clipboard.writeText('${d.pix_copy_paste}').then(()=>toast('Código Pix copiado!','✅'))">📋 Copiar código Pix</button>
+        `:""}
+        ${d.invoice_url?`<a href="${d.invoice_url}" target="_blank" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-bottom:12px;display:flex">🔗 Abrir fatura completa</a>`:""}
+        <div style="font-size:12px;color:var(--mut);margin-top:4px">Vencimento: ${d.due_date} · Após o pagamento seu plano é atualizado automaticamente.</div>
+      </div>`;
+  }catch(e){toast("Erro de conexão: "+e.message,"❌");closeModal("modalCheckout");}
+}
 
 /* ================= TELEGRAM ================= */
 let TG_CANAIS=[];
@@ -4642,6 +4966,13 @@ async function tgCarregarCanais(){
 }
 
 async function tgValidarCanal(){
+  // Trava tg_channels
+  const maxTg=lim("tg_channels")===-1?9999:lim("tg_channels");
+  if(TG_CANAIS.length>=maxTg){
+    const f=myFeatures();
+    toast(`Limite de ${maxTg} canal${maxTg>1?"is":""} Telegram do plano ${f.label} atingido. Faça upgrade!`,"⚠️");
+    go("assinatura");return;
+  }
   const input=document.getElementById("tgChatInput");
   const grupoSel=document.getElementById("tgGrupoSelect");
   let chatId=(input?.value||"").trim();
@@ -4712,7 +5043,7 @@ const PAL=[
   {t:"Dashboard",ic:"🏠",go:"dashboard",k:"painel afiliado"},{t:"Radar de Ofertas",ic:"🛰️",go:"radar",k:"ofertas promo"},
   {t:"Analítico",ic:"📊",go:"analitico",k:"metricas cliques comissoes ctr horarios"},
   {t:"Conexão WhatsApp (QR)",ic:"📲",go:"conexao",k:"parear qr code numero"},{t:"Canais/Grupos",ic:"🔔",go:"canais-grupos",k:"grupo canal"},
-  {t:"Adicionar Grupo de Oferta",ic:"➕",act:()=>{setRole("afiliado");go("canais-grupos");btnAddGrupo.click();},k:"novo criar"},
+{t:"Adicionar Grupo de Oferta",ic:"➕",act:()=>{setRole("afiliado");go("canais-grupos");btnAddGrupo.click();},k:"novo criar"},
   {t:"Config Afiliados",ic:"⚙️",go:"config-afiliados",k:"credenciais shopee"},{t:"Assinatura e planos",ic:"💳",go:"assinatura",k:"upgrade pix"},
   {t:"FAQ",ic:"❓",go:"faq",k:"ajuda"},{t:"Abrir MegaIA",ic:"✨",act:()=>openDrawer(),k:"ia copiloto"},
   {t:"Alternar tema",ic:"🌓",act:()=>toggleTheme(),k:"dark light"},
@@ -4771,7 +5102,7 @@ function aiContextualSuggestions(){
     "radar":["Reescreva o título desta oferta","Sugira um post para essa promoção","Vale a pena divulgar essa?"],
     "editar-grupo":["Reescreva esse layout","Sugira variações de CTA","Qual nicho converte melhor?"],
     "post-relampago":["Melhore meu texto","Sugira 3 CTAs","Qual emoji usar?"],
-    "config-afiliados":["Quais marketplaces mais convertem?","Dicas para Shopee","Estratégia multi-loja"],
+"config-afiliados":["Quais marketplaces mais convertem?","Dicas para Shopee","Estratégia multi-loja"],
     "assinatura":["Qual plano serve para mim?","Vale a pena upgrade?","Quanto economizo no anual?"],
     "canais-grupos":["Como crescer meu Grupo de Oferta?","Frequência ideal de posts","Como evitar bloqueio?"]
   };
@@ -4826,6 +5157,13 @@ function aiSendMsg(text){
 }
 
 function openDrawer(){
+  // Trava mega_ia — Starter não tem acesso
+  if(!myFeatures().mega_ia){
+    const prox=planRow("pro");
+    toast(`MegaIA disponível a partir do plano Pro (R$ ${brl(prox.price_month)}/mês).`,"🔒");
+    setTimeout(()=>go("assinatura"),1200);
+    return;
+  }
   drw.classList.add("open");
   // Limpa mensagens e mostra abertura personalizada
   if(!_aiSessionStarted){
@@ -4840,7 +5178,7 @@ function openDrawer(){
           "💡 Notei que ainda não cadastrei seus dados — quer ajuda a configurar uma primeira loja?",
           "📊 Dica: posts entre 18h-21h costumam ter 3x mais cliques. Posso te mostrar o melhor horário?",
           "⚡ Acabei de revisar suas configurações. Quer uma sugestão de melhoria?",
-          "🎯 Posso te ajudar a criar seu primeiro postar agora em 30 segundos. Topa?"
+          "🎯 Posso te ajudar a criar seu primeiro post relâmpago em 30 segundos. Topa?"
         ];
         aiPush(insights[Math.floor(Math.random()*insights.length)],"ai");
       },1400);
@@ -4865,19 +5203,28 @@ async function loadUsersFromDB(){
   try{
     const{data,error}=await SB.from("profiles").select("id,full_name,email,plan,sub_status,created_at,is_admin,is_vip").order("created_at",{ascending:false});
     if(error||!data)return;
+    // Busca contagens de grupos e canais por usuário
+    const[grpRes,chRes]=await Promise.allSettled([
+      SB.from("niche_groups").select("user_id"),
+      SB.from("whatsapp_channels").select("niche_group_id, niche_groups!inner(user_id)")
+    ]);
+    const grpData=grpRes.status==="fulfilled"&&!grpRes.value.error?(grpRes.value.data||[]):[];
+    const chData=chRes.status==="fulfilled"&&!chRes.value.error?(chRes.value.data||[]):[];
     USERS=data.map((r,i)=>{
       const f=planRow((r.plan||"starter").toLowerCase());
       const st=r.sub_status||"active";
-      // VIPs e admins não geram MRR (não pagam)
       const isVipOrAdmin=!!(r.is_vip||r.is_admin);
       const mrr=(!isVipOrAdmin&&st==="active")?Number(f.price_month):0;
+      const grupos=grpData.filter(g=>g.user_id===r.id).length;
+      const canais=chData.filter(c=>c.niche_groups?.user_id===r.id).length;
       return {id:r.id,nome:r.full_name||r.email||"Usuário",email:r.email||"",
         plano:(f.label||"Starter").toUpperCase(),
         status:st,mrr,
         is_vip:!!r.is_vip,is_admin:!!r.is_admin,
-        grupos:0,canais:0,entrou:r.created_at?new Date(r.created_at):new Date()};
+        grupos,canais,entrou:r.created_at?new Date(r.created_at):new Date(),
+        _idx:i};
     });
-  }catch(e){}
+  }catch(e){console.warn("loadUsersFromDB erro:",e);}
 }
 function fmtDate(d){return d.toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"numeric"});}
 async function loadPaymentsFromDB(){
@@ -4898,7 +5245,7 @@ function stPill(s){return s==="active"?'<span class="pill volt"><span class="d">
 
 /* ADMIN: VISÃO GERAL */
 function renderAdminVisao(){
-  // Exclui admins e VIPs das métricas financeiras
+  // Versão sync — apenas renderiza com USERS já em memória (chamada interna)
   const payingUsers=USERS.filter(u=>!u.is_vip&&!u.is_admin);
   const ativos=payingUsers.filter(u=>u.status==="active").length;
   const trial=payingUsers.filter(u=>u.status==="trial").length;
@@ -4909,37 +5256,190 @@ function renderAdminVisao(){
     ["Usuários ativos",ativos+"","#39C0FF",z],
     ["Em trial",trial+"","#FFB020",z],
     ["Churn mensal","—","#FF4D8D",z]
-  ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">aguardando dados</div>${spark(k[3],k[2])}</div>`).join("");
+  ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">dados reais</div>${spark(k[3],k[2])}</div>`).join("");
   const meses=["Jul","Ago","Set","Out","Nov","Dez","Jan","Fev","Mar","Abr","Mai","Jun"];const mrrV=z,novos=z;const mx=1;
   mrrChart.innerHTML=meses.map((m,i)=>`<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:3px"><div style="display:flex;gap:2px;align-items:flex-end;height:120px"><div class="bar" style="height:0%" data-t="${m}: sem dados"></div><div class="bar alt" style="height:0%" data-t="${m}: sem dados"></div></div><div style="text-align:center;font-size:9.5px;color:var(--mut)">${m}</div></div>`).join("");
   // distribuição real por plano
   const dist=[["STARTER",USERS.filter(u=>u.plano==="STARTER").length,"#10B981"],["PRO",USERS.filter(u=>u.plano==="PRO").length,"#3B82F6"],["ELITE",USERS.filter(u=>u.plano==="ELITE").length,"#8B5CF6"],["INFINITY",USERS.filter(u=>u.plano==="INFINITY").length,"#F59E0B"]];const tot=Math.max(1,dist.reduce((a,d)=>a+d[1],0));
   planDist.innerHTML=dist.map(d=>`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><strong>${d[0]}</strong><span style="color:var(--mut)">${d[1]} · ${Math.round(d[1]/tot*100)}%</span></div><div class="prog-mini"><i style="width:${d[1]/tot*100}%;background:${d[2]}"></i></div></div>`).join("");
-  opHealth.innerHTML=[["📱 Instâncias WhatsApp online","0","volt"],["📣 Canais validados (OWNER/ADMIN)","0","sky"],["⏱️ Posts na fila agora","0","gold"],["⚠️ Sessões desconectadas (24h)","0","red"]].map(h=>`<div class="qrow"><span>${h[0]}</span><span class="pill ${h[2]}" style="margin-left:auto">${h[1]}</span></div>`).join("");
   admFeed.innerHTML='<div class="feed"><span class="fic">•</span><span style="color:var(--mut)">Nenhuma atividade ainda. Os eventos aparecerão aqui conforme os clientes usarem a plataforma.</span></div>';
+}
+
+async function refreshAdminVisao(){
+  // Recarrega dados do banco e atualiza toda a Visão Geral
+  if(!SB)return;
+  // Indicador visual de carregamento
+  if(admKpis)admKpis.innerHTML='<div style="grid-column:1/-1;color:var(--mut);padding:12px 0;font-size:13px">⏳ Carregando dados…</div>';
+  if(opHealth)opHealth.innerHTML='<div style="color:var(--mut);font-size:13px;padding:8px 0">⏳ Buscando…</div>';
+  try{
+    // 1. Recarrega usuários do banco
+    await loadUsersFromDB();
+    // 2. Renderiza KPIs e distribuição de planos
+    renderAdminVisao();
+    // 3. Saúde da operação — dados reais do Supabase
+    const [sessRes,canaisRes]=await Promise.allSettled([
+      SB.from("whatsapp_instances").select("status"),
+      SB.from("whatsapp_channels").select("role").in("role",["owner","admin"])
+    ]);
+    // Instâncias WhatsApp
+    const sessData=sessRes.status==="fulfilled"&&!sessRes.value.error?(sessRes.value.data||[]):[];
+    const onlineCount=sessData.filter(s=>s.status==="connected"||s.status==="online").length;
+    const discCount=sessData.filter(s=>s.status==="disconnected"||s.status==="error").length;
+    // Fila de posts — tabela pode não existir ainda
+    const filaCount=0;
+    // Canais validados OWNER/ADMIN
+    const canaisCount=canaisRes.status==="fulfilled"&&!canaisRes.value.error?(canaisRes.value.data||[]).length:0;
+    opHealth.innerHTML=[
+      ["📱 Instâncias WhatsApp online",onlineCount+"","volt"],
+      ["📣 Canais validados (OWNER/ADMIN)",canaisCount+"","sky"],
+      ["⏱️ Posts na fila agora",filaCount+"","gold"],
+      ["⚠️ Sessões desconectadas (24h)",discCount+"","red"]
+    ].map(h=>`<div class="qrow"><span>${h[0]}</span><span class="pill ${h[2]}" style="margin-left:auto">${h[1]}</span></div>`).join("");
+  }catch(e){
+    console.error("refreshAdminVisao erro:",e);
+    renderAdminVisao(); // fallback com dados em memória
+    if(opHealth)opHealth.innerHTML='<div style="color:var(--mut);font-size:13px;padding:8px 0">⚠️ Erro ao buscar dados de saúde.</div>';
+  }
 }
 
 /* ADMIN: USUÁRIOS CRM */
 let usrFilter="todos";
 function renderUsers(){const q=usrSearch.value.toLowerCase();
   const list=USERS.filter(u=>(usrFilter==="todos"||u.status===usrFilter)&&(!q||(u.nome+u.email).toLowerCase().includes(q)));
-  usrBody.innerHTML=list.map((u,i)=>`<tr class="row-click" onclick="openUser(${u.id})"><td><div class="uflex"><span class="av-sm" style="background:${avColor(u.id)}">${u.nome[0]}</span><div><strong>${u.nome}</strong><br><small style="color:var(--mut)">${u.email}</small></div></div></td><td><span class="pill ${u.plano==="STARTER"?"gray":"sky"}">${u.plano}</span></td><td>${stPill(u.status)}</td><td>${u.mrr?"R$ "+brl(u.mrr):"—"}</td><td>${u.grupos}</td><td>${u.canais}</td><td style="color:var(--mut)">${fmtDate(u.entrou)}</td></tr>`).join("")||'<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:30px">Nenhum usuário encontrado.</td></tr>';
+  usrBody.innerHTML=list.map((u,i)=>`<tr class="row-click" onclick="openUser('${u.id}')"><td><div class="uflex"><span class="av-sm" style="background:${avColor(u._idx||i)}">${u.nome[0]}</span><div><strong>${u.nome}</strong><br><small style="color:var(--mut)">${u.email}</small></div></div></td><td><span class="pill ${u.plano==="STARTER"?"gray":"sky"}">${u.plano}</span></td><td>${stPill(u.status)}</td><td>${u.mrr?"R$ "+brl(u.mrr):"—"}</td><td>${u.grupos}</td><td>${u.canais}</td><td style="color:var(--mut)">${fmtDate(u.entrou)}</td></tr>`).join("")||'<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:30px">Nenhum usuário encontrado.</td></tr>';
   usrBadge.textContent=USERS.length;}
 usrSearch.addEventListener("input",renderUsers);
 document.querySelectorAll("#usrSeg button").forEach(b=>b.onclick=()=>{usrFilter=b.dataset.f;document.querySelectorAll("#usrSeg button").forEach(x=>x.classList.toggle("on",x===b));renderUsers();});
-function openUser(id){const u=USERS.find(x=>x.id===id);
-  userDetail.innerHTML=`<div class="mh"><div class="uflex"><span class="av-sm" style="background:${avColor(u.id)};width:38px;height:38px">${u.nome[0]}</span><div><div style="font-family:var(--disp)">${u.nome}</div><small style="color:var(--mut)">${u.email}</small></div></div><button class="mx" onclick="closeModal('modalUser')">×</button></div>
-  <div class="mb"><div class="sgrid" style="grid-template-columns:repeat(3,1fr);margin:0 0 16px"><div class="stat"><div class="v">${u.plano}</div><div class="l">Plano</div></div><div class="stat"><div class="v">${u.mrr?"R$ "+brl(u.mrr):"—"}</div><div class="l">MRR</div></div><div class="stat"><div class="v">${u.grupos}</div><div class="l">Grupos</div></div></div>
-  <div style="display:grid;gap:10px">
-    <div class="qrow"><span>Status</span><span style="margin-left:auto">${stPill(u.status)}</span></div>
-    <div class="qrow"><span>Canais WhatsApp vinculados</span><strong style="margin-left:auto">${u.canais}</strong></div>
-    <div class="qrow"><span>Cliente desde</span><strong style="margin-left:auto">${fmtDate(u.entrou)}</strong></div>
-    <div class="qrow"><span>ID interno</span><span class="mono" style="margin-left:auto;color:var(--mut)">usr_${u.id}</span></div>
-  </div>
-  <div style="margin-top:14px"><strong style="font-family:var(--disp)">Linha do tempo</strong>
-  <div style="margin-top:8px">${["Conta criada","1ª loja conectada","WhatsApp pareado",u.canais?"Canal validado (OWNER)":"—"].filter(t=>t!=="—").map(t=>`<div class="feed"><span class="fic">•</span><span>${t}</span></div>`).join("")}</div></div></div>
-  <div class="mf"><button class="btn btn-ghost" onclick="toast('E-mail enviado (demo).','✉️')">Enviar e-mail</button><button class="btn btn-volt" onclick="closeModal('modalUser');toast('Assinatura ajustada (demo).')">Gerenciar assinatura</button></div>`;
-  openModal("modalUser");}
+let _modalUserId=null;
+function openUser(id){
+  const u=USERS.find(x=>x.id===id);
+  if(!u)return;
+  _modalUserId=id;
+  const planos=["starter","pro","elite","premium"];
+  const statusOpts=["active","trial","past_due","canceled"];
+  userDetail.innerHTML=`
+  <div class="mh"><div class="uflex"><span class="av-sm" style="background:${avColor(u._idx||0)};width:38px;height:38px">${u.nome[0]}</span>
+    <div><div style="font-family:var(--disp)">${u.nome}</div><small style="color:var(--mut)">${u.email}</small></div></div>
+    <button class="mx" onclick="closeModal('modalUser')">×</button></div>
+  <div class="mb">
+    <div class="sgrid" style="grid-template-columns:repeat(3,1fr);margin:0 0 16px">
+      <div class="stat"><div class="v">${u.plano}</div><div class="l">Plano atual</div></div>
+      <div class="stat"><div class="v">${u.mrr?"R$ "+brl(u.mrr):"—"}</div><div class="l">MRR</div></div>
+      <div class="stat"><div class="v">${u.grupos}</div><div class="l">Grupos</div></div>
+    </div>
+    <div style="display:grid;gap:10px;margin-bottom:18px">
+      <div class="qrow"><span>Status</span><span style="margin-left:auto">${stPill(u.status)}</span></div>
+      <div class="qrow"><span>Canais WA</span><strong style="margin-left:auto">${u.canais}</strong></div>
+      <div class="qrow"><span>Cliente desde</span><strong style="margin-left:auto">${fmtDate(u.entrou)}</strong></div>
+      <div class="qrow"><span>ID interno</span><span class="mono" style="margin-left:auto;color:var(--mut);font-size:11px">${u.id.slice(0,18)}…</span></div>
+    </div>
+    <div style="border-top:1px solid var(--bd);padding-top:14px;margin-top:4px">
+      <strong style="font-family:var(--disp);font-size:13px">Gerenciar assinatura</strong>
+      <div style="display:grid;gap:10px;margin-top:12px">
+        <div class="field" style="margin:0">
+          <label style="font-size:12px">Alterar plano</label>
+          <div style="display:flex;gap:8px">
+            <select id="admPlanSel" style="flex:1">
+              ${planos.map(p=>`<option value="${p}"${u.plano.toLowerCase()===p?" selected":""}>${planRow(p).label}</option>`).join("")}
+            </select>
+            <button class="btn btn-volt btn-sm" onclick="admChangePlan()">Aplicar</button>
+          </div>
+        </div>
+        <div class="field" style="margin:0">
+          <label style="font-size:12px">Alterar status</label>
+          <div style="display:flex;gap:8px">
+            <select id="admStatusSel" style="flex:1">
+              ${statusOpts.map(s=>`<option value="${s}"${u.status===s?" selected":""}>${{active:"Ativo",trial:"Trial",past_due:"Em atraso",canceled:"Cancelado"}[s]||s}</option>`).join("")}
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="admChangeStatus()">Aplicar</button>
+          </div>
+        </div>
+        <button class="btn btn-red btn-sm" style="width:100%;justify-content:center" onclick="admCancelUser()">⛔ Cancelar assinatura e rebaixar para Starter</button>
+      </div>
+    </div>
+    <div id="admPlanLog" style="margin-top:14px;border-top:1px solid var(--bd);padding-top:12px">
+      <strong style="font-family:var(--disp);font-size:12px;color:var(--mut)">Histórico de mudanças</strong>
+      <div style="margin-top:8px;color:var(--mut);font-size:12px">carregando…</div>
+    </div>
+  </div>`;
+  openModal("modalUser");
+  // Carrega histórico de mudanças
+  admLoadPlanLog(id);
+}
+
+async function admLoadPlanLog(uid){
+  const el=document.getElementById("admPlanLog");
+  if(!el||!SB)return;
+  const{data}=await SB.from("plan_changes").select("from_plan,to_plan,from_status,to_status,reason,changed_by,created_at").eq("user_id",uid).order("created_at",{ascending:false}).limit(10);
+  const items=data||[];
+  const inner=el.querySelector("div");
+  if(!items.length){if(inner)inner.textContent="Nenhuma alteração registrada.";return;}
+  const reasonLabel={admin_manual:"Admin",payment_confirmed:"Pagamento",payment_overdue_grace:"Atraso",payment_overdue_cancel:"Cancelamento automático",user_cancel:"Cancelamento"};
+  if(inner)inner.innerHTML=items.map(r=>`<div class="feed" style="font-size:11.5px"><span class="fic">•</span><span><strong>${planRow(r.from_plan||"").label||r.from_plan}→${planRow(r.to_plan||"").label||r.to_plan}</strong> · ${r.to_status} · ${reasonLabel[r.reason]||r.reason} · <span style="color:var(--mut)">${new Date(r.created_at).toLocaleDateString("pt-BR")}</span></span></div>`).join("");
+}
+
+async function admChangePlan(){
+  const u=USERS.find(x=>x.id===_modalUserId);if(!u||!SB)return;
+  const newPlan=document.getElementById("admPlanSel")?.value;
+  if(!newPlan||newPlan===u.plano.toLowerCase()){toast("Selecione um plano diferente.","⚠️");return;}
+  if(!confirm(`Alterar plano de ${u.nome} de ${u.plano} → ${planRow(newPlan).label}?`))return;
+  const{error}=await SB.from("profiles").update({plan:newPlan,sub_status:"active"}).eq("id",u.id);
+  if(error){toast("Erro ao alterar plano: "+error.message,"❌");return;}
+  await SB.from("plan_changes").insert({user_id:u.id,from_plan:u.plano.toLowerCase(),to_plan:newPlan,from_status:u.status,to_status:"active",reason:"admin_manual",changed_by:CURRENT_USER?.id});
+  // E-mail de upgrade
+  if(u.email){
+    const session=await SB.auth.getSession();
+    fetch(`${SUPA_URL}/functions/v1/send-email`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+(session?.data?.session?.access_token||"")},
+      body:JSON.stringify({type:"upgrade",to:u.email,nome:u.nome,plano_antigo:u.plano.toLowerCase(),plano_novo:newPlan})
+    }).catch(()=>{});
+  }
+  toast(`Plano de ${u.nome} alterado para ${planRow(newPlan).label}.`,"✅");
+  await loadUsersFromDB();renderUsers();openUser(u.id);
+}
+
+async function admChangeStatus(){
+  const u=USERS.find(x=>x.id===_modalUserId);if(!u||!SB)return;
+  const newStatus=document.getElementById("admStatusSel")?.value;
+  if(!newStatus||newStatus===u.status){toast("Selecione um status diferente.","⚠️");return;}
+  if(!confirm(`Alterar status de ${u.nome} para "${newStatus}"?`))return;
+  const upd={sub_status:newStatus};
+  if(newStatus==="past_due")upd.overdue_since=new Date().toISOString();
+  if(newStatus==="active")upd.overdue_since=null;
+  const{error}=await SB.from("profiles").update(upd).eq("id",u.id);
+  if(error){toast("Erro: "+error.message,"❌");return;}
+  await SB.from("plan_changes").insert({user_id:u.id,from_plan:u.plano.toLowerCase(),to_plan:u.plano.toLowerCase(),from_status:u.status,to_status:newStatus,reason:"admin_manual",changed_by:CURRENT_USER?.id});
+  toast(`Status de ${u.nome} alterado para ${newStatus}.`,"✅");
+  await loadUsersFromDB();renderUsers();openUser(u.id);
+}
+
+async function admCancelUser(){
+  const u=USERS.find(x=>x.id===_modalUserId);if(!u||!SB)return;
+  if(!confirm(`Cancelar assinatura de ${u.nome} e rebaixar para Starter?\n\nEsta ação é imediata.`))return;
+  const{error}=await SB.from("profiles").update({plan:"starter",sub_status:"canceled",overdue_since:null}).eq("id",u.id);
+  if(error){toast("Erro: "+error.message,"❌");return;}
+  await SB.from("plan_changes").insert({user_id:u.id,from_plan:u.plano.toLowerCase(),to_plan:"starter",from_status:u.status,to_status:"canceled",reason:"admin_manual",changed_by:CURRENT_USER?.id});
+  toast(`Assinatura de ${u.nome} cancelada. Plano rebaixado para Starter.`,"✅");
+  closeModal("modalUser");await loadUsersFromDB();renderUsers();
+}
+
+async function admRunCheckSubs(){
+  toast("Verificando vencimentos…","⏳");
+  try{
+    const session=await SB.auth.getSession();
+    const jwt=session?.data?.session?.access_token;
+    const r=await fetch(`${SUPA_URL}/functions/v1/check-subscriptions`,{
+      method:"POST",
+      headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"}
+    });
+    const d=await r.json();
+    if(d.ok){
+      toast(`Verificação concluída: ${d.processed} usuário(s) processado(s).`,"✅");
+      if(d.processed>0){await loadUsersFromDB();renderUsers();renderSubs();}
+    }else{toast("Erro na verificação: "+(d.error||"desconhecido"),"❌");}
+  }catch(e){toast("Erro ao verificar: "+e.message,"❌");}
+}
 
 /* ADMIN: ASSINATURAS */
 function paySt(s){
@@ -5119,7 +5619,7 @@ async function fecharTicket(id){
   renderSuporte();
 }
 async function renderConfig(){
-  planLimitsCfg.innerHTML=["starter","pro","elite","infinity"].map(k=>{const f=planRow(k);return `<div class="qrow"><strong>${f.label}</strong><span style="margin-left:auto;color:var(--mut)">${f.wa_groups} grupo${f.wa_groups>1?"s":""} · ${f.tg_channels} Telegram · R$ ${brl(Number(f.price_month))}</span></div>`;}).join("");
+  planLimitsCfg.innerHTML=["starter","pro","elite","premium"].map(k=>{const f=planRow(k);return `<div class="qrow"><strong>${f.label}</strong><span style="margin-left:auto;color:var(--mut)">${f.wa_groups} grupo${f.wa_groups>1?"s":""} · ${f.tg_channels} Telegram · R$ ${brl(Number(f.price_month))}</span></div>`;}).join("");
   integGrid.innerHTML="";
   const ig=document.createElement("div");ig.className="g3";
   // Integrações: status real onde possível, pendente onde não
@@ -5150,7 +5650,6 @@ async function renderConfig(){
 }
 
 
-
 renderGrupos();renderOnb();renderPlans();renderFaq();renderRadar();
 /* ================= ADMIN: MEMBROS VIP ================= */
 let VIP_LIST=[]; // [{id,userId,userName,plan,tipo,exp,createdAt}] — sincronizado com vip_members no banco
@@ -5167,7 +5666,7 @@ async function loadVipMembers(){
       id:r.id,
       userId:r.user_id,
       userName:r.profiles?.full_name||r.profiles?.email||"—",
-      plan:(r.profiles?.plan||"infinity").toLowerCase(),
+      plan:(r.profiles?.plan||"premium").toLowerCase(),
       tipo:r.access_type==="lifetime"?"vitalicio":"expiravel",
       exp:r.expires_at,
       createdAt:r.created_at
@@ -5473,7 +5972,7 @@ function checkVipExpiry(userId){
   }
   return false; // VIP válido, deixa entrar
 }
-/* ================= POSTAR AGORA ================= */
+/* ================= POST RELÂMPAGO ================= */
 const PR_CTAS=[
   "⚡ Corre! Esse preço dura minutos.",
   "🛒 Toque no link antes que esgote!",
@@ -5825,8 +6324,36 @@ function prGerarLinkAfil(link,loja){
   }catch(e){return link+"?ref="+id;}
 }
 
-// Encurta qualquer link via is.gd (gratuito, sem autenticação)
-async function mlEncurtarLink(longUrl){
+// Planos com rastreamento de cliques habilitado
+function planTemRastreamento(){
+  return !!(myFeatures().click_tracking);
+}
+
+// Gera um código aleatório de 7 chars
+function gerarCode(){
+  return Math.random().toString(36).slice(2,9);
+}
+
+// Encurta link: Elite/Premium → short link próprio com rastreamento
+//               Starter/Pro    → is.gd sem rastreamento (fallback)
+async function mlEncurtarLink(longUrl, postRef){
+  // Elite/Premium: grava no banco e retorna /r/{code}
+  if(planTemRastreamento()&&SB&&CURRENT_USER?.id){
+    try{
+      const code=gerarCode();
+      const{error}=await SB.from("short_links").insert({
+        code,
+        long_url:longUrl,
+        destination:longUrl,
+        user_id:CURRENT_USER.id,
+        post_ref:postRef||null
+      });
+      if(!error){
+        return `${window.location.origin}/r/${code}`;
+      }
+    }catch(e){console.warn("[short-link] erro no banco:",e.message);}
+  }
+  // Fallback: is.gd via Edge Function (Starter/Pro ou se banco falhou)
   try{
     const r=await fetch(`${SUPA_URL}/functions/v1/ml-short-link`,{
       method:"POST",
@@ -5834,9 +6361,7 @@ async function mlEncurtarLink(longUrl){
       body:JSON.stringify({url:longUrl})
     });
     const d=await r.json();
-    console.log("[encurtar] status:",r.status,"resposta:",JSON.stringify(d).slice(0,200));
-    if(d.ok&&d.short_url){return d.short_url;}
-    console.warn("[encurtar] falhou:",d.error);
+    if(d.ok&&d.short_url)return d.short_url;
     return null;
   }catch(e){console.warn("[encurtar] erro:",e.message);return null;}
 }
@@ -6147,6 +6672,19 @@ async function prDisparar(){
   btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18"><path d="M13 2L4.5 13.5H11L10 22L19.5 10H13L13 2Z"/></svg> Disparar agora';
 
   if(ok>0){
+    // Grava na scheduled_posts para contagem no Analítico
+    try{
+      const uid=CURRENT_USER?.id;
+      if(uid&&SB){
+        const rows=[];
+        const agora=new Date().toISOString();
+        for(const g of grupos){
+          const gid=g.db_id||g.id;
+          rows.push({user_id:uid,group_id:gid,status:"sent",scheduled_for:agora,sent_at:agora});
+        }
+        if(rows.length)await SB.from("scheduled_posts").insert(rows);
+      }
+    }catch(e){console.warn("Erro ao registrar post no banco:",e);}
     // Tela de sucesso clara
     const step2=document.getElementById("prStep2");
     if(step2){
@@ -6166,7 +6704,7 @@ async function prDisparar(){
   }
 }
 
-// Recebe uma oferta vinda do Radar e preenche o Postar Agora direto no Step 2
+// Recebe uma oferta vinda do Radar e preenche o Post Relâmpago direto no Step 2
 function prCarregarOfertaDoRadar(){
   const o=window.PR_PRE_FROM_RADAR;
   if(!o)return false;
@@ -6235,6 +6773,7 @@ function setAuthErr(msg){authErr.style.display=msg?"block":"none";authErr.textCo
 function switchAuth(mode){authMode=mode;
   tabLogin.classList.toggle("on",mode==="login");tabSignup.classList.toggle("on",mode==="signup");
   nameField.style.display=mode==="signup"?"block":"none";
+  const cf=document.getElementById("cpfField");if(cf)cf.style.display=mode==="signup"?"block":"none";
   authTitle.textContent=mode==="signup"?"Criar sua conta":"Entrar na sua conta";
   authSubmit.textContent=mode==="signup"?"Criar conta":"Entrar";setAuthErr("");}
 tabLogin.onclick=()=>switchAuth("login");tabSignup.onclick=()=>switchAuth("signup");
@@ -6267,9 +6806,10 @@ async function doAuth(){
   authSubmit.disabled=true;authSubmit.textContent="Aguarde…";
   try{
     if(authMode==="signup"){
+      const cpfRaw=(document.getElementById("authCpf")?.value||"").replace(/\D/g,"");
+      if(!cpfRaw||cpfRaw.length<11){setAuthErr("Informe seu CPF (obrigatório para pagamentos via Pix).");return;}
       const{data,error}=await SB.auth.signUp({email,password:pass,options:{data:{full_name:authName.value.trim()}}});
       if(error){
-        // Se email já existe, Supabase retorna esse erro
         if(error.message?.includes("already registered")||error.message?.includes("User already exists")||error.message?.includes("email")){
           setAuthErr("Este e-mail já possui uma conta cadastrada. Faça login ou use outro e-mail.");
         }else{
@@ -6277,12 +6817,29 @@ async function doAuth(){
         }
         return;
       }
-      // ─── DETECTAR EMAIL JÁ EXISTENTE ───
-      // Supabase, por segurança, não retorna erro quando o email já existe.
-      // Em vez disso, retorna data.user com identities=[] (array vazio).
       if(data.user&&Array.isArray(data.user.identities)&&data.user.identities.length===0){
         setAuthErr("Este e-mail já possui uma conta cadastrada. Faça login ou use outro e-mail.");
         return;
+      }
+      // Salva CPF + UTM de origem no perfil (UTM só é capturado aqui, no momento do cadastro —
+      // é o único ponto em que faz sentido, pra atribuição de origem em revops_events)
+      if(data.user?.id&&SB){
+        const _utm=new URLSearchParams(location.search);
+        const _utmData={cpf_cnpj:cpfRaw};
+        if(_utm.get("utm_source"))_utmData.signup_utm_source=_utm.get("utm_source");
+        if(_utm.get("utm_medium"))_utmData.signup_utm_medium=_utm.get("utm_medium");
+        if(_utm.get("utm_campaign"))_utmData.signup_utm_campaign=_utm.get("utm_campaign");
+        if(_utm.get("utm_term"))_utmData.signup_utm_term=_utm.get("utm_term");
+        if(_utm.get("utm_content"))_utmData.signup_utm_content=_utm.get("utm_content");
+        await SB.from("profiles").update(_utmData).eq("id",data.user.id);
+      }
+      // E-mail de boas-vindas
+      if(data.user?.email){
+        fetch(`${SUPA_URL}/functions/v1/send-email`,{
+          method:"POST",
+          headers:{"Content-Type":"application/json","Authorization":"Bearer "+(await SB.auth.getSession())?.data?.session?.access_token||""},
+          body:JSON.stringify({type:"boas_vindas",to:data.user.email,nome:authName.value.trim(),plano:"starter"})
+        }).catch(()=>{});
       }
       if(!data.session){setAuthErr("");toast("Conta criada! Confirme o e-mail (se exigido) e entre.","✉️");switchAuth("login");return;}
       await afterLogin(data.user);
@@ -6299,6 +6856,17 @@ authPass.addEventListener("keydown",e=>{if(e.key==="Enter")doAuth();});
 
 async function afterLogin(user){
   CURRENT_USER=user;
+  try{
+    const created=user.created_at?new Date(user.created_at).getTime():0;
+    const lastSignIn=user.last_sign_in_at?new Date(user.last_sign_in_at).getTime():0;
+    const isNovoCadastro=created&&lastSignIn&&(lastSignIn-created)<60000;
+    if(isNovoCadastro){
+      trackEvent("cadastro",{user_id:user.id,method:user.app_metadata?.provider||"email"});
+      trackEvent("trial_iniciado",{user_id:user.id});
+    }else{
+      trackEvent("login",{user_id:user.id,method:user.app_metadata?.provider||"email"});
+    }
+  }catch(e){}
   await loadPlanFeatures();
 
   // Dados que vêm do Google OAuth (ou signup normal)
@@ -6309,7 +6877,7 @@ async function afterLogin(user){
   let profile={id:user.id,full_name:googleName||userEmail,is_admin:false,plan:"starter"};
 
   try{
-    const{data}=await SB.from("profiles").select("id,full_name,email,is_admin,plan,sub_status,user_display_id").eq("id",user.id).single();
+    const{data}=await SB.from("profiles").select("id,full_name,email,is_admin,plan,sub_status,user_display_id,trial_expires_at,welcome_seen_at").eq("id",user.id).single();
     if(data)profile=Object.assign(profile,data);
 
     // Se veio do Google e o nome/email ainda não estão salvos, faz upsert
@@ -6327,7 +6895,7 @@ async function afterLogin(user){
   enterApp(profile);
 }
 function demoEnter(asAdmin){
-  enterApp({full_name:asAdmin?"Admin Mega":"Ana Luiza",is_admin:!!asAdmin,plan:asAdmin?"infinity":"starter",demo:true});
+  enterApp({full_name:asAdmin?"Admin Mega":"Ana Luiza",is_admin:!!asAdmin,plan:asAdmin?"premium":"starter",demo:true});
   toast(asAdmin?"Modo demonstração: Administrador":"Modo demonstração: Afiliado","🧪");
 }
 async function enterApp(profile){
@@ -6336,6 +6904,35 @@ async function enterApp(profile){
   CURRENT_USER=CURRENT_USER||{};
   MY_PLAN=(profile.plan||"starter").toLowerCase();
   if(!PLAN_FEATURES[MY_PLAN])MY_PLAN="starter";
+
+  // Trava de trial expirado (só para não-admin e não-vip)
+  if(!profile.is_admin&&!profile.is_vip&&profile.sub_status==="canceled"&&!profile.demo){
+    const trialExp=profile.trial_expires_at?new Date(profile.trial_expires_at):null;
+    const isTrialExpired=trialExp&&trialExp<new Date();
+    if(isTrialExpired||profile.sub_status==="canceled"){
+      authGate.style.display="none";
+      document.body.innerHTML=`<div style="min-height:100vh;background:#0c0c0e;display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;padding:20px">
+        <div style="max-width:480px;width:100%;text-align:center">
+          <img src="/icon.png" style="width:72px;border-radius:50%;margin-bottom:20px">
+          <h1 style="color:#FFD33F;font-size:24px;font-weight:800;margin:0 0 12px">Seu trial encerrou</h1>
+          <p style="color:#aaa;font-size:15px;line-height:1.6;margin:0 0 28px">Seus 7 dias gratuitos chegaram ao fim. Escolha um plano para continuar automatizando suas vendas na Mega Links BR.</p>
+          <div style="display:grid;gap:12px;margin-bottom:24px">
+            <div style="background:#111118;border:1px solid #222;border-radius:12px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+              <div style="text-align:left"><div style="color:#10B981;font-weight:700;font-size:13px">⚡ STARTER</div><div style="color:#aaa;font-size:12px;margin-top:2px">Shopee · Post Relâmpago</div></div>
+              <button onclick="location.href='/'" style="background:#10B981;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">R$ 57,90/mês</button>
+            </div>
+            <div style="background:#111118;border:1px solid #8B5CF6;border-radius:12px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+              <div style="text-align:left"><div style="color:#8B5CF6;font-weight:700;font-size:13px">🔥 ELITE — MAIS POPULAR</div><div style="color:#aaa;font-size:12px;margin-top:2px">Automação 24/7 · MegaIA · Rastreamento</div></div>
+              <button onclick="location.href='/'" style="background:#8B5CF6;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">R$ 157,90/mês</button>
+            </div>
+          </div>
+          <button onclick="SB.auth.signOut().then(()=>location.reload())" style="background:transparent;border:1px solid #333;color:#666;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:13px">Sair da conta</button>
+        </div>
+      </div>`;
+      return;
+    }
+  }
+
   // verifica VIP expirado antes de entrar
   if(CURRENT_USER&&CURRENT_USER.id&&checkVipExpiry(CURRENT_USER.id))return;
   // carrega dados persistidos do usuário
@@ -6371,7 +6968,11 @@ async function enterApp(profile){
   try{
     const f=myFeatures();
     const pn=document.getElementById("myPlanName");if(pn)pn.textContent=f.label.toUpperCase();
-    const pi=document.getElementById("myPlanInfo");if(pi)pi.textContent=MY_PLAN==="starter"?"Trial · 7 dias grátis":`R$ ${brl(Number(f.price_month))}/mês · próximo pagamento em breve`;
+    const pi=document.getElementById("myPlanInfo");if(pi){
+      const st=profile?.sub_status||"active";
+      const stLabel={active:"Em dia",trial:"Trial",past_due:"Em atraso",canceled:"Cancelado"}[st]||"Ativo";
+      pi.textContent=`R$ ${brl(Number(f.price_month))}/mês · ${stLabel}`;
+    }
   }catch(e){}
   // preenche "Meus Dados" com o perfil real
   try{
@@ -6390,6 +6991,8 @@ async function enterApp(profile){
     }
     const mdCpfEl=document.getElementById("mdCpf");
     if(mdCpfEl&&profile.cpf_cnpj)mdCpfEl.value=profile.cpf_cnpj;
+    const mdCpfWarn=document.getElementById("mdCpfWarn");
+    if(mdCpfWarn)mdCpfWarn.style.display=(!profile.cpf_cnpj)?"block":"none";
     // Carregar user_display_id
     const displayIdEl=document.getElementById("displayUserId");
     if(displayIdEl&&profile.user_display_id){
@@ -6399,6 +7002,69 @@ async function enterApp(profile){
   // entra sempre pela área de afiliado
   authGate.style.display="none";
   setRole("afiliado");
+  // carrega analítico em background
+  setTimeout(()=>{if(typeof loadAnalitico==="function")loadAnalitico();},500);
+  // banner de upgrade contextual no dashboard
+  setTimeout(()=>renderUpgradeBanner(),600);
+  // Boas-vindas — só na primeira vez que o usuário entra (welcome_seen_at ainda nulo)
+  if(!profile.welcome_seen_at){
+    setTimeout(()=>{
+      const bvNome=document.getElementById("bvNome");
+      if(bvNome)bvNome.textContent=(profile.full_name||"").trim().split(" ")[0]||"";
+      if(typeof openModal==="function")openModal("modalBoasVindas");
+    },700);
+  }
+}
+
+async function fecharBoasVindas(irPara){
+  if(typeof closeModal==="function")closeModal("modalBoasVindas");
+  try{
+    if(SB&&CURRENT_USER?.id)await SB.from("profiles").update({welcome_seen_at:new Date().toISOString()}).eq("id",CURRENT_USER.id);
+  }catch(e){console.warn("fecharBoasVindas:",e);}
+  if(irPara&&typeof go==="function")go(irPara);
+}
+
+function renderUpgradeBanner(){
+  const el=document.getElementById("upgradeBannerDash");
+  if(!el)return;
+  const f=myFeatures();
+  const plan=MY_PLAN;
+  // Não exibe para Elite e Premium
+  if(plan==="elite"||plan==="premium"){el.innerHTML="";return;}
+
+  const proximo={starter:{key:"pro",label:"Pro",preco:"97,90",beneficio:"🤖 Automação 24/7 + MegaIA + 3 Grupos WA"},
+                 pro:{key:"elite",label:"Elite",preco:"157,90",beneficio:"🔥 8 Grupos · 20 Canais · Rastreamento de cliques"}};
+  const prox=proximo[plan];
+  if(!prox){el.innerHTML="";return;}
+
+  // Motivo contextual baseado no uso
+  let motivo="";
+  if(plan==="starter"&&!f.wa_post_automation)
+    motivo="Seus posts ainda são manuais — com Pro, a automação trabalha por você 24h.";
+  else if(plan==="starter"&&S.grupos.length>=S.planLimit)
+    motivo="Você atingiu o limite de grupos do Starter. Expanda sua operação no Pro.";
+  else if(plan==="pro"&&S.grupos.length>=S.planLimit)
+    motivo="Você está no limite de grupos do Pro. O Elite libera 8 grupos e rastreamento de cliques.";
+  else if(plan==="starter")
+    motivo="Automatize, use IA e escale — por R$ ${prox.preco}/mês.";
+
+  el.innerHTML=`<div style="background:linear-gradient(135deg,rgba(155,125,255,.12),rgba(57,192,255,.08));border:1px solid rgba(155,125,255,.35);border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:14px;margin-bottom:20px;flex-wrap:wrap">
+    <div style="font-size:22px;flex:none">🚀</div>
+    <div style="flex:1;min-width:180px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:2px">Upgrade para <span style="color:var(--volt)">${prox.label}</span> — R$ ${prox.preco}/mês</div>
+      <div style="font-size:12px;color:var(--tx2)">${motivo||prox.beneficio}</div>
+    </div>
+    <div style="display:flex;gap:8px;flex:none">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('upgradeBannerDash').style.display='none'">Fechar</button>
+      <button class="btn btn-gold btn-sm" onclick="go('assinatura')">Ver planos ↗</button>
+    </div>
+  </div>`;
+
+  // Pill no botão MegaIA se Starter
+  const btnIA=document.getElementById("btnDashIA");
+  if(btnIA&&!f.mega_ia){
+    btnIA.innerHTML='🔒 MegaIA <span style="background:var(--gold);color:#0c0c0e;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;margin-left:4px">PRO+</span>';
+  }
 }
 // Atualiza o rodapé do menu lateral com o plano real
 function updateRailFoot(profile){
@@ -6455,7 +7121,7 @@ function applyPlanGating(){
   // (aplicado dinamicamente em buildTabs via patchGeralPane — veja abaixo)
   window._planHasPostAuto = hasPostAuto;
 
-  /* ── 5. MARKETPLACES em Config Afiliados ── */
+  /* ── 4. MARKETPLACES em Config Afiliados ── */
   const maxMarket = f.marketplaces===-1?999:f.marketplaces;
   window._planMaxMarket = maxMarket;
   applyMarketplaceGating(maxMarket, f.label);
@@ -6473,29 +7139,30 @@ function applyPlanGating(){
 /* Aplica gate nos cards de marketplaces em Config Afiliados */
 function applyMarketplaceGating(max, planLabel){
   if(!lojasGrid)return;
+  const plan=MY_PLAN||"starter";
+  const allowed=MARKET_PLAN[plan]; // null = todos liberados
   const cards=[...lojasGrid.querySelectorAll(".card")];
-  // Lojas sempre liberadas (as 2 primeiras para Starter)
-  // "max" = quantidade de marketplaces permitidos pelo plano
-  // Lojas na ordem do array LOJAS: AliExpress, Amazon, AWIN, Shopee, Magalu, ML, Natura, Shein, TerabyteShop
-  // Starter → 2 (Shopee + ML = índices 3 e 5, mas deixamos os primeiros 2 acessíveis)
-  // Para simplificar: permitir as primeiras `max` lojas; as demais ficam com overlay
   cards.forEach((card,i)=>{
-    const locked=max!==-1&&i>=max;
+    const lojaName=LOJAS[i]?.n||"";
+    const locked=allowed!==null&&!allowed.includes(lojaName);
+    // Mensagem de upgrade contextual
+    const proxPlano=plan==="starter"?"Pro":plan==="pro"?"Elite":"Elite";
     let overlay=card.querySelector(".market-gate");
     if(locked){
       card.style.position="relative";card.style.overflow="hidden";
       if(!overlay){
         overlay=document.createElement("div");overlay.className="market-gate";
-        overlay.style.cssText="position:absolute;inset:0;background:rgba(8,10,15,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border-radius:inherit;z-index:5";
-        overlay.innerHTML=`<span style="font-size:26px">🔒</span><span style="font-size:12.5px;color:var(--tx2);text-align:center;max-width:140px">Disponível no plano Pro ou superior</span><button class="btn btn-gold btn-sm" onclick="go('assinatura')">Upgrade</button>`;
+        overlay.style.cssText="position:absolute;inset:0;background:rgba(8,10,15,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border-radius:inherit;z-index:5;backdrop-filter:blur(2px)";
+        overlay.innerHTML=`<span style="font-size:26px">🔒</span><span style="font-size:12.5px;color:var(--tx2);text-align:center;max-width:160px">Disponível no plano <strong style="color:var(--gold)">${proxPlano}</strong> ou superior</span><button class="btn btn-gold btn-sm" onclick="go('assinatura')">Ver planos ↗</button>`;
         card.appendChild(overlay);
       }
-    } else {
+    }else{
       card.style.position="";card.style.overflow="";
       if(overlay)overlay.remove();
     }
   });
 }
+
 
 async function signOut(){closeDD();if(SB){try{await SB.auth.signOut();}catch(e){}}
   IS_ADMIN=false;CURRENT_USER=null;authEmail.value="";authPass.value="";switchAuth("login");
@@ -6585,6 +7252,189 @@ async function bootAuth(){
   }
   authGate.style.display="flex"; // sem sessão → mostra login
 }
+
+/* ================= ADMIN: SEO & MARKETING ================= */
+async function loadSeoFields(pageKey){
+  if(!SB)return;
+  try{
+    const{data:seo}=await SB.from("seo_settings").select("*").eq("page_key",pageKey).single();
+    seoTitle.value=seo?.title||"";
+    seoDesc.value=seo?.meta_description||"";
+    seoKeywords.value=(seo?.keywords||[]).join(", ");
+    seoOgTitle.value=seo?.og_title||"";
+    seoOgDesc.value=seo?.og_description||"";
+    seoOgImage.value=seo?.og_image||"";
+    seoCanonical.value=seo?.canonical_url||"";
+    seoSchema.value=seo?.schema_jsonld?JSON.stringify(seo.schema_jsonld,null,2):"";
+  }catch(e){console.warn("loadSeoFields:",e);}
+}
+seoPageKey?.addEventListener("change",()=>loadSeoFields(seoPageKey.value));
+
+async function renderSeoMarketing(){
+  if(!SB)return;
+  await loadSeoFields(seoPageKey?.value||"home");
+  try{
+    const{data:mkt}=await SB.from("marketing_settings").select("*").eq("id",1).single();
+    if(mkt){
+      mktGa4.value=mkt.ga4_measurement_id||"";
+      mktMetaPixel.value=mkt.meta_pixel_id||"";
+      mktCapiTest.value=mkt.meta_capi_test_event_code||"";
+      mktTiktok.value=mkt.tiktok_pixel_id||"";
+      mktLinkedin.value=mkt.linkedin_partner_id||"";
+      mktGads.value=mkt.google_ads_id||"";
+      mktClarity.value=mkt.clarity_project_id||"";
+      mktHotjar.value=mkt.hotjar_site_id||"";
+      mktGsc.value=mkt.search_console_verification||"";
+      mktBing.value=mkt.bing_verification||"";
+    }
+  }catch(e){console.warn("renderSeoMarketing mkt:",e);}
+}
+
+btnSalvarSeo?.addEventListener("click",async()=>{
+  if(!SB)return;
+  btnSalvarSeo.disabled=true;btnSalvarSeo.textContent="Salvando…";
+  try{
+    const payload={
+      page_key:seoPageKey?.value||"home",
+      title:seoTitle.value.trim(),
+      meta_description:seoDesc.value.trim(),
+      keywords:seoKeywords.value.split(",").map(s=>s.trim()).filter(Boolean),
+      og_title:seoOgTitle.value.trim(),
+      og_description:seoOgDesc.value.trim(),
+      og_image:seoOgImage.value.trim(),
+      canonical_url:seoCanonical.value.trim(),
+      updated_at:new Date().toISOString()
+    };
+    const _schemaRaw=seoSchema.value.trim();
+    if(_schemaRaw){
+      try{payload.schema_jsonld=JSON.parse(_schemaRaw);}
+      catch(e){toast("Schema.org inválido — verifique o JSON antes de salvar.","⚠️");btnSalvarSeo.disabled=false;btnSalvarSeo.textContent="Salvar SEO";return;}
+    }else{
+      payload.schema_jsonld=null;
+    }
+    const{error}=await SB.from("seo_settings").upsert(payload,{onConflict:"page_key"});
+    if(error)throw error;
+    toast("SEO salvo com sucesso!","🟢");
+    if((seoPageKey?.value||"home")==="home")applyDynamicSeo();
+  }catch(e){toast("Erro ao salvar SEO: "+e.message,"⚠️");}
+  finally{btnSalvarSeo.disabled=false;btnSalvarSeo.textContent="Salvar SEO";}
+});
+
+btnSalvarMkt?.addEventListener("click",async()=>{
+  if(!SB)return;
+  btnSalvarMkt.disabled=true;btnSalvarMkt.textContent="Salvando…";
+  try{
+    const payload={
+      id:1,
+      ga4_measurement_id:mktGa4.value.trim(),
+      meta_pixel_id:mktMetaPixel.value.trim(),
+      meta_capi_test_event_code:mktCapiTest.value.trim(),
+      tiktok_pixel_id:mktTiktok.value.trim(),
+      linkedin_partner_id:mktLinkedin.value.trim(),
+      google_ads_id:mktGads.value.trim(),
+      clarity_project_id:mktClarity.value.trim(),
+      hotjar_site_id:mktHotjar.value.trim(),
+      search_console_verification:mktGsc.value.trim(),
+      bing_verification:mktBing.value.trim(),
+      updated_at:new Date().toISOString()
+    };
+    const{error}=await SB.from("marketing_settings").upsert(payload,{onConflict:"id"});
+    if(error)throw error;
+    toast("Configurações de tracking salvas!","🟢");
+  }catch(e){toast("Erro ao salvar tracking: "+e.message,"⚠️");}
+  finally{btnSalvarMkt.disabled=false;btnSalvarMkt.textContent="Salvar Tracking";}
+});
+
+btnGerarUtm?.addEventListener("click",()=>{
+  const base=utmUrl.value.trim()||"https://www.megalinksbr.com.br";
+  const params=new URLSearchParams();
+  if(utmSource.value.trim())params.set("utm_source",utmSource.value.trim());
+  if(utmMedium.value.trim())params.set("utm_medium",utmMedium.value.trim());
+  if(utmCampaign.value.trim())params.set("utm_campaign",utmCampaign.value.trim());
+  if(utmTerm.value.trim())params.set("utm_term",utmTerm.value.trim());
+  if(utmContent.value.trim())params.set("utm_content",utmContent.value.trim());
+  const qs=params.toString();
+  utmResult.value=qs?`${base}?${qs}`:base;
+});
+
+/* ================= TRACKING: dataLayer (bridge pro GTM) + Conversion API (server-side) ================= */
+// Fonte única de verdade dos eventos é o revops_events (gravado via trigger no banco —
+// confiável mesmo se o JS falhar ou um ad blocker bloquear a chamada). Esta função:
+// 1) espelha o evento pro dataLayer, pra disparar tags/pixels configurados no GTM;
+// 2) pra eventos de conversão relevantes, também dispara a Meta Conversion API via Edge
+//    Function (server-side — funciona mesmo com ad blocker ou Safari ITP bloqueando o pixel
+//    do navegador). event_id é compartilhado entre os dois pra o Meta deduplicar o evento.
+window.dataLayer=window.dataLayer||[];
+const CAPI_EVENTS=new Set(["cadastro","trial_iniciado"]);
+function _getCookie(name){
+  const m=document.cookie.match(new RegExp("(?:^|; )"+name+"=([^;]*)"));
+  return m?decodeURIComponent(m[1]):null;
+}
+function trackEvent(eventName,extra){
+  const eventId=(crypto.randomUUID?crypto.randomUUID():(Date.now()+"_"+Math.random().toString(36).slice(2)));
+  try{ window.dataLayer.push(Object.assign({event:eventName,event_id:eventId},extra||{})); }catch(e){}
+  if(CAPI_EVENTS.has(eventName)){
+    try{
+      fetch(`${SUPA_URL}/functions/v1/capi-send`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          event_name:eventName,
+          event_id:eventId,
+          email:CURRENT_USER?.email||undefined,
+          event_source_url:location.href,
+          fbp:_getCookie("_fbp"),
+          fbc:_getCookie("_fbc")
+        })
+      }).catch(()=>{});
+    }catch(e){}
+  }
+}
+
+/* ================= SEO: meta tags dinâmicas a partir do banco ================= */
+async function applyDynamicSeo(){
+  if(!SB)return;
+  const setMeta=(sel,attr,val)=>{if(!val)return;let el=document.querySelector(sel);if(el)el.setAttribute(attr,val);};
+  const upsertMetaName=(name,val)=>{
+    if(!val)return;
+    let el=document.querySelector(`meta[name="${name}"]`);
+    if(!el){el=document.createElement("meta");el.setAttribute("name",name);document.head.appendChild(el);}
+    el.setAttribute("content",val);
+  };
+  try{
+    const{data}=await SB.from("seo_settings").select("*").eq("page_key","home").single();
+    if(data){
+      if(data.title)document.title=data.title;
+      setMeta('meta[name="description"]','content',data.meta_description);
+      setMeta('meta[property="og:title"]','content',data.og_title);
+      setMeta('meta[property="og:description"]','content',data.og_description);
+      setMeta('meta[property="og:image"]','content',data.og_image);
+      setMeta('meta[name="twitter:title"]','content',data.og_title);
+      setMeta('meta[name="twitter:description"]','content',data.og_description);
+      setMeta('meta[name="twitter:image"]','content',data.og_image);
+      if(data.canonical_url){
+        let link=document.querySelector('link[rel="canonical"]');
+        if(!link){link=document.createElement("link");link.rel="canonical";document.head.appendChild(link);}
+        link.href=data.canonical_url;
+        setMeta('meta[property="og:url"]','content',data.canonical_url);
+      }
+      if(data.schema_jsonld){
+        let s=document.getElementById("seoSchemaJsonLd");
+        if(!s){s=document.createElement("script");s.type="application/ld+json";s.id="seoSchemaJsonLd";document.head.appendChild(s);}
+        s.textContent=typeof data.schema_jsonld==="string"?data.schema_jsonld:JSON.stringify(data.schema_jsonld);
+      }
+    }
+  }catch(e){console.warn("applyDynamicSeo (seo_settings):",e);}
+  try{
+    const{data:mkt}=await SB.from("marketing_settings").select("search_console_verification,bing_verification").eq("id",1).single();
+    if(mkt){
+      upsertMetaName("google-site-verification",mkt.search_console_verification);
+      upsertMetaName("msvalidate.01",mkt.bing_verification);
+    }
+  }catch(e){console.warn("applyDynamicSeo (marketing_settings):",e);}
+}
+applyDynamicSeo();
+
 bootAuth();
 </script>
 <script>
