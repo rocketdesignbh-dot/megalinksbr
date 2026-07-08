@@ -1525,6 +1525,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="phead"><div><h1 class="pt">🔍 SEO &amp; Marketing</h1><div class="psub">Meta tags, tags de rastreamento e eventos de conversão do site.</div></div></div>
     <div class="g2">
       <div class="card" style="margin:0"><div class="ch">🏷️ SEO — Página inicial</div><div class="cb">
+        <div class="field"><label>Página</label>
+          <select id="seoPageKey">
+            <option value="home">Página inicial (home)</option>
+            <option value="termos">Termos de Uso</option>
+            <option value="privacidade">Política de Privacidade</option>
+          </select>
+        </div>
         <div class="field"><label>Title</label><input id="seoTitle" maxlength="70" placeholder="Título da página"></div>
         <div class="field"><label>Meta description</label><textarea id="seoDesc" rows="2" maxlength="160" placeholder="Descrição para resultados de busca"></textarea></div>
         <div class="field"><label>Palavras-chave (separadas por vírgula)</label><input id="seoKeywords" placeholder="ex.: automação whatsapp, radar mercado livre"></div>
@@ -7140,21 +7147,25 @@ async function bootAuth(){
 }
 
 /* ================= ADMIN: SEO & MARKETING ================= */
-async function renderSeoMarketing(){
+async function loadSeoFields(pageKey){
   if(!SB)return;
   try{
-    const{data:seo}=await SB.from("seo_settings").select("*").eq("page_key","home").single();
-    if(seo){
-      seoTitle.value=seo.title||"";
-      seoDesc.value=seo.meta_description||"";
-      seoKeywords.value=(seo.keywords||[]).join(", ");
-      seoOgTitle.value=seo.og_title||"";
-      seoOgDesc.value=seo.og_description||"";
-      seoOgImage.value=seo.og_image||"";
-      seoCanonical.value=seo.canonical_url||"";
-      seoSchema.value=seo.schema_jsonld?JSON.stringify(seo.schema_jsonld,null,2):"";
-    }
-  }catch(e){console.warn("renderSeoMarketing seo:",e);}
+    const{data:seo}=await SB.from("seo_settings").select("*").eq("page_key",pageKey).single();
+    seoTitle.value=seo?.title||"";
+    seoDesc.value=seo?.meta_description||"";
+    seoKeywords.value=(seo?.keywords||[]).join(", ");
+    seoOgTitle.value=seo?.og_title||"";
+    seoOgDesc.value=seo?.og_description||"";
+    seoOgImage.value=seo?.og_image||"";
+    seoCanonical.value=seo?.canonical_url||"";
+    seoSchema.value=seo?.schema_jsonld?JSON.stringify(seo.schema_jsonld,null,2):"";
+  }catch(e){console.warn("loadSeoFields:",e);}
+}
+seoPageKey?.addEventListener("change",()=>loadSeoFields(seoPageKey.value));
+
+async function renderSeoMarketing(){
+  if(!SB)return;
+  await loadSeoFields(seoPageKey?.value||"home");
   try{
     const{data:mkt}=await SB.from("marketing_settings").select("*").eq("id",1).single();
     if(mkt){
@@ -7176,7 +7187,7 @@ btnSalvarSeo?.addEventListener("click",async()=>{
   btnSalvarSeo.disabled=true;btnSalvarSeo.textContent="Salvando…";
   try{
     const payload={
-      page_key:"home",
+      page_key:seoPageKey?.value||"home",
       title:seoTitle.value.trim(),
       meta_description:seoDesc.value.trim(),
       keywords:seoKeywords.value.split(",").map(s=>s.trim()).filter(Boolean),
@@ -7196,7 +7207,7 @@ btnSalvarSeo?.addEventListener("click",async()=>{
     const{error}=await SB.from("seo_settings").upsert(payload,{onConflict:"page_key"});
     if(error)throw error;
     toast("SEO salvo com sucesso!","🟢");
-    applyDynamicSeo();
+    if((seoPageKey?.value||"home")==="home")applyDynamicSeo();
   }catch(e){toast("Erro ao salvar SEO: "+e.message,"⚠️");}
   finally{btnSalvarSeo.disabled=false;btnSalvarSeo.textContent="Salvar SEO";}
 });

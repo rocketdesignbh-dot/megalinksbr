@@ -1,9 +1,25 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-53W6734J');</script>
+<!-- End Google Tag Manager -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Política de Privacidade — Mega Links BR</title>
+<meta name="description" content="Política de privacidade da Mega Links BR — como coletamos, usamos e protegemos os dados dos usuários da plataforma.">
+<meta property="og:title" content="Política de Privacidade — Mega Links BR">
+<meta property="og:description" content="Política de privacidade da Mega Links BR — como coletamos, usamos e protegemos os dados dos usuários da plataforma.">
+<meta property="og:image" content="/banner.jpg">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.megalinksbr.com.br/privacidade.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://www.megalinksbr.com.br/privacidade.html">
+<link rel="icon" type="image/png" href="/favicon.png">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Segoe UI',Arial,sans-serif;background:#0c0c0e;color:#e0e0e0;line-height:1.75;font-size:15px}
@@ -24,8 +40,45 @@
   .back:hover{color:#F5C518}
   .back svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(async function(){
+  try{
+    var SB=supabase.createClient("https://nxlfezpagporealqqbfj.supabase.co","sb_publishable_FQTFJaF46KfwSnODD5UjPA_nOagscIu");
+    var r=await SB.from("seo_settings").select("*").eq("page_key","privacidade").single();
+    var data=r.data;
+    if(!data)return;
+    if(data.title)document.title=data.title;
+    function upsertName(name,val){if(!val)return;var el=document.querySelector('meta[name="'+name+'"]');if(!el){el=document.createElement("meta");el.setAttribute("name",name);document.head.appendChild(el);}el.setAttribute("content",val);}
+    function upsertProp(prop,val){if(!val)return;var el=document.querySelector('meta[property="'+prop+'"]');if(!el){el=document.createElement("meta");el.setAttribute("property",prop);document.head.appendChild(el);}el.setAttribute("content",val);}
+    upsertName("description",data.meta_description);
+    upsertProp("og:title",data.og_title);
+    upsertProp("og:description",data.og_description);
+    upsertProp("og:image",data.og_image);
+    upsertName("twitter:card","summary_large_image");
+    upsertName("twitter:title",data.og_title);
+    upsertName("twitter:description",data.og_description);
+    upsertName("twitter:image",data.og_image);
+    if(data.canonical_url){
+      var link=document.querySelector('link[rel="canonical"]');
+      if(!link){link=document.createElement("link");link.rel="canonical";document.head.appendChild(link);}
+      link.href=data.canonical_url;
+      upsertProp("og:url",data.canonical_url);
+    }
+    if(data.schema_jsonld){
+      var s=document.createElement("script");s.type="application/ld+json";
+      s.textContent=typeof data.schema_jsonld==="string"?data.schema_jsonld:JSON.stringify(data.schema_jsonld);
+      document.head.appendChild(s);
+    }
+  }catch(e){console.warn("SEO dinâmico:",e);}
+})();
+</script>
 </head>
 <body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-53W6734J"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
 <div class="wrap">
   <a href="/" class="back"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg> Voltar para a plataforma</a>
 
