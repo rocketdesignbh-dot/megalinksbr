@@ -246,6 +246,16 @@ tbody tr:last-child td{border-bottom:none}
           <div id="signups30" class="loading">Carregando…</div>
         </div>
       </div>
+      <div class="grid2">
+        <div class="card">
+          <h3>Origem dos cadastros (UTM)</h3>
+          <div id="utmSource" class="loading">Carregando…</div>
+        </div>
+        <div class="card">
+          <h3>Campanhas (UTM)</h3>
+          <div id="utmCampaign" class="loading">Carregando…</div>
+        </div>
+      </div>
     </div>
 
     <!-- CRM -->
@@ -466,6 +476,21 @@ async function loadDash(){
   document.getElementById('plans').innerHTML=rows.length
     ? rows.map(([p,n])=>`<div class="planRow"><span>${esc(p)}</span><b>${n}</b></div>`).join('')
     : '<div class="loading">Sem dados</div>';
+
+  // origem UTM dos cadastros (captado no signup, ver profiles.signup_utm_*)
+  const utmSrc=m.signups_by_utm_source||{};
+  const utmSrcRows=Object.entries(utmSrc).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('utmSource').classList.remove('loading');
+  document.getElementById('utmSource').innerHTML=utmSrcRows.length
+    ? utmSrcRows.map(([s,n])=>`<div class="planRow"><span>${esc(s)}</span><b>${n}</b></div>`).join('')
+    : '<div class="loading">Sem dados</div>';
+
+  const utmCamp=m.signups_by_utm_campaign||{};
+  const utmCampRows=Object.entries(utmCamp).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('utmCampaign').classList.remove('loading');
+  document.getElementById('utmCampaign').innerHTML=utmCampRows.length
+    ? utmCampRows.map(([c,n])=>`<div class="planRow"><span>${esc(c)}</span><b>${n}</b></div>`).join('')
+    : '<div class="loading">Nenhum cadastro com campanha rastreada ainda</div>';
 }
 
 function renderBars(elId, series, days){
