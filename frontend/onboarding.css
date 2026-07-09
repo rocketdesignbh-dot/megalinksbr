@@ -1,0 +1,326 @@
+/**
+ * Estilos para Sistema de Onboarding
+ * Integrado com design tokens do MegaLinks
+ */
+
+/* ========== TOOLTIPS ========== */
+
+.tooltip-onboarding {
+  position: fixed;
+  z-index: 9999;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tooltip-card {
+  background: var(--bg-secondary, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: var(--r, 12px);
+  padding: 16px;
+  max-width: 320px;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    0 8px 24px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(10px);
+}
+
+/* Dark mode */
+:root[data-theme="dark"] .tooltip-card {
+  background: var(--bg-secondary, #1f2937);
+  border-color: var(--border-dark, #374151);
+}
+
+.tooltip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.tooltip-title {
+  font-family: var(--font-display, 'Plus Jakarta Sans'), sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+  margin: 0;
+  line-height: 1.4;
+}
+
+:root[data-theme="dark"] .tooltip-title {
+  color: var(--text-primary-dark, #f3f4f6);
+}
+
+.tooltip-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--text-muted, #9ca3af);
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.tooltip-close:hover {
+  background: var(--bg-hover, #f3f4f6);
+  color: var(--text-primary, #1f2937);
+}
+
+:root[data-theme="dark"] .tooltip-close:hover {
+  background: var(--bg-hover-dark, #374151);
+  color: var(--text-primary-dark, #f3f4f6);
+}
+
+.tooltip-content {
+  font-size: 14px;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+:root[data-theme="dark"] .tooltip-content {
+  color: var(--text-secondary-dark, #d1d5db);
+}
+
+.tooltip-content strong {
+  color: var(--text-primary, #1f2937);
+}
+
+:root[data-theme="dark"] .tooltip-content strong {
+  color: var(--text-primary-dark, #f3f4f6);
+}
+
+.tooltip-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tooltip-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted, #6b7280);
+  cursor: pointer;
+  user-select: none;
+}
+
+:root[data-theme="dark"] .tooltip-checkbox {
+  color: var(--text-muted-dark, #9ca3af);
+}
+
+.tooltip-checkbox-input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--volt, #fbbf24);
+  cursor: pointer;
+}
+
+.tooltip-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.tooltip-btn-primary,
+.tooltip-btn-secondary {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+
+/* ========== GUIAS PASSO-A-PASSO ========== */
+
+.onboarding-guide {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.guide-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+.guide-card {
+  position: relative;
+  z-index: 1;
+  background: var(--bg-primary, #ffffff);
+  border-radius: var(--r, 12px);
+  padding: 32px;
+  max-width: 480px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  animation: popIn 0.3s ease-out;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+:root[data-theme="dark"] .guide-card {
+  background: var(--bg-primary-dark, #111827);
+}
+
+.guide-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.guide-counter {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--volt, #fbbf24);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.guide-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--text-muted, #9ca3af);
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.guide-close:hover {
+  background: var(--bg-hover, #f3f4f6);
+  color: var(--text-primary, #1f2937);
+}
+
+:root[data-theme="dark"] .guide-close:hover {
+  background: var(--bg-hover-dark, #374151);
+  color: var(--text-primary-dark, #f3f4f6);
+}
+
+.guide-title {
+  font-family: var(--font-display, 'Plus Jakarta Sans'), sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary, #1f2937);
+  margin: 0 0 12px 0;
+  line-height: 1.3;
+}
+
+:root[data-theme="dark"] .guide-title {
+  color: var(--text-primary-dark, #f3f4f6);
+}
+
+.guide-content {
+  font-size: 15px;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.7;
+  margin-bottom: 24px;
+}
+
+:root[data-theme="dark"] .guide-content {
+  color: var(--text-secondary-dark, #d1d5db);
+}
+
+.guide-progress {
+  height: 4px;
+  background: var(--bg-tertiary, #f3f4f6);
+  border-radius: 2px;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+
+:root[data-theme="dark"] .guide-progress {
+  background: var(--bg-tertiary-dark, #374151);
+}
+
+.guide-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--volt, #fbbf24), var(--gold, #f59e0b));
+  transition: width 0.3s ease;
+}
+
+.guide-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.guide-prev,
+.guide-next,
+.guide-done {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.guide-highlight {
+  animation: pulse 2s infinite;
+  outline: 3px solid var(--volt, #fbbf24) !important;
+  outline-offset: 4px;
+}
+
+@keyframes pulse {
+  0%, 100% { outline-color: var(--volt, #fbbf24); }
+  50% { outline-color: var(--gold, #f59e0b); }
+}
+
+/* ========== RESPONSIVE ========== */
+
+@media (max-width: 640px) {
+  .tooltip-card {
+    max-width: calc(100vw - 32px);
+  }
+
+  .guide-card {
+    padding: 24px;
+  }
+
+  .guide-title {
+    font-size: 20px;
+  }
+}
