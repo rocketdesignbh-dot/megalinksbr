@@ -5669,19 +5669,70 @@ async function renderInstancias(){
   }
 }
 
-/* ADMIN: FILA (live) */
-let queueTimer=null,queueData=[];
-function genQueue(){queueData=[];} // zerado: fila real virá do banco/wa-engine
-function renderQueue(){
-  const ativos=queueData.length;filaKpis.innerHTML=[["Na fila",ativos+"","#19E27D"],["Disparos hoje","0","#39C0FF"],["Sucesso","—","#FFB020"],["Falhas (24h)","0","#FF4D8D"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div></div>`).join("");
-  queueList.innerHTML=queueData.length?queueData.map((q,i)=>`<div class="qrow"><span class="fic">${i===0?"🚀":"⏳"}</span><span style="flex:1"><strong>${q.prod}</strong><br><small style="color:var(--mut)">→ ${q.canal} · ${q.user}</small></span><span class="pill ${i===0?"volt":"gray"}">${i===0?"enviando…":"em "+q.eta+" min"}</span></div>`).join(""):'<div class="qrow"><span style="color:var(--mut)">Nenhum post na fila no momento.</span></div>';}
-const qlog=[];
-function pushLog(t){qlog.unshift({t,time:new Date().toLocaleTimeString("pt-BR")});if(qlog.length>30)qlog.pop();
-  queueLog.innerHTML=qlog.map(l=>`<div style="font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bd)"><span class="mono" style="color:var(--mut)">${l.time}</span> ${l.t}</div>`).join("");}
-function startQueue(){if(queueTimer||S.queuePaused)return;if(!queueData.length)return;renderQueue();}
-function genQueueRefill(){}
+/* ADMIN: FILA (live) — dados reais via scheduled_posts / niche_groups */
+let queueTimer=null,queueUpcoming=[];
+
+function filaEta(group,now){
+  const startH=group.start_hour??0,endH=group.end_hour??23;
+  const brHour=now.getUTCHours(); // painel exibe hora do servidor (UTC); ok p/ ordenação relativa
+  const inWindow=startH<=endH?(brHour>=startH&&brHour<=endH):(brHour>=startH||brHour<=endH);
+  const intervalMs=(group.interval_minutes??10)*60000;
+  const last=group.last_post_at?new Date(group.last_post_at).getTime():0;
+  const dueAt=last+intervalMs;
+  let etaMin=Math.ceil((dueAt-now.getTime())/60000);
+  if(!inWindow)etaMin=Math.max(etaMin,1); // fora da janela: só exibe como "aguardando janela"
+  return {etaMin:Math.max(etaMin,0),inWindow};
+}
+
+async function renderQueue(){
+  if(!SB){filaKpis.innerHTML="";queueList.innerHTML='<div class="qrow"><span style="color:var(--mut)">Supabase não conectado.</span></div>';return;}
+  try{
+    const now=new Date();
+    const hojeInicio=new Date(now);hojeInicio.setUTCHours(0,0,0,0);
+    const h24atras=new Date(now.getTime()-24*3600*1000);
+
+    const [{data:groups},{data:hoje},{data:falhas24h},{data:log}]=await Promise.all([
+      SB.from("niche_groups").select("id,name,user_id,interval_minutes,start_hour,end_hour,cursor_index,last_post_at,post_auto_enabled").eq("post_auto_enabled",true),
+      SB.from("scheduled_posts").select("status",{count:"exact"}).gte("created_at",hojeInicio.toISOString()),
+      SB.from("scheduled_posts").select("id",{count:"exact"}).eq("status","failed").gte("created_at",h24atras.toISOString()),
+      SB.from("scheduled_posts").select("id,status,error,created_at,niche_groups(name),products(title),profiles(email)").order("created_at",{ascending:false}).limit(25)
+    ]);
+
+    const disparosHoje=hoje?.length||0;
+    const sucessosHoje=(hoje||[]).filter(p=>p.status==="sent").length;
+    const taxaSucesso=disparosHoje?Math.round(sucessosHoje/disparosHoje*100)+"%":"—";
+    const falhas24=falhas24h?.length||0;
+
+    filaKpis.innerHTML=[
+      ["Automações ativas",(groups?.length||0)+"","#19E27D"],
+      ["Disparos hoje",disparosHoje+"","#39C0FF"],
+      ["Sucesso",taxaSucesso,"#FFB020"],
+      ["Falhas (24h)",falhas24+"","#FF4D8D"]
+    ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div></div>`).join("");
+
+    queueUpcoming=(groups||[]).map(g=>({...g,...filaEta(g,now)})).sort((a,b)=>a.etaMin-b.etaMin);
+    queueList.innerHTML=queueUpcoming.length?queueUpcoming.map((q,i)=>{
+      const status=!q.inWindow?"fora da janela":i===0&&q.etaMin<=0?"disparando…":`em ${q.etaMin} min`;
+      const pillClass=!q.inWindow?"gray":i===0&&q.etaMin<=0?"volt":"gray";
+      return `<div class="qrow"><span class="fic">${!q.inWindow?"🌙":i===0&&q.etaMin<=0?"🚀":"⏳"}</span><span style="flex:1"><strong>${esc(q.name||"Grupo")}</strong><br><small style="color:var(--mut)">a cada ${q.interval_minutes||10} min · ${q.start_hour??0}h–${q.end_hour??23}h</small></span><span class="pill ${pillClass}">${status}</span></div>`;
+    }).join(""):'<div class="qrow"><span style="color:var(--mut)">Nenhuma automação ativa no momento.</span></div>';
+
+    queueLog.innerHTML=(log||[]).length?log.map(l=>{
+      const ok=l.status==="sent";
+      const time=new Date(l.created_at).toLocaleTimeString("pt-BR");
+      const quem=l.profiles?.email||"—";
+      const grupo=l.niche_groups?.name||"—";
+      const prod=l.products?.title?` · ${esc(l.products.title)}`:"";
+      const detalhe=ok?`${esc(grupo)}${prod} → ${esc(quem)}`:`${esc(grupo)}${prod} → ${esc(quem)} (${esc(l.error||"falha")})`;
+      return `<div style="font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bd)"><span class="mono" style="color:var(--mut)">${time}</span> ${ok?"✅":"❌"} ${detalhe}</div>`;
+    }).join(""):'<div style="font-size:12.5px;padding:6px 0;color:var(--mut)">Nenhum disparo registrado ainda.</div>';
+  }catch(e){
+    queueList.innerHTML=`<div class="qrow"><span style="color:var(--mut)">Erro ao carregar fila: ${esc(e.message)}</span></div>`;
+  }
+}
+function startQueue(){if(queueTimer||S.queuePaused)return;renderQueue();queueTimer=setInterval(renderQueue,30000);}
 function stopQueue(){if(queueTimer){clearInterval(queueTimer);queueTimer=null;}}
-btnPauseQueue.onclick=()=>{S.queuePaused=!S.queuePaused;btnPauseQueue.textContent=S.queuePaused?"▶ Retomar fila":"⏸ Pausar fila";if(!S.queuePaused)startQueue();toast(S.queuePaused?"Fila pausada.":"Fila retomada.",S.queuePaused?"⏸":"▶");};
+btnPauseQueue.onclick=()=>{S.queuePaused=!S.queuePaused;btnPauseQueue.textContent=S.queuePaused?"▶ Retomar fila":"⏸ Pausar fila";if(S.queuePaused)stopQueue();else startQueue();toast(S.queuePaused?"Painel pausado (o envio automático real continua rodando no servidor).":"Painel retomado.",S.queuePaused?"⏸":"▶");};
 
 /* ADMIN: SUPORTE / CONFIG */
 async function renderSuporte(){
@@ -5822,7 +5873,7 @@ async function loadVipMembers(){
   }catch(e){console.warn("loadVipMembers exception:",e);}
 }
 
-renderAdminVisao();renderUsers();renderSubs();renderInstancias();renderSuporte();renderConfig();genQueue();renderQueue();renderVip();
+renderAdminVisao();renderUsers();renderSubs();renderInstancias();renderSuporte();renderConfig();startQueue();renderVip();
 
 function vipStatus(v){
   if(v.tipo==="vitalicio")return "vitalicio";
