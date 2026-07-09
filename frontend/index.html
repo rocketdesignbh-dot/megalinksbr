@@ -1466,6 +1466,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </section>
 
   <!-- Modal novo VIP -->
+  <div class="mbg" id="modalErroLog">
+    <div class="modal" style="max-width:520px">
+      <div class="mh"><strong style="font-family:var(--disp)">❌ Detalhe do erro</strong><button class="mx" onclick="closeModal('modalErroLog')">×</button></div>
+      <div class="mb">
+        <div id="erroLogBody" style="font-size:13px;line-height:1.6"></div>
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button class="btn btn-ghost" style="flex:1" onclick="copiarErroLog()">📋 Copiar erro</button>
+          <button class="btn btn-volt" style="flex:1" onclick="closeModal('modalErroLog')">Fechar</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="mbg" id="modalVip">
     <div class="modal" style="max-width:520px">
       <div class="mh"><strong style="font-family:var(--disp)">⭐ Conceder acesso VIP</strong><button class="mx" onclick="closeModal('modalVip')">×</button></div>
@@ -3220,7 +3232,16 @@ async function fetchWAEngineToken(){
     const response=await fetch(`${SUPA_URL}/functions/v1/get-wa-engine-token`,{
       headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"}
     });
-    if(response.ok){const d=await response.json();if(d.token)WA_ENGINE_TOKEN=d.token;return true;}
+    if(response.ok){
+      const d=await response.json();
+      if(d.token){
+        WA_ENGINE_TOKEN=d.token;
+        // Instâncias/Canais e outras telas que dependem do wa-engine podem já ter
+        // rodado (e falhado com 401) antes desse token chegar — re-renderiza agora.
+        try{if(typeof renderInstancias==="function")renderInstancias();}catch(e){}
+      }
+      return true;
+    }
     return false;
   }catch(e){console.warn("fetchWAEngineToken:",e);return false;}
 }
@@ -5670,7 +5691,7 @@ async function renderInstancias(){
 }
 
 /* ADMIN: FILA (live) — dados reais via scheduled_posts / niche_groups */
-let queueTimer=null,queueUpcoming=[];
+let queueTimer=null,queueUpcoming=[],queueLogRows=[];
 
 function filaEta(group,now){
   const startH=group.start_hour??0,endH=group.end_hour??23;
@@ -5717,18 +5738,42 @@ async function renderQueue(){
       return `<div class="qrow"><span class="fic">${!q.inWindow?"🌙":i===0&&q.etaMin<=0?"🚀":"⏳"}</span><span style="flex:1"><strong>${esc(q.name||"Grupo")}</strong><br><small style="color:var(--mut)">a cada ${q.interval_minutes||10} min · ${q.start_hour??0}h–${q.end_hour??23}h</small></span><span class="pill ${pillClass}">${status}</span></div>`;
     }).join(""):'<div class="qrow"><span style="color:var(--mut)">Nenhuma automação ativa no momento.</span></div>';
 
-    queueLog.innerHTML=(log||[]).length?log.map(l=>{
+    queueLogRows=log||[];
+    queueLog.innerHTML=queueLogRows.length?queueLogRows.map((l,i)=>{
       const ok=l.status==="sent";
       const time=new Date(l.created_at).toLocaleTimeString("pt-BR");
       const quem=l.profiles?.email||"—";
       const grupo=l.niche_groups?.name||"—";
       const prod=l.products?.title?` · ${esc(l.products.title)}`:"";
       const detalhe=ok?`${esc(grupo)}${prod} → ${esc(quem)}`:`${esc(grupo)}${prod} → ${esc(quem)} (${esc(l.error||"falha")})`;
-      return `<div style="font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bd)"><span class="mono" style="color:var(--mut)">${time}</span> ${ok?"✅":"❌"} ${detalhe}</div>`;
+      const lupa=ok?"":` <span class="mono" style="color:var(--volt);cursor:pointer;text-decoration:underline" onclick="abrirErroLog(${i})">ver detalhe</span>`;
+      return `<div style="font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bd)"><span class="mono" style="color:var(--mut)">${time}</span> ${ok?"✅":"❌"} ${detalhe}${lupa}</div>`;
     }).join(""):'<div style="font-size:12.5px;padding:6px 0;color:var(--mut)">Nenhum disparo registrado ainda.</div>';
   }catch(e){
     queueList.innerHTML=`<div class="qrow"><span style="color:var(--mut)">Erro ao carregar fila: ${esc(e.message)}</span></div>`;
   }
+}
+function abrirErroLog(i){
+  const l=queueLogRows[i];
+  if(!l)return;
+  const time=new Date(l.created_at).toLocaleString("pt-BR");
+  const linhas=[
+    ["Data/hora",time],
+    ["Grupo",l.niche_groups?.name||"—"],
+    ["Produto",l.products?.title||"—"],
+    ["Usuário",l.profiles?.email||"—"],
+    ["Status",l.status||"—"],
+    ["ID do registro",l.id||"—"],
+  ];
+  document.getElementById("erroLogBody").innerHTML=linhas.map(([k,v])=>
+    `<div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid var(--bd)"><span style="color:var(--mut);min-width:110px">${k}</span><span class="mono" style="word-break:break-all">${esc(String(v))}</span></div>`
+  ).join("")+`<div style="margin-top:10px"><div style="color:var(--mut);margin-bottom:4px">Mensagem de erro completa</div><div class="mono" style="background:var(--bg2);padding:10px;border-radius:var(--r-sm);white-space:pre-wrap;word-break:break-all">${esc(l.error||"(sem detalhe retornado pelo scheduler)")}</div></div>`;
+  openModal("modalErroLog");
+}
+function copiarErroLog(){
+  const txt=document.getElementById("erroLogBody")?.innerText||"";
+  if(!txt)return;
+  navigator.clipboard?.writeText(txt).then(()=>toast("Erro copiado!","📋")).catch(()=>toast("Selecione e copie manualmente.","ℹ️"));
 }
 function startQueue(){if(queueTimer||S.queuePaused)return;renderQueue();queueTimer=setInterval(renderQueue,30000);}
 function stopQueue(){if(queueTimer){clearInterval(queueTimer);queueTimer=null;}}
