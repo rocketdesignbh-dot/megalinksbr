@@ -6,7 +6,7 @@
 
 // ========== 1. TOOLTIP SIMPLES: Botão "Postar Agora" ==========
 const showPostAgoraTooltip = () => {
-  const postAgoraBtn = document.querySelector('[data-nav="post-relampago"]');
+  const postAgoraBtn = document.querySelector('[data-page="post-relampago"]');
 
   OnboardingManager.show('postar-agora-intro', {
     title: '⚡ Postar Agora',
@@ -36,7 +36,7 @@ const showPostAgoraTooltip = () => {
 
 // ========== 2. TOOLTIP: Seleção de Grupos ==========
 const showGruposTooltip = () => {
-  const gruposSection = document.querySelector('[data-section="grupos"]');
+  const gruposSection = document.querySelector('[data-page="canais-grupos"]');
 
   OnboardingManager.show('grupos-selection-tip', {
     title: '📱 Seus Grupos',
@@ -61,7 +61,7 @@ const showGruposTooltip = () => {
 
 // ========== 3. TOOLTIP: Radar de Ofertas ==========
 const showRadarTooltip = () => {
-  const radarNav = document.querySelector('[data-nav="radar"]');
+  const radarNav = document.querySelector('[data-page="radar"]');
 
   OnboardingManager.show('radar-intro', {
     title: '🎯 Radar de Ofertas',
@@ -93,27 +93,27 @@ const showFirstPostGuide = () => {
     {
       title: '1️⃣ Bem-vindo ao Postar Agora!',
       content: 'Vamos criar seu primeiro post em 3 passos simples. Você consegue!',
-      targetSelector: '[data-nav="post-relampago"]'
+      targetSelector: '[data-page="post-relampago"]'
     },
     {
       title: '2️⃣ Escolha uma Oferta',
       content: 'Procure um produto no Radar ou digite o nome de algo que você quer promover. Quanto mais vendido, melhor!',
-      targetSelector: '[data-section="busca-produto"]'
+      targetSelector: '[data-page="post-relampago"]'
     },
     {
       title: '3️⃣ Selecione Grupos',
       content: 'Escolha qual(is) grupo(s) receberá o post. Dica: comece com seu melhor grupo!',
-      targetSelector: '[data-section="grupos"]'
+      targetSelector: '[data-page="canais-grupos"]'
     },
     {
       title: '4️⃣ Enviar!',
       content: 'Clique em "Enviar" e seu post sairá na hora. Você verá as estatísticas em tempo real.',
-      targetSelector: '[data-button="btn-enviar"]'
+      targetSelector: '[data-page="post-relampago"]'
     },
     {
       title: '✨ Pronto!',
       content: 'Parabéns! Você já sabe o básico. Confira as análises na aba "Analítico" para entender melhor seu público.',
-      targetSelector: '[data-nav="analitico"]'
+      targetSelector: '[data-page="analitico"]'
     }
   ]);
 };
@@ -145,7 +145,7 @@ const showQuotaWarningTooltip = (currentQuota, maxQuota) => {
 
 // ========== 6. TOOLTIP: Dashboard de Estatísticas ==========
 const showDashboardTooltip = () => {
-  const dashboardNav = document.querySelector('[data-nav="dashboard"]');
+  const dashboardNav = document.querySelector('[data-page="dashboard"]');
 
   OnboardingManager.show('dashboard-metrics-intro', {
     title: '📊 Seu Dashboard',
@@ -197,11 +197,10 @@ const initPostagensOnboarding = () => {
   <script src="onboarding.js"></script>
   <link rel="stylesheet" href="onboarding.css">
 
-  <!-- Quando a página de postagens carregar: -->
+  <!-- Quando o usuário clicar na página de postagens: -->
   <script>
-    if (document.querySelector('[data-page="post-relampago"]')) {
-      initPostagensOnboarding();
-    }
+    document.querySelector('[data-page="post-relampago"]')
+      ?.addEventListener('click', () => initPostagensOnboarding());
   </script>
 */
 

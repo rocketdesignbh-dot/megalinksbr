@@ -10,27 +10,27 @@ const showWhatsAppConnectionGuide = () => {
     {
       title: '📱 Conectar WhatsApp',
       content: 'Vamos parear seu WhatsApp com o MegaLinks. É rápido e seguro!',
-      targetSelector: '[data-nav="conexao"]'
+      targetSelector: '[data-page="conexao"]'
     },
     {
       title: '1️⃣ Abra o WhatsApp no Celular',
       content: 'No seu celular, vá para WhatsApp > Configurações > Aparelhos conectados > Conectar um aparelho',
-      targetSelector: '[data-section="qr-code"]'
+      targetSelector: '[data-page="conexao"]'
     },
     {
       title: '2️⃣ Aponte a Câmera',
       content: 'Use o celular para escanear o código QR que aparece aqui. Pode levar alguns segundos.',
-      targetSelector: '[data-section="qr-code"]'
+      targetSelector: '[data-page="conexao"]'
     },
     {
       title: '3️⃣ Autorize o Acesso',
       content: 'No seu celular, selecione os grupos e chats que o MegaLinks poderá acessar.',
-      targetSelector: '[data-section="qr-code"]'
+      targetSelector: '[data-page="conexao"]'
     },
     {
       title: '✨ Conectado!',
       content: 'Pronto! Seu WhatsApp está sincronizado. Agora você pode postar para todos seus grupos.',
-      targetSelector: '[data-section="status-conexao"]'
+      targetSelector: '[data-page="conexao"]'
     }
   ]);
 };
@@ -38,7 +38,7 @@ const showWhatsAppConnectionGuide = () => {
 
 // ========== 2. TOOLTIP: Dados Pessoais ==========
 const showMeusDadosTooltip = () => {
-  const meusDadosNav = document.querySelector('[data-nav="meus-dados"]');
+  const meusDadosNav = document.querySelector('[data-page="meus-dados"]');
 
   OnboardingManager.show('meus-dados-hint', {
     title: '👤 Dados Pessoais',
@@ -65,7 +65,7 @@ const showMeusDadosTooltip = () => {
 
 // ========== 3. TOOLTIP: Configurações de Afiliado ==========
 const showConfigAfiliadoTooltip = () => {
-  const configNav = document.querySelector('[data-nav="config-afiliados"]');
+  const configNav = document.querySelector('[data-page="config-afiliados"]');
 
   OnboardingManager.show('config-afiliado-intro', {
     title: '⚙️ Preferências',
@@ -90,7 +90,7 @@ const showConfigAfiliadoTooltip = () => {
 
 // ========== 4. TOOLTIP: Plano e Assinatura ==========
 const showAssinaturaTooltip = () => {
-  const assinNav = document.querySelector('[data-nav="assinatura"]');
+  const assinNav = document.querySelector('[data-page="assinatura"]');
 
   OnboardingManager.show('assinatura-plans', {
     title: '💳 Seu Plano',
@@ -118,7 +118,7 @@ const showAssinaturaTooltip = () => {
 
 // ========== 5. TOOLTIP: Telegram (Opcional) ==========
 const showTelegramConfigTooltip = () => {
-  const telegramNav = document.querySelector('[data-nav="config-telegram"]');
+  const telegramNav = document.querySelector('[data-page="config-telegram"]');
 
   OnboardingManager.show('telegram-config-intro', {
     title: '📡 Conectar Telegram',
@@ -143,7 +143,7 @@ const showTelegramConfigTooltip = () => {
 
 // ========== 6. TOOLTIP: FAQ e Suporte ==========
 const showSupportTooltip = () => {
-  const faqNav = document.querySelector('[data-nav="suporte"]');
+  const faqNav = document.querySelector('[data-page="suporte"]');
 
   OnboardingManager.show('suporte-available', {
     title: '💬 Precisa de Ajuda?',
@@ -203,32 +203,32 @@ const showCompleteSetupGuide = () => {
     {
       title: '🚀 Vamos Configurar Tudo!',
       content: 'Você está perto de começar a ganhar. Vamos completar a configuração em 5 minutos.',
-      targetSelector: '[data-nav="config-afiliados"]'
+      targetSelector: '[data-page="config-afiliados"]'
     },
     {
       title: '✓ Passo 1: Dados Pessoais',
       content: 'Preencha suas informações. Serão usadas apenas para pagamentos seguros.',
-      targetSelector: '[data-nav="meus-dados"]'
+      targetSelector: '[data-page="meus-dados"]'
     },
     {
       title: '✓ Passo 2: WhatsApp Conectado?',
       content: 'Se ainda não conectou, faça isso agora. É essencial para começar.',
-      targetSelector: '[data-nav="conexao"]'
+      targetSelector: '[data-page="conexao"]'
     },
     {
       title: '✓ Passo 3: Seu Plano',
       content: 'Escolha um plano e comece a postar. Você pode mudar de plano a qualquer hora.',
-      targetSelector: '[data-nav="assinatura"]'
+      targetSelector: '[data-page="assinatura"]'
     },
     {
       title: '✓ Passo 4: Preferências',
       content: 'Configure horários e notificações conforme seu gosto.',
-      targetSelector: '[data-nav="config-afiliados"]'
+      targetSelector: '[data-page="config-afiliados"]'
     },
     {
       title: '🎉 Parabéns!',
       content: 'Você está pronto! Agora vá para "Postar Agora" e comece a criar seu primeiro post.',
-      targetSelector: '[data-nav="post-relampago"]'
+      targetSelector: '[data-page="post-relampago"]'
     }
   ]);
 };
@@ -272,11 +272,10 @@ const checkMissingData = (userData) => {
   <script src="onboarding.js"></script>
   <link rel="stylesheet" href="onboarding.css">
 
-  <!-- Quando entrar em Configurações: -->
+  <!-- Quando o usuário clicar em Configurações: -->
   <script>
-    if (document.querySelector('[data-page="config"]')) {
-      initConfigOnboarding();
-    }
+    document.querySelector('[data-page="config-afiliados"]')
+      ?.addEventListener('click', () => initConfigOnboarding());
   </script>
 
   <!-- Após buscar dados do usuário: -->
