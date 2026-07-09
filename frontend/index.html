@@ -5873,7 +5873,7 @@ async function loadVipMembers(){
   }catch(e){console.warn("loadVipMembers exception:",e);}
 }
 
-renderAdminVisao();renderUsers();renderSubs();renderInstancias();renderSuporte();renderConfig();startQueue();renderVip();
+renderAdminVisao();renderUsers();renderSubs();renderInstancias();renderSuporte();renderConfig();setTimeout(startQueue,0);renderVip();
 
 function vipStatus(v){
   if(v.tipo==="vitalicio")return "vitalicio";
