@@ -12,22 +12,52 @@
 const OnboardingManager = (() => {
   const STORAGE_KEY = 'megalinks_onboarding';
   let state = {};
+  let useLocalStorage = true;
+
+  /**
+   * Verifica se localStorage está disponível
+   */
+  const isLocalStorageAvailable = () => {
+    try {
+      const test = '__test__';
+      localStorage.setItem(test, test);
+      localStorage.removeItem(test);
+      return true;
+    } catch (e) {
+      console.warn('⚠️ localStorage não disponível, usando memória temporária');
+      return false;
+    }
+  };
 
   /**
    * Inicializa o sistema de onboarding
    * Carrega estado anterior do localStorage
    */
   const init = () => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    state = saved ? JSON.parse(saved) : {};
-    console.log('🎯 Onboarding Manager initialized', state);
+    useLocalStorage = isLocalStorageAvailable();
+
+    try {
+      const saved = useLocalStorage ? localStorage.getItem(STORAGE_KEY) : null;
+      state = saved ? JSON.parse(saved) : {};
+      console.log('🎯 Onboarding Manager initialized', state);
+    } catch (e) {
+      console.error('❌ Erro ao carregar onboarding state:', e);
+      state = {};
+    }
   };
 
   /**
-   * Salva estado no localStorage
+   * Salva estado no localStorage (com fallback para memória)
    */
   const save = () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    try {
+      if (useLocalStorage) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+    } catch (e) {
+      console.warn('⚠️ Erro ao salvar estado:', e);
+      // Estado continua em memória
+    }
   };
 
   /**
@@ -263,44 +293,4 @@ const OnboardingManager = (() => {
 
       guide.querySelector('.guide-prev')?.addEventListener('click', () => {
         currentStep--;
-        updateGuide();
-      });
-
-      guide.querySelector('.guide-next')?.addEventListener('click', () => {
-        currentStep++;
-        updateGuide();
-      });
-
-      guide.querySelector('.guide-done')?.addEventListener('click', () => {
-        dismiss(guideKey);
-        guide.remove();
-      });
-    };
-
-    updateGuide();
-    document.body.appendChild(guide);
-    markViewed(guideKey);
-
-    return guide;
-  };
-
-  // API Pública
-  return {
-    init,
-    show,
-    showGuide,
-    dismiss,
-    reset,
-    resetAll,
-    shouldShow,
-    markViewed,
-    getState: () => ({ ...state })
-  };
-})();
-
-// Inicializar automaticamente quando o DOM estiver pronto
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => OnboardingManager.init());
-} else {
-  OnboardingManager.init();
-}
+        updateGui
