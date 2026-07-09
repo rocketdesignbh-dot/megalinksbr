@@ -502,6 +502,10 @@ function hideLoading(){
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <meta name="google-site-verification" content="5GKJb71jXb3XSwWIcnrzlZpDcegrGb-Gs2piII9mh84" />
+<link rel="stylesheet" href="onboarding.css">
+  <script src="onboarding.js"></script>
+  <script src="exemplo-postagens.js"></script>
+  <script src="exemplo-configuracao.js"></script>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -8083,6 +8087,11 @@ window.RateLimitManager = RateLimitManager;
 window.initRateLimiting = initRateLimiting;
 window.validateAndSend = validateAndSend;
 </script>
-</body>
+<script>
+  document.querySelector('[data-page="post-relampago"]')?.addEventListener('click', () => { if (typeof initPostagensOnboarding === 'function') initPostagensOnboarding(); });
+  document.querySelector('[data-page="config-afiliados"]')?.addEventListener('click', () => { if (typeof initConfigOnboarding === 'function') initConfigOnboarding(); });
+</script>
+  
+</script></body>
 </html>
 <!-- teste auto-deploy 2026-07-02T15:38:33Z -->
