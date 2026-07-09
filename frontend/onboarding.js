@@ -103,7 +103,11 @@ const OnboardingManager = (() => {
    */
   const resetAll = () => {
     state = {};
-    localStorage.removeItem(STORAGE_KEY);
+    try {
+      if (useLocalStorage) localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+      console.warn('⚠️ Erro ao resetar estado:', e);
+    }
     console.log('🔄 Todos os onboardings foram resetados');
   };
 
@@ -293,4 +297,44 @@ const OnboardingManager = (() => {
 
       guide.querySelector('.guide-prev')?.addEventListener('click', () => {
         currentStep--;
-        updateGui
+        updateGuide();
+      });
+
+      guide.querySelector('.guide-next')?.addEventListener('click', () => {
+        currentStep++;
+        updateGuide();
+      });
+
+      guide.querySelector('.guide-done')?.addEventListener('click', () => {
+        dismiss(guideKey);
+        guide.remove();
+      });
+    };
+
+    updateGuide();
+    document.body.appendChild(guide);
+    markViewed(guideKey);
+
+    return guide;
+  };
+
+  // API Pública
+  return {
+    init,
+    show,
+    showGuide,
+    dismiss,
+    reset,
+    resetAll,
+    shouldShow,
+    markViewed,
+    getState: () => ({ ...state })
+  };
+})();
+
+// Inicializar automaticamente quando o DOM estiver pronto
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => OnboardingManager.init());
+} else {
+  OnboardingManager.init();
+}
