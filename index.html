@@ -3702,9 +3702,40 @@ async function dispararGrupo(id){
     });
     const d=await r.json().catch(()=>({}));
     if(!r.ok){toast(d.error||"Erro ao disparar o grupo.","⚠️");return;}
-    toast(`"${g.nome}" disparado! ${d.sent||0} envio(s) realizados.`,"⚡");
+    if(d.failed>0){
+      dispararGrupoMostrarErros(g.nome,d);
+    }else{
+      toast(`"${g.nome}" disparado! ${d.sent||0} envio(s) realizados.`,"⚡");
+    }
   }catch(e){console.warn("dispararGrupo:",e);toast("Erro ao disparar o grupo.","⚠️");}
   finally{if(btn){btn.disabled=false;btn.textContent="⚡ Disparar";}}
+}
+function dispararGrupoMostrarErros(nomeGrupo,d){
+  const destinosComFalha=(d.destinos||[]).filter(x=>x.failed>0);
+  const listaHtml=destinosComFalha.map(x=>{
+    const tipoLabel=x.type==="wa_grupo"?"💬 Grupo WA":x.type==="wa_canal"?"📣 Canal WA":"✈️ Telegram";
+    return `<div style="padding:8px 10px;border:1px solid var(--bd);border-radius:8px;margin-bottom:6px">
+      <div style="font-weight:700;font-size:12.5px">${tipoLabel} — ${esc(x.label)}</div>
+      <div style="font-size:11.5px;color:var(--mut)">${x.sent} enviado(s), ${x.failed} falha(s)${x.last_error?` — ${esc(x.last_error)}`:""}</div>
+    </div>`;
+  }).join("")||"<p style='color:var(--mut);font-size:12.5px'>Sem detalhes por destino.</p>";
+  const bodyHtml=`<div style="padding:16px">
+    <p style="margin-bottom:10px;font-size:13px">"${esc(nomeGrupo)}" disparado com <b>${d.sent||0}</b> envio(s) e <b style="color:#ef4444">${d.failed||0}</b> falha(s) de ${d.products||0} produto(s).</p>
+    <div style="font-weight:700;font-size:12.5px;margin-bottom:8px">Destinos com falha:</div>
+    ${listaHtml}
+  </div>`;
+  let modal=document.getElementById("modalDisparoErros");
+  if(!modal){
+    modal=document.createElement("div");
+    modal.className="mbg";modal.id="modalDisparoErros";
+    modal.innerHTML=`<div class="modal" style="max-width:520px">
+      <div class="mh">⚠️ Resultado do disparo <button class="mx" onclick="closeModal('modalDisparoErros')">×</button></div>
+      <div id="modalDisparoErrosBody"></div>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+  document.getElementById("modalDisparoErrosBody").innerHTML=bodyHtml;
+  openModal("modalDisparoErros");
 }
 
 /* ================= ABAS EDITAR GRUPO ================= */
