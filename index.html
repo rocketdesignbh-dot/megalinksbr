@@ -439,6 +439,10 @@ function hideLoading(){
 .ai-msg{padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.55;max-width:88%}
 .ai-msg.u,.ai-msg.me{background:var(--volt);color:#0c0c0e;align-self:flex-end;font-weight:500}
 .ai-msg.a,.ai-msg.ai{background:var(--surf2);border:1px solid var(--bd);color:var(--tx);align-self:flex-start}
+.ai-msg-wrap{display:flex;flex-direction:column;align-self:flex-start;max-width:88%}
+.ai-copy-btn{align-self:flex-end;margin-top:4px;background:transparent;border:1px solid var(--bd);color:var(--tx-dim,#999);font-size:11px;padding:4px 9px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:4px;-webkit-tap-highlight-color:transparent}
+.ai-copy-btn:active{background:var(--surf2);transform:scale(0.96)}
+.ai-copy-btn.copied{color:var(--volt);border-color:var(--volt)}
 .ai-suggest{display:flex;gap:6px;padding:8px 14px 0;flex-wrap:wrap}
 .ai-suggest .chip{background:var(--surf2);border:1px solid var(--bd2);color:var(--tx2);padding:6px 11px;border-radius:14px;font-size:11.5px;font-weight:600;cursor:pointer;transition:.12s;font-family:inherit}
 .ai-suggest .chip:hover{border-color:var(--volt);color:var(--volt);background:var(--volt-soft)}
@@ -5123,9 +5127,43 @@ function aiPush(html,who){
   const d=document.createElement("div");
   d.className="ai-msg "+who;
   d.innerHTML=html;
+  if(who==="ai"||who==="a"){
+    const wrap=document.createElement("div");
+    wrap.className="ai-msg-wrap";
+    aiBody.appendChild(wrap);
+    wrap.appendChild(d);
+    aiBody.scrollTop=aiBody.scrollHeight;
+    return d;
+  }
   aiBody.appendChild(d);
   aiBody.scrollTop=aiBody.scrollHeight;
   return d;
+}
+
+function aiAddCopyBtn(msgEl){
+  if(!msgEl||msgEl.querySelector(".typing"))return;
+  const wrap=msgEl.parentElement;
+  if(!wrap||wrap.querySelector(".ai-copy-btn"))return;
+  const btn=document.createElement("button");
+  btn.className="ai-copy-btn";
+  btn.type="button";
+  btn.innerHTML="📋 Copiar";
+  btn.onclick=async()=>{
+    const text=msgEl.innerText||msgEl.textContent||"";
+    try{
+      await navigator.clipboard.writeText(text);
+    }catch(e){
+      const ta=document.createElement("textarea");
+      ta.value=text;ta.style.position="fixed";ta.style.opacity="0";
+      document.body.appendChild(ta);ta.select();
+      try{document.execCommand("copy");}catch(_){}
+      document.body.removeChild(ta);
+    }
+    btn.innerHTML="✅ Copiado!";
+    btn.classList.add("copied");
+    setTimeout(()=>{btn.innerHTML="📋 Copiar";btn.classList.remove("copied");},1600);
+  };
+  wrap.appendChild(btn);
 }
 
 function aiTyping(){
@@ -5223,6 +5261,7 @@ async function aiSendMsg(text){
   }catch(e){
     tp.innerHTML=aiAns(q);
   }
+  aiAddCopyBtn(tp);
   aiBody.scrollTop=aiBody.scrollHeight;
 }
 
@@ -6947,7 +6986,7 @@ async function afterLogin(user){
   let profile={id:user.id,full_name:googleName||userEmail,is_admin:false,is_vip:false,plan:"starter"};
 
   try{
-    const{data}=await SB.from("profiles").select("id,full_name,email,is_admin,is_vip,plan,sub_status,user_display_id,trial_expires_at,welcome_seen_at").eq("id",user.id).single();
+    const{data}=await SB.from("profiles").select("id,full_name,email,phone,cpf_cnpj,is_admin,is_vip,plan,sub_status,user_display_id,trial_expires_at,welcome_seen_at").eq("id",user.id).single();
     if(data)profile=Object.assign(profile,data);
 
     // Se veio do Google e o nome/email ainda não estão salvos, faz upsert
