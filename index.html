@@ -3685,12 +3685,26 @@ async function loadTabProdCounts(){
 function editarGrupo(id,tab){S.grupoAtual=S.grupos.find(g=>String(g.id)===String(id)||String(g.db_id)===String(id));if(!S.grupoAtual){toast("Grupo não encontrado.","⚠️");return;}egNome.textContent=S.grupoAtual.nome+" · ID "+id;_tabProdCounts={};loadTabProdCounts().then(()=>buildTabs());go("editar-grupo");if(tab)setTimeout(()=>{const t=document.querySelector(`.etab[data-tab="${tab}"]`);if(t)t.click();},250);}
 
 // ⚡ Dispara um grupo via Post Relâmpago (Starter)
-function dispararGrupo(id){
+async function dispararGrupo(id){
   const g=S.grupos.find(x=>x.id===id);if(!g)return;
-  // Marca o grupo como pré-selecionado para o Post Relâmpago
-  try{window.PR_PRE_SELECT_GRUPO=g.id;}catch(e){}
-  toast(`Abrindo Post Relâmpago com o grupo "${g.nome}"…`,"⚡");
-  setTimeout(()=>go("post-relampago"),200);
+  if(!(g.produtos||0)){toast("Esse grupo ainda não tem produtos.","⚠️");return;}
+  if(!confirm(`Disparar AGORA todos os produtos de "${g.nome}" para os destinos configurados?\n\nEsse é o disparo manual gratuito do plano Starter — limitado a 1x a cada 24h.`))return;
+  const btn=document.querySelector(`[onclick="dispararGrupo('${id}')"]`);
+  if(btn){btn.disabled=true;btn.textContent="⏳ Disparando...";}
+  try{
+    const session=await SB.auth.getSession();
+    const jwt=session?.data?.session?.access_token;
+    if(!jwt){toast("Sessão expirada, faça login novamente.","⚠️");return;}
+    const r=await fetch(`${SUPA_URL}/functions/v1/group-blast`,{
+      method:"POST",
+      headers:{"content-type":"application/json",authorization:`Bearer ${jwt}`},
+      body:JSON.stringify({group_id:g.db_id||g.id})
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){toast(d.error||"Erro ao disparar o grupo.","⚠️");return;}
+    toast(`"${g.nome}" disparado! ${d.sent||0} envio(s) realizados.`,"⚡");
+  }catch(e){console.warn("dispararGrupo:",e);toast("Erro ao disparar o grupo.","⚠️");}
+  finally{if(btn){btn.disabled=false;btn.textContent="⚡ Disparar";}}
 }
 
 /* ================= ABAS EDITAR GRUPO ================= */
