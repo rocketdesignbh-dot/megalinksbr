@@ -4972,7 +4972,13 @@ function renderPlans(){
       <ul>${p.f.map(f=>`<li>${f}</li>`).join("")}</ul>
       ${atual
         ?`<button class="btn btn-ghost btn-lg" disabled style="width:100%;justify-content:center;opacity:.7">✅ SEU PLANO ATUAL</button>`
-        :`<button class="btn btn-volt btn-lg" style="width:100%;justify-content:center" onclick="iniciarCheckout('${p.key}','${p.n}',${v})">⚡ ASSINAR VIA PIX</button>`}
+        :`<div style="display:flex;flex-direction:column;gap:8px;width:100%">
+            <button class="btn btn-volt btn-lg" style="width:100%;justify-content:center" onclick="iniciarCheckout('${p.key}','${p.n}',${v},'PIX',false)">⚡ PIX AVULSO</button>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="iniciarCheckout('${p.key}','${p.n}',${v},'CREDIT_CARD',false)">💳 Cartão de crédito</button>
+              <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="iniciarCheckout('${p.key}','${p.n}',${v},'PIX',true)">🔁 Pix recorrente</button>
+            </div>
+          </div>`}
     </div>`;
   }).join("");
   // Tabela comparativa
@@ -5007,23 +5013,32 @@ document.querySelectorAll("[data-bill]").forEach(b=>b.onclick=()=>{S.bill=b.data
 
 // ── Checkout Asaas ──────────────────────────────────────────────
 let _checkoutPlan=null;
-async function iniciarCheckout(planKey,planLabel,valor){
+let _checkoutBillingType="PIX";
+let _checkoutRecurring=false;
+function ckMetodoTexto(billingType,recurring){
+  if(billingType==="CREDIT_CARD")return"Cartão de crédito";
+  return recurring?"Pix recorrente (mensal)":"Pix avulso";
+}
+async function iniciarCheckout(planKey,planLabel,valor,billingType,recurring){
   if(!CURRENT_USER?.id){toast("Faça login para assinar.","🔒");return;}
   _checkoutPlan=planKey;
+  _checkoutBillingType=billingType||"PIX";
+  _checkoutRecurring=!!recurring;
   const m=document.getElementById("modalCheckout");
   if(!m)return;
-  document.getElementById("ckPlanLabel").textContent=planLabel;
+  document.getElementById("ckPlanLabel").textContent=planLabel+" · "+ckMetodoTexto(_checkoutBillingType,_checkoutRecurring);
   document.getElementById("ckValor").textContent="R$ "+brl(valor);
-  // Formulário de CPF/CNPJ antes de gerar o Pix
+  const btnTxt=_checkoutBillingType==="CREDIT_CARD"?"💳 Gerar cobrança no cartão":(_checkoutRecurring?"🔁 Ativar Pix recorrente":"⚡ Gerar Pix");
+  // Formulário de CPF/CNPJ antes de gerar a cobrança
   document.getElementById("ckBody").innerHTML=`
     <div style="display:grid;gap:14px">
       <div class="field" style="margin:0">
         <label style="font-size:12px">CPF ou CNPJ <span style="color:var(--red)">*</span></label>
         <input id="ckCpf" type="text" placeholder="000.000.000-00" maxlength="18" style="font-size:14px"
           oninput="this.value=this.value.replace(/[^\\d]/g,'').replace(/(\\d{3})(\\d)/,'$1.$2').replace(/(\\d{3})(\\d)/,'$1.$2').replace(/(\\d{3})(\\d{1,2})$/,'$1-$2').substring(0,14)">
-        <div style="font-size:11px;color:var(--mut);margin-top:4px">Necessário para pagamento via Pix</div>
+        <div style="font-size:11px;color:var(--mut);margin-top:4px">Necessário para emissão da cobrança</div>
       </div>
-      <button class="btn btn-volt" style="width:100%;justify-content:center" onclick="confirmarCheckout('${planKey}',${valor})">⚡ Gerar Pix — R$ ${brl(valor)}</button>
+      <button class="btn btn-volt" style="width:100%;justify-content:center" onclick="confirmarCheckout('${planKey}',${valor})">${btnTxt} — R$ ${brl(valor)}</button>
       <div style="font-size:11px;color:var(--mut);text-align:center">Seus dados são usados apenas para emissão da cobrança e ficam salvos com segurança.</div>
     </div>`;
   openModal("modalCheckout");
@@ -5033,20 +5048,31 @@ async function confirmarCheckout(planKey,valor){
   const cpfInput=document.getElementById("ckCpf");
   const cpf=(cpfInput?.value||"").replace(/\D/g,"");
   if(cpf.length!==11&&cpf.length!==14){toast("Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.","⚠️");cpfInput?.focus();return;}
-  document.getElementById("ckBody").innerHTML='<div style="text-align:center;padding:20px;color:var(--mut)">⏳ Gerando cobrança Pix…</div>';
+  const billingType=_checkoutBillingType||"PIX";
+  const recurring=!!_checkoutRecurring;
+  document.getElementById("ckBody").innerHTML='<div style="text-align:center;padding:20px;color:var(--mut)">⏳ Gerando cobrança…</div>';
   try{
     const session=await SB.auth.getSession();
     const jwt=session?.data?.session?.access_token;
     const r=await fetch(`${SUPA_URL}/functions/v1/asaas-checkout`,{
       method:"POST",
       headers:{"Content-Type":"application/json","Authorization":"Bearer "+jwt},
-      body:JSON.stringify({plan:planKey,billing_type:"PIX",cpf_cnpj:cpf})
+      body:JSON.stringify({plan:planKey,billing_type:billingType,cpf_cnpj:cpf,recurring})
     });
     const d=await r.json();
     if(!d.ok){toast("Erro ao gerar cobrança: "+(d.error||"tente novamente"),"❌");closeModal("modalCheckout");return;}
+    if(billingType==="CREDIT_CARD"){
+      document.getElementById("ckBody").innerHTML=`
+        <div style="text-align:center">
+          <div style="font-size:13px;color:var(--tx2);margin-bottom:14px">Clique abaixo para inserir os dados do cartão e concluir o pagamento com segurança:</div>
+          ${d.invoice_url?`<a href="${d.invoice_url}" target="_blank" class="btn btn-volt" style="width:100%;justify-content:center;margin-bottom:12px;display:flex">💳 Pagar com cartão de crédito</a>`:""}
+          <div style="font-size:12px;color:var(--mut);margin-top:4px">Vencimento: ${d.due_date} · Após a confirmação seu plano é atualizado automaticamente.</div>
+        </div>`;
+      return;
+    }
     document.getElementById("ckBody").innerHTML=`
       <div style="text-align:center">
-        <div style="font-size:13px;color:var(--tx2);margin-bottom:14px">Escaneie o QR Code ou copie o código Pix abaixo:</div>
+        <div style="font-size:13px;color:var(--tx2);margin-bottom:14px">${recurring?"Assinatura Pix recorrente criada! Escaneie o QR Code ou copie o código da primeira cobrança:":"Escaneie o QR Code ou copie o código Pix abaixo:"}</div>
         ${d.pix_qr_code_image?`<img src="data:image/png;base64,${d.pix_qr_code_image}" style="width:180px;height:180px;border-radius:12px;margin-bottom:14px;border:1px solid var(--bd)" alt="QR Code Pix">`:""}
         ${d.pix_copy_paste?`
           <div style="background:var(--surf2);border-radius:10px;padding:12px;font-size:11px;word-break:break-all;margin-bottom:12px;font-family:monospace;color:var(--tx2);text-align:left">${d.pix_copy_paste}</div>
