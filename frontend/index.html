@@ -2520,13 +2520,26 @@ function isOfertaNova(ts){
 }
 
 // Envia oferta para o Post Relâmpago já preenchido
+// Verifica se a loja de uma oferta do Radar pode ser postada: precisa estar liberada pelo
+// plano atual (MARKET_PLAN) E, quando exigir credencial própria (tudo exceto Mercado Livre,
+// que usa scraping), ter essa credencial configurada.
+function checarLojaParaPostar(loja){
+  if(!loja)return{ok:true};
+  const allowed=MARKET_PLAN[MY_PLAN||"starter"];
+  if(allowed!==null&&allowed!==undefined&&!allowed.includes(loja))return{ok:false,motivo:"plano"};
+  if(!lojaConectada(loja))return{ok:false,motivo:"credencial"};
+  return{ok:true};
+}
 function postarOferta(o){
-  // Bloqueia postagem de ofertas do Radar quando a loja de origem não tem credencial própria do usuário.
-  // O link já vem pronto da tabela radar_offers, gerado com a conta de afiliado da Mega Links BR — postar
-  // sem credencial própria faz a comissão da loja cair pra plataforma, não pro usuário.
-  if(o.loja&&!lojaConectada(o.loja)){
-    toast(`Configure suas credenciais de ${o.loja} antes de postar — sem isso, a comissão não cai pra você.`,"⚠️");
-    setRole("afiliado");go("config-afiliados");
+  const check=checarLojaParaPostar(o.loja);
+  if(!check.ok){
+    if(check.motivo==="plano"){
+      toast(`${o.loja} disponível a partir do plano Pro. Faça upgrade pra postar essa oferta.`,"🔒");
+      go("assinatura");
+    }else{
+      toast(`Configure suas credenciais de ${o.loja} antes de postar — sem isso, a comissão não cai pra você.`,"⚠️");
+      setRole("afiliado");go("config-afiliados");
+    }
     return;
   }
   // Preenche pré-seleção do Post Relâmpago com os dados da oferta
@@ -2550,10 +2563,15 @@ function postarOferta(o){
 let RG_OFERTA_ATUAL=null;
 let RG_COR_IDX=0;
 function abrirAdicionarGrupo(o){
-  // Mesmo bloqueio do postarOferta: sem credencial própria da loja, a comissão não vai pro usuário.
-  if(o.loja&&!lojaConectada(o.loja)){
-    toast(`Configure suas credenciais de ${o.loja} antes de adicionar essa oferta a um grupo.`,"⚠️");
-    setRole("afiliado");go("config-afiliados");
+  const check=checarLojaParaPostar(o.loja);
+  if(!check.ok){
+    if(check.motivo==="plano"){
+      toast(`${o.loja} disponível a partir do plano Pro. Faça upgrade pra adicionar essa oferta.`,"🔒");
+      go("assinatura");
+    }else{
+      toast(`Configure suas credenciais de ${o.loja} antes de adicionar essa oferta a um grupo.`,"⚠️");
+      setRole("afiliado");go("config-afiliados");
+    }
     return;
   }
   RG_OFERTA_ATUAL=o;
