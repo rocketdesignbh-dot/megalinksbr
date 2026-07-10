@@ -502,6 +502,8 @@ function hideLoading(){
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <meta name="google-site-verification" content="5GKJb71jXb3XSwWIcnrzlZpDcegrGb-Gs2piII9mh84" />
+<link rel="stylesheet" href="onboarding.css">
+<script src="onboarding.js"></script>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -857,7 +859,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <!-- Comece por aqui — só aparece enquanto o onboarding não estiver 100% completo -->
     <div class="card" id="onbCard" style="display:none">
-      <div class="ch">🚀 Comece por aqui <span class="r" id="onbPct"></span></div>
+      <div class="ch">🚀 Comece por aqui <span class="r" style="display:flex;align-items:center;gap:10px"><span id="onbPct"></span><button class="btn btn-ghost btn-sm" onclick="dismissOnboardingCard()" title="Ocultar este card para sempre" style="padding:2px 10px;font-size:11px">Ocultar ✕</button></span></div>
       <div class="cb"><div class="onb-wrap">
         <div class="ring">
           <svg viewBox="0 0 88 88" width="96" height="96"><circle class="bg-c" cx="44" cy="44" r="36"/><circle id="ringFg" class="fg-c" cx="44" cy="44" r="36" stroke-dasharray="226.2" stroke-dashoffset="226.2" transform="rotate(-90 44 44)"/></svg>
@@ -2337,6 +2339,48 @@ function renderAnaliticoChart(data,labels,total,tipo){
 
 /* ================= ONBOARDING ================= */
 const ONB=[{t:"Criar conta",done:1},{t:"Parear WhatsApp (QR)",done:0,go:"conexao"},{t:"Criar Grupo de Oferta",done:0,go:"canais-grupos"},{t:"Configurar Afiliados",done:0,go:"config-afiliados"},{t:"Ativar Post Automático",done:0,go:"canais-grupos"},{t:"Buscar ofertas no Radar",done:0,go:"radar"},{t:"Configurar Telegram (opcional)",done:0,go:"config-telegram"}];
+// Flag "ocultar Comece por aqui pra sempre" — vem do profiles.onboarding_dismissed (persiste entre dispositivos)
+let ONB_DISMISSED=false;
+
+// ─── Tour guiado real: ao clicar num item do checklist, além de navegar (go), destaca o campo certo na página ───
+const ONB_TOURS={
+  1:{guideKey:"onb-tour-conexao",steps:[
+    {title:"1. Informe seu número",content:"Preencha o DDD e o número do WhatsApp que vai publicar as ofertas.",targetSelector:"#waNum"},
+    {title:"2. Gere o QR Code",content:"Clique aqui e escaneie o QR no celular em <strong>Aparelhos conectados</strong>.",targetSelector:"#btnGenQR"}
+  ]},
+  2:{guideKey:"onb-tour-grupo",steps:[
+    {title:"Crie seu primeiro Grupo de Oferta",content:"Clique aqui. Um Grupo de Oferta organiza os produtos de um nicho e os canais/grupos do WhatsApp que vão receber os posts.",targetSelector:"#btnAddGrupo"}
+  ]},
+  3:{guideKey:"onb-tour-afiliados",steps:[
+    {title:"Conecte suas credenciais",content:"Escolha a loja (Shopee, Amazon, AliExpress...) e cole seu ID/credencial de afiliado. Sem isso, a comissão das vendas não cai pra você.",targetSelector:"#lojasGrid"}
+  ]},
+  4:{guideKey:"onb-tour-postauto",steps:[
+    {title:"1. Abra um Grupo de Oferta",content:"Clique em um grupo já criado (ou crie um) pra abrir as configurações dele.",targetSelector:"#btnAddGrupo"},
+    {title:"2. Ative o Post Automático",content:"Dentro do grupo, marque <strong>Post Automático</strong> e defina o intervalo — a partir daí os posts saem sozinhos.",targetSelector:"#pgAuto"}
+  ]},
+  5:{guideKey:"onb-tour-radar",steps:[
+    {title:"Busque ofertas ao vivo",content:"Clique em <strong>Buscar agora</strong> pra atualizar as ofertas em tempo real.",targetSelector:"#btnBuscarAgora"}
+  ]},
+  6:{guideKey:"onb-tour-telegram",steps:[
+    {title:"Adicione seu canal",content:"Cole o link ou @usuário do canal/grupo do Telegram aqui.",targetSelector:"#tgChatInput"}
+  ]}
+};
+function onbIniciarTour(idx){
+  const t=ONB_TOURS[idx];
+  if(!t||typeof OnboardingManager==="undefined"||!OnboardingManager.showGuide)return;
+  setTimeout(()=>{OnboardingManager.showGuide(t.guideKey,t.steps);},350); // aguarda o go() trocar de página
+}
+async function dismissOnboardingCard(){
+  if(!confirm('Ocultar o card "Comece por aqui" para sempre? Você continua acessando tudo normalmente pelo menu.'))return;
+  ONB_DISMISSED=true;
+  const onbCard=document.getElementById("onbCard");if(onbCard)onbCard.style.display="none";
+  const uid=CURRENT_USER?.id;
+  if(uid){
+    const{error}=await SB.from("profiles").update({onboarding_dismissed:true}).eq("id",uid);
+    if(error)console.warn("dismissOnboardingCard:",error);
+  }
+  toast("Card ocultado. Bom trabalho! 🚀","✅");
+}
 /* SUPORTE */
 /* ── Captura silenciosa de erros do console ── */
 window.__consoleErrors=[];
@@ -2416,13 +2460,14 @@ function renderOnb(){
   // Telegram: verifica se há canal configurado
   ONB[6].done=0; // deixa manual por enquanto
   const done=ONB.filter(s=>s.done).length,pct=Math.round(done/ONB.length*100);
-  osteps.innerHTML=ONB.map(s=>`<li class="${s.done?"done":""}" ${s.go?`style="cursor:pointer" onclick="go('${s.go}')"`:""}><span class="ostep"></span>${s.t}</li>`).join("");
+  osteps.innerHTML=ONB.map((s,i)=>`<li class="${s.done?"done":""}" ${s.go?`style="cursor:pointer" onclick="go('${s.go}');onbIniciarTour(${i})"`:""}><span class="ostep"></span>${s.t}</li>`).join("");
   onbPct.textContent=done+"/"+ONB.length;const C=226.2;ringFg.style.strokeDashoffset=C-(C*pct/100);ringTxt.textContent=pct+"%";
   // Comece por aqui só aparece enquanto os itens essenciais (todos exceto Telegram, opcional) não estiverem completos
+  // — e enquanto o usuário não tiver clicado em "Ocultar" (ONB_DISMISSED, persistido em profiles.onboarding_dismissed)
   const essenciais=ONB.filter((s,i)=>i!==6);
   const essenciaisCompletos=essenciais.every(s=>s.done);
   const onbCard=document.getElementById("onbCard");
-  if(onbCard)onbCard.style.display=essenciaisCompletos?"none":"block";
+  if(onbCard)onbCard.style.display=(essenciaisCompletos||ONB_DISMISSED)?"none":"block";
 }
 
 /* ================= RADAR ================= */
@@ -2474,6 +2519,14 @@ function isOfertaNova(ts){
 
 // Envia oferta para o Post Relâmpago já preenchido
 function postarOferta(o){
+  // Bloqueia postagem de ofertas do Radar quando a loja de origem não tem credencial própria do usuário.
+  // O link já vem pronto da tabela radar_offers, gerado com a conta de afiliado da Mega Links BR — postar
+  // sem credencial própria faz a comissão da loja cair pra plataforma, não pro usuário.
+  if(o.loja&&!lojaConectada(o.loja)){
+    toast(`Configure suas credenciais de ${o.loja} antes de postar — sem isso, a comissão não cai pra você.`,"⚠️");
+    setRole("afiliado");go("config-afiliados");
+    return;
+  }
   // Preenche pré-seleção do Post Relâmpago com os dados da oferta
   try{
     window.PR_PRE_FROM_RADAR={
@@ -2495,6 +2548,12 @@ function postarOferta(o){
 let RG_OFERTA_ATUAL=null;
 let RG_COR_IDX=0;
 function abrirAdicionarGrupo(o){
+  // Mesmo bloqueio do postarOferta: sem credencial própria da loja, a comissão não vai pro usuário.
+  if(o.loja&&!lojaConectada(o.loja)){
+    toast(`Configure suas credenciais de ${o.loja} antes de adicionar essa oferta a um grupo.`,"⚠️");
+    setRole("afiliado");go("config-afiliados");
+    return;
+  }
   RG_OFERTA_ATUAL=o;
   RG_COR_IDX=0;
   if(!S.grupos.length){toast("Crie um Grupo de Oferta primeiro.","⚠️");return;}
@@ -7162,7 +7221,7 @@ async function afterLogin(user){
   let profile={id:user.id,full_name:googleName||userEmail,is_admin:false,is_vip:false,plan:"starter"};
 
   try{
-    const{data}=await SB.from("profiles").select("id,full_name,email,phone,cpf_cnpj,is_admin,is_vip,plan,sub_status,user_display_id,trial_expires_at,welcome_seen_at").eq("id",user.id).single();
+    const{data}=await SB.from("profiles").select("id,full_name,email,phone,cpf_cnpj,is_admin,is_vip,plan,sub_status,user_display_id,trial_expires_at,welcome_seen_at,onboarding_dismissed").eq("id",user.id).single();
     if(data)profile=Object.assign(profile,data);
 
     // Se veio do Google e o nome/email ainda não estão salvos, faz upsert
@@ -7234,6 +7293,7 @@ async function enterApp(profile){
   await fetchWAEngineToken().catch(e=>console.warn("token wa-engine:",e));
   IS_ADMIN=!!profile.is_admin;
   CURRENT_USER=CURRENT_USER||{};
+  ONB_DISMISSED=!!profile.onboarding_dismissed;
   MY_PLAN=(profile.plan||"starter").toLowerCase();
   if(!PLAN_FEATURES[MY_PLAN])MY_PLAN="starter";
 
