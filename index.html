@@ -285,18 +285,7 @@ tr:hover td{background:var(--surf2)}
 .tab.active{background:var(--volt-soft);border-color:rgba(245,197,24,.3);color:var(--volt)}
 .tp{display:none}.tp.on{display:block}
 
-/* ── LOADING GLOBAL ── */
-function showLoading(msg){
-  const el=document.getElementById("globalLoading");
-  const msgEl=document.getElementById("globalLoadingMsg");
-  if(!el)return;
-  if(msgEl)msgEl.textContent=msg||"Carregando…";
-  el.style.display="flex";
-}
-function hideLoading(){
-  const el=document.getElementById("globalLoading");
-  if(el)el.style.display="none";
-}
+/* showLoading/hideLoading movidas para o JS principal (antes ficavam dentro do CSS por engano) */
 
 /* ── TOAST ── */
 #tw{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px}
@@ -1824,6 +1813,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div style="color:#9494a8;font-size:12px">Aguarde um momento</div>
 </div>
 <script>
+/* ── LOADING GLOBAL (movido do <style> para o <script>, onde de fato funciona) ── */
+function showLoading(msg){
+  const el=document.getElementById("globalLoading");
+  const msgEl=document.getElementById("globalLoadingMsg");
+  if(!el)return;
+  if(msgEl)msgEl.textContent=msg||"Carregando…";
+  el.style.display="flex";
+}
+function hideLoading(){
+  const el=document.getElementById("globalLoading");
+  if(el)el.style.display="none";
+}
 /* ================= STATE ================= */
 const S={grupos:[],nextId:42809,planLimit:1,grupoAtual:null,bill:"m",role:"afiliado",
   waConnected:false,waNumber:"",queuePaused:false};
