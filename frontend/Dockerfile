@@ -8,6 +8,8 @@ COPY termos.html /usr/share/nginx/html/termos.html
 COPY favicon.png /usr/share/nginx/html/favicon.png
 COPY icon.png /usr/share/nginx/html/icon.png
 COPY banner.jpg /usr/share/nginx/html/banner.jpg
+COPY boas-vindas-pc.png /usr/share/nginx/html/boas-vindas-pc.png
+COPY boas-vindas-cel.png /usr/share/nginx/html/boas-vindas-cel.png
 COPY sitemap.xml /usr/share/nginx/html/sitemap.xml
 COPY robots.txt /usr/share/nginx/html/robots.txt
 COPY onboarding.js /usr/share/nginx/html/onboarding.js
