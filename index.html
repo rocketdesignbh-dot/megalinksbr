@@ -220,6 +220,21 @@ tr:hover td{background:var(--surf2)}
 .mx{background:var(--surf2);border:1px solid var(--bd);border-radius:7px;color:var(--mut);width:28px;height:28px;display:grid;place-items:center;font-size:16px;transition:.12s;cursor:pointer}
 .mx:hover{background:var(--surf3);color:var(--tx)}
 
+/* ── SPLASH BOAS-VINDAS ── */
+#splashBoasVindas{position:fixed;inset:0;z-index:3000;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#splashBoasVindas img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+#splashBoasVindas .splash-img-pc{display:block}
+#splashBoasVindas .splash-img-cel{display:none}
+@media(max-width:768px){
+  #splashBoasVindas .splash-img-pc{display:none}
+  #splashBoasVindas .splash-img-cel{display:block}
+}
+#splashBoasVindas .splash-btn{position:absolute;bottom:48px;left:50%;transform:translateX(-50%);background:var(--volt);color:#000;font-weight:800;font-size:15px;border:none;border-radius:10px;padding:14px 36px;cursor:pointer;white-space:nowrap;box-shadow:0 4px 24px rgba(245,197,24,.4);font-family:var(--body);transition:.15s}
+#splashBoasVindas .splash-btn:hover{background:var(--volt-2);transform:translateX(-50%) translateY(-2px)}
+@media(max-width:768px){
+  #splashBoasVindas .splash-btn{bottom:32px;font-size:14px;padding:13px 28px}
+}
+
 /* ── AUTH ── */
 .authbg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:2000;padding:20px}
 .authcard{background:var(--surf);border:1px solid var(--bd2);border-radius:16px;padding:28px 28px 24px;width:100%;max-width:400px;box-shadow:0 32px 80px rgba(0,0,0,.5)}
@@ -499,6 +514,13 @@ tr:hover td{background:var(--surf2)}
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5SHB77PR"
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
+<!-- ============ SPLASH BOAS-VINDAS ============ -->
+<div id="splashBoasVindas" style="display:none">
+  <img src="/boas-vindas-pc.png" alt="Bem-vindo à MegaLinks BR" class="splash-img-pc">
+  <img src="/boas-vindas-cel.png" alt="Bem-vindo à MegaLinks BR" class="splash-img-cel">
+  <button class="splash-btn" onclick="fecharSplash()">Acessar Minha Conta →</button>
+</div>
+
 <!-- ============ LOGIN GATE ============ -->
 <div class="authbg" id="authGate">
   <div class="authcard">
@@ -7847,6 +7869,28 @@ async function applyDynamicSeo(){
 }
 applyDynamicSeo();
 
+// ── SPLASH BOAS-VINDAS ──
+(function(){
+  const SPLASH_KEY="ml_splash_visto";
+  const splash=document.getElementById("splashBoasVindas");
+  if(!splash)return;
+  // Só mostra se nunca foi visto E não há sessão ativa
+  const jaVisto=localStorage.getItem(SPLASH_KEY);
+  if(!jaVisto){
+    splash.style.display="flex";
+  }
+})();
+function fecharSplash(){
+  const splash=document.getElementById("splashBoasVindas");
+  if(splash){
+    localStorage.setItem("ml_splash_visto","1");
+    splash.style.opacity="0";
+    splash.style.transition="opacity .35s";
+    setTimeout(()=>{splash.style.display="none";},350);
+  }
+  // garante que o authGate apareça se ainda não há sessão
+  if(typeof bootAuth==="function"){ /* já foi chamado abaixo, apenas remove o splash */ }
+}
 bootAuth();
 </script>
 <script>
