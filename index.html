@@ -2844,7 +2844,7 @@ function renderOnb(){
   try{const creds=lsLoad("creds",{});ONB[3].done=Object.values(creds).some(c=>Object.values(c||{}).some(v=>v&&v.trim()))?1:0;}catch(_){}
   ONB[4].done=S.grupos.some(g=>g.postAuto)?1:0;
   // Radar: verifica badge > 0
-  try{const badge=document.getElementById("radarBadge");ONB[5].done=(badge&&parseInt(badge.textContent)>0)?1:0;}catch(_){}
+  try{const temCredPropria=Object.values(CREDS_STATE).some(v=>v&&Object.keys(v).length>0);const badge=document.getElementById("radarBadge");ONB[5].done=(temCredPropria&&badge&&parseInt(badge.textContent)>0)?1:0;}catch(_){}
   // Telegram: verifica se há canal configurado
   ONB[6].done=0; // deixa manual por enquanto
   const done=ONB.filter(s=>s.done).length,pct=Math.round(done/ONB.length*100);
