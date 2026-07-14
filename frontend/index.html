@@ -2381,10 +2381,10 @@ async function loadCreds(){
 
 /* ================= PLANOS REAIS (plan_features) — definido cedo, antes de qualquer uso ================= */
 const PLAN_FALLBACK={
-  starter:{plan:"starter",label:"Starter",color:"#10B981",price_month:57.90,wa_groups:1,wa_channels:2,wa_connections:1,wa_post_automation:true,tg_channels:1,tg_post_automation:false,marketplaces:1,links_simultaneous:10,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:false,support_level:"comunidade",sort_order:1},
-  pro:{plan:"pro",label:"Pro",color:"#3B82F6",price_month:97.90,wa_groups:3,wa_channels:6,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,marketplaces:3,links_simultaneous:30,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:true,support_level:"email",sort_order:2},
-  elite:{plan:"elite",label:"Elite",color:"#8B5CF6",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",sort_order:3},
-  premium:{plan:"premium",label:"Premium",color:"#F59E0B",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",sort_order:4}
+  starter:{plan:"starter",label:"Starter",color:"#10B981",price_month:57.90,wa_groups:1,wa_channels:2,wa_connections:1,wa_post_automation:true,tg_channels:1,tg_post_automation:false,marketplaces:1,links_simultaneous:10,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:false,support_level:"comunidade",sort_order:1,max_products:15},
+  pro:{plan:"pro",label:"Pro",color:"#3B82F6",price_month:97.90,wa_groups:3,wa_channels:6,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,marketplaces:3,links_simultaneous:30,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:true,support_level:"email",sort_order:2,max_products:50},
+  elite:{plan:"elite",label:"Elite",color:"#8B5CF6",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",sort_order:3,max_products:150},
+  premium:{plan:"premium",label:"Premium",color:"#F59E0B",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",sort_order:4,max_products:300}
 };
 let PLAN_FEATURES={...PLAN_FALLBACK};
 let MY_PLAN="starter";
@@ -3589,7 +3589,8 @@ const MARKET_PLAN={
   starter:["Shopee"],
   pro:["Shopee","Mercado Livre","Amazon"],
   elite:null,
-  premium:null
+  premium:null,
+  infinity:null
 };
 
 // Dominios oficiais p/ buscar a logo pequena de cada marketplace (favicon), sem precisar de conta/token
@@ -4295,7 +4296,7 @@ async function togglePostAuto(id){
     if(!S.waConnected)problemas.push("WhatsApp não conectado");
     if((g.produtos||0)<1)problemas.push("nenhum produto cadastrado");
     if((g.canais||0)<1&&(g.grupos_wa||0)<1)problemas.push("nenhum destino WA vinculado");
-    if(MY_PLAN==="starter"&&(g.produtos||0)>15)problemas.push("Starter permite máx 15 produtos — remova alguns");
+    {const maxProd=lim("max_products")??15;if(maxProd!==-1&&(g.produtos||0)>maxProd)problemas.push(`${myFeatures().label} permite máx ${maxProd} produtos — remova alguns`);}
     if(problemas.length){
       toast(`⚠️ Não é possível iniciar: ${problemas.join(" · ")}`, "⚠️");
       return;
@@ -4438,8 +4439,6 @@ geral:`
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgLoop" style="width:auto"> Post em Loop <small style="color:var(--mut);font-weight:400">(reinicia a lista ao fim)</small></label>
       <div class="g2">
         <div class="field"><label>Intervalo (min)</label><select id="pgInt">
-          <option value="2">2 min</option>
-          <option value="5">5 min</option>
           <option value="10" selected>10 min</option>
           <option value="15">15 min</option>
           <option value="30">30 min</option>
@@ -4783,7 +4782,16 @@ function buildTabs(){
   const lojas=["AliExpress","Amazon","Magazine Luiza","Shopee","Shein","Natura","Awin","Mercado Livre"];
   const lojasSelSalvas=S.grupoAtual?.lojasAtivas||lojas; // padrão: todas ativas
   const la=document.getElementById("lojasAtivas");
-  if(la)la.innerHTML=lojas.map(l=>`<label style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" ${lojasSelSalvas.includes(l)?"checked":""} style="width:auto" data-loja="${l}"> ${l}</label>`).join("");
+  if(la){
+    la.style.cssText="display:flex;flex-wrap:wrap;gap:8px";
+    la.innerHTML=lojas.map(l=>{
+      const on=lojasSelSalvas.includes(l);
+      return `<button type="button" class="chip-loja" data-loja="${l}" aria-pressed="${on}"
+        style="cursor:pointer;user-select:none;border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:600;border:1px solid ${on?"var(--volt)":"var(--bd)"};background:${on?"rgba(57,192,255,.15)":"transparent"};color:${on?"var(--volt)":"var(--tx2)"};transition:.15s"
+        onclick="this.setAttribute(\'aria-pressed\',this.getAttribute(\'aria-pressed\')!==\'true\');this.style.background=this.getAttribute(\'aria-pressed\')===\'true\'?\'rgba(57,192,255,.15)\':\'transparent\';this.style.borderColor=this.getAttribute(\'aria-pressed\')===\'true\'?\'var(--volt)\':\'var(--bd)\';this.style.color=this.getAttribute(\'aria-pressed\')===\'true\'?\'var(--volt)\':\'var(--tx2)\'"
+        >${l}</button>`;
+    }).join("");
+  }
   // Carrega valores salvos nos campos da aba Geral
   setTimeout(()=>{
     const g=S.grupoAtual;if(!g)return;
@@ -4832,8 +4840,8 @@ async function salvarGeral(){
   const hasPostAuto=!!(PLAN_FEATURES[MY_PLAN]||{}).wa_post_automation;
 
   // Salva lojas selecionadas
-  const checkboxes=document.querySelectorAll("#lojasAtivas input[data-loja]");
-  g.lojasAtivas=[...checkboxes].filter(c=>c.checked).map(c=>c.dataset.loja);
+  const chips=document.querySelectorAll("#lojasAtivas .chip-loja");
+  g.lojasAtivas=[...chips].filter(c=>c.getAttribute("aria-pressed")==="true").map(c=>c.dataset.loja);
 
   // Salva horário e intervalo
   const ini=(document.getElementById("pgIni")?.value||"8h").replace("h","");
@@ -4889,7 +4897,12 @@ async function salvarGeral(){
 
 // Todas / Limpar lojas
 function pgLojasAll(val){
-  document.querySelectorAll("#lojasAtivas input[data-loja]").forEach(c=>c.checked=val);
+  document.querySelectorAll("#lojasAtivas .chip-loja").forEach(c=>{
+    c.setAttribute("aria-pressed",String(!!val));
+    c.style.background=val?"rgba(57,192,255,.15)":"transparent";
+    c.style.borderColor=val?"var(--volt)":"var(--bd)";
+    c.style.color=val?"var(--volt)":"var(--tx2)";
+  });
 }
 
 // Limpar tudo
@@ -4903,8 +4916,8 @@ function pgResetGeral(){
 
 // Salvar preset
 function pgSalvarPreset(){
-  const checkboxes=document.querySelectorAll("#lojasAtivas input[data-loja]");
-  const lojas=[...checkboxes].filter(c=>c.checked).map(c=>c.dataset.loja);
+  const chips=document.querySelectorAll("#lojasAtivas .chip-loja");
+  const lojas=[...chips].filter(c=>c.getAttribute("aria-pressed")==="true").map(c=>c.dataset.loja);
   const ini=(document.getElementById("pgIni")?.value||"8h").replace("h","");
   const fim=(document.getElementById("pgFim")?.value||"22h").replace("h","");
   const intervalo=document.getElementById("pgInt")?.value||"10";
@@ -4945,7 +4958,13 @@ function pgCarregarPreset(i){
   if(pgIni){const opt=[...pgIni.options].find(o=>o.value===p.ini+"h");if(opt)pgIni.value=p.ini+"h";}
   const pgFim=document.getElementById("pgFim");
   if(pgFim){const opt=[...pgFim.options].find(o=>o.value===p.fim+"h");if(opt)pgFim.value=p.fim+"h";}
-  document.querySelectorAll("#lojasAtivas input[data-loja]").forEach(c=>{c.checked=(p.lojas||[]).includes(c.dataset.loja);});
+  document.querySelectorAll("#lojasAtivas .chip-loja").forEach(c=>{
+    const on=(p.lojas||[]).includes(c.dataset.loja);
+    c.setAttribute("aria-pressed",String(on));
+    c.style.background=on?"rgba(57,192,255,.15)":"transparent";
+    c.style.borderColor=on?"var(--volt)":"var(--bd)";
+    c.style.color=on?"var(--volt)":"var(--tx2)";
+  });
   toast(`Preset "${p.nome}" carregado! Clique em Salvar para confirmar.`,"💾");
 }
 
@@ -5373,10 +5392,13 @@ async function mlConfirmarImport(postarAgora=false){
   const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
   if(!gid){toast("Salve o grupo primeiro.","⚠️");return;}
   if(!link&&!window._mlImportData){toast("Busque um produto primeiro.","⚠️");return;}
-  // Starter: max 15 produtos por grupo
-  if(MY_PLAN==="starter"){
-    const{count}=await SB.from("products").select("id",{count:"exact",head:true}).eq("niche_group_id",gid);
-    if((count||0)>=15){toast("Limite de 15 produtos por grupo no Starter. Faça upgrade para adicionar mais!","🔒");go("assinatura");return;}
+  // Limite de produtos por grupo, de acordo com o plano (plan_features.max_products)
+  {
+    const maxProd=lim("max_products")??15;
+    if(maxProd!==-1){
+      const{count}=await SB.from("products").select("id",{count:"exact",head:true}).eq("niche_group_id",gid);
+      if((count||0)>=maxProd){toast(`Limite de ${maxProd} produtos por grupo no plano ${myFeatures().label}. Faça upgrade para adicionar mais!`,"🔒");go("assinatura");return;}
+    }
   }
   const precoAtual=parseFloat(String(document.getElementById("mlLinkPrecoAtual")?.value||"").replace(",","."))||window._mlImportData?.price||null;
   const precoOrig=parseFloat(String(document.getElementById("mlLinkPrecoOrig")?.value||"").replace(",","."))||null;
@@ -5472,7 +5494,7 @@ async function prodConfirmarImport(postarAgora=false){
   if(!link&&!_prodImportData){toast("Cole um link e clique em Buscar primeiro.","⚠️");return;}
   const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
   if(!gid){toast("Salve o grupo primeiro.","⚠️");return;}
-  if(MY_PLAN==="starter"){const{count}=await SB.from("products").select("id",{count:"exact",head:true}).eq("niche_group_id",gid);if((count||0)>=15){toast("Limite de 15 produtos por grupo no Starter. Faça upgrade!","🔒");go("assinatura");return;}}
+  const _maxProd=lim("max_products")??15;if(_maxProd!==-1){const{count}=await SB.from("products").select("id",{count:"exact",head:true}).eq("niche_group_id",gid);if((count||0)>=_maxProd){toast(`Limite de ${_maxProd} produtos por grupo no plano ${myFeatures().label}. Faça upgrade!`,"🔒");go("assinatura");return;}}
 
   // Coleta todos os campos
   const precoOrig=parseFloat(String(document.getElementById("prodLinkPrecoOrig")?.value||"").replace(",","."))||null;
@@ -5559,7 +5581,7 @@ async function prodAdicionarManual(postarAgora=false){
   if(!link){toast("Informe o link afiliado.","⚠️");return;}
   const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
   if(!gid){toast("Salve o grupo primeiro.","⚠️");return;}
-  if(MY_PLAN==="starter"){const{count}=await SB.from("products").select("id",{count:"exact",head:true}).eq("niche_group_id",gid);if((count||0)>=15){toast("Limite de 15 produtos por grupo no Starter. Faça upgrade!","🔒");go("assinatura");return;}}
+  const _maxProd=lim("max_products")??15;if(_maxProd!==-1){const{count}=await SB.from("products").select("id",{count:"exact",head:true}).eq("niche_group_id",gid);if((count||0)>=_maxProd){toast(`Limite de ${_maxProd} produtos por grupo no plano ${myFeatures().label}. Faça upgrade!`,"🔒");go("assinatura");return;}}
   const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gid).order("position",{ascending:false}).limit(1).maybeSingle();
   const pos=(last?.position||0)+1;
   const{error}=await SB.from("products").insert({
@@ -5699,7 +5721,7 @@ async function lpSalvarLayout(){
 /* ================= PLANOS ================= */
 // Monta os cards de planos a partir da plan_features real (Starter/Pro/Elite/Premium)
 function buildPlansFromFeatures(){
-  const order=["starter","pro","elite","premium"];
+  const order=["starter","pro","elite","premium","infinity"].filter(k=>PLAN_FEATURES[k]);
   return order.map(key=>{
     const f=planRow(key);
     const feats=[];
@@ -5711,11 +5733,14 @@ function buildPlansFromFeatures(){
       f.marketplaces===1?"✅ Shopee":
       f.marketplaces===3?"✅ Shopee, Mercado Livre e Amazon":
       "✅ "+f.marketplaces+" marketplaces");
+    feats.push(f.max_products===-1?"✅ Produtos ilimitados por grupo":"✅ Até "+f.max_products+" produtos por grupo");
     feats.push(f.wa_post_automation?"✅ Automação de posts 24/7":"✅ Post Relâmpago (envio manual)");
     feats.push(f.mega_ia?"✅ MegaIA (geração com IA)":"❌ MegaIA");
     feats.push(f.click_tracking?"✅ Rastreamento de cliques":"❌ Rastreamento de cliques");
-    feats.push("✅ Suporte "+({comunidade:"comunidade",email:"por e-mail",prioritario:"prioritário",vip:"VIP WhatsApp"}[f.support_level]||f.support_level));
-    return {key,n:f.label.toUpperCase(),m:Number(f.price_month),pop:key==="elite",sub:key==="premium"?"Máxima operação":"",f:feats};
+    if(key==="elite"||key==="premium"||key==="infinity"){
+      feats.push("✅ Suporte "+({prioritario:"prioritário",vip:"VIP WhatsApp"}[f.support_level]||f.support_level));
+    }
+    return {key,n:f.label.toUpperCase(),m:Number(f.price_month),pop:key==="elite",sub:(key==="premium"||key==="infinity")?"Máxima operação":"",f:feats};
   });
 }
 function brl(v){return v.toFixed(2).replace(".",",");}
@@ -5723,7 +5748,8 @@ const PLAN_VIS={
   starter:{ico:"⚡",grad:"linear-gradient(135deg,#8B95FF,#5B68FF)",sub:"Para quem está começando"},
   pro:    {ico:"🚀",grad:"linear-gradient(135deg,#FF6CBF,#9B7DFF)",sub:"Automação + IA para escalar"},
   elite:  {ico:"🔥",grad:"linear-gradient(135deg,#FFB020,#FF6B6B)",sub:"Rastreamento + escala total"},
-  premium:{ico:"👑",grad:"linear-gradient(135deg,#F5C518,#FF8A00)",sub:"O melhor da plataforma"}
+  premium:{ico:"👑",grad:"linear-gradient(135deg,#F5C518,#FF8A00)",sub:"O melhor da plataforma"},
+  infinity:{ico:"👑",grad:"linear-gradient(135deg,#F5C518,#FF8A00)",sub:"O melhor da plataforma"}
 };
 function renderPlans(){
   const PLANS=buildPlansFromFeatures();
@@ -5763,6 +5789,7 @@ function renderPlans(){
         ${a?`<div style="font-size:11px;color:var(--volt);font-weight:700;margin-top:2px">economize R$ ${brl(p.m*12*0.2)}/ano</div>`:""}
       </div>
       <ul>${p.f.map(f=>`<li>${f}</li>`).join("")}</ul>
+      ${(p.key==="premium"||p.key==="infinity")?`<div style="font-size:11px;color:var(--tx2);background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.25);border-radius:8px;padding:8px 10px;margin:4px 0 8px;text-align:center">⚠️ Sujeito à política de uso justo — limites podem ser ajustados em caso de uso muito acima da média.</div>`:""}
       ${atual
         ?`<button class="btn btn-ghost btn-lg" disabled style="width:100%;justify-content:center;opacity:.7">✅ SEU PLANO ATUAL</button>`
         :`<div style="display:flex;flex-direction:column;gap:8px;width:100%">
@@ -5789,13 +5816,14 @@ function renderPlans(){
         if(m===3)return"Shopee, ML, Amazon";
         return m+" lojas";
       }],
+      ["Produtos por grupo",    p=>planRow(p).max_products===-1?"Ilimitado":planRow(p).max_products],
       ["Automação 24/7",        p=>planRow(p).wa_post_automation?"✅":"Manual"],
       ["MegaIA",                p=>planRow(p).mega_ia?"✅":"❌"],
       ["Rastreamento de cliques",p=>planRow(p).click_tracking?"✅":"❌"],
-      ["Suporte",               p=>({comunidade:"Comunidade",email:"E-mail",prioritario:"Prioritário",vip:"VIP WhatsApp"}[planRow(p).support_level]||"—")],
+      ["Suporte",               p=>({prioritario:"Prioritário",vip:"VIP WhatsApp"}[planRow(p).support_level]||"—")],
       ["Preço/mês",             p=>"R$ "+brl(Number(planRow(p).price_month))],
     ];
-    const plans=["starter","pro","elite","premium"];
+    const plans=["starter","pro","elite","premium","infinity"].filter(k=>PLAN_FEATURES[k]);
     cmp.innerHTML=rows.map((r,i)=>`<tr style="border-bottom:1px solid var(--bd);${i%2===0?"background:rgba(255,255,255,.02)":""}">
       <td style="padding:10px 16px;color:var(--tx2);font-size:12.5px">${r[0]}</td>
       ${plans.map(p=>`<td style="text-align:center;padding:10px 8px;font-size:12.5px;font-weight:500;${p==="elite"?"background:rgba(139,92,246,.06)":""}">${r[1](p)}</td>`).join("")}
@@ -8295,12 +8323,13 @@ function applyPlanGating(){
 /* Aplica gate nos cards de marketplaces em Config Afiliados */
 function applyMarketplaceGating(max, planLabel){
   if(!lojasGrid)return;
-  const plan=MY_PLAN||"starter";
-  const allowed=MARKET_PLAN[plan]; // null = todos liberados
+  // Config de Afiliados libera todos os marketplaces para todos os planos.
+  // A restrição por plano (Starter = só Shopee) continua valendo apenas para a
+  // POSTAGEM AUTOMÁTICA, controlada por MARKET_PLAN em checarLojaParaPostar() e no Radar.
   const cards=[...lojasGrid.querySelectorAll(".card")];
   cards.forEach((card,i)=>{
     const lojaName=LOJAS[i]?.n||"";
-    const locked=allowed!==null&&!allowed.includes(lojaName);
+    const locked=false;
     // Mensagem de upgrade contextual
     const proxPlano=plan==="starter"?"Pro":plan==="pro"?"Elite":"Elite";
     let overlay=card.querySelector(".market-gate");
