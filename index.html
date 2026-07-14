@@ -3144,11 +3144,16 @@ async function rgSalvarNoGrupo(){
   const extra3=document.getElementById("rgChkExtra3")?.checked?document.getElementById("rgExtra3Texto")?.value?.trim()||"":"";
   const descExtras=(extra1||extra2||extra3)?JSON.stringify({extra1,extra2,extra3}):null;
   const gidDb=grupo.db_id||grupo.id;
+  // Re-gera o link de afiliado com as credenciais do usuário LOGADO (não a credencial
+  // compartilhada que alimentou o Radar) — essencial pra comissão cair pra quem postou,
+  // não pra quem forneceu a API do Radar. Esse link fica salvo no produto e é o mesmo
+  // reutilizado pelo Post Automático depois.
+  const linkPersonalizado=prGerarLinkAfil(link,RG_OFERTA_ATUAL?.loja||"")||link;
   try{
     const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gidDb).order("position",{ascending:false}).limit(1).maybeSingle();
     const pos=(last?.position||0)+1;
     const{error}=await SB.from("products").insert({
-      title:nome,affiliate_url:link,price:por,price_original:de,
+      title:nome,affiliate_url:linkPersonalizado,price:por,price_original:de,
       image_url:img,niche_group_id:gidDb,source:rgLojaToMarketplace(RG_OFERTA_ATUAL?.loja),position:pos,
       coupon_code:cupom?.code||null,cta_text:ctaTexto,cta_random:ctaRandom,
       description:descExtras,
@@ -5404,10 +5409,13 @@ async function mlConfirmarImport(postarAgora=false){
   const discPct=precoOrig&&precoAtual&&precoAtual<precoOrig?Math.round((1-precoAtual/precoOrig)*100):window._mlImportData?.discount_pct||null;
   const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gid).order("position",{ascending:false}).limit(1).maybeSingle();
   const pos=(last?.position||0)+1;
+  // Re-gera o link com as credenciais (matt_tool/etiqueta) do usuário logado
+  const linkBase=link||window._mlImportData?.affiliate_url||"";
+  const linkPersonalizado=linkBase?(prGerarLinkAfil(linkBase,"Mercado Livre")||linkBase):"";
   const row={
     niche_group_id:gid,source:"link",position:pos,
     title:window._mlImportData?.title||"Produto ML",
-    affiliate_url:link||window._mlImportData?.affiliate_url||"",
+    affiliate_url:linkPersonalizado,
     image_url:window._mlImportData?.image_url||"",
     price:precoAtual,price_original:precoOrig,discount_pct:discPct,
     price_suffix:null,user_id:CURRENT_USER?.id,
