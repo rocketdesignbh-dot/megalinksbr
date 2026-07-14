@@ -790,7 +790,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="cb">
               <div id="prCtaGrid" style="display:grid;gap:8px"></div>
               <div class="field" style="margin-top:12px"><label>Ou escreva seu próprio</label><input id="prCtaCustom" placeholder="Ex: Corre que acaba!" oninput="prUpdatePreview()"></div>
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:14px">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:12px">
+                <input type="checkbox" id="prChkCtaRandom" onchange="prToggleCtaRandom(this.checked)" style="width:auto">
+                <span style="font-size:13px">🎲 CTA aleatório a cada disparo</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:10px">
                 <input type="checkbox" id="prChkCorPersonalizada" onchange="prTogglePainelCor(this.checked)" style="width:auto">
                 <span style="font-size:13px">🎨 Personalizar cor do post</span>
               </label>
@@ -4170,15 +4174,92 @@ shopee:`
   <div class="card"><div class="ch">🛍️ Produtos do grupo <span class="r" id="spCount">0 itens</span></div><div class="cb" id="spList"><p style="color:var(--mut);text-align:center;padding:20px">Nenhum produto adicionado ainda.</p></div></div>`,
 layout:`
   <div class="g23">
-    <div class="card" style="margin:0"><div class="ch">🖼️ Layout do post <span class="r">edite e veja ao vivo →</span></div><div class="cb">
-      <div class="alert b" style="font-size:12px">💡 <span class="kbd">*negrito*</span> <span class="kbd">_itálico_</span> <span class="kbd">~riscado~</span></div>
-      <div class="field"><label>Cabeçalho</label><input id="lpHead" value="🔥 OFERTA RELÂMPAGO 🔥" oninput="rp()"></div>
-      <div class="field"><label>Título</label><input id="lpTitle" value="Fone Bluetooth XYZ" oninput="rp()"></div>
-      <div class="g2"><div class="field"><label>Preço original</label><input id="lpDe" value="29,90" oninput="rp()"></div><div class="field"><label>Preço atual</label><input id="lpPor" value="9,99" oninput="rp()"></div><div class="field"><label>Sufixo</label><input id="lpSuf" value="" oninput="rp()"></div><div class="field"><label>Parcelado</label><input id="lpParc" value="10x de R$ 0,99" oninput="rp()"></div></div>
-      <div class="field"><label>Texto de vendas</label><input id="lpCta" value="Corre que acaba rápido! ⚡" oninput="rp()"></div>
-      <button class="btn btn-volt" onclick="toast('Layout salvo!')">Salvar</button>
-    </div></div>
-    <div class="card" style="margin:0"><div class="ch">📱 Preview ao vivo</div><div class="cb"><div class="phone"><div class="notch"></div><div class="scr"><div class="wah"><span class="gp">G</span> Seu canal</div><div class="bub" id="lpBub"></div></div></div></div></div>
+    <!-- Coluna esquerda: edição -->
+    <div>
+      <div class="card" style="margin:0 0 16px">
+        <div class="ch">🖼️ Dados do post <span class="r" style="font-size:11px;color:var(--mut)">edite e veja ao vivo →</span></div>
+        <div class="cb">
+          <div class="alert b" style="font-size:12px;margin-bottom:12px">💡 <span class="kbd">*negrito*</span> <span class="kbd">_itálico_</span> <span class="kbd">~riscado~</span></div>
+          <!-- Foto + upload -->
+          <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:16px">
+            <div id="lpFotoWrap" style="width:90px;height:90px;border-radius:12px;background:var(--bg2);border:1px solid var(--bd2);overflow:hidden;flex:none;display:grid;place-items:center;font-size:32px">🛍️</div>
+            <div style="flex:1">
+              <label style="font-size:11px;color:var(--mut);margin-bottom:4px;display:block">Ou faça upload da foto</label>
+              <input type="file" id="lpFotoUpload" accept="image/*" onchange="lpUploadFoto(this)" style="font-size:12px;padding:6px">
+            </div>
+          </div>
+          <!-- Nome -->
+          <div class="field"><label>Nome do produto</label><input id="lpTitle" placeholder="Ex: Fone Bluetooth XYZ" oninput="rp()"></div>
+          <!-- Preços -->
+          <div class="g2">
+            <div class="field"><label>Preço De (R$)</label><input id="lpDe" placeholder="29,90" oninput="rp()"></div>
+            <div class="field"><label>Preço Por (R$)</label><input id="lpPor" placeholder="9,99" oninput="rp()"></div>
+          </div>
+          <!-- Cabeçalho -->
+          <div class="field"><label>Cabeçalho</label><input id="lpHead" value="🔥 OFERTA RELÂMPAGO 🔥" oninput="rp()"></div>
+          <!-- Sufixo + Parcelado -->
+          <div class="g2">
+            <div class="field"><label>Sufixo preço</label><input id="lpSuf" placeholder="no Pix" oninput="rp()"></div>
+            <div class="field"><label>Parcelado</label><input id="lpParc" placeholder="10x de R$ 0,99" oninput="rp()"></div>
+          </div>
+          <!-- Linhas extras opcionais -->
+          <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--bd2)">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
+              <input type="checkbox" id="lpChkExtra1" onchange="lpToggleExtra('extra1',this.checked)" style="width:auto">
+              <input id="lpExtra1Texto" type="text" placeholder="Ex: Adicione 2 ou mais unidades" oninput="rp()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:6px;color:var(--tx);font-size:13px">
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
+              <input type="checkbox" id="lpChkExtra2" onchange="lpToggleExtra('extra2',this.checked)" style="width:auto">
+              <input id="lpExtra2Texto" type="text" placeholder="Ex: Frete grátis acima de R$ 79" oninput="rp()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:6px;color:var(--tx);font-size:13px">
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
+              <input type="checkbox" id="lpChkCupom" onchange="lpToggleExtra('cupom',this.checked)" style="width:auto">
+              <span style="font-size:13px;white-space:nowrap">Utilize o cupom:</span>
+              <select id="lpCupomSel" onchange="rp()" style="flex:1;padding:4px 6px;background:var(--bg2);border:1px solid var(--bd2);border-radius:6px;color:var(--tx);font-size:13px">
+                <option value="">— Nenhum cadastrado —</option>
+              </select>
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="lpChkExtra3" onchange="lpToggleExtra('extra3',this.checked)" style="width:auto">
+              <input id="lpExtra3Texto" type="text" placeholder="Insira aqui seu link para compartilhar seu Grupo" oninput="rp()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:6px;color:var(--tx);font-size:13px">
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="card" style="margin:0 0 16px">
+        <div class="ch">🎯 Escolha o CTA</div>
+        <div class="cb">
+          <div id="lpCtaGrid" style="display:grid;gap:8px"></div>
+          <div class="field" style="margin-top:12px"><label>Ou escreva seu próprio</label><input id="lpCta" placeholder="Ex: Corre que acaba!" oninput="rp()"></div>
+          <!-- CTA Randômico -->
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:12px">
+            <input type="checkbox" id="lpChkCtaRandom" onchange="lpToggleCtaRandom(this.checked)" style="width:auto">
+            <span style="font-size:13px">🎲 CTA aleatório a cada disparo automático</span>
+          </label>
+          <!-- Cor personalizada -->
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:10px">
+            <input type="checkbox" id="lpChkCorPersonalizada" onchange="lpTogglePainelCor(this.checked)" style="width:auto">
+            <span style="font-size:13px">🎨 Personalizar cor do post</span>
+          </label>
+          <div id="lpPainelCor" style="display:none;gap:8px;margin-top:10px;flex-wrap:wrap"></div>
+        </div>
+      </div>
+
+      <button class="btn btn-volt" onclick="lpSalvarLayout()">💾 Salvar layout do grupo</button>
+      <span id="lpSalvoMsg" style="display:none;font-size:12px;color:var(--volt);margin-left:10px">✅ Salvo!</span>
+    </div>
+
+    <!-- Coluna direita: preview -->
+    <div>
+      <div class="card" style="margin:0;position:sticky;top:80px">
+        <div class="ch">📱 Preview ao vivo</div>
+        <div class="cb" style="display:flex;justify-content:center">
+          <div class="phone"><div class="notch"></div><div class="scr"><div class="wah"><span class="gp">G</span> Seu canal</div><div class="bub" id="lpBub">Preencha os dados para ver o preview.</div></div></div>
+        </div>
+      </div>
+    </div>
   </div>`,
 ia:`
   <div class="alert y">🧪 <strong>MegaIA — BETA.</strong> Reescreve e formata suas mensagens automaticamente para converter mais.</div>
@@ -4358,7 +4439,7 @@ function buildTabs(){
       b.classList.add("active");
       document.querySelectorAll(".tp").forEach(p=>p.classList.remove("on"));
       document.getElementById("pane-"+b.dataset.tab).classList.add("on");
-      if(b.dataset.tab==="layout")rp();
+      if(b.dataset.tab==="layout"){rp();lpInitCtaGrid();}
       if(b.dataset.tab==="wacanais")wireWaCanais();
       if(b.dataset.tab==="shopee")wireShopee();
       if(b.dataset.tab==="wagrupos")wireWaGrupos();
@@ -4368,7 +4449,7 @@ function buildTabs(){
       if(b.dataset.tab==="prod-add"){wireProdAdd();prodIdeaisCalc();prodCupomTipoChange();}
     });
     // dispara wire da primeira tab se necessário
-    if(first.id==="layout")rp();
+    if(first.id==="layout"){rp();lpInitCtaGrid();}
     if(first.id==="wagrupos")wireWaGrupos();
     if(first.id==="ml")setTimeout(()=>atualizarStatusQuotaML("mlImportQuotaStatus"),50);
     if(first.id==="prod-lista")wireProdLista();
@@ -5181,8 +5262,109 @@ async function prodRemover(id){
 
 /* Preview */
 function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
-function rp(){const g=id=>document.getElementById(id);if(!g("lpBub"))return;
-  g("lpBub").innerHTML=`<span class="img">🎧</span>${esc(g("lpHead").value)}\n<b>${esc(g("lpTitle").value)}</b>\n<s>De R$ ${esc(g("lpDe").value)}</s> por <b>R$ ${esc(g("lpPor").value)} ${esc(g("lpSuf").value)}</b>\n💳 ${esc(g("lpParc").value)}\n${esc(g("lpCta").value)}\n<span class="lnk">👉 shope.ee/abc</span><span class="tm">14:32 ✓✓</span>`;}
+// Estado do Layout Post
+let LP={ctaSel:0,extras:{extra1:false,extra2:false,cupom:false,extra3:false},ctaRandom:false,corIdx:0,fotoDataUrl:null};
+function rp(){
+  const g=id=>document.getElementById(id);
+  if(!g("lpBub"))return;
+  const head=g("lpHead")?.value||"";
+  const title=g("lpTitle")?.value||"Produto";
+  const de=g("lpDe")?.value||"";
+  const por=g("lpPor")?.value||"";
+  const suf=g("lpSuf")?.value||"";
+  const parc=g("lpParc")?.value||"";
+  const ctaRandom=g("lpChkCtaRandom")?.checked;
+  const ctaCustom=g("lpCta")?.value||"";
+  const ctaTexto=ctaRandom?"🎲 CTA aleatório a cada disparo":ctaCustom||(PR_CTAS[LP.ctaSel]||"");
+  let txt=``;
+  if(head)txt+=esc(head)+"\n";
+  txt+=`<b>${esc(title)}</b>\n`;
+  if(de&&por)txt+=`<s>De R$ ${esc(de)}</s> por <b>R$ ${esc(por)}${suf?" "+esc(suf):""}</b>\n`;
+  else if(por)txt+=`<b>R$ ${esc(por)}${suf?" "+esc(suf):""}</b>\n`;
+  if(parc)txt+=`💳 ${esc(parc)}\n`;
+  if(LP.extras.extra1&&g("lpExtra1Texto")?.value)txt+=`✅ ${esc(g("lpExtra1Texto").value)}\n`;
+  if(LP.extras.extra2&&g("lpExtra2Texto")?.value)txt+=`✅ ${esc(g("lpExtra2Texto").value)}\n`;
+  if(LP.extras.cupom){const sel=g("lpCupomSel");const opt=sel?.options[sel?.selectedIndex];if(opt?.value)txt+=`🏷️ Cupom: ${esc(opt.text)}\n`;}
+  if(LP.extras.extra3&&g("lpExtra3Texto")?.value)txt+=`\n${esc(g("lpExtra3Texto").value)}\n`;
+  txt+=`\n${esc(ctaTexto)}\n`;
+  txt+=`<span class="lnk">👉 shope.ee/abc</span><span class="tm">14:32 ✓✓</span>`;
+  const foto=LP.fotoDataUrl;
+  const imgHtml=foto?`<img src="${foto}" style="width:100%;border-radius:6px;margin-bottom:6px">`:'<span class="img">🛍️</span>';
+  g("lpBub").innerHTML=imgHtml+txt;
+}
+function lpToggleExtra(tipo,on){LP.extras[tipo]=on;rp();}
+function lpToggleCtaRandom(on){
+  LP.ctaRandom=on;
+  const grid=document.getElementById("lpCtaGrid");
+  if(grid)grid.style.opacity=on?"0.4":"1";
+  const ctaInput=document.getElementById("lpCta");
+  if(ctaInput)ctaInput.disabled=on;
+  rp();
+}
+function lpSelectCta(i){
+  LP.ctaSel=i;
+  document.getElementById("lpCta").value="";
+  document.querySelectorAll("[id^='lpCtaBtn']").forEach((b,j)=>{
+    b.className=`btn ${j===i?"btn-volt":"btn-ghost"} btn-sm`;
+    b.style.cssText="text-align:left;justify-content:flex-start;white-space:normal;height:auto;padding:9px 12px";
+  });
+  rp();
+}
+function lpTogglePainelCor(on){
+  const p=document.getElementById("lpPainelCor");if(!p)return;
+  p.style.display=on?"flex":"none";
+  if(on&&!p.children.length){
+    p.innerHTML=PR_CORES.map((c,i)=>`<button onclick="lpSelecionarCor(${i})" style="padding:4px 10px;border-radius:6px;border:2px solid ${i===LP.corIdx?"var(--volt)":"transparent"};background:${c.bg||"var(--surf)"};color:${c.tx||"var(--tx)"};font-size:12px;cursor:pointer" id="lpCorBtn${i}">${c.nome}</button>`).join("");
+  }
+}
+function lpSelecionarCor(i){
+  LP.corIdx=i;
+  document.querySelectorAll("[id^='lpCorBtn']").forEach((b,j)=>b.style.border=`2px solid ${j===i?"var(--volt)":"transparent"}`);
+  rp();
+}
+function lpUploadFoto(input){
+  const file=input?.files?.[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{LP.fotoDataUrl=e.target.result;const w=document.getElementById("lpFotoWrap");if(w)w.innerHTML=`<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover">`;rp();};
+  r.readAsDataURL(file);
+}
+function lpInitCtaGrid(){
+  const grid=document.getElementById("lpCtaGrid");if(!grid)return;
+  grid.innerHTML=PR_CTAS.map((c,i)=>`<button class="btn ${i===0?"btn-volt":"btn-ghost"} btn-sm" id="lpCtaBtn${i}" onclick="lpSelectCta(${i})" style="text-align:left;justify-content:flex-start;white-space:normal;height:auto;padding:9px 12px">${c}</button>`).join("");
+  // Preenche select de cupom
+  const sel=document.getElementById("lpCupomSel");
+  if(sel){sel.innerHTML='<option value="">— Nenhum —</option>'+COUPONS.map(c=>`<option value="${c.id}">${esc(c.code)}${c.label?" — "+esc(c.label):""}</option>`).join("");}
+  // Cor
+  lpTogglePainelCor(document.getElementById("lpChkCorPersonalizada")?.checked||false);
+  rp();
+}
+async function lpSalvarLayout(){
+  const g=S.grupoAtual;if(!g?.db_id){toast("Salve o grupo primeiro.","⚠️");return;}
+  const ctaRandom=document.getElementById("lpChkCtaRandom")?.checked||false;
+  const ctaTexto=ctaRandom?null:(document.getElementById("lpCta")?.value||PR_CTAS[LP.ctaSel]||null);
+  const extra1=document.getElementById("lpChkExtra1")?.checked?document.getElementById("lpExtra1Texto")?.value||null:null;
+  const extra2=document.getElementById("lpChkExtra2")?.checked?document.getElementById("lpExtra2Texto")?.value||null:null;
+  const extra3=document.getElementById("lpChkExtra3")?.checked?document.getElementById("lpExtra3Texto")?.value||null:null;
+  const head=document.getElementById("lpHead")?.value||null;
+  const suf=document.getElementById("lpSuf")?.value||null;
+  const parc=document.getElementById("lpParc")?.value||null;
+  const corIdx=LP.corIdx||0;
+  try{
+    await SB.from("niche_groups").update({
+      post_header:head,
+      price_suffix:suf,
+      price_installment:parc,
+      cta_text:ctaTexto,
+      cta_random:ctaRandom,
+      extra_line1:extra1,
+      extra_line2:extra2,
+      extra_line3:extra3,
+      color_index:corIdx
+    }).eq("id",g.db_id);
+    const msg=document.getElementById("lpSalvoMsg");if(msg){msg.style.display="inline";setTimeout(()=>msg.style.display="none",2500);}
+    toast("Layout salvo!","✅");
+  }catch(e){toast("Erro ao salvar: "+e.message,"⚠️");}
+}
 
 /* ================= PLANOS ================= */
 // Monta os cards de planos a partir da plan_features real (Starter/Pro/Elite/Premium)
@@ -6550,7 +6732,7 @@ const PR_CORES=[
   {nome:"Fundo Rosa Vivo",bg:"#ff2dd4",tx:"#1a0014"},
   {nome:"Fundo Ciano Vivo",bg:"#00e5ff",tx:"#001a1f"}
 ];
-let PR={loja:null,produto:null,fotoDataUrl:null,ctaSel:0,gruposSel:new Set(),linkAfil:"",destinos:{grupos:true,canais:false,telegram:false},extras:{extra1:false,extra2:false,cupom:false,extra3:false}};
+let PR={loja:null,produto:null,fotoDataUrl:null,ctaSel:0,ctaRandom:false,gruposSel:new Set(),linkAfil:"",destinos:{grupos:true,canais:false,telegram:false},extras:{extra1:false,extra2:false,cupom:false,extra3:false}};
 
 // Renderiza as lojas configuradas como chips selecionáveis
 function prRenderLojas(){
@@ -6967,6 +7149,8 @@ function prPreencherStep2(){
   const txt3=document.getElementById("prExtra3Texto");if(txt3)txt3.value="";
   const chkCor=document.getElementById("prChkCorPersonalizada");if(chkCor)chkCor.checked=false;
   prTogglePainelCor(false);
+  const chkCtaRand=document.getElementById("prChkCtaRandom");if(chkCtaRand)chkCtaRand.checked=false;
+  PR.ctaRandom=false;prToggleCtaRandom(false);
   prRenderCupomSelect();
   prUpdatePreview();
 }
@@ -6978,6 +7162,12 @@ function prSelectCta(i){
     b.className=`btn ${j===i?"btn-volt":"btn-ghost"} btn-sm`;
     b.style.cssText="text-align:left;justify-content:flex-start;white-space:normal;height:auto;padding:9px 12px";
   });
+  prUpdatePreview();
+}
+function prToggleCtaRandom(on){
+  PR.ctaRandom=on;
+  const grid=document.getElementById("prCtaGrid");if(grid)grid.style.opacity=on?"0.4":"1";
+  const ctaInput=document.getElementById("prCtaCustom");if(ctaInput)ctaInput.disabled=on;
   prUpdatePreview();
 }
 
@@ -7099,7 +7289,8 @@ function prUpdatePreview(){
   const nome=document.getElementById("prNome")?.value||"Produto Incrível";
   const de=document.getElementById("prDe")?.value;
   const por=document.getElementById("prPor")?.value||"9,99";
-  const cta=document.getElementById("prCtaCustom")?.value||PR_CTAS[PR.ctaSel]||"";
+  const ctaRandomChecked=document.getElementById("prChkCtaRandom")?.checked||PR.ctaRandom;
+  const cta=ctaRandomChecked?"🎲 CTA aleatório":(document.getElementById("prCtaCustom")?.value||PR_CTAS[PR.ctaSel]||"");
   const link=PR.linkAfil||"shope.ee/xxx";
   const grupoSel=S.grupos.find(g=>PR.gruposSel.has(g.id));
   const gNome=document.getElementById("prGrupoNome");
@@ -7140,7 +7331,8 @@ async function prDisparar(){
 
   const nome=document.getElementById("prNome")?.value||"Produto";
   const por=document.getElementById("prPor")?.value||"0,00";
-  const cta=document.getElementById("prCtaCustom")?.value||PR_CTAS[PR.ctaSel]||"";
+  const ctaRandomChecked=document.getElementById("prChkCtaRandom")?.checked||PR.ctaRandom;
+  const cta=ctaRandomChecked?PR_CTAS[Math.floor(Math.random()*PR_CTAS.length)]:(document.getElementById("prCtaCustom")?.value||PR_CTAS[PR.ctaSel]||"");
   const link=PR.linkAfil||"";
   const de=document.getElementById("prDe")?.value;
   const{before,after}=prMontarTexto({nome,de,por,cta,link,htmlMode:false});
