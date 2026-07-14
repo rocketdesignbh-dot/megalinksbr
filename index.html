@@ -8328,8 +8328,8 @@ function applyMarketplaceGating(max, planLabel){
   cards.forEach((card,i)=>{
     const lojaName=LOJAS[i]?.n||"";
     const locked=false;
-    // Mensagem de upgrade contextual
-    const proxPlano=plan==="starter"?"Pro":plan==="pro"?"Elite":"Elite";
+    // Mensagem de upgrade contextual (não é mais exibida, pois locked é sempre false)
+    const proxPlano="Pro";
     let overlay=card.querySelector(".market-gate");
     if(locked){
       card.style.position="relative";card.style.overflow="hidden";
