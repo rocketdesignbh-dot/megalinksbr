@@ -2618,7 +2618,6 @@ async function loadPostAutomatico(){
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">💬 Grupos WA</span><strong>${g.grupos_wa||0}</strong></div>
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">📅 Ativo desde</span><strong>${iniciou}</strong></div>
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">🕐 Último post</span><strong style="font-size:11px">${ultimo}</strong></div>
-              <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">⚡ Último disparo manual</span><strong style="font-size:11px">${ultimoManual}</strong></div>
               ${pg.total>0?`<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">✅ Sucesso</span><strong style="color:${pg.ok===pg.total?"#19E27D":"#f59e0b"}">${pg.ok}/${pg.total}</strong></div>`:""}
             </div>
             ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 14px 10px;padding:5px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:6px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
@@ -4180,11 +4179,6 @@ function renderGrupos(){const has=S.grupos.length>0;
           <span style="font-size:14px">🏷️</span>
           <span style="font-size:11px;color:var(--mut)">Cupom:</span>
           <span style="font-size:11px;font-weight:700;color:var(--tx)">${(()=>{const c=COUPONS.find(x=>x.id===g.defaultCouponId);return c?esc(c.code):"—";})()}</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:7px;grid-column:1/-1">
-          <span style="font-size:14px">⚡</span>
-          <span style="font-size:11px;color:var(--mut)">Último disparo manual:</span>
-          <span style="font-size:11px;font-weight:700;color:var(--tx)">${g.lastManualBlast?new Date(g.lastManualBlast).toLocaleString("pt-BR"):"Nunca"}</span>
         </div>
       </div>
       ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
