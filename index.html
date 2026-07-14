@@ -622,6 +622,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="nav" data-page="config-telegram"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="m22 2-7 20-4-9-9-4 20-7z"/></svg>Config Telegram</div>
 <div class="lbl">Configurações</div>
     <div class="nav" data-page="config-afiliados"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.4-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.2-.8.2-1.2z"/></svg>Config Afiliados</div>
+    <div class="nav" data-page="cupons"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/></svg>Cupons<span class="tag dot" id="cuponsBadge" style="display:none">0</span></div>
 
     <div class="lbl">Conta & Crescimento</div>
     <div class="nav" data-page="meus-dados"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>Meus Dados</div>
@@ -1186,24 +1187,95 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
 
-    <!-- Meus Cupons -->
-    <div class="card" style="margin-top:20px">
-      <div class="ch">🏷️ Meus Cupons</div>
-      <div class="cb">
-        <p style="font-size:12.5px;color:var(--tx2);margin:0 0 14px">Cadastre seus cupons por loja para usá-los rapidamente no Post Relâmpago.</p>
-        <div class="g2" style="gap:10px;align-items:end;margin-bottom:14px">
-          <div class="field" style="margin:0"><label>Loja</label>
-            <select id="cupomNovaLoja"></select></div>
-          <div class="field" style="margin:0"><label>Código do cupom</label>
-            <input id="cupomNovoCodigo" placeholder="Ex: PROMOMELI"></div>
+  </section>
+
+  <!-- ===== CUPONS ===== -->
+  <section class="page" id="page-cupons">
+    <div class="phead">
+      <div>
+        <h1 class="pt">🏷️ Cupons</h1>
+        <div class="psub">Gerencie todos os seus cupons de desconto por marketplace. Use-os no Post Relâmpago e nos grupos automáticos.</div>
+        <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button>
+      </div>
+      <button class="btn btn-volt" onclick="cupomAbrirModal()">＋ Novo Cupom</button>
+    </div>
+
+    <!-- KPIs -->
+    <div class="g4" id="cupomKpis" style="margin-bottom:20px"></div>
+
+    <!-- Filtros de marketplace -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="cb" style="padding:14px 16px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:12px;color:var(--mut);font-weight:600">FILTRAR:</span>
+          <button class="btn btn-volt btn-sm cupom-filtro active" data-filtro="todos" onclick="cupomFiltrar('todos',this)">Todos</button>
+          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="Shopee" onclick="cupomFiltrar('Shopee',this)">🛍️ Shopee</button>
+          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="Amazon" onclick="cupomFiltrar('Amazon',this)">📦 Amazon</button>
+          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="Mercado Livre" onclick="cupomFiltrar('Mercado Livre',this)">🟡 Mercado Livre</button>
+          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="AliExpress" onclick="cupomFiltrar('AliExpress',this)">🌐 AliExpress</button>
+          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="Magalu" onclick="cupomFiltrar('Magalu',this)">💙 Magalu</button>
+          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="Shein" onclick="cupomFiltrar('Shein',this)">👗 Shein</button>
+          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="AWIN" onclick="cupomFiltrar('AWIN',this)">🔗 AWIN</button>
+          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="Natura" onclick="cupomFiltrar('Natura',this)">🌿 Natura</button>
+          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="TerabyteShop" onclick="cupomFiltrar('TerabyteShop',this)">💻 Terabyte</button>
         </div>
-        <div class="field" style="margin:0 0 12px"><label>Descrição (opcional)</label>
-          <input id="cupomNovoLabel" placeholder="Ex: 10% off acima de 2 unidades"></div>
-        <button class="btn btn-volt btn-sm" onclick="cupomAdicionar()">➕ Adicionar cupom</button>
-        <div id="cupomLista" style="display:grid;gap:8px;margin-top:16px"></div>
+        <div style="margin-top:10px">
+          <input id="cupomBusca" placeholder="🔍 Buscar por código ou descrição…" oninput="cupomRenderLista()" style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:8px;border:1px solid var(--bdr,rgba(255,255,255,.12));background:var(--bg2);color:var(--tx);font-size:13px;outline:none">
+        </div>
       </div>
     </div>
+
+    <!-- Lista de cupons -->
+    <div id="cupomPageLista"></div>
+
+    <!-- Vazio -->
+    <div id="cupomVazio" style="display:none;text-align:center;padding:60px 20px">
+      <div style="font-size:48px;margin-bottom:12px">🏷️</div>
+      <h3 style="margin:0 0 8px">Nenhum cupom cadastrado</h3>
+      <p style="color:var(--mut);margin:0 0 20px">Adicione cupons de desconto dos seus marketplaces para usar nos posts.</p>
+      <button class="btn btn-volt" onclick="cupomAbrirModal()">＋ Adicionar primeiro cupom</button>
+    </div>
   </section>
+
+  <!-- Modal Novo/Editar Cupom -->
+  <div class="mbg" id="modalCupom">
+    <div class="modal" style="max-width:480px">
+      <div class="mh"><strong id="modalCupomTitulo">Novo Cupom</strong><button class="mx" onclick="closeModal('modalCupom')">×</button></div>
+      <div class="mb">
+        <div class="field"><label>Marketplace <span style="color:var(--red)">*</span></label>
+          <select id="cupomModalLoja" onchange="cupomModalLojaChange()">
+            <option value="">— Selecione —</option>
+          </select>
+        </div>
+        <div class="field"><label>Código do cupom <span style="color:var(--red)">*</span></label>
+          <input id="cupomModalCodigo" placeholder="Ex: PROMOMELI20" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+        </div>
+        <div class="field"><label>Descrição / Benefício</label>
+          <input id="cupomModalLabel" placeholder="Ex: 20% off em pedidos acima de R$ 50">
+        </div>
+        <div class="field"><label>Validade (opcional)</label>
+          <input id="cupomModalValidade" type="date">
+        </div>
+        <div class="field"><label>Valor do desconto (opcional)</label>
+          <div style="display:flex;gap:8px">
+            <select id="cupomModalTipoDesconto" style="flex:none;width:100px">
+              <option value="percent">%</option>
+              <option value="fixed">R$</option>
+            </select>
+            <input id="cupomModalValorDesconto" type="number" min="0" placeholder="0" style="flex:1">
+          </div>
+        </div>
+        <div class="field"><label>Valor mínimo de compra (opcional)</label>
+          <input id="cupomModalMinimo" type="number" min="0" placeholder="Ex: 50">
+        </div>
+        <div id="cupomModalDica" class="alert b" style="display:none;font-size:12px;margin-top:4px"></div>
+      </div>
+      <div class="mf">
+        <button class="btn btn-ghost" onclick="closeModal('modalCupom')">Cancelar</button>
+        <button class="btn btn-volt" id="cupomModalSalvarBtn" onclick="cupomModalSalvar()">💾 Salvar cupom</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal configurar loja -->
   <div class="mbg" id="modalLoja">
@@ -1937,7 +2009,7 @@ async function loadCoupons(){
   try{
     const{data,error}=await SB.from("affiliate_coupons").select("*").eq("user_id",uid).order("created_at");
     if(error||!data){COUPONS=lsLoad("coupons",[]);return;}
-    COUPONS=data.map(r=>({id:r.id,store:ENUM_STORE[r.store]||r.store,code:r.code,label:r.label||""}));
+    COUPONS=data.map(r=>({id:r.id,store:ENUM_STORE[r.store]||r.store,code:r.code,label:r.label||"",validade:r.validade||null,tipo_desconto:r.tipo_desconto||"percent",valor_desconto:r.valor_desconto||null,minimo:r.minimo||null}));
     lsSave("coupons",COUPONS);
   }catch(e){console.warn("loadCoupons fallback:",e);COUPONS=lsLoad("coupons",[]);}
 }
@@ -1963,25 +2035,173 @@ async function removeCoupon(id){
   }catch(e){console.warn("removeCoupon:",e);}
 }
 
+// Filtro ativo na página de cupons
+let _cupomFiltroAtivo="todos";
+
 function renderCupons(){
-  const selLoja=document.getElementById("cupomNovaLoja");
-  if(selLoja&&!selLoja.dataset.filled){
-    selLoja.innerHTML=Object.keys(STORE_ENUM).map(n=>`<option value="${n}">${n}</option>`).join("");
-    selLoja.dataset.filled="1";
-  }
-  const lista=document.getElementById("cupomLista");
+  // Atualiza badge no menu
+  const badge=document.getElementById("cuponsBadge");
+  if(badge){badge.textContent=COUPONS.length;badge.style.display=COUPONS.length?"":"none";}
+  // Atualiza selects legados (lpCupomSel, rgCupomSel, prCupomSel, lpCupomSel)
+  ["lpCupomSel","rgCupomSel","prCupomSel"].forEach(selId=>{
+    const sel=document.getElementById(selId);
+    if(!sel)return;
+    const cur=sel.value;
+    sel.innerHTML='<option value="">— Nenhum —</option>'+COUPONS.map(c=>`<option value="${c.id}">${esc(c.store)}: ${esc(c.code)}${c.label?" — "+esc(c.label):""}</option>`).join("");
+    if(cur)sel.value=cur;
+  });
+  // Atualiza a página de cupons se estiver visível
+  if(document.getElementById("page-cupons")?.classList.contains("on"))cupomRenderLista();
+}
+
+function cupomRenderLista(){
+  const lista=document.getElementById("cupomPageLista");
+  const vazio=document.getElementById("cupomVazio");
+  const kpis=document.getElementById("cupomKpis");
+  const busca=(document.getElementById("cupomBusca")?.value||"").toLowerCase().trim();
   if(!lista)return;
-  if(!COUPONS.length){
-    lista.innerHTML='<div class="alert b" style="margin:0;font-size:12.5px">Nenhum cupom cadastrado ainda.</div>';
+
+  // Filtra
+  let filtrados=COUPONS.filter(c=>{
+    const passaFiltro=_cupomFiltroAtivo==="todos"||c.store===_cupomFiltroAtivo;
+    const passaBusca=!busca||(c.code||"").toLowerCase().includes(busca)||(c.label||"").toLowerCase().includes(busca);
+    return passaFiltro&&passaBusca;
+  });
+
+  // KPIs
+  const lojaMap={};
+  COUPONS.forEach(c=>{lojaMap[c.store]=(lojaMap[c.store]||0)+1;});
+  const topLoja=Object.entries(lojaMap).sort((a,b)=>b[1]-a[1])[0];
+  const vencidos=COUPONS.filter(c=>c.validade&&new Date(c.validade)<new Date()).length;
+  if(kpis)kpis.innerHTML=[
+    ["Total de cupons",COUPONS.length,"#39C0FF"],
+    ["Marketplaces",Object.keys(lojaMap).length,"#19E27D"],
+    ["Top loja",topLoja?topLoja[0]:"—","#FFB020"],
+    ["Vencidos",vencidos,"#FF4D8D"]
+  ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv" style="color:${k[2]};font-size:${String(k[1]).length>6?"16px":"22px"}">${k[1]}</div></div>`).join("");
+
+  if(!filtrados.length){
+    lista.innerHTML="";
+    if(vazio)vazio.style.display="block";
     return;
   }
-  lista.innerHTML=COUPONS.map(c=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--bd2);border-radius:10px">
-      <span class="pill sky" style="flex:none">${esc(c.store)}</span>
-      <strong style="flex:none">${esc(c.code)}</strong>
-      <span style="flex:1;color:var(--mut);font-size:12.5px">${esc(c.label||"")}</span>
-      <button class="btn btn-ghost btn-sm" onclick="cupomRemover('${c.id}')" title="Remover">🗑️</button>
+  if(vazio)vazio.style.display="none";
+
+  // Agrupa por loja
+  const grupos={};
+  filtrados.forEach(c=>{if(!grupos[c.store])grupos[c.store]=[];grupos[c.store].push(c);});
+  const LOJA_EMOJI={Shopee:"🛍️",Amazon:"📦","Mercado Livre":"🟡",AliExpress:"🌐",Magalu:"💙",Shein:"👗",AWIN:"🔗",Natura:"🌿",TerabyteShop:"💻"};
+
+  lista.innerHTML=Object.entries(grupos).map(([loja,cs])=>`
+    <div class="card" style="margin-bottom:12px">
+      <div class="ch">${LOJA_EMOJI[loja]||"🏷️"} ${esc(loja)} <span class="pill gray" style="margin-left:6px;font-size:11px">${cs.length} cupom${cs.length>1?"s":""}</span></div>
+      <div class="cb" style="padding:0">
+        ${cs.map((c,i)=>{
+          const vencido=c.validade&&new Date(c.validade)<new Date();
+          const valStr=c.valor_desconto?(c.tipo_desconto==="percent"?c.valor_desconto+"%":"R$ "+c.valor_desconto):"";
+          const minStr=c.minimo?`mínimo R$ ${c.minimo}`:"";
+          const validadeStr=c.validade?new Date(c.validade).toLocaleDateString("pt-BR"):"";
+          return `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;${i>0?"border-top:1px solid var(--bd)":""}${vencido?";opacity:.5":""}">
+            <div style="background:var(--bg2);border:1px solid var(--bd2);border-radius:8px;padding:6px 14px;font-family:var(--mono);font-weight:700;font-size:15px;letter-spacing:1px;flex:none;color:var(--volt)">${esc(c.code)}</div>
+            <div style="flex:1;min-width:0">
+              ${c.label?`<div style="font-size:13px;font-weight:600">${esc(c.label)}</div>`:""}
+              <div style="font-size:11.5px;color:var(--mut);margin-top:2px;display:flex;gap:10px;flex-wrap:wrap">
+                ${valStr?`<span>💸 ${valStr} OFF</span>`:""}
+                ${minStr?`<span>📦 Pedido ${minStr}</span>`:""}
+                ${validadeStr?`<span style="color:${vencido?"var(--red,#ef4444)":"var(--mut)"}">${vencido?"⚠️ Vencido":"📅 Válido até"} ${validadeStr}</span>`:""}
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;flex:none">
+              <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard?.writeText('${c.code.replace(/'/g,"\'")}').then(()=>toast('Cupom copiado!','📋'))" title="Copiar código">📋</button>
+              <button class="btn btn-ghost btn-sm" onclick="cupomEditarModal('${c.id}')" title="Editar">✏️</button>
+              <button class="btn btn-ghost btn-sm" style="color:var(--red,#ef4444)" onclick="cupomRemover('${c.id}')" title="Remover">🗑️</button>
+            </div>
+          </div>`;
+        }).join("")}
+      </div>
     </div>`).join("");
+}
+
+function cupomFiltrar(filtro,btn){
+  _cupomFiltroAtivo=filtro;
+  document.querySelectorAll(".cupom-filtro").forEach(b=>{
+    b.className=b.dataset.filtro===filtro?"btn btn-volt btn-sm cupom-filtro active":"btn btn-ghost btn-sm cupom-filtro";
+  });
+  cupomRenderLista();
+}
+
+// Mapeamento de dicas por marketplace
+const CUPOM_DICAS={
+  Shopee:"💡 No app Shopee: vá em Eu → Carteira → Cupons. Os cupons de vendedor são encontrados na página do produto.",
+  Amazon:"💡 Cupons Amazon geralmente são aplicados automaticamente no checkout. Cole o código exato da promoção.",
+  "Mercado Livre":"💡 No ML: aplique cupons em 'Meu carrinho → Adicionar cupom' ou na finalização do pedido.",
+  AliExpress:"💡 No AliExpress: cupons são adicionados em 'Centro de cupons' ou direto no checkout.",
+  Magalu:"💡 Cupons Magalu: disponíveis em Meu perfil → Cupons ou via e-mail de promoções.",
+  Shein:"💡 Cupons Shein são adicionados no carrinho em 'Usar cupom'.",
+};
+
+function cupomAbrirModal(id){
+  const edit=id?COUPONS.find(c=>c.id===id):null;
+  document.getElementById("modalCupomTitulo").textContent=edit?"Editar Cupom":"Novo Cupom";
+  document.getElementById("cupomModalSalvarBtn").dataset.editId=id||"";
+  // Preenche loja
+  const selLoja=document.getElementById("cupomModalLoja");
+  selLoja.innerHTML='<option value="">— Selecione —</option>'+Object.keys(STORE_ENUM).map(n=>`<option value="${n}">${n}</option>`).join("");
+  selLoja.value=edit?.store||"";
+  document.getElementById("cupomModalCodigo").value=edit?.code||"";
+  document.getElementById("cupomModalLabel").value=edit?.label||"";
+  document.getElementById("cupomModalValidade").value=edit?.validade||"";
+  document.getElementById("cupomModalTipoDesconto").value=edit?.tipo_desconto||"percent";
+  document.getElementById("cupomModalValorDesconto").value=edit?.valor_desconto||"";
+  document.getElementById("cupomModalMinimo").value=edit?.minimo||"";
+  cupomModalLojaChange();
+  openModal("modalCupom");
+}
+function cupomEditarModal(id){cupomAbrirModal(id);}
+function cupomModalLojaChange(){
+  const loja=document.getElementById("cupomModalLoja")?.value;
+  const dica=document.getElementById("cupomModalDica");
+  if(dica){
+    const txt=CUPOM_DICAS[loja]||"";
+    dica.style.display=txt?"block":"none";
+    dica.textContent=txt;
+  }
+}
+async function cupomModalSalvar(){
+  const editId=document.getElementById("cupomModalSalvarBtn")?.dataset.editId;
+  const loja=document.getElementById("cupomModalLoja")?.value;
+  const codigo=document.getElementById("cupomModalCodigo")?.value?.trim();
+  const label=document.getElementById("cupomModalLabel")?.value?.trim();
+  const validade=document.getElementById("cupomModalValidade")?.value||null;
+  const tipoDesc=document.getElementById("cupomModalTipoDesconto")?.value||"percent";
+  const valorDesc=parseFloat(document.getElementById("cupomModalValorDesconto")?.value)||null;
+  const minimo=parseFloat(document.getElementById("cupomModalMinimo")?.value)||null;
+  if(!loja||!codigo){toast("Selecione o marketplace e informe o código.","⚠️");return;}
+  const uid=CURRENT_USER?.id;if(!uid)return;
+  const store=STORE_ENUM[loja];
+  const row={user_id:uid,store,code:codigo,label:label||null,
+    validade:validade||null,tipo_desconto:tipoDesc,valor_desconto:valorDesc,minimo:minimo};
+  try{
+    if(editId){
+      await SB.from("affiliate_coupons").update({label:label||null,validade:validade||null,tipo_desconto:tipoDesc,valor_desconto:valorDesc,minimo:minimo}).eq("id",editId);
+      const idx=COUPONS.findIndex(c=>c.id===editId);
+      if(idx>=0)COUPONS[idx]={...COUPONS[idx],label:label||"",validade,tipo_desconto:tipoDesc,valor_desconto:valorDesc,minimo};
+      toast("Cupom atualizado!","✅");
+    }else{
+      const{data,error}=await SB.from("affiliate_coupons").insert(row).select().single();
+      if(error)throw error;
+      COUPONS.push({id:data.id,store:loja,code:codigo,label:label||"",validade,tipo_desconto:tipoDesc,valor_desconto:valorDesc,minimo});
+      toast("Cupom adicionado!","✅");
+    }
+    lsSave("coupons",COUPONS);
+    renderCupons();
+    closeModal("modalCupom");
+  }catch(e){toast("Erro ao salvar: "+e.message,"⚠️");}
+}
+async function loadCuponsPage(){
+  await loadCoupons();
+  renderCupons();
+  cupomRenderLista();
 }
 /* Scrape.do pessoal — buscas de Mercado Livre sem limite compartilhado */
 async function carregarScrapeDoStatus(){
@@ -2099,22 +2319,13 @@ async function removerMlCookie(){
     carregarMlCookieStatus();
   }catch(e){toast("Erro ao remover: "+(e.message||""),"⛔");}
 }
-async function cupomAdicionar(){
-  const loja=document.getElementById("cupomNovaLoja")?.value;
-  const codigo=document.getElementById("cupomNovoCodigo")?.value?.trim();
-  const label=document.getElementById("cupomNovoLabel")?.value?.trim();
-  if(!loja||!codigo){toast("Selecione a loja e digite o código do cupom.","⚠️");return;}
-  const novo=await addCoupon(loja,codigo,label);
-  if(novo){
-    document.getElementById("cupomNovoCodigo").value="";
-    document.getElementById("cupomNovoLabel").value="";
-    renderCupons();
-    toast("Cupom adicionado!","✅");
-  }
-}
+// cupomAdicionar agora abre o modal (mantido como alias para não quebrar referências)
+function cupomAdicionar(){cupomAbrirModal();}
 async function cupomRemover(id){
+  if(!confirm("Remover este cupom?"))return;
   await removeCoupon(id);
   renderCupons();
+  cupomRenderLista();
   toast("Cupom removido.","🗑️");
 }
 // ── mapeamento nome de loja → enum do banco ──
@@ -2257,6 +2468,7 @@ function go(page){
   if(page==="adm-visao")setTimeout(()=>{if(typeof SB!=="undefined"&&SB)refreshAdminVisao();},120);
   // Hook: ao entrar no Analítico, carrega dados reais
   if(page==="analitico")setTimeout(()=>{if(typeof SB!=="undefined"&&SB&&CURRENT_USER?.id)loadAnalitico();},120);
+  if(page==="cupons")setTimeout(()=>{if(typeof loadCuponsPage==="function")loadCuponsPage();},120);
   if(page==="post-automatico")setTimeout(()=>{if(typeof SB!=="undefined"&&SB&&CURRENT_USER?.id)loadPostAutomatico();},120);
   // Hook: ao entrar em Assinatura, re-renderiza com dados frescos do plano
   if(page==="assinatura")setTimeout(()=>renderPlans(),80);
@@ -7737,7 +7949,7 @@ async function enterApp(profile){
   if(CURRENT_USER&&CURRENT_USER.id&&checkVipExpiry(CURRENT_USER.id))return;
   // carrega dados persistidos do usuário
   await loadGroups();await loadCreds();await loadCoupons();renderLojas();prRenderLojas();carregarScrapeDoStatus();
-  try{renderCupons();}catch(e){}
+  try{renderCupons();cupomRenderLista();}catch(e){}
   // restaura instância WA do banco
   const uid=profile.id||CURRENT_USER?.id;
   if(uid){
