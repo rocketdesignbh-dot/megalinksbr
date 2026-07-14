@@ -1221,9 +1221,24 @@ app.post('/amazon-search', verifyToken, async (req, res) => {
 
 // -- Groups list --
 app.get('/groups', verifyToken, async (req, res) => {
+    const phoneParam = String(req.query.phone || '').replace(/\D/g, '');
     let session = null;
-    for (const [, s] of SESSIONS) {
-        if (s.status === 'paired') { session = s; break; }
+
+    if (phoneParam) {
+        // Busca a sessão do número específico do usuário
+        for (const [, s] of SESSIONS) {
+            const sp = String(s.phoneNumber || '').replace(/\D/g, '');
+            if (sp && sp.slice(-9) === phoneParam.slice(-9) && s.status === 'paired') {
+                session = s; break;
+            }
+        }
+    }
+
+    // Fallback: se não encontrou pelo phone, tenta qualquer paired
+    if (!session) {
+        for (const [, s] of SESSIONS) {
+            if (s.status === 'paired') { session = s; break; }
+        }
     }
 
     if (!session) {

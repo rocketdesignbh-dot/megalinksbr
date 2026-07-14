@@ -4531,7 +4531,8 @@ async function wireWaGrupos(){
   }
 
   try{
-    const r=await fetch(`${WA_ENGINE_URL}/groups`,{
+    const waPhone=(S.waNumber||"").replace(/\D/g,"");
+    const r=await fetch(`${WA_ENGINE_URL}/groups${waPhone?"?phone="+waPhone:""}`,{
       headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}
     });
     if(!r.ok)throw new Error("HTTP "+r.status);
