@@ -303,9 +303,9 @@ tr:hover td{background:var(--surf2)}
 /* showLoading/hideLoading movidas para o JS principal (antes ficavam dentro do CSS por engano) */
 
 /* ── TOAST ── */
-#tw{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px}
-.toast{background:var(--surf2);border:1px solid var(--bd2);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:toastIn .2s ease;max-width:340px}
-@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+#tw{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:var(--surf2);border:1px solid var(--bd2);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:toastIn .2s ease;max-width:340px;pointer-events:auto}
+@keyframes toastIn{from{opacity:0;transform:scale(.94) translateY(-6px)}to{opacity:1;transform:none}}
 .toast-ico{font-size:16px;flex:none}
 
 /* ── ONBOARDING ── */
@@ -495,8 +495,9 @@ tr:hover td{background:var(--surf2)}
   .modal{border-radius:16px 16px 0 0;max-height:92vh;max-width:100%}
   .mbg{padding:0;align-items:flex-end}
   .drw{width:100%;right:-100%}
-  #tw{top:auto;bottom:80px;right:12px;left:12px}
-  .toast{max-width:100%}
+  #tw{top:auto!important;bottom:72px;right:auto!important;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:420px;align-items:center}
+  .toast{max-width:100%;width:100%;justify-content:center}
+  @keyframes toastIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
   .fab{bottom:14px;right:14px}
   .login-banner{display:none}
   .login-icon{display:block}
@@ -2256,7 +2257,24 @@ document.addEventListener("click",closeDD);
 function openModal(id){document.getElementById(id).classList.add("open");}
 function closeModal(id){document.getElementById(id).classList.remove("open");}
 document.querySelectorAll(".mbg").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("open");}));
-function toast(msg,emoji){const t=document.createElement("div");t.className="toast";t.textContent=(emoji||"✅")+" "+msg;tw.appendChild(t);
+// Rastreia botao clicado para ancorar toast proximo a ele (desktop)
+let _twAnchor=null;
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button,.btn,.fc,.nav-cta');
+  if(b&&!b.classList.contains('pass-toggle')&&!b.classList.contains('mx'))_twAnchor=b.getBoundingClientRect();
+},true);
+function toast(msg,emoji){
+  const isMobile=window.innerWidth<=768;
+  if(!isMobile&&_twAnchor){
+    const vw=window.innerWidth,vh=window.innerHeight,tw_w=340;
+    let lx=Math.round(_twAnchor.left+_twAnchor.width/2-tw_w/2);
+    lx=Math.max(8,Math.min(lx,vw-tw_w-8));
+    const below=vh-_twAnchor.bottom;
+    if(below>=56){tw.style.top=Math.round(Math.min(_twAnchor.bottom+8,vh-70))+'px';tw.style.bottom='auto';}
+    else{tw.style.top='auto';tw.style.bottom=Math.round(vh-_twAnchor.top+8)+'px';}
+    tw.style.left=lx+'px';tw.style.right='auto';
+  }
+  const t=document.createElement("div");t.className="toast";t.textContent=(emoji||"✅")+" "+msg;tw.appendChild(t);
   setTimeout(()=>{t.style.opacity="0";t.style.transition="opacity .3s";setTimeout(()=>t.remove(),320);},3400);}
 
 /* ================= GREETING ================= */
