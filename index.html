@@ -4553,7 +4553,7 @@ async function wireWaGrupos(){
   }
 }
 
-function renderWgDisp(grupos){
+function renderWgDisp(grupos,filtro){
   const st=document.getElementById("wgStatus");
   if(!st)return;
   if(!grupos.length){
@@ -4565,8 +4565,17 @@ function renderWgDisp(grupos){
   const ct=document.getElementById("wgVincCount");
   if(ct)ct.textContent=vincCount?`${vincCount} vinculado${vincCount>1?"s":""}`:"";
 
-  st.innerHTML=`<div style="margin-bottom:10px;font-size:13px;color:var(--mut)">${grupos.length} grupo${grupos.length>1?"s":""} encontrado${grupos.length>1?"s":""}</div>`+
-    grupos.map(g=>{
+  // Campo de busca — preserva o valor digitado entre re-renders
+  const termAtual=filtro!==undefined?filtro:(document.getElementById("wgBusca")?.value||"");
+  const gruposFiltrados=termAtual?grupos.filter(g=>(g.name||g.subject||g.id||"").toLowerCase().includes(termAtual.toLowerCase())):grupos;
+
+  st.innerHTML=`<div style="margin-bottom:12px">
+    <input id="wgBusca" type="text" placeholder="🔍 Buscar grupo…" value="${termAtual.replace(/"/g,'&quot;')}"
+      oninput="renderWgDisp(wgTodosGrupos,this.value)"
+      style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:8px;border:1px solid var(--bdr,rgba(255,255,255,.12));background:var(--bg2,rgba(255,255,255,.05));color:var(--tx,#fff);font-size:13px;outline:none">
+  </div>
+  <div style="margin-bottom:10px;font-size:13px;color:var(--mut)">${gruposFiltrados.length} de ${grupos.length} grupo${grupos.length>1?"s":""}</div>`+
+    gruposFiltrados.map(g=>{
       const nome=g.name||g.subject||g.id||"Grupo sem nome";
       const part=g.participants||g.size||"?";
       const gid=g.id||g.jid||"";
@@ -4582,7 +4591,7 @@ function renderWgDisp(grupos){
           :`<button class="btn btn-volt btn-sm" onclick="vincularGrupoWa('${gid.replace(/'/g,"\\'")}','${nome.replace(/'/g,"\\'")}',${typeof part==="number"?part:0})">Vincular</button>`
         }
       </div>`;
-    }).join("");
+    }).join("")+(gruposFiltrados.length===0?`<p style="color:var(--mut);text-align:center;padding:16px 0">Nenhum grupo encontrado para "<strong>${termAtual}</strong>"</p>`:"");
 }
 
 // Mantém renderWgVinc como wrapper para re-render após mudanças
