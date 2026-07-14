@@ -1280,9 +1280,12 @@ async function startup() {
     try {
         await fs.ensureDir(AUTH_DIR);
 
-        // Restaura sessões salvas ANTES de ouvir requisições
-        await restoreSessions();
-
+        // Abre a porta e responde /health IMEDIATAMENTE. Reconectar sessões salvas do
+        // WhatsApp pode levar dezenas de segundos (uma por uma, com espera de 2s entre
+        // cada) — se isso acontecer ANTES do app.listen, o healthcheck do EasyPanel/
+        // Railway/Fly falha por timeout, o painel entende que o container está travado
+        // e o reinicia — gerando um loop de restart que aparece no navegador como
+        // "erro de CORS" (o proxy responde 502 sem os headers de CORS do Express).
         app.listen(PORT, () => {
             console.log(`
 ╔════════════════════════════════════════╗
@@ -1304,6 +1307,9 @@ Endpoints:
 Autenticação: Bearer token (WA_ENGINE_TOKEN)
             `);
         });
+
+        // Restaura sessões salvas em segundo plano, sem bloquear o healthcheck.
+        restoreSessions().catch(e => console.error('[RESTORE] Falha geral ao restaurar sessões:', e.message));
     } catch (error) {
         console.error('❌ Erro ao iniciar:', error);
         process.exit(1);
