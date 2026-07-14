@@ -922,7 +922,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="phead"><div><h1 class="pt">📊 Analítico</h1><div class="psub">Métricas de desempenho da sua operação.</div></div>
       <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button></div>
     <div class="g4" id="kpiRow" style="margin-bottom:20px"></div>
-    <div class="card"><div class="ch">📈 Cliques · últimos 14 dias <span class="r">total: <strong id="chTot" style="color:var(--tx)"></strong></span></div><div class="cb" id="chArea"></div></div>
+    <div class="card"><div class="ch">📈 Posts enviados · últimos 14 dias <span class="r">total: <strong id="chTot" style="color:var(--tx)"></strong></span></div><div class="cb" id="chArea"></div></div>
     <div class="card"><div class="ch">🔥 Melhores horários para postar <span class="r">baseado nos seus cliques</span></div><div class="cb">
       <div class="heat-wrap"><div class="heat" id="heat"></div></div>
       <div class="heat-leg"><span>Menos</span><span class="sq" style="background:var(--surf2)"></span><span class="sq" style="background:rgba(245,197,24,.32)"></span><span class="sq" style="background:rgba(245,197,24,.6)"></span><span class="sq" style="background:var(--volt)"></span><span>Mais</span></div>
@@ -7645,19 +7645,22 @@ async function prDisparar(){
     // Grava na scheduled_posts para contagem no Analítico
     try{
       const uid=CURRENT_USER?.id;
+      const isUUID=v=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
       if(uid&&SB){
         const rows=[];
         const agora=new Date().toISOString();
         for(const g of grupos){
           const gid=g.db_id||g.id;
-          // Registra 1 linha por envio bem-sucedido; group_id = niche_group_id
+          if(!isUUID(gid)){console.warn("Postar Agora: group_id inválido, ignorando:",gid);continue;}
           rows.push({user_id:uid,group_id:gid,status:"sent",scheduled_for:agora,sent_at:agora});
         }
-        if(rows.length)await SB.from("scheduled_posts").insert(rows);
-        // Atualiza analítico em background
+        if(rows.length){
+          const{error:insErr}=await SB.from("scheduled_posts").insert(rows);
+          if(insErr)console.error("Erro ao registrar post no Analítico:",insErr);
+        }
         setTimeout(()=>{if(typeof loadAnalitico==="function")loadAnalitico();},800);
       }
-    }catch(e){console.warn("Erro ao registrar post no banco:",e);}
+    }catch(e){console.error("Erro ao registrar post no banco:",e);}
     // Tela de sucesso clara
     const step2=document.getElementById("prStep2");
     if(step2){
