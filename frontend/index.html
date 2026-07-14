@@ -916,6 +916,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="g4" id="paKpis" style="margin-bottom:20px"></div>
     <div class="card"><div class="ch">🟢 Automações Ativas</div><div class="cb" id="paLista"><p style="color:var(--mut);text-align:center;padding:28px">Carregando…</p></div></div>
     <div class="card" style="margin-top:16px"><div class="ch">📋 Últimos Disparos Automáticos <span class="r"><span style="font-size:11px;color:var(--mut)">últimas 24h</span></span></div><div class="cb" id="paLog" style="padding:0"><p style="color:var(--mut);text-align:center;padding:28px">Carregando…</p></div></div>
+    <div class="card" style="margin-top:16px"><div class="ch">⚡ Últimos Disparos Manuais <span class="r"><span style="font-size:11px;color:var(--mut)">últimas 24h</span></span></div><div class="cb" id="paLogManual" style="padding:0"><p style="color:var(--mut);text-align:center;padding:28px">Carregando…</p></div></div>
   </section>
 
   <section class="page" id="page-analitico">
@@ -2541,10 +2542,11 @@ async function loadPostAutomatico(){
   const hojeInicio=new Date();hojeInicio.setHours(0,0,0,0);
 
   try{
-    const [{data:dbGrupos},{data:postsHoje},{data:log}]=await Promise.all([
+    const [{data:dbGrupos},{data:postsHoje},{data:log},{data:logManual}]=await Promise.all([
       SB.from("niche_groups").select("id,name,post_auto_enabled,interval_minutes,start_hour,end_hour,created_at,last_post_at,last_manual_blast_at").eq("user_id",uid).order("created_at"),
       SB.from("scheduled_posts").select("group_id,status").eq("user_id",uid).gte("sent_at",hojeInicio.toISOString()),
-      SB.from("scheduled_posts").select("group_id,status,sent_at,error,products(title)").eq("user_id",uid).gte("sent_at",h24).order("sent_at",{ascending:false}).limit(30)
+      SB.from("scheduled_posts").select("group_id,status,sent_at,error,products(title)").eq("user_id",uid).eq("is_manual",false).gte("sent_at",h24).order("sent_at",{ascending:false}).limit(30),
+      SB.from("scheduled_posts").select("group_id,status,sent_at,error,products(title)").eq("user_id",uid).eq("is_manual",true).gte("sent_at",h24).order("sent_at",{ascending:false}).limit(30)
     ]);
 
     const ativos=(dbGrupos||[]).filter(g=>g.post_auto_enabled);
@@ -2629,10 +2631,10 @@ async function loadPostAutomatico(){
       }
     }
 
-    // Log de disparos (auto + manual)
-    if(paLog){
-      const logRows=log||[];
-      paLog.innerHTML=logRows.length?logRows.map(l=>{
+    // Log de disparos automáticos
+    const renderLogRows=(rows,container,vazio)=>{
+      if(!container)return;
+      container.innerHTML=(rows||[]).length?(rows||[]).map(l=>{
         const ok=l.status==="sent";
         const hora=l.sent_at?new Date(l.sent_at).toLocaleString("pt-BR"):"—";
         const grupo=(dbGrupos||[]).find(g=>g.id===l.group_id);
@@ -2645,8 +2647,10 @@ async function loadPostAutomatico(){
           </div>
           <span style="font-size:12px;color:var(--mut);white-space:nowrap">${hora}</span>
         </div>`;
-      }).join(""):`<p style="color:var(--mut);text-align:center;padding:28px">Nenhum disparo nas últimas 24h.</p>`;
-    }
+      }).join(""):`<p style="color:var(--mut);text-align:center;padding:28px">${vazio}</p>`;
+    };
+    renderLogRows(log,paLog,"Nenhum disparo automático nas últimas 24h.");
+    renderLogRows(logManual,document.getElementById("paLogManual"),"Nenhum disparo manual nas últimas 24h.");
   }catch(e){
     if(paLista)paLista.innerHTML=`<p style="color:var(--mut);text-align:center;padding:28px">Erro: ${esc(e.message)}</p>`;
   }
@@ -7652,7 +7656,7 @@ async function prDisparar(){
         for(const g of grupos){
           const gid=g.db_id||g.id;
           if(!isUUID(gid)){console.warn("Postar Agora: group_id inválido, ignorando:",gid);continue;}
-          rows.push({user_id:uid,group_id:gid,status:"sent",scheduled_for:agora,sent_at:agora});
+          rows.push({user_id:uid,group_id:gid,status:"sent",scheduled_for:agora,sent_at:agora,is_manual:true});
         }
         if(rows.length){
           const{error:insErr}=await SB.from("scheduled_posts").insert(rows);
