@@ -1992,18 +1992,20 @@ async function loadGroups(){
       endHour:r.end_hour??22,
       lojasAtivas:r.marketplaces||["AliExpress","Amazon","Magazine Luiza","Shopee","Shein","Natura","Awin","Mercado Livre"],
     }));
-    // ─── Buscar contagens reais de grupos WA e canais vinculados ───
+    // ─── Buscar contagens reais de grupos WA, canais e produtos vinculados ───
     try{
       const nicheIds=S.grupos.map(g=>g.db_id);
       if(nicheIds.length){
-        const[{data:wgData},{data:chData}]=await Promise.all([
+        const[{data:wgData},{data:chData},{data:prData}]=await Promise.all([
           SB.from("whatsapp_groups").select("niche_group_id").in("niche_group_id",nicheIds),
-          SB.from("whatsapp_channels").select("niche_group_id").in("niche_group_id",nicheIds)
+          SB.from("whatsapp_channels").select("niche_group_id").in("niche_group_id",nicheIds),
+          SB.from("products").select("niche_group_id").in("niche_group_id",nicheIds)
         ]);
-        const wgCount={},chCount={};
+        const wgCount={},chCount={},prCount={};
         (wgData||[]).forEach(r=>{wgCount[r.niche_group_id]=(wgCount[r.niche_group_id]||0)+1;});
         (chData||[]).forEach(r=>{chCount[r.niche_group_id]=(chCount[r.niche_group_id]||0)+1;});
-        S.grupos.forEach(g=>{g.grupos_wa=wgCount[g.db_id]||0;g.canais=chCount[g.db_id]||0;});
+        (prData||[]).forEach(r=>{prCount[r.niche_group_id]=(prCount[r.niche_group_id]||0)+1;});
+        S.grupos.forEach(g=>{g.grupos_wa=wgCount[g.db_id]||0;g.canais=chCount[g.db_id]||0;g.produtos=prCount[g.db_id]||0;});
       }
     }catch(e){console.warn("loadGroups counts fallback:",e);}
     lsSave("grupos",S.grupos);
