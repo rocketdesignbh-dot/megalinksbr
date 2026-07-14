@@ -835,7 +835,7 @@ app.post('/ml-search', verifyToken, async (req, res) => {
                     shop_name: 'Mercado Livre',
                     image_url: img,
                     product_link: link,
-                    affiliate_url: link, // sem tag de afiliado ainda; aplicar no Post Relampago
+                    affiliate_url: link, // sem tag de afiliado ainda; aplicar no Postar Agora
                     score: Math.round(40 + Math.min(discPct, 90) / 90 * 60),
                     fetched_at: new Date().toISOString(),
                     expires_at: expires,

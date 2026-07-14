@@ -1114,7 +1114,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div id="grupoStarterBanner" style="display:none;background:linear-gradient(135deg,rgba(245,197,24,.1),rgba(57,192,255,.05));border:1px solid rgba(245,197,24,.3);border-radius:12px;padding:14px 18px;margin-bottom:14px;align-items:center;gap:14px;font-size:13px">
     <div id="grupoLimiteAlert" style="display:none;background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.4);border-radius:10px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;font-size:13px"></div>
       <span style="font-size:24px">💡</span>
-      <div style="flex:1"><strong>Você está no plano Starter</strong> — configure seus Grupos de Oferta e dispare via <strong style="color:var(--gold)">⚡ Post Relâmpago</strong>. Para ativar automação de posts em loop, faça upgrade para Pro.</div>
+      <div style="flex:1"><strong>Você está no plano Starter</strong> — configure seus Grupos de Oferta e dispare via <strong style="color:var(--gold)">⚡ Postar Agora</strong>. Para ativar automação de posts em loop, faça upgrade para Pro.</div>
       <button class="btn btn-gold btn-sm" onclick="go('assinatura')">Ver planos</button>
     </div>
     <div class="card">
@@ -1212,7 +1212,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="phead">
       <div>
         <h1 class="pt">🏷️ Cupons</h1>
-        <div class="psub">Gerencie todos os seus cupons de desconto por marketplace. Use-os no Post Relâmpago e nos grupos automáticos.</div>
+        <div class="psub">Gerencie todos os seus cupons de desconto por marketplace. Use-os no Postar Agora e nos grupos automáticos.</div>
         <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button>
       </div>
       <button class="btn btn-volt" onclick="cupomAbrirModal()">＋ Novo Cupom</button>
@@ -2446,7 +2446,7 @@ function go(page){
   window.scrollTo({top:0});closeDD();
   if(page==="adm-fila") startQueue(); else stopQueue();
   if(page!=="post-relampago"&&typeof pararStatusQuotaML==="function")pararStatusQuotaML();
-  // Hook: se entrou no Post Relâmpago via Radar, carrega a oferta pré-selecionada
+  // Hook: se entrou no Postar Agora via Radar, carrega a oferta pré-selecionada
   if(page==="post-relampago"&&window.PR_PRE_FROM_RADAR&&typeof prCarregarOfertaDoRadar==="function"){
     setTimeout(()=>prCarregarOfertaDoRadar(),50);
   }
@@ -2979,7 +2979,7 @@ function isOfertaNova(ts){
   return Date.now()-t<60*60*1000; // 1h
 }
 
-// Envia oferta para o Post Relâmpago já preenchido
+// Envia oferta para o Postar Agora já preenchido
 // Verifica se a loja de uma oferta do Radar pode ser postada: precisa estar liberada pelo
 // plano atual (MARKET_PLAN) E, quando exigir credencial própria (tudo exceto Mercado Livre,
 // que usa scraping), ter essa credencial configurada.
@@ -3002,7 +3002,7 @@ function postarOferta(o){
     }
     return;
   }
-  // Preenche pré-seleção do Post Relâmpago com os dados da oferta
+  // Preenche pré-seleção do Postar Agora com os dados da oferta
   try{
     window.PR_PRE_FROM_RADAR={
       link:o.link||"",
@@ -3015,7 +3015,7 @@ function postarOferta(o){
       comm:o.comm||0
     };
   }catch(e){}
-  toast(`Abrindo Post Relâmpago com "${(o.p||"").slice(0,40)}…"`,"⚡");
+  toast(`Abrindo Postar Agora com "${(o.p||"").slice(0,40)}…"`,"⚡");
   setTimeout(()=>go("post-relampago"),250);
 }
 
@@ -3044,7 +3044,7 @@ function abrirAdicionarGrupo(o){
   document.getElementById("rgDe").value=o.de?String(o.de).replace(".",","):"";
   document.getElementById("rgPor").value=por?String(typeof por==="number"?por.toFixed(2):por).replace(".",","):"";
   document.getElementById("rgImg").value=o.img||""; // campo oculto, preenchido automaticamente quando vem do Radar
-  // Link: encurta automaticamente (mesmo padrão do Post Relâmpago)
+  // Link: encurta automaticamente (mesmo padrão do Postar Agora)
   const linkEl=document.getElementById("rgLink");
   linkEl.value=o.link||"";
   linkEl.placeholder="Cole o link do produto";
@@ -4329,7 +4329,7 @@ async function loadTabProdCounts(){
 }
 function editarGrupo(id,tab){S.grupoAtual=S.grupos.find(g=>String(g.id)===String(id)||String(g.db_id)===String(id));if(!S.grupoAtual){toast("Grupo não encontrado.","⚠️");return;}egNome.textContent=S.grupoAtual.nome+" · ID "+id;_tabProdCounts={};loadTabProdCounts().then(()=>buildTabs());go("editar-grupo");if(tab)setTimeout(()=>{const t=document.querySelector(`.etab[data-tab="${tab}"]`);if(t)t.click();},250);}
 
-// ⚡ Dispara um grupo via Post Relâmpago (Starter)
+// ⚡ Dispara um grupo via Postar Agora (Starter)
 async function dispararGrupo(id){
   const g=S.grupos.find(x=>x.id===id);if(!g)return;
   if(!(g.produtos||0)){toast("Esse grupo ainda não tem produtos.","⚠️");return;}
@@ -4461,7 +4461,7 @@ geral:`
     </span></div><div class="cb"><div style="display:grid;gap:8px" id="lojasAtivas"></div>
       <div class="field" style="margin-top:14px"><label>🏷️ Cupom padrão deste grupo (opcional)</label>
         <select id="pgCupomPadrao"><option value="">— Nenhum —</option></select>
-        <small style="color:var(--mut);display:block;margin-top:4px">Pré-selecionado automaticamente no Post Relâmpago ao escolher este grupo.</small>
+        <small style="color:var(--mut);display:block;margin-top:4px">Pré-selecionado automaticamente no Postar Agora ao escolher este grupo.</small>
       </div>
     </div></div>
   </div>
@@ -5422,7 +5422,7 @@ async function mlConfirmarImport(postarAgora=false){
   if(postarAgora){
     window.PR_PRE_FROM_RADAR={nome:row.title,foto:row.image_url,de:row.price_original?String(row.price_original):"",por:row.price?String(row.price):"",link:row.affiliate_url,loja:"Mercado Livre"};
     go("post-relampago");
-    toast("Produto carregado no Post Relâmpago!","⚡");
+    toast("Produto carregado no Postar Agora!","⚡");
   }else{
     setTimeout(()=>{const t=document.querySelector('.tab[data-tab="prod-lista"]');if(t)t.click();},600);
     wireProdLista();
@@ -5548,7 +5548,7 @@ async function prodConfirmarImport(postarAgora=false){
   toast("Produto salvo! ✅","📦");
 
   if(postarAgora){
-    // Abre Post Relâmpago com produto preenchido
+    // Abre Postar Agora com produto preenchido
     window.PR_PRE_FROM_RADAR={
       nome:row.title,foto:row.image_url,
       de:row.price_original?String(row.price_original):"",
@@ -5556,7 +5556,7 @@ async function prodConfirmarImport(postarAgora=false){
       link:row.affiliate_url,loja:null
     };
     go("post-relampago");
-    toast("Produto carregado no Post Relâmpago!","⚡");
+    toast("Produto carregado no Postar Agora!","⚡");
   }else{
     setTimeout(()=>{
       const tabMeus=document.querySelector('.etab[data-tab="prod-meus"]');
@@ -5597,7 +5597,7 @@ async function prodAdicionarManual(postarAgora=false){
   if(postarAgora){
     window.PR_PRE_FROM_RADAR={nome,foto:img||"",de:precoOrig?String(precoOrig):"",por:preco?String(preco):"",link,loja:null};
     go("post-relampago");
-    toast("Produto carregado no Post Relâmpago!","⚡");
+    toast("Produto carregado no Postar Agora!","⚡");
   }else{
     setTimeout(()=>{const tabMeus=document.querySelector('.etab[data-tab="prod-meus"]');if(tabMeus)tabMeus.click();},600);
     wireProdLista();
@@ -5733,7 +5733,7 @@ function buildPlansFromFeatures(){
       f.marketplaces===3?"✅ Shopee, Mercado Livre e Amazon":
       "✅ "+f.marketplaces+" marketplaces");
     feats.push(f.max_products===-1?"✅ Produtos ilimitados por grupo":"✅ Até "+f.max_products+" produtos por grupo");
-    feats.push(f.wa_post_automation?"✅ Automação de posts 24/7":"✅ Post Relâmpago (envio manual)");
+    feats.push(f.wa_post_automation?"✅ Automação de posts 24/7":"✅ Postar Agora (envio manual)");
     feats.push(f.mega_ia?"✅ MegaIA (geração com IA)":"❌ MegaIA");
     feats.push(f.click_tracking?"✅ Rastreamento de cliques":"❌ Rastreamento de cliques");
     if(key==="elite"||key==="premium"){
@@ -7832,7 +7832,7 @@ async function prDisparar(){
   }
 }
 
-// Recebe uma oferta vinda do Radar e preenche o Post Relâmpago direto no Step 2
+// Recebe uma oferta vinda do Radar e preenche o Postar Agora direto no Step 2
 function prCarregarOfertaDoRadar(){
   const o=window.PR_PRE_FROM_RADAR;
   if(!o)return false;
@@ -8100,7 +8100,7 @@ async function enterApp(profile){
           <p style="color:#aaa;font-size:15px;line-height:1.6;margin:0 0 28px">Seus 7 dias gratuitos chegaram ao fim. Escolha um plano para continuar automatizando suas vendas na Mega Links BR.</p>
           <div style="display:grid;gap:12px;margin-bottom:24px">
             <div style="background:#111118;border:1px solid #222;border-radius:12px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
-              <div style="text-align:left"><div style="color:#10B981;font-weight:700;font-size:13px">⚡ STARTER</div><div style="color:#aaa;font-size:12px;margin-top:2px">Shopee · Post Relâmpago</div></div>
+              <div style="text-align:left"><div style="color:#10B981;font-weight:700;font-size:13px">⚡ STARTER</div><div style="color:#aaa;font-size:12px;margin-top:2px">Shopee · Postar Agora</div></div>
               <button onclick="location.href='/'" style="background:#10B981;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">R$ 57,90/mês</button>
             </div>
             <div style="background:#111118;border:1px solid #8B5CF6;border-radius:12px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
