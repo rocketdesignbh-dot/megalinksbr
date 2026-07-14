@@ -507,7 +507,9 @@ tr:hover td{background:var(--surf2)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <meta name="google-site-verification" content="5GKJb71jXb3XSwWIcnrzlZpDcegrGb-Gs2piII9mh84" />
 <link rel="stylesheet" href="onboarding.css">
-<script src="onboarding.js"></script>
+  <script src="onboarding.js"></script>
+  <script src="exemplo-postagens.js"></script>
+  <script src="exemplo-configuracao.js"></script>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -3151,10 +3153,10 @@ const LOJAS=[
     {k:"API TOKEN",pwd:true,ph:"Token de acesso à API"}
   ],dica:`<p>Para encontrar suas credenciais:</p><ol><li>Acesse <a href="https://ui.awin.com" target="_blank" style="color:var(--volt)">ui.awin.com</a></li><li>Vá em <strong>Account → API Credentials</strong></li><li>Copie o <strong>Publisher ID</strong> e gere um <strong>Token</strong></li></ol>`},
   {n:"Shopee",e:"🧡",img:"",f:[
-    {k:"ID de Afiliado",pwd:false,ph:"Seu ID numérico de afiliado Shopee"},
-    {k:"App Key",pwd:false,ph:"Sua App Key (Open Platform)",optional:true,advanced:true},
-    {k:"App Secret",pwd:true,ph:"Sua App Secret (Open Platform)",optional:true,advanced:true}
-  ],dica:`<div>✅ <strong>Não tem chave de API? Sem problema!</strong> Preenchendo só o <strong>ID de Afiliado</strong> abaixo, o sistema já gera sozinho um link comissionado no formato <code>s.shopee.com.br/an_redir/...</code> — acesse <a href="https://affiliate.shopee.com.br" target="_blank" style="color:var(--volt)">affiliate.shopee.com.br</a> e copie o ID numérico do seu perfil.</div><p style="margin-top:8px">As <strong>Opções avançadas</strong> abaixo (App Key/App Secret) só são necessárias se você quiser busca automática de produtos Shopee no Radar — exigem um cadastro à parte em <a href="https://open.shopee.com" target="_blank" style="color:var(--volt)">open.shopee.com</a> → <strong>My Apps</strong> (sujeito a aprovação da Shopee).</p>`},
+    {k:"ID de Afiliado",altKey:"App Key",pwd:false,ph:"AppID / ID de Afiliado (ex: 18344180897)"},
+    {k:"App Key",pwd:false,ph:"AppID (mesmo número do ID de Afiliado)",optional:true,advanced:true},
+    {k:"App Secret",pwd:true,ph:"Senha (App Secret) — painel Abrir API",optional:true,advanced:true}
+  ],dica:`<div>✅ <strong>Só tem o ID de Afiliado? Já basta!</strong> Acesse <a href="https://affiliate.shopee.com.br" target="_blank" style="color:var(--volt)">affiliate.shopee.com.br</a> → <strong>Configurações da Conta</strong> e copie seu <strong>ID de Afiliado</strong>.</div><p style="margin-top:8px">Para ativar a <strong>busca automática de produtos Shopee no Radar</strong>, expanda as opções avançadas e preencha também a <strong>Senha (App Secret)</strong> — acesse <a href="https://affiliate.shopee.com.br" target="_blank" style="color:var(--volt)">affiliate.shopee.com.br</a> → <strong>Abrir API</strong>.</p><div class="alert g" style="margin-top:8px;font-size:12px">💡 <strong>AppID = ID de Afiliado</strong> — é o mesmo número que aparece nos dois painéis. Use-o em ambos os campos.</div>`},
   {n:"Magalu",e:"💙",img:"",f:[
     {k:"Nome da Loja",pwd:false,ph:"Slug da sua loja no Magalu"}
   ],dica:`<p>Para encontrar:</p><ol><li>Acesse <a href="https://www.magazinevoce.com.br" target="_blank" style="color:var(--volt)">magazinevoce.com.br</a></li><li>Copie o <strong>nome/slug</strong> da sua loja</li></ol>`},
@@ -3203,7 +3205,8 @@ function abrirModalLoja(li){
   const saved=CREDS_STATE[l.n]||{};
   if(l.oauth){mlAbrirOAuth(l,li,con,saved);return;}
   const campoHtml=f=>{
-    const val=(saved[f.k]||"").replace(/"/g,"&quot;");
+    // altKey: campo legado alternativo (ex: "App Key" salvo antes da unificação com "ID de Afiliado")
+    const val=(saved[f.k]||(f.altKey?saved[f.altKey]:"")||"").replace(/"/g,"&quot;");
     return `<div class="field">
       <label>${f.k}${f.optional?" <span style='color:var(--mut);font-weight:400;font-size:11px'>(opcional)</span>":""}${f.k.includes("Secret")||f.k.includes("TOKEN")||f.k.includes("Cookie")?" <span style='color:var(--mut);font-weight:400;font-size:11px'>(privado)</span>":""}</label>
       <div class="pass-wrap">
@@ -8294,6 +8297,11 @@ window.RateLimitManager = RateLimitManager;
 window.initRateLimiting = initRateLimiting;
 window.validateAndSend = validateAndSend;
 </script>
-</body>
+<script>
+  document.querySelector('[data-page="post-relampago"]')?.addEventListener('click', () => { if (typeof initPostagensOnboarding === 'function') initPostagensOnboarding(); });
+  document.querySelector('[data-page="config-afiliados"]')?.addEventListener('click', () => { if (typeof initConfigOnboarding === 'function') initConfigOnboarding(); });
+</script>
+  
+</script></body>
 </html>
 <!-- teste auto-deploy 2026-07-02T15:38:33Z -->
