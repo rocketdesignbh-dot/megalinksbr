@@ -2542,7 +2542,7 @@ async function loadPostAutomatico(){
 
   try{
     const [{data:dbGrupos},{data:postsHoje},{data:log}]=await Promise.all([
-      SB.from("niche_groups").select("id,name,post_auto_enabled,interval_minutes,start_hour,end_hour,created_at,last_post_at").eq("user_id",uid).order("created_at"),
+      SB.from("niche_groups").select("id,name,post_auto_enabled,interval_minutes,start_hour,end_hour,created_at,last_post_at,last_manual_blast_at").eq("user_id",uid).order("created_at"),
       SB.from("scheduled_posts").select("group_id,status").eq("user_id",uid).gte("sent_at",hojeInicio.toISOString()),
       SB.from("scheduled_posts").select("group_id,status,sent_at,error,products(title)").eq("user_id",uid).gte("sent_at",h24).order("sent_at",{ascending:false}).limit(30)
     ]);
@@ -2591,6 +2591,7 @@ async function loadPostAutomatico(){
           const pg=postsPorGrupo[db.id]||{total:0,ok:0};
           const iniciou=db.created_at?new Date(db.created_at).toLocaleDateString("pt-BR"):"—";
           const ultimo=db.last_post_at?new Date(db.last_post_at).toLocaleString("pt-BR"):"Nunca";
+          const ultimoManual=(db.last_manual_blast_at||g.lastManualBlast)?new Date(db.last_manual_blast_at||g.lastManualBlast).toLocaleString("pt-BR"):"Nunca";
           const gid=db.id;
 
           const btnAuto=hasPostAuto
@@ -2615,7 +2616,7 @@ async function loadPostAutomatico(){
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">💬 Grupos WA</span><strong>${g.grupos_wa||0}</strong></div>
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">📅 Ativo desde</span><strong>${iniciou}</strong></div>
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">🕐 Último post</span><strong style="font-size:11px">${ultimo}</strong></div>
-              <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">⚡ Último disparo manual</span><strong style="font-size:11px">${g.lastManualBlast?new Date(g.lastManualBlast).toLocaleString("pt-BR"):"Nunca"}</strong></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">⚡ Último disparo manual</span><strong style="font-size:11px">${ultimoManual}</strong></div>
               ${pg.total>0?`<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">✅ Sucesso</span><strong style="color:${pg.ok===pg.total?"#19E27D":"#f59e0b"}">${pg.ok}/${pg.total}</strong></div>`:""}
             </div>
             ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 14px 10px;padding:5px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:6px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
