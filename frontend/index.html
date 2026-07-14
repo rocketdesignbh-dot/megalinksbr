@@ -2473,6 +2473,8 @@ function go(page){
       if(typeof carregarMlCookieStatus==="function")carregarMlCookieStatus();
     },50);
   }
+  // Hook: ao entrar no Analítico, carrega dados reais
+  if(page==="analitico")setTimeout(()=>loadAnalitico(),100);
   // Hook: ao entrar no admin suporte, recarrega tickets reais
   if(page==="adm-suporte")setTimeout(()=>renderSuporte(),50);
   // Hook: ao entrar em Instâncias & Canais, recarrega com token já disponível
@@ -2489,6 +2491,62 @@ function go(page){
 }
 document.querySelectorAll(".nav").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
 document.querySelectorAll(".nav-cta").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
+
+/* ================= ANALÍTICO: DADOS REAIS ================= */
+async function loadAnalitico(){
+  if(!CURRENT_USER?.id)return;
+  const uid=CURRENT_USER.id;
+  // Placeholders de loading
+  const kpiRowEl=document.getElementById("kpiRow");
+  if(kpiRowEl)kpiRowEl.innerHTML=[
+    {l:"Cliques hoje",v:"…",c:"#19E27D"},
+    {l:"Comissões estimadas",v:"—",c:"#39C0FF"},
+    {l:"Posts enviados",v:"…",c:"#FFB020"},
+    {l:"CTR médio",v:"—",c:"#FF4D8D"}
+  ].map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv" id="kpi_${k.l.replace(/\s/g,'_')}">${k.v}</div><div class="kd" id="kpid_${k.l.replace(/\s/g,'_')}" style="color:var(--mut)">carregando…</div></div>`).join("");
+  try{
+    // Cliques hoje
+    const{data:cliqHoje,error:e1}=await SB.rpc("count_clicks_today",{p_user_id:uid});
+    const el=n=>document.getElementById("kpi_"+n.replace(/\s/g,"_"));
+    const eld=n=>document.getElementById("kpid_"+n.replace(/\s/g,"_"));
+    if(!e1&&el("Cliques hoje")){el("Cliques hoje").textContent=(cliqHoje||0).toLocaleString("pt-BR");eld("Cliques hoje").textContent="cliques gerados hoje";}
+    // Posts enviados (hoje)
+    const hoje=new Date().toISOString().slice(0,10);
+    const{data:postsData,error:e2}=await SB.from("scheduled_posts")
+      .select("id",{count:"exact",head:true})
+      .eq("user_id",uid).eq("status","sent")
+      .gte("sent_at",hoje+"T00:00:00Z");
+    if(!e2&&el("Posts enviados")){el("Posts enviados").textContent=(postsData||0).toLocaleString("pt-BR");eld("Posts enviados").textContent="posts disparados hoje";}
+    if(el("Comissões estimadas")){el("Comissões estimadas").textContent="em breve";eld("Comissões estimadas").textContent="integração futura";}
+    if(el("CTR médio")){el("CTR médio").textContent="—";eld("CTR médio").textContent="dados insuficientes";}
+    // Gráfico 14 dias
+    const{data:dias,error:e3}=await SB.rpc("clicks_by_day_14d",{p_user_id:uid});
+    if(!e3&&dias&&dias.length&&document.getElementById("chArea")){
+      // Montar array de 14 dias (preenche zeros nos dias sem dados)
+      const mapaCliques={};
+      dias.forEach(r=>mapaCliques[r.day]=r.total_clicks);
+      const labels=[],data=[];
+      for(let i=13;i>=0;i--){
+        const d=new Date();d.setDate(d.getDate()-i);
+        const key=d.toISOString().slice(0,10);
+        labels.push(d.getDate()+"/"+(d.getMonth()+1));
+        data.push(mapaCliques[key]||0);
+      }
+      const W=720,H=220,P=34,mx=Math.max(Math.ceil(Math.max(...data)/200)*200,10);
+      const x=i=>P+i*(W-P-10)/(data.length-1),y=v=>H-26-(v/mx)*(H-50);
+      let path="M"+x(0)+","+y(data[0]);data.forEach((v,i)=>{if(i)path+=" L"+x(i)+","+y(v);});
+      const area=path+` L${x(13)},${H-26} L${x(0)},${H-26} Z`;
+      let grid="",lbl="";
+      for(let g=0;g<=4;g++){const v=mx*g/4,yy=y(v);grid+=`<line x1="${P}" x2="${W-8}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="3 4"/>`;lbl+=`<text x="${P-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`;}
+      const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="#19E27D" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
+      const xl=labels.map((t,i)=>i%2?"":`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${t}</text>`).join("");
+      document.getElementById("chArea").innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#19E27D" stop-opacity=".4"/><stop offset="1" stop-color="#19E27D" stop-opacity="0"/></linearGradient><linearGradient id="gr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#19E27D"/><stop offset="1" stop-color="#39C0FF"/></linearGradient></defs>${grid}${lbl}<path d="${area}" fill="url(#ga)"/><path d="${path}" fill="none" stroke="url(#gr)" stroke-width="2.6" stroke-linecap="round"/>${dots}${xl}</svg>`;
+      const tot=data.reduce((a,b)=>a+b,0);
+      const chTotEl=document.getElementById("chTot");
+      if(chTotEl)chTotEl.textContent=tot.toLocaleString("pt-BR")+" cliques";
+    }
+  }catch(e){console.error("loadAnalitico erro:",e);}
+}
 
 /* ================= DROPDOWNS / MODAIS / TOAST ================= */
 function closeDD(){document.querySelectorAll(".dd").forEach(d=>d.classList.remove("open"));}
