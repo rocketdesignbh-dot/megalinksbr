@@ -3589,8 +3589,7 @@ const MARKET_PLAN={
   starter:["Shopee"],
   pro:["Shopee","Mercado Livre","Amazon"],
   elite:null,
-  premium:null,
-  infinity:null
+  premium:null
 };
 
 // Dominios oficiais p/ buscar a logo pequena de cada marketplace (favicon), sem precisar de conta/token
@@ -5721,7 +5720,7 @@ async function lpSalvarLayout(){
 /* ================= PLANOS ================= */
 // Monta os cards de planos a partir da plan_features real (Starter/Pro/Elite/Premium)
 function buildPlansFromFeatures(){
-  const order=["starter","pro","elite","premium","infinity"].filter(k=>PLAN_FEATURES[k]);
+  const order=["starter","pro","elite","premium"];
   return order.map(key=>{
     const f=planRow(key);
     const feats=[];
@@ -5737,10 +5736,10 @@ function buildPlansFromFeatures(){
     feats.push(f.wa_post_automation?"✅ Automação de posts 24/7":"✅ Post Relâmpago (envio manual)");
     feats.push(f.mega_ia?"✅ MegaIA (geração com IA)":"❌ MegaIA");
     feats.push(f.click_tracking?"✅ Rastreamento de cliques":"❌ Rastreamento de cliques");
-    if(key==="elite"||key==="premium"||key==="infinity"){
+    if(key==="elite"||key==="premium"){
       feats.push("✅ Suporte "+({prioritario:"prioritário",vip:"VIP WhatsApp"}[f.support_level]||f.support_level));
     }
-    return {key,n:f.label.toUpperCase(),m:Number(f.price_month),pop:key==="elite",sub:(key==="premium"||key==="infinity")?"Máxima operação":"",f:feats};
+    return {key,n:f.label.toUpperCase(),m:Number(f.price_month),pop:key==="elite",sub:key==="premium"?"Máxima operação":"",f:feats};
   });
 }
 function brl(v){return v.toFixed(2).replace(".",",");}
@@ -5748,8 +5747,7 @@ const PLAN_VIS={
   starter:{ico:"⚡",grad:"linear-gradient(135deg,#8B95FF,#5B68FF)",sub:"Para quem está começando"},
   pro:    {ico:"🚀",grad:"linear-gradient(135deg,#FF6CBF,#9B7DFF)",sub:"Automação + IA para escalar"},
   elite:  {ico:"🔥",grad:"linear-gradient(135deg,#FFB020,#FF6B6B)",sub:"Rastreamento + escala total"},
-  premium:{ico:"👑",grad:"linear-gradient(135deg,#F5C518,#FF8A00)",sub:"O melhor da plataforma"},
-  infinity:{ico:"👑",grad:"linear-gradient(135deg,#F5C518,#FF8A00)",sub:"O melhor da plataforma"}
+  premium:{ico:"👑",grad:"linear-gradient(135deg,#F5C518,#FF8A00)",sub:"O melhor da plataforma"}
 };
 function renderPlans(){
   const PLANS=buildPlansFromFeatures();
@@ -5789,7 +5787,7 @@ function renderPlans(){
         ${a?`<div style="font-size:11px;color:var(--volt);font-weight:700;margin-top:2px">economize R$ ${brl(p.m*12*0.2)}/ano</div>`:""}
       </div>
       <ul>${p.f.map(f=>`<li>${f}</li>`).join("")}</ul>
-      ${(p.key==="premium"||p.key==="infinity")?`<div style="font-size:11px;color:var(--tx2);background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.25);border-radius:8px;padding:8px 10px;margin:4px 0 8px;text-align:center">⚠️ Sujeito à política de uso justo — limites podem ser ajustados em caso de uso muito acima da média.</div>`:""}
+      ${p.key==="premium"?`<div style="font-size:11px;color:var(--tx2);background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.25);border-radius:8px;padding:8px 10px;margin:4px 0 8px;text-align:center">⚠️ Sujeito à política de uso justo — limites podem ser ajustados em caso de uso muito acima da média.</div>`:""}
       ${atual
         ?`<button class="btn btn-ghost btn-lg" disabled style="width:100%;justify-content:center;opacity:.7">✅ SEU PLANO ATUAL</button>`
         :`<div style="display:flex;flex-direction:column;gap:8px;width:100%">
@@ -5823,7 +5821,7 @@ function renderPlans(){
       ["Suporte",               p=>({prioritario:"Prioritário",vip:"VIP WhatsApp"}[planRow(p).support_level]||"—")],
       ["Preço/mês",             p=>"R$ "+brl(Number(planRow(p).price_month))],
     ];
-    const plans=["starter","pro","elite","premium","infinity"].filter(k=>PLAN_FEATURES[k]);
+    const plans=["starter","pro","elite","premium"];
     cmp.innerHTML=rows.map((r,i)=>`<tr style="border-bottom:1px solid var(--bd);${i%2===0?"background:rgba(255,255,255,.02)":""}">
       <td style="padding:10px 16px;color:var(--tx2);font-size:12.5px">${r[0]}</td>
       ${plans.map(p=>`<td style="text-align:center;padding:10px 8px;font-size:12.5px;font-weight:500;${p==="elite"?"background:rgba(139,92,246,.06)":""}">${r[1](p)}</td>`).join("")}
