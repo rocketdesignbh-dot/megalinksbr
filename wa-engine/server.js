@@ -1043,9 +1043,16 @@ app.get('/ml-product', verifyToken, async (req, res) => {
 
         if (!title || !$) return res.json({ ok: false, error: 'Produto não encontrado (antibot). Preencha manualmente.' });
 
-        const image = $('figure.ui-pdp-gallery__figure img').first().attr('data-zoom')
-            || $('figure.ui-pdp-gallery__figure img').first().attr('src')
-            || $('meta[property="og:image"]').attr('content') || '';
+        // Prioridade: data-zoom (full-res) → og:image (boa res) → src (evitar: thumbnail lazy-load)
+        // og:image ANTES de src: src pode ser thumbnail pequeno (-V/-I.jpg) quando JS nao carregou.
+        const rawImage = $('figure.ui-pdp-gallery__figure img').first().attr('data-zoom')
+            || $('meta[property="og:image"]').attr('content')
+            || $('figure.ui-pdp-gallery__figure img').first().attr('src') || '';
+        // Normaliza URL mlstatic para variante de maior resolucao (-O = original/maior)
+        // Sufixos pequenos: -V (thumb), -I (small), -B (base), -F (full), -T (tiny) -> -O (original)
+        const image = rawImage.includes('mlstatic.com')
+            ? rawImage.replace(/-(V|I|B|F|T)\.(jpg|webp|jpeg|png)(\?.*)?$/i, '-O.$2')
+            : rawImage;
 
         const priceText = $('.ui-pdp-price__second-line .andes-money-amount__fraction').first().text().replace(/\D/g, '');
         const priceTo = priceText ? parseFloat(priceText) : null;
