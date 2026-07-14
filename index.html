@@ -273,18 +273,7 @@ tr:hover td{background:var(--surf2)}
 .tab.active{background:var(--volt-soft);border-color:rgba(245,197,24,.3);color:var(--volt)}
 .tp{display:none}.tp.on{display:block}
 
-/* ── LOADING GLOBAL ── */
-function showLoading(msg){
-  const el=document.getElementById("globalLoading");
-  const msgEl=document.getElementById("globalLoadingMsg");
-  if(!el)return;
-  if(msgEl)msgEl.textContent=msg||"Carregando…";
-  el.style.display="flex";
-}
-function hideLoading(){
-  const el=document.getElementById("globalLoading");
-  if(el)el.style.display="none";
-}
+/* showLoading/hideLoading movidas para o JS principal (antes ficavam dentro do CSS por engano) */
 
 /* ── TOAST ── */
 #tw{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px}
@@ -1686,6 +1675,18 @@ function hideLoading(){
   <div style="color:#9494a8;font-size:12px">Aguarde um momento</div>
 </div>
 <script>
+/* ── LOADING GLOBAL (movido do <style> para o JS, onde de fato funciona) ── */
+function showLoading(msg){
+  const el=document.getElementById("globalLoading");
+  const msgEl=document.getElementById("globalLoadingMsg");
+  if(!el)return;
+  if(msgEl)msgEl.textContent=msg||"Carregando…";
+  el.style.display="flex";
+}
+function hideLoading(){
+  const el=document.getElementById("globalLoading");
+  if(el)el.style.display="none";
+}
 /* ================= STATE ================= */
 const S={grupos:[],nextId:42809,planLimit:1,grupoAtual:null,bill:"m",role:"afiliado",
   waConnected:false,waNumber:"",queuePaused:false};
@@ -5382,7 +5383,7 @@ function renderVip(){
       <td>${vipStatusPill(v)}</td>
       <td style="text-align:right">
         <button class="btn btn-ghost btn-sm" onclick="editarVip(${i})">Editar</button>
-        <button class="btn btn-red btn-sm" onclick="revogarVip(${i})">Revogar</button>
+        <button class="btn btn-red btn-sm" onclick="revogarVip(${i})">🗑️ Excluir VIP</button>
       </td>
     </tr>`;
   }).join("");
@@ -5586,22 +5587,39 @@ async function salvarVip(){
 }
 async function revogarVip(i){
   const v=VIP_LIST[i];
-  if(!confirm(`Revogar acesso VIP de "${v.userName||v.userId}"? O usuário será bloqueado imediatamente.`))return;
+  if(!confirm(`Excluir acesso VIP de "${v.userName||v.userId}"? O usuário volta a ser assinante normal (plano Starter, sem VIP) imediatamente.`))return;
   try{
+    // Busca plano atual antes de mexer, só pra log de auditoria
+    const{data:before}=await SB.from("profiles").select("plan,sub_status").eq("id",v.userId).single();
     // DELETE em vip_members
-    await SB.from("vip_members").delete().eq("id",v.id);
-    // Atualiza profiles.is_vip = false
-    await SB.from("profiles").update({is_vip:false}).eq("id",v.userId);
+    const{error:delErr}=await SB.from("vip_members").delete().eq("id",v.id);
+    if(delErr)throw delErr;
+    // Volta o usuário a assinante normal: sem VIP, plano rebaixado para Starter
+    // (sub_status/trial_expires_at ficam como estavam — as regras normais de trial/assinatura passam a valer de novo)
+    const{error:updErr}=await SB.from("profiles").update({is_vip:false,plan:"starter"}).eq("id",v.userId);
+    if(updErr)throw updErr;
+    // Log de auditoria (não bloqueia o fluxo se falhar)
+    try{
+      await SB.from("plan_changes").insert({
+        user_id:v.userId,
+        from_plan:before?.plan||v.plan||"starter",
+        to_plan:"starter",
+        from_status:before?.sub_status||null,
+        to_status:before?.sub_status||null,
+        reason:"vip_revoked",
+        changed_by:CURRENT_USER?.id||null
+      });
+    }catch(logErr){console.error("plan_changes log erro:",logErr);}
     await loadVipMembers();
     await loadUsersFromDB();
     renderVip();
     if(typeof renderAdminVisao==="function")renderAdminVisao();
     if(typeof renderUsers==="function")renderUsers();
     if(typeof renderSubs==="function")renderSubs();
-    toast("Acesso VIP revogado.","🔒");
+    toast("VIP excluído — usuário voltou a assinante normal (Starter).","🔒");
   }catch(e){
     console.error("revogarVip erro:",e);
-    toast("Erro ao revogar VIP.","⛔");
+    toast("Erro ao excluir VIP: "+(e.message||e),"⛔");
   }
 }
 
