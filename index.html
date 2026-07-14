@@ -2550,7 +2550,8 @@ function checarLojaParaPostar(loja){
   if(!loja)return{ok:true};
   const allowed=MARKET_PLAN[MY_PLAN||"starter"];
   if(allowed!==null&&allowed!==undefined&&!allowed.includes(loja))return{ok:false,motivo:"plano"};
-  if(!lojaConectada(loja))return{ok:false,motivo:"credencial"};
+  // ML usa scraping — isento de check de credencial (link sem afiliado ainda funciona)
+  if(loja!=="Mercado Livre"&&!lojaConectada(loja))return{ok:false,motivo:"credencial"};
   return{ok:true};
 }
 function postarOferta(o){
@@ -3177,7 +3178,8 @@ const LOJAS=[
 function lojaConectada(n){
   const c=CREDS_STATE[n];
   if(!c)return false;
-  if(n==="Mercado Livre") return !!(c.access_token||c.ml_user_id);
+  // ML funciona via scraping — sem credencial obrigatória. OAuth/Etiqueta/matt_tool = bônus de afiliado.
+  if(n==="Mercado Livre") return true;
   return Object.values(c).some(v=>v&&String(v).trim());
 }
 
