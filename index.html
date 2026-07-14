@@ -2615,6 +2615,7 @@ async function loadPostAutomatico(){
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">💬 Grupos WA</span><strong>${g.grupos_wa||0}</strong></div>
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">📅 Ativo desde</span><strong>${iniciou}</strong></div>
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">🕐 Último post</span><strong style="font-size:11px">${ultimo}</strong></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">⚡ Último disparo manual</span><strong style="font-size:11px">${g.lastManualBlast?new Date(g.lastManualBlast).toLocaleString("pt-BR"):"Nunca"}</strong></div>
               ${pg.total>0?`<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">✅ Sucesso</span><strong style="color:${pg.ok===pg.total?"#19E27D":"#f59e0b"}">${pg.ok}/${pg.total}</strong></div>`:""}
             </div>
             ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 14px 10px;padding:5px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:6px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
