@@ -615,8 +615,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="nav-cta" data-page="post-relampago"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M13 2L4.5 13.5H11L10 22L19.5 10H13L13 2Z"/></svg>⚡ Postar Agora<span class="tag orange">NEW</span></div>
     <div class="nav" data-page="radar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 3v4.5M12 12l6-4"/></svg>Radar de Ofertas<span class="tag dot" id="radarBadge">0</span></div>
     <div class="nav" data-page="analitico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 20V8M10 20V4M16 20v-9M21 20H3"/></svg>Analítico</div>
-    <div class="nav" data-page="post-automatico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Post Automático<span class="tag dot" id="autoPostBadge" style="display:none">0</span></div>
-    <div class="nav" data-page="post-automatico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M6.4 6.4 17.6 17.6"/></svg>Post Automático<span class="tag dot" id="autoPostBadge" style="display:none">0</span></div>
+    <div class="nav" data-page="post-automatico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Visão Post Aut.<span class="tag dot" id="autoPostBadge" style="display:none">0</span></div>
+    <div class="nav" data-page="post-automatico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M6.4 6.4 17.6 17.6"/></svg>Visão Post Aut.<span class="tag dot" id="autoPostBadge" style="display:none">0</span></div>
     <div class="lbl">Seus Canais</div>
     <div class="nav" data-page="canais-grupos"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M17 8a5 5 0 1 0-10 0c0 5-2 6-2 6h14s-2-1-2-6"/><path d="M10.5 19a1.7 1.7 0 0 0 3 0"/></svg>Grupos de Oferta</div>
     <div class="nav" data-page="conexao"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5z"/></svg>Conexão WhatsApp<span class="tag dot">QR</span></div>
@@ -897,7 +897,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- ===== ANALÍTICO (métricas, gráficos, melhores horários) ===== -->
   <!-- ===== POST AUTOMÁTICO ===== -->
   <section class="page" id="page-post-automatico">
-    <div class="phead"><div><h1 class="pt">⏱️ Post Automático</h1><div class="psub">Grupos com automação ativa — acompanhe status, início e posts disparados.</div></div>
+    <div class="phead"><div><h1 class="pt">⏱️ Visão Post Aut.</h1><div class="psub">Todos os seus Grupos de Oferta — inicie, pause ou dispare a automação.</div></div>
       <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button>
       <button class="btn btn-volt btn-sm" onclick="loadPostAutomatico()" style="margin-left:8px">↻ Atualizar</button></div>
     <div class="g4" id="paKpis" style="margin-bottom:20px"></div>
@@ -2314,13 +2314,13 @@ async function loadPostAutomatico(){
   const hojeInicio=new Date();hojeInicio.setHours(0,0,0,0);
 
   try{
-    const [{data:grupos},{data:postsHoje},{data:log}]=await Promise.all([
+    const [{data:dbGrupos},{data:postsHoje},{data:log}]=await Promise.all([
       SB.from("niche_groups").select("id,name,post_auto_enabled,interval_minutes,start_hour,end_hour,created_at,last_post_at").eq("user_id",uid).order("created_at"),
-      SB.from("scheduled_posts").select("group_id,status",{count:"exact"}).eq("user_id",uid).gte("sent_at",hojeInicio.toISOString()),
+      SB.from("scheduled_posts").select("group_id,status").eq("user_id",uid).gte("sent_at",hojeInicio.toISOString()),
       SB.from("scheduled_posts").select("group_id,status,sent_at,error,products(title)").eq("user_id",uid).gte("sent_at",h24).order("sent_at",{ascending:false}).limit(30)
     ]);
 
-    const ativos=(grupos||[]).filter(g=>g.post_auto_enabled);
+    const ativos=(dbGrupos||[]).filter(g=>g.post_auto_enabled);
     const totalHoje=(postsHoje||[]).length;
     const sucessoHoje=(postsHoje||[]).filter(p=>p.status==="sent").length;
 
@@ -2330,52 +2330,85 @@ async function loadPostAutomatico(){
 
     // KPIs
     if(paKpis)paKpis.innerHTML=[
+      ["Total de grupos",(dbGrupos||[]).length,"#39C0FF"],
       ["Automações ativas",ativos.length,"#19E27D"],
-      ["Disparos hoje",totalHoje,"#39C0FF"],
-      ["Sucesso hoje",sucessoHoje,"#FFB020"],
-      ["Com falha",(totalHoje-sucessoHoje),"#FF4D8D"]
+      ["Disparos hoje",totalHoje,"#FFB020"],
+      ["Sucesso hoje",sucessoHoje,"#19E27D"]
     ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv" style="color:${k[2]}">${k[1]}</div></div>`).join("");
 
-    // Lista de grupos com automação
+    // Mapa de posts por grupo
     const postsPorGrupo={};
-    (postsHoje||[]).forEach(p=>{if(!postsPorGrupo[p.group_id])postsPorGrupo[p.group_id]={total:0,ok:0};postsPorGrupo[p.group_id].total++;if(p.status==="sent")postsPorGrupo[p.group_id].ok++;});
+    (postsHoje||[]).forEach(p=>{
+      if(!postsPorGrupo[p.group_id])postsPorGrupo[p.group_id]={total:0,ok:0};
+      postsPorGrupo[p.group_id].total++;
+      if(p.status==="sent")postsPorGrupo[p.group_id].ok++;
+    });
+
+    const hasPostAuto=!!(PLAN_FEATURES[MY_PLAN]||{}).wa_post_automation;
+
+    // Renderiza cards de TODOS os grupos (espelhando o estilo de renderGrupos mas COM botões de automação)
     if(paLista){
-      if(!ativos.length){
-        paLista.innerHTML='<p style="color:var(--mut);text-align:center;padding:28px">Nenhuma automação ativa.<br><small>Ative o Post Automático em um Grupo de Oferta.</small></p>';
+      if(!(dbGrupos||[]).length){
+        paLista.innerHTML='<p style="color:var(--mut);text-align:center;padding:28px">Nenhum Grupo de Oferta criado ainda.<br><small>Crie um em <strong>Grupos de Oferta</strong>.</small></p>';
       }else{
-        paLista.innerHTML=ativos.map(g=>{
-          const pg=postsPorGrupo[g.id]||{total:0,ok:0};
-          const iniciou=g.created_at?new Date(g.created_at).toLocaleDateString("pt-BR"):"—";
-          const ultimo=g.last_post_at?new Date(g.last_post_at).toLocaleString("pt-BR"):"Nunca";
-          return `<div class="prod" style="align-items:center;padding:14px 0;border-bottom:1px solid var(--bd)">
-            <div style="width:10px;height:10px;border-radius:50%;background:#19E27D;flex:none;margin-right:4px"></div>
-            <div style="flex:1">
-              <strong>${esc(g.name)}</strong>
-              <div style="font-size:12px;color:var(--mut);margin-top:2px">
-                A cada ${g.interval_minutes}min · Janela ${g.start_hour??8}h–${g.end_hour??22}h · Ativo desde ${iniciou}
+        // Usa os grupos do estado S para ter dados de produtos/canais/etc
+        paLista.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">`+(dbGrupos||[]).map(db=>{
+          const g=S.grupos.find(x=>x.id===db.id||x.db_id===db.id)||{nome:db.name,postAuto:db.post_auto_enabled,produtos:0,grupos_wa:0,canais:0,telegram:0,intervalo:db.interval_minutes+"min"};
+          const autoAtivo=g.postAuto||db.post_auto_enabled;
+          const falta=[];
+          if(!S.waConnected)falta.push("WA");
+          if(!(g.produtos||0))falta.push("produtos");
+          if(!(g.grupos_wa||0)&&!(g.canais||0))falta.push("destinos");
+          const autoColor=!hasPostAuto?"var(--mut)":autoAtivo?"#22c55e":falta.length?"#ef4444":"#f59e0b";
+          const autoLabel=!hasPostAuto?"MANUAL 🔒":autoAtivo?"● ATIVO":falta.length?"● INATIVO":"● PAUSADO";
+          const pg=postsPorGrupo[db.id]||{total:0,ok:0};
+          const iniciou=db.created_at?new Date(db.created_at).toLocaleDateString("pt-BR"):"—";
+          const ultimo=db.last_post_at?new Date(db.last_post_at).toLocaleString("pt-BR"):"Nunca";
+          const gid=db.id;
+
+          const btnAuto=hasPostAuto
+            ?`<button class="btn btn-sm ${autoAtivo?"btn-ghost":"btn-volt"}" style="flex:1;justify-content:center;${autoAtivo?"color:var(--red,#ef4444);border-color:var(--red,#ef4444)":""}" onclick="togglePostAuto('${gid}').then(()=>loadPostAutomatico())">${autoAtivo?"⏸ Pausar":"▶ Iniciar"}</button>`
+            :`<button class="btn btn-gold btn-sm" style="flex:1;justify-content:center" onclick="dispararGrupo('${gid}')">⚡ Disparar</button>`;
+
+          return `<div style="background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--bd)">
+              <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:18px;flex:none">📢</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(db.name)}</div>
+                <div style="font-size:11px;font-weight:600;color:${autoColor};margin-top:2px">${autoLabel}</div>
               </div>
-              <div style="font-size:12px;color:var(--mut)">Último post: ${ultimo}</div>
+              <div style="text-align:right">
+                <div style="font-size:24px;font-weight:700;color:var(--volt)">${pg.total}</div>
+                <div style="font-size:10px;color:var(--mut)">posts hoje</div>
+              </div>
             </div>
-            <div style="text-align:right;min-width:90px">
-              <div style="font-size:22px;font-weight:700;color:var(--volt)">${pg.total}</div>
-              <div style="font-size:11px;color:var(--mut)">posts hoje</div>
-              ${pg.total>0?`<div style="font-size:11px;color:${pg.ok===pg.total?"#19E27D":"#FF4D8D"}">${pg.ok}/${pg.total} ok</div>`:""}
+            <div style="padding:12px 16px;flex:1;display:grid;gap:6px">
+              <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">⏱️ Intervalo</span><strong>${db.interval_minutes||10}min · ${db.start_hour??8}h–${db.end_hour??22}h</strong></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">📦 Produtos</span><strong>${g.produtos||0}</strong></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">💬 Grupos WA</span><strong>${g.grupos_wa||0}</strong></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">📅 Ativo desde</span><strong>${iniciou}</strong></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">🕐 Último post</span><strong style="font-size:11px">${ultimo}</strong></div>
+              ${pg.total>0?`<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">✅ Sucesso</span><strong style="color:${pg.ok===pg.total?"#19E27D":"#f59e0b"}">${pg.ok}/${pg.total}</strong></div>`:""}
             </div>
-            <button class="btn btn-ghost btn-sm" style="margin-left:12px" onclick="editarGrupo('${g.id}','geral')">⚙️ Editar</button>
+            ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 14px 10px;padding:5px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:6px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
+            <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bd)">
+              ${btnAuto}
+              <button class="btn btn-ghost btn-sm" style="padding:0 12px" onclick="editarGrupo('${gid}')" title="Editar grupo">✏️</button>
+            </div>
           </div>`;
-        }).join("");
+        }).join("")+`</div>`;
       }
     }
 
-    // Log de disparos
+    // Log de disparos (auto + manual)
     if(paLog){
       const logRows=log||[];
       paLog.innerHTML=logRows.length?logRows.map(l=>{
         const ok=l.status==="sent";
         const hora=l.sent_at?new Date(l.sent_at).toLocaleString("pt-BR"):"—";
-        const grupo=(grupos||[]).find(g=>g.id===l.group_id);
+        const grupo=(dbGrupos||[]).find(g=>g.id===l.group_id);
         return `<div style="display:flex;gap:12px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--bd)">
-          <span style="font-size:16px">${ok?"✅":"❌"}</span>
+          <span style="font-size:15px">${ok?"✅":"❌"}</span>
           <div style="flex:1">
             <strong style="font-size:13px">${esc(grupo?.name||"Grupo")}</strong>
             ${l.products?.title?`<span style="color:var(--mut);font-size:12px"> · ${esc(l.products.title)}</span>`:""}
@@ -2383,7 +2416,7 @@ async function loadPostAutomatico(){
           </div>
           <span style="font-size:12px;color:var(--mut);white-space:nowrap">${hora}</span>
         </div>`;
-      }).join(""):`<p style="color:var(--mut);text-align:center;padding:28px">Nenhum disparo automático nas últimas 24h.</p>`;
+      }).join(""):`<p style="color:var(--mut);text-align:center;padding:28px">Nenhum disparo nas últimas 24h.</p>`;
     }
   }catch(e){
     if(paLista)paLista.innerHTML=`<p style="color:var(--mut);text-align:center;padding:28px">Erro: ${esc(e.message)}</p>`;
@@ -3928,10 +3961,9 @@ function renderGrupos(){const has=S.grupos.length>0;
         </div>
       </div>
       ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
-      <!-- Botões de ação -->
+      <!-- Botões de ação — só Editar e Apagar aqui; automação fica em Visão Post Aut. -->
       <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bd)">
-        ${btnStart}
-        <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="editarGrupo('${g.id}')">✏️ Editar</button>
+        <button class="btn btn-volt btn-sm" style="flex:1;justify-content:center" onclick="editarGrupo('${g.id}')">✏️ Editar</button>
         <button class="btn btn-sm" style="color:var(--red,#ef4444);border:1px solid var(--red,#ef4444);background:transparent;padding:0 10px;border-radius:var(--r-sm);cursor:pointer" onclick="excluirGrupo('${g.id}')" title="Excluir grupo">🗑️</button>
       </div>
     </div>`;
