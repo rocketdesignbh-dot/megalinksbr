@@ -1987,6 +1987,7 @@ async function loadGroups(){
       grupos_wa:0,
       canais:0,
       defaultCouponId:r.default_coupon_id||null,
+      lastManualBlast:r.last_manual_blast_at||null,
       intervalo:r.post_auto_enabled?(r.interval_minutes+" min"):"N/A",
       startHour:r.start_hour??8,
       endHour:r.end_hour??22,
@@ -4174,6 +4175,11 @@ function renderGrupos(){const has=S.grupos.length>0;
           <span style="font-size:11px;color:var(--mut)">Cupom:</span>
           <span style="font-size:11px;font-weight:700;color:var(--tx)">${(()=>{const c=COUPONS.find(x=>x.id===g.defaultCouponId);return c?esc(c.code):"—";})()}</span>
         </div>
+        <div style="display:flex;align-items:center;gap:7px;grid-column:1/-1">
+          <span style="font-size:14px">⚡</span>
+          <span style="font-size:11px;color:var(--mut)">Último disparo manual:</span>
+          <span style="font-size:11px;font-weight:700;color:var(--tx)">${g.lastManualBlast?new Date(g.lastManualBlast).toLocaleString("pt-BR"):"Nunca"}</span>
+        </div>
       </div>
       ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
       <!-- Botões de ação — só Editar e Apagar aqui; automação fica em Visão Post Aut. -->
@@ -4247,6 +4253,13 @@ async function dispararGrupo(id){
       dispararGrupoMostrarErros(g.nome,d);
     }else{
       toast(`"${g.nome}" disparado! ${d.sent||0} envio(s) realizados.`,"⚡");
+    }
+    // Grava timestamp do último disparo manual
+    if((d.sent||0)>0||d.failed===0){
+      const now=new Date().toISOString();
+      g.lastManualBlast=now;
+      if(g.db_id){try{await SB.from("niche_groups").update({last_manual_blast_at:now}).eq("id",g.db_id);}catch(e){console.warn("update lastManualBlast:",e);}}
+      renderGrupos();
     }
   }catch(e){console.warn("dispararGrupo:",e);toast("Erro ao disparar o grupo.","⚠️");}
   finally{if(btn){btn.disabled=false;btn.textContent="⚡ Disparar";}}
