@@ -6868,7 +6868,7 @@ function prSelectAll(on){
 function prMontarTexto({nome,de,por,cta,link,htmlMode=false}){
   const b=(s)=>htmlMode?`<b>${s}</b>`:s;
   const n=(s)=>htmlMode?esc(s):s;
-  const deStr=de?(htmlMode?`<s>De R$ ${esc(de)}</s> por `:`De R$ ${de} por `):"";
+  const deStr=de?(htmlMode?`<s>De R$ ${esc(de)}</s> por `:`~De R$ ${de}~ por `):"";
   let linhas=[];
   linhas.push(`🔥 ${b("OFERTA RELÂMPAGO")} 🔥`);
   linhas.push(b(n(nome)));
