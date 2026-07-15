@@ -3129,7 +3129,7 @@ async function rgSalvarNoGrupo(){
     const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gidDb).order("position",{ascending:false}).limit(1).maybeSingle();
     const pos=(last?.position||0)+1;
     const{error}=await SB.from("products").insert({
-      title:nome,affiliate_url:linkPersonalizado,price:por,price_original:de,
+      title:nome,affiliate_url:linkPersonalizado,original_url:link,price:por,price_original:de,
       image_url:img,niche_group_id:gidDb,source:rgLojaToMarketplace(RG_OFERTA_ATUAL?.loja),position:pos,
       coupon_code:cupom?.code||null,cta_text:ctaTexto,cta_random:ctaRandom,
       description:descExtras,
@@ -3425,7 +3425,7 @@ async function shMassaImportar(){
           await SB.from("products").insert({
             niche_group_id:grupo.db_id,
             title,price:price?String(price):"",
-            affiliate_url:url,image_url:img,
+            affiliate_url:prGerarLinkAfil(url,"Shopee")||url,original_url:url,image_url:img,
             discount_pct:discount?Number(discount):null,
             source:"shopee",
             user_id:CURRENT_USER?.id
@@ -4679,6 +4679,19 @@ manual:`
 let _currentTabL1=TAB_GROUPS[0].id;
 
 // Lojas de marketplace com fluxo genérico de "importar produto via link"
+function detectLojaLabel(url){
+  if(!url)return null;
+  const l=String(url).toLowerCase();
+  if(l.includes("shopee"))return "Shopee";
+  if(l.includes("mercadolivre")||l.includes("mercadolibre")||/mlb[-_]?\d/.test(l))return "Mercado Livre";
+  if(l.includes("amazon"))return "Amazon";
+  if(l.includes("aliexpress"))return "AliExpress";
+  if(l.includes("magazineluiza")||l.includes("magazinevoce"))return "Magalu";
+  if(l.includes("shein"))return "Shein";
+  if(l.includes("natura"))return "Natura";
+  if(l.includes("terabyteshop"))return "TerabyteShop";
+  return null;
+}
 const MARKET_STORES=[
   {id:"shopee",label:"Shopee",cred:"Shopee"},
   {id:"aliexpress",label:"AliExpress",cred:"AliExpress"},
@@ -4786,9 +4799,10 @@ async function impConfirmarImport(id,postarAgora=false){
   const linkBase=link||data?.affiliate_url||"";
   const linkPersonalizado=linkBase?(prGerarLinkAfil(linkBase,impStoreCredLabel(id))||linkBase):"";
   const row={
-    niche_group_id:gid,source:"link",position:pos,
+    niche_group_id:gid,source:STORE_ENUM[impStoreCredLabel(id)]||"manual",position:pos,
     title:data?.title||`Produto ${impStoreLabel(id)}`,
     affiliate_url:linkPersonalizado,
+    original_url:linkBase,
     image_url:data?.image_url||"",
     price:precoAtual,price_original:precoOrig,discount_pct:discPct,
     price_suffix:null,user_id:CURRENT_USER?.id,
@@ -5401,11 +5415,15 @@ async function prodConfirmarImport(postarAgora=false){
 
   const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gid).order("position",{ascending:false}).limit(1).maybeSingle();
   const pos=(last?.position||0)+1;
+  const linkBase=link||_prodImportData?.affiliate_url||"";
+  const lojaDetectada=detectLojaLabel(linkBase);
+  const linkPersonalizado=linkBase?(lojaDetectada?(prGerarLinkAfil(linkBase,lojaDetectada)||linkBase):linkBase):"";
 
   const row={
-    niche_group_id:gid,source:"link",position:pos,
+    niche_group_id:gid,source:(lojaDetectada&&STORE_ENUM[lojaDetectada])||"manual",position:pos,
     title:_prodImportData?.title||"",
-    affiliate_url:link||_prodImportData?.affiliate_url||"",
+    affiliate_url:linkPersonalizado,
+    original_url:linkBase,
     image_url:_prodImportData?.image_url||"",
     price:precoAtual||_prodImportData?.price||null,
     price_original:precoOrig||null,
