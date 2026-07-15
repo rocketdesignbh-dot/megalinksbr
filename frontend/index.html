@@ -7111,6 +7111,7 @@ async function prBuscarProduto(){
   let viaAPI=false;
   let storeDetected="outras";
   let commissionInfo=null;
+  PR.shortLinkAfil=null; // limpa link oficial de busca anterior (evita usar link de outro produto)
 
   try{
     const session=await SB.auth.getSession();
@@ -7383,9 +7384,14 @@ function prPreencherStep2(){
   document.getElementById("prNome").value=p.nome||"";
   document.getElementById("prDe").value=p.de||"";
   document.getElementById("prPor").value=p.por||"";
-  // Recalcula com credenciais já carregadas (corrige race condition)
-  const _linkOrig=document.getElementById("prLink")?.value.trim()||PR.linkAfil||"";
-  if(_linkOrig&&PR.loja)PR.linkAfil=prGerarLinkAfil(_linkOrig,PR.loja);
+  // Preserva o link oficial de afiliado (short_link da API Shopee ou oferta do Radar);
+  // só recalcula pelo ID quando não há link oficial (corrige race condition de credenciais).
+  if(PR.shortLinkAfil){
+    PR.linkAfil=PR.shortLinkAfil;
+  }else{
+    const _linkOrig=document.getElementById("prLink")?.value.trim()||PR.linkAfil||"";
+    if(_linkOrig&&PR.loja)PR.linkAfil=prGerarLinkAfil(_linkOrig,PR.loja);
+  }
   const _elAfil=document.getElementById("prLinkAfil");
   if(_elAfil)_elAfil.value=PR.linkAfil||"";
   // Encurta via is.gd para qualquer loja
@@ -7758,6 +7764,7 @@ function prCarregarOfertaDoRadar(){
     por:o.por?String(o.por):""
   };
   PR.linkAfil=o.link||"";
+  PR.shortLinkAfil=o.link||""; // oferta do Radar já vem com link oficial de afiliado — não recalcular
   
   // Coloca o link no campo (visualmente)
   const lnk=document.getElementById("prLink");if(lnk)lnk.value=o.link||"";
