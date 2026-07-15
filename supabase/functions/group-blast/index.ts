@@ -1,8 +1,7 @@
-// Mega Links BR · Edge Function "group-blast" v2
+// Mega Links BR · Edge Function "group-blast" v3 — regenera link de afiliado no momento do post
 // Disparo manual imediato de TODOS os produtos de um Grupo de Oferta.
 // Uso: planos sem automação 24/7 (ex.: Starter) — limitado a 1x/24h por grupo.
 // Ignora start_hour/end_hour/loop/interval propositalmente (é um disparo único, não automação).
-// v2: retorna detalhamento por destino (o que falhou e por quê), não só contagem agregada.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "@supabase/supabase-js";
 
@@ -34,17 +33,92 @@ async function fetchWithTimeout(url: string, opts: RequestInit, ms = 10000): Pro
   finally { clearTimeout(t); }
 }
 
-function montarMsg(product: any): string {
+// Gera o link de afiliado personalizado do usuário a partir do link original do produto.
+// Espelha a lógica do frontend (prGerarLinkAfil no index.html) para garantir que o Post
+// Automático e o Disparo Manual sempre usem o link mais atual com as credenciais do usuário
+// — mesmo que elas tenham sido configuradas DEPOIS de o produto já estar salvo no grupo.
+function gerarLinkAfiliado(url: string, store: string | null, cred: Record<string, string> | null): string {
+  if (!url) return url;
+  if (!cred || !store) return url;
+  const val = (k: string) => String(cred[k] || "").trim();
+
+  if (store === "shopee") {
+    const afId = val("ID de Afiliado");
+    if (!afId) return url;
+    const clean = url.split("#")[0];
+    return `https://s.shopee.com.br/an_redir?origin_link=${encodeURIComponent(clean)}&affiliate_id=${encodeURIComponent(afId)}`;
+  }
+
+  const anyId = Object.values(cred).find((v) => v && String(v).trim()) || "";
+  if (!anyId) return url;
+
+  try {
+    if (store === "mercado_livre") {
+      const clean = url.split("#")[0].split("%23")[0];
+      const mattTool = val("matt_tool ID");
+      const etiqueta = val("Etiqueta ML");
+      if (!mattTool && !etiqueta) return clean;
+      const u = new URL(clean);
+      if (mattTool) u.searchParams.set("matt_tool", mattTool);
+      if (etiqueta) u.searchParams.set("matt_word", etiqueta);
+      u.searchParams.set("matt_medium", "affiliates");
+      return u.toString();
+    }
+    if (store === "amazon") {
+      const tag = val("ID de Associado");
+      if (!tag) return url;
+      const u = new URL(url);
+      u.searchParams.set("tag", tag);
+      return u.toString();
+    }
+    const u = new URL(url);
+    u.searchParams.set("ref", String(anyId));
+    return u.toString();
+  } catch {
+    return url + (url.includes("?") ? "&" : "?") + "ref=" + encodeURIComponent(String(anyId));
+  }
+}
+
+// Busca de uma vez todas as credenciais de afiliado do usuário (cache por request).
+async function carregarCredenciais(sb: any, userId: string): Promise<Record<string, Record<string, string>>> {
+  const map: Record<string, Record<string, string>> = {};
+  try {
+    const { data } = await sb.from("affiliate_credentials").select("store, credentials").eq("user_id", userId);
+    for (const row of data ?? []) {
+      if (row.store && row.credentials) map[row.store] = row.credentials;
+    }
+  } catch {
+    // sem credenciais carregadas → cai no link original em linkFinalDoProduto
+  }
+  return map;
+}
+
+// Resolve o link final a ser postado: regenera com as credenciais atuais quando possível.
+// original_url = link cru salvo no cadastro do produto (sem afiliação).
+// affiliate_url = fallback para produtos antigos salvos antes desta função existir.
+function linkFinalDoProduto(product: any, credsMap: Record<string, Record<string, string>>): string {
+  const original = product.original_url || product.affiliate_url || "";
+  if (!original) return product.affiliate_url || "";
+  if (!product.source || product.source === "manual") return product.affiliate_url || original;
+  const cred = credsMap[product.source] || null;
+  return gerarLinkAfiliado(original, product.source, cred) || product.affiliate_url || original;
+}
+
+
+function montarMsg(product: any, credsMap: Record<string, Record<string, string>>): string {
   const cta = product.cta_random ? sortearCta() : (product.cta_text || "");
   const priceStr = product.price ? `R$ ${Number(product.price).toFixed(2).replace(".", ",")}` : "";
   const discStr = product.discount_pct ? `🔥 ${product.discount_pct}% OFF` : "";
   const cupomStr = product.coupon_code ? `🏷️ Utilize o cupom: ${product.coupon_code}` : "";
+  // Regenera o link de afiliado com as credenciais ATUAIS do usuário (podem ter sido
+  // configuradas depois de o produto ter sido salvo no grupo).
+  const linkFinal = linkFinalDoProduto(product, credsMap);
   return [
     product.title,
     discStr && priceStr ? `${discStr} — ${priceStr}` : discStr || priceStr,
     cupomStr,
     cta,
-    product.affiliate_url,
+    linkFinal,
   ].filter(Boolean).join("\n");
 }
 
@@ -115,13 +189,15 @@ Deno.serve(async (req: Request) => {
   // Produtos do grupo
   const { data: products } = await sb
     .from("products")
-    .select("id, title, affiliate_url, image_url, price, discount_pct, coupon_code, cta_text, cta_random")
+    .select("id, title, affiliate_url, original_url, source, image_url, price, discount_pct, coupon_code, cta_text, cta_random")
     .eq("niche_group_id", groupId)
     .order("position");
 
   if (!products?.length) {
     return new Response(JSON.stringify({ error: "Esse grupo ainda não tem produtos." }), { status: 400 });
   }
+
+  const credsMap = await carregarCredenciais(sb, userId);
 
   // Destinos
   const { data: instance } = await sb
@@ -161,7 +237,7 @@ Deno.serve(async (req: Request) => {
   const perProdutoErros: { produto: string; erros: string[] }[] = [];
 
   for (const product of products) {
-    const msg = montarMsg(product);
+    const msg = montarMsg(product, credsMap);
     let sent = 0, failed = 0;
     const errosProduto: string[] = [];
 
