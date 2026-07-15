@@ -1977,7 +1977,6 @@ async function loadGroups(){
       intervalo:r.post_auto_enabled?(r.interval_minutes+" min"):"N/A",
       startHour:r.start_hour??8,
       endHour:r.end_hour??22,
-      lojasAtivas:r.marketplaces||["AliExpress","Amazon","Magazine Luiza","Shopee","Shein","Natura","Awin","Mercado Livre"],
     }));
     // ─── Buscar contagens reais de grupos WA, canais e produtos vinculados ───
     try{
@@ -4437,11 +4436,8 @@ geral:`
         </select></div>
         <div class="field"><label>Idioma</label><select><option>Português (BR)</option></select></div>
       </div></div></div>
-    <div class="card" style="margin:0"><div class="ch">🏪 Lojas ativas <span class="r" style="display:flex;gap:6px">
-      <button class="btn btn-ghost btn-sm" onclick="pgLojasAll(true)">✅ Todas</button>
-      <button class="btn btn-ghost btn-sm" onclick="pgLojasAll(false)">🚫 Limpar</button>
-    </span></div><div class="cb"><div style="display:grid;gap:8px" id="lojasAtivas"></div>
-      <div class="field" style="margin-top:14px"><label>🏷️ Cupom padrão deste grupo (opcional)</label>
+    <div class="card" style="margin:0"><div class="ch">🏷️ Cupom padrão</div><div class="cb">
+      <div class="field"><label>🏷️ Cupom padrão deste grupo (opcional)</label>
         <select id="pgCupomPadrao"><option value="">— Nenhum —</option></select>
         <small style="color:var(--mut);display:block;margin-top:4px">Pré-selecionado automaticamente no Postar Agora ao escolher este grupo.</small>
       </div>
@@ -4760,19 +4756,6 @@ function buildTabs(){
   }
   // todas as panes (uma vez)
   tabPanes.innerHTML=TABS.map(t=>`<div class="tp" id="pane-${t.id}">${PANES[t.id]||paneCred(t.label)}</div>`).join("");
-  const lojas=["AliExpress","Amazon","Magazine Luiza","Shopee","Shein","Natura","Awin","Mercado Livre"];
-  const lojasSelSalvas=S.grupoAtual?.lojasAtivas||lojas; // padrão: todas ativas
-  const la=document.getElementById("lojasAtivas");
-  if(la){
-    la.style.cssText="display:flex;flex-wrap:wrap;gap:8px";
-    la.innerHTML=lojas.map(l=>{
-      const on=lojasSelSalvas.includes(l);
-      return `<button type="button" class="chip-loja" data-loja="${l}" aria-pressed="${on}"
-        style="cursor:pointer;user-select:none;border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:600;border:1px solid ${on?"var(--volt)":"var(--bd)"};background:${on?"rgba(57,192,255,.15)":"transparent"};color:${on?"var(--volt)":"var(--tx2)"};transition:.15s"
-        onclick="this.setAttribute(\'aria-pressed\',this.getAttribute(\'aria-pressed\')!==\'true\');this.style.background=this.getAttribute(\'aria-pressed\')===\'true\'?\'rgba(57,192,255,.15)\':\'transparent\';this.style.borderColor=this.getAttribute(\'aria-pressed\')===\'true\'?\'var(--volt)\':\'var(--bd)\';this.style.color=this.getAttribute(\'aria-pressed\')===\'true\'?\'var(--volt)\':\'var(--tx2)\'"
-        >${l}</button>`;
-    }).join("");
-  }
   // Carrega valores salvos nos campos da aba Geral
   setTimeout(()=>{
     const g=S.grupoAtual;if(!g)return;
@@ -4820,10 +4803,6 @@ async function salvarGeral(){
   const g=S.grupoAtual;
   const hasPostAuto=!!(PLAN_FEATURES[MY_PLAN]||{}).wa_post_automation;
 
-  // Salva lojas selecionadas
-  const chips=document.querySelectorAll("#lojasAtivas .chip-loja");
-  g.lojasAtivas=[...chips].filter(c=>c.getAttribute("aria-pressed")==="true").map(c=>c.dataset.loja);
-
   // Salva horário e intervalo
   const ini=(document.getElementById("pgIni")?.value||"8h").replace("h","");
   const fim=(document.getElementById("pgFim")?.value||"22h").replace("h","");
@@ -4843,7 +4822,6 @@ async function salvarGeral(){
     if(!S.waConnected)problemas.push("WhatsApp não conectado");
     if((g.produtos||0)<1)problemas.push("nenhum produto cadastrado");
     if((g.canais||0)<1&&(g.grupos_wa||0)<1)problemas.push("nenhum destino WA vinculado");
-    if(!g.lojasAtivas?.length)problemas.push("nenhuma loja selecionada");
     if(problemas.length){
       toast(`⚠️ Falta: ${problemas.join(", ")}. Corrija antes de ativar.`,"⚠️");
       g.postAuto=false;
@@ -4863,7 +4841,6 @@ async function salvarGeral(){
         interval_minutes:Number(intervalo),
         start_hour:g.startHour,
         end_hour:g.endHour,
-        marketplaces:g.lojasAtivas,
         default_coupon_id:g.defaultCouponId||null,
       }).eq("id",g.db_id);
     }catch(e){console.warn("salvarGeral update:",e);}
@@ -4876,37 +4853,25 @@ async function salvarGeral(){
   toast(g.postAuto?`▶ Post automático ATIVADO! A cada ${intervalo} min, das ${ini}h às ${fim}h.`:"✅ Configurações salvas!",g.postAuto?"🚀":"✅");
 }
 
-// Todas / Limpar lojas
-function pgLojasAll(val){
-  document.querySelectorAll("#lojasAtivas .chip-loja").forEach(c=>{
-    c.setAttribute("aria-pressed",String(!!val));
-    c.style.background=val?"rgba(57,192,255,.15)":"transparent";
-    c.style.borderColor=val?"var(--volt)":"var(--bd)";
-    c.style.color=val?"var(--volt)":"var(--tx2)";
-  });
-}
-
 // Limpar tudo
 function pgResetGeral(){
   if(!confirm("Limpar todas as configurações deste grupo?"))return;
   const g=S.grupoAtual;
-  g.postAuto=false;g.intervalo="10 min";g.startHour=8;g.endHour=22;g.lojasAtivas=null;
+  g.postAuto=false;g.intervalo="10 min";g.startHour=8;g.endHour=22;
   buildTabs();
   toast("Configurações limpas.","🗑️");
 }
 
 // Salvar preset
 function pgSalvarPreset(){
-  const chips=document.querySelectorAll("#lojasAtivas .chip-loja");
-  const lojas=[...chips].filter(c=>c.getAttribute("aria-pressed")==="true").map(c=>c.dataset.loja);
   const ini=(document.getElementById("pgIni")?.value||"8h").replace("h","");
   const fim=(document.getElementById("pgFim")?.value||"22h").replace("h","");
   const intervalo=document.getElementById("pgInt")?.value||"10";
   const auto=document.getElementById("pgAuto")?.checked||false;
-  const nome=prompt("Nome desta configuração (ex: Shopee 60min das 8h às 22h):");
+  const nome=prompt("Nome desta configuração (ex: 60min das 8h às 22h):");
   if(!nome?.trim())return;
   const presets=JSON.parse(localStorage.getItem("mlbr_presets")||"[]");
-  presets.push({id:Date.now(),nome:nome.trim(),auto,intervalo,ini,fim,lojas});
+  presets.push({id:Date.now(),nome:nome.trim(),auto,intervalo,ini,fim});
   localStorage.setItem("mlbr_presets",JSON.stringify(presets.slice(-3)));// máx 3
   pgRenderPresets();
   toast(`Preset "${nome}" salvo!`,"💾");
@@ -4921,7 +4886,7 @@ function pgRenderPresets(){
     <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:8px">
       <div style="flex:1">
         <strong style="font-size:13px">${p.nome}</strong>
-        <div style="font-size:11px;color:var(--mut)">${p.auto?"▶ Auto":"Manual"} · ${p.intervalo}min · ${p.ini}h–${p.fim}h · ${(p.lojas||[]).length} lojas</div>
+        <div style="font-size:11px;color:var(--mut)">${p.auto?"▶ Auto":"Manual"} · ${p.intervalo}min · ${p.ini}h–${p.fim}h</div>
       </div>
       <button class="btn btn-volt btn-sm" onclick="pgCarregarPreset(${i})">Carregar</button>
       <button class="btn btn-ghost btn-sm" style="color:var(--red,#ef4444)" onclick="pgDeletarPreset(${i})">✕</button>
@@ -4939,13 +4904,6 @@ function pgCarregarPreset(i){
   if(pgIni){const opt=[...pgIni.options].find(o=>o.value===p.ini+"h");if(opt)pgIni.value=p.ini+"h";}
   const pgFim=document.getElementById("pgFim");
   if(pgFim){const opt=[...pgFim.options].find(o=>o.value===p.fim+"h");if(opt)pgFim.value=p.fim+"h";}
-  document.querySelectorAll("#lojasAtivas .chip-loja").forEach(c=>{
-    const on=(p.lojas||[]).includes(c.dataset.loja);
-    c.setAttribute("aria-pressed",String(on));
-    c.style.background=on?"rgba(57,192,255,.15)":"transparent";
-    c.style.borderColor=on?"var(--volt)":"var(--bd)";
-    c.style.color=on?"var(--volt)":"var(--tx2)";
-  });
   toast(`Preset "${p.nome}" carregado! Clique em Salvar para confirmar.`,"💾");
 }
 
