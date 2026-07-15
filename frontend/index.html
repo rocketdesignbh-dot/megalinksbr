@@ -4460,17 +4460,6 @@ wacanais:`
     <div id="wcResult" style="margin-top:14px"></div>
   </div></div>
   <div class="card"><div class="ch">📡 Canais vinculados</div><div class="cb" id="wcList"><p style="color:var(--mut);text-align:center;padding:20px">Nenhum canal vinculado ainda.</p></div></div>`,
-shopee:`
-  <div id="spCredAlert"></div>
-  <div class="card"><div class="ch">🔎 Buscar produtos Shopee</div><div class="cb">
-    <div class="g2">
-      <div class="field"><label>Categoria</label><select id="spCat"><option>Eletrônicos</option><option>Casa & Cozinha</option><option>Moda</option><option>Beleza</option><option>Esportes</option></select></div>
-      <div class="field"><label>Palavra-chave</label><input id="spKw" placeholder="ex.: fone bluetooth"></div>
-    </div>
-    <div class="field"><label>Link Shopee Vídeo (opcional)</label><input placeholder="https://... (prioriza vídeo no post)"></div>
-    <button class="btn btn-volt" id="spBuscar">Buscar e adicionar</button>
-  </div></div>
-  <div class="card"><div class="ch">🛍️ Produtos do grupo <span class="r" id="spCount">0 itens</span></div><div class="cb" id="spList"><p style="color:var(--mut);text-align:center;padding:20px">Nenhum produto adicionado ainda.</p></div></div>`,
 layout:`
   <div class="g23">
     <!-- Coluna esquerda: edição -->
@@ -4686,35 +4675,141 @@ manual:`
     </div>
   </div>`
 ,
-"ml":`
-  <div id="mlCredInfo" class="alert g" style="font-size:12.5px">✅ <strong>Mercado Livre</strong> funciona automaticamente — nenhuma configuração necessária para buscar ofertas.</div>
-  <div id="prScrapeBanner"></div>
-  <div class="card"><div class="ch">🔗 Importar produto do ML via link</div><div class="cb">
-    <div class="field"><label>Cole o link do produto no Mercado Livre</label>
-      <div style="display:flex;gap:8px">
-        <input id="mlImportLink" placeholder="https://produto.mercadolivre.com.br/MLB-..." style="flex:1" oninput="prodLinkAutoFill()">
-        <button class="btn btn-volt" onclick="mlImportarLink()">🔍 Buscar</button>
-      </div>
-      <span id="mlImportQuotaStatus" class="pill" style="font-size:10.5px;display:none;margin-top:8px"></span>
-    </div>
-    <div id="mlImportPreview" style="display:none;margin-top:4px">
-      <div class="card" style="background:var(--bg2);margin:0 0 12px"><div class="cb" id="mlImportBody"></div></div>
-    </div>
-    <div class="g2" style="gap:10px">
-      <div class="field" style="margin:0"><label>Preço original (R$)</label><input id="mlLinkPrecoOrig" placeholder="99,90"></div>
-      <div class="field" style="margin:0"><label>Preço atual (R$)</label><input id="mlLinkPrecoAtual" placeholder="59,90"></div>
-    </div>
-    <div class="g2" style="gap:10px;margin-top:8px">
-      <button class="btn btn-volt" style="flex:1" onclick="mlConfirmarImport()">✅ Salvar produto</button>
-      <button class="btn btn-gold" style="flex:1" onclick="mlConfirmarImport(true)">⚡ Salvar e Postar agora</button>
-    </div>
-  </div></div>
-  <div class="card"><div class="ch">🛰️ Importar do Radar de Ofertas</div><div class="cb">
-    <p style="font-size:13px;color:var(--tx2);margin:0 0 12px">Os produtos do Radar com maior score são os mais indicados para o grupo. Clique em <strong>⚡ Postar</strong> em qualquer card do Radar para postar ou salvar no grupo.</p>
-    <button class="btn btn-ghost" onclick="go('radar')">↗ Abrir Radar de Ofertas</button>
-  </div></div>`
 };
 let _currentTabL1=TAB_GROUPS[0].id;
+
+// Lojas de marketplace com fluxo genérico de "importar produto via link"
+const MARKET_STORES=[
+  {id:"shopee",label:"Shopee",cred:"Shopee"},
+  {id:"aliexpress",label:"AliExpress",cred:"AliExpress"},
+  {id:"amazon",label:"Amazon",cred:"Amazon"},
+  {id:"magalu",label:"Magalu",cred:"Magalu"},
+  {id:"ml",label:"Mercado Livre",cred:"Mercado Livre"},
+  {id:"shein",label:"Shein",cred:"Shein"},
+  {id:"awin",label:"Awin",cred:"AWIN"},
+  {id:"natura",label:"Natura",cred:"Natura"},
+  {id:"terabyte",label:"TerabyteShop",cred:"TerabyteShop"},
+];
+function paneImportLoja(id,label){
+  return `
+  <div id="imp_${id}_alert"></div>
+  <div class="card"><div class="ch">🔗 Importar produto ${label} via link</div><div class="cb">
+    <div class="field"><label>Cole o link do produto ${label}</label>
+      <div style="display:flex;gap:8px">
+        <input id="imp_${id}_link" placeholder="https://..." style="flex:1">
+        <button class="btn btn-volt" onclick="impBuscarLink('${id}')">🔍 Buscar</button>
+      </div>
+    </div>
+    <div id="imp_${id}_preview" style="display:none;margin-top:4px">
+      <div class="card" style="background:var(--bg2);margin:0 0 12px"><div class="cb" id="imp_${id}_body"></div></div>
+    </div>
+    <div class="g2" style="gap:10px">
+      <div class="field" style="margin:0"><label>Preço original (R$)</label><input id="imp_${id}_precoOrig" placeholder="99,90"></div>
+      <div class="field" style="margin:0"><label>Preço atual (R$)</label><input id="imp_${id}_precoAtual" placeholder="59,90"></div>
+    </div>
+    <div class="g2" style="gap:10px;margin-top:8px">
+      <button class="btn btn-volt" style="flex:1" onclick="impConfirmarImport('${id}')">✅ Salvar produto</button>
+      <button class="btn btn-gold" style="flex:1" onclick="impConfirmarImport('${id}',true)">⚡ Salvar e Postar agora</button>
+    </div>
+  </div></div>`;
+}
+MARKET_STORES.forEach(st=>{PANES[st.id]=paneImportLoja(st.id,st.label);});
+
+window._impData=window._impData||{};
+function impStoreCredLabel(id){const st=MARKET_STORES.find(s=>s.id===id);return st?st.cred:id;}
+function impStoreLabel(id){const st=MARKET_STORES.find(s=>s.id===id);return st?st.label:id;}
+
+function impRenderAlert(id){
+  const el=document.getElementById(`imp_${id}_alert`);if(!el)return;
+  const cred=impStoreCredLabel(id);
+  const con=lojaConectada(cred);
+  el.innerHTML=con
+    ?`<div class="alert g" style="font-size:12.5px;margin-bottom:14px">✅ Credenciais ${impStoreLabel(id)} configuradas — o link será convertido automaticamente para seu link de afiliado.</div>`
+    :`<div class="alert b" style="font-size:12.5px;margin-bottom:14px">ℹ️ Configure suas credenciais ${impStoreLabel(id)} em <strong><a href="#" onclick="setRole('afiliado');go('config-afiliados');return false">Config Afiliados</a></strong> para converter links automaticamente.</div>`;
+}
+
+async function impBuscarLink(id){
+  const link=(document.getElementById(`imp_${id}_link`)?.value||"").trim();
+  if(!link){toast("Cole um link primeiro.","⚠️");return;}
+  if(!_mlSearchLock("imp:"+id+":"+link)){toast("Já buscando esse produto, aguarde…","⏳");return;}
+  const btn=document.querySelector(`#pane-${id} button[onclick="impBuscarLink('${id}')"]`);
+  if(btn)btn.disabled=true;
+  toast("Buscando produto…","⏳");
+  try{
+    const session=await SB.auth.getSession();
+    const jwt=session?.data?.session?.access_token;
+    const r=await fetch(`${SUPA_URL}/functions/v1/product-search`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+jwt},
+      body:JSON.stringify({url:link})
+    });
+    const d=await r.json();
+    if(!d||(!d.title&&!d.name)){toast(d?.error||"Não foi possível extrair dados. Preencha manualmente.","⚠️");return;}
+    const precoAtualNum=d.price_to||d.price||null;
+    const precoOrigNum=d.price_from||d.price_original||null;
+    window._impData[id]={title:d.title||d.name,price:precoAtualNum,price_from:precoOrigNum,affiliate_url:link,image_url:d.image||d.thumbnail||d.image_url,discount_pct:d.discount_pct||null};
+    const elPrecoAtual=document.getElementById(`imp_${id}_precoAtual`);
+    const elPrecoOrig=document.getElementById(`imp_${id}_precoOrig`);
+    if(elPrecoAtual&&precoAtualNum)elPrecoAtual.value=String(precoAtualNum).replace(".",",");
+    if(elPrecoOrig&&precoOrigNum)elPrecoOrig.value=String(precoOrigNum).replace(".",",");
+    const body=document.getElementById(`imp_${id}_body`);
+    const prev=document.getElementById(`imp_${id}_preview`);
+    if(body)body.innerHTML=`<div class="prod" style="align-items:center">
+      <div class="pimg">${window._impData[id].image_url?`<img src="${window._impData[id].image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:"🛒"}</div>
+      <div style="flex:1"><strong>${window._impData[id].title}</strong><br>
+      <small style="color:var(--mut)">${precoOrigNum?`De R$ ${String(precoOrigNum).replace(".",",")} · `:""}${precoAtualNum?`Por R$ ${String(precoAtualNum).replace(".",",")}`:""} ${window._impData[id].discount_pct?" · "+window._impData[id].discount_pct+"% OFF":""}</small></div>
+    </div>`;
+    if(prev)prev.style.display="block";
+    toast("Produto encontrado!","✅");
+  }catch(e){toast("Erro: "+e.message,"⚠️");}
+  finally{_mlSearchUnlock("imp:"+id+":"+link);if(btn)btn.disabled=false;}
+}
+
+async function impConfirmarImport(id,postarAgora=false){
+  const link=(document.getElementById(`imp_${id}_link`)?.value||"").trim();
+  const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
+  if(!gid){toast("Salve o grupo primeiro.","⚠️");return;}
+  const data=window._impData[id];
+  if(!link&&!data){toast("Busque um produto primeiro.","⚠️");return;}
+  {
+    const maxProd=lim("max_products")??15;
+    if(maxProd!==-1){
+      const{count}=await SB.from("products").select("id",{count:"exact",head:true}).eq("niche_group_id",gid);
+      if((count||0)>=maxProd){toast(`Limite de ${maxProd} produtos por grupo no plano ${myFeatures().label}. Faça upgrade para adicionar mais!`,"🔒");go("assinatura");return;}
+    }
+  }
+  const precoAtual=parseFloat(String(document.getElementById(`imp_${id}_precoAtual`)?.value||"").replace(",","."))||data?.price||null;
+  const precoOrig=parseFloat(String(document.getElementById(`imp_${id}_precoOrig`)?.value||"").replace(",","."))||null;
+  const discPct=precoOrig&&precoAtual&&precoAtual<precoOrig?Math.round((1-precoAtual/precoOrig)*100):data?.discount_pct||null;
+  const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gid).order("position",{ascending:false}).limit(1).maybeSingle();
+  const pos=(last?.position||0)+1;
+  const linkBase=link||data?.affiliate_url||"";
+  const linkPersonalizado=linkBase?(prGerarLinkAfil(linkBase,impStoreCredLabel(id))||linkBase):"";
+  const row={
+    niche_group_id:gid,source:"link",position:pos,
+    title:data?.title||`Produto ${impStoreLabel(id)}`,
+    affiliate_url:linkPersonalizado,
+    image_url:data?.image_url||"",
+    price:precoAtual,price_original:precoOrig,discount_pct:discPct,
+    price_suffix:null,user_id:CURRENT_USER?.id,
+  };
+  const{error}=await SB.from("products").insert(row);
+  if(error){toast("Erro ao salvar: "+error.message,"⚠️");return;}
+  window._impData[id]=null;
+  [`imp_${id}_link`,`imp_${id}_precoOrig`,`imp_${id}_precoAtual`].forEach(elId=>{const el=document.getElementById(elId);if(el)el.value="";});
+  const prev=document.getElementById(`imp_${id}_preview`);if(prev)prev.style.display="none";
+  S.grupoAtual.produtos=(S.grupoAtual.produtos||0)+1;renderGrupos();
+  toast(`Produto ${impStoreLabel(id)} salvo!`,"✅");
+  if(postarAgora){
+    window.PR_PRE_FROM_RADAR={nome:row.title,foto:row.image_url,de:row.price_original?String(row.price_original):"",por:row.price?String(row.price):"",link:row.affiliate_url,loja:impStoreCredLabel(id)};
+    go("post-relampago");
+    toast("Produto carregado no Postar Agora!","⚡");
+  }else{
+    setTimeout(()=>{const t=document.querySelector('.tab[data-tab="prod-lista"]');if(t)t.click();},600);
+    wireProdLista();
+  }
+}
+
 function buildTabs(){
   const tabsL1=document.getElementById("tabsL1");
   // Nível 1: categorias
@@ -4740,18 +4835,16 @@ function buildTabs(){
       document.getElementById("pane-"+b.dataset.tab).classList.add("on");
       if(b.dataset.tab==="layout"){rp();lpInitCtaGrid();}
       if(b.dataset.tab==="wacanais")wireWaCanais();
-      if(b.dataset.tab==="shopee")wireShopee();
+      if(MARKET_STORES.some(s=>s.id===b.dataset.tab))impRenderAlert(b.dataset.tab);
       if(b.dataset.tab==="wagrupos")wireWaGrupos();
       if(b.dataset.tab==="manual")wireManual();
-      if(b.dataset.tab==="ml")setTimeout(()=>atualizarStatusQuotaML("mlImportQuotaStatus"),50);
       if(b.dataset.tab==="prod-lista")wireProdLista();
       if(b.dataset.tab==="prod-add"){wireProdAdd();prodIdeaisCalc();prodCupomTipoChange();}
     });
     // dispara wire da primeira tab se necessário
     if(first.id==="layout"){rp();lpInitCtaGrid();}
-    if(first.id==="shopee")wireShopee();
+    if(MARKET_STORES.some(s=>s.id===first.id))impRenderAlert(first.id);
     if(first.id==="wagrupos")wireWaGrupos();
-    if(first.id==="ml")setTimeout(()=>atualizarStatusQuotaML("mlImportQuotaStatus"),50);
     if(first.id==="prod-lista")wireProdLista();
     if(first.id==="prod-add"){wireProdAdd();prodIdeaisCalc();prodCupomTipoChange();}
   }
@@ -5121,69 +5214,6 @@ async function desvincularGrupoWa(i){
   toast("Grupo desvinculado.","🗑️");
 }
 
-/* Shopee */
-let spProds=[];
-function wireShopee(){
-  const btn=document.getElementById("spBuscar");if(!btn)return;
-  // alert dinâmico — some se credencial Shopee estiver salva
-  const alertEl=document.getElementById("spCredAlert");
-  if(alertEl){
-    const temCred=lojaConectada("Shopee");
-    alertEl.innerHTML=temCred
-      ?'<div class="alert g" style="font-size:12.5px">✅ Credenciais Shopee configuradas. A busca retornará produtos reais quando a API estiver aprovada.</div>'
-      :'<div class="alert b" style="font-size:12.5px">ℹ️ Configure suas credenciais Shopee em <strong><a href="#" onclick="setRole(\'afiliado\');go(\'config-afiliados\');return false">Config Afiliados</a></strong> para converter links automaticamente.</div>';
-  }
-  btn.onclick=async()=>{
-    if(!lojaConectada("Shopee")){
-      toast("Configure suas credenciais Shopee primeiro.","⚠️");
-      setRole("afiliado");go("config-afiliados");return;
-    }
-    // Busca via product-search Edge Function
-    const kw=(document.getElementById("spKw")?.value||"").trim()||"ofertas";
-    const cat=document.getElementById("spCat")?.value||"";
-    toast("Buscando produtos Shopee…","⏳");
-    try{
-      const session=await SB.auth.getSession();
-      const jwt=session?.data?.session?.access_token;
-      const r=await fetch(`${SUPA_URL}/functions/v1/product-search`,{
-        method:"POST",
-        headers:{"Content-Type":"application/json","Authorization":"Bearer "+jwt},
-        body:JSON.stringify({source:"shopee",keyword:kw,category:cat,limit:10})
-      });
-      const d=await r.json();
-      const items=d.items||d.results||[];
-      if(!items.length){toast("Nenhum produto encontrado. Tente outra palavra-chave.","⚠️");return;}
-      const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
-      if(!gid){toast("Salve o grupo primeiro.","⚠️");return;}
-      let saved=0;
-      for(const item of items){
-        const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gid).order("position",{ascending:false}).limit(1).maybeSingle();
-        const pos=(last?.position||0)+1;
-        const{error}=await SB.from("products").insert({
-          niche_group_id:gid,source:"shopee",position:pos,
-          title:item.title||item.name||"Produto Shopee",
-          affiliate_url:item.affiliate_url||item.url||"",
-          image_url:item.image||item.image_url||"",
-          price:item.price||item.price_to||null,
-          price_original:item.price_original||item.price_from||null,
-          discount_pct:item.discount_pct||null,
-          user_id:CURRENT_USER?.id,
-        });
-        if(!error)saved++;
-      }
-      S.grupoAtual.produtos=(S.grupoAtual.produtos||0)+saved;renderGrupos();
-      toast(`${saved} produtos Shopee salvos no grupo!`,"✅");
-      setTimeout(()=>{const t=document.querySelector('.tab[data-tab="prod-lista"]');if(t)t.click();},600);
-      wireProdLista();
-    }catch(e){toast("Erro Shopee: "+e.message,"⚠️");}
-  };
-  renderSp();
-}
-function renderSp(){const el=document.getElementById("spList");if(!el)return;
-  document.getElementById("spCount").textContent=spProds.length+" itens";
-  el.innerHTML=spProds.length?spProds.map((p,i)=>`<div class="prod"><div class="pimg">🛍️</div><div style="flex:1"><strong>${p.t}</strong><br><small style="color:var(--mut)">${p.cat} · <span style="color:var(--volt);font-weight:700">R$ ${p.p.replace(".",",")}</span> · -${p.off}% · shope.ee/${Math.random().toString(36).slice(2,7)}</small></div><button class="btn btn-ghost btn-sm" onclick="rmSp(${i})">✕</button></div>`).join(""):'<p style="color:var(--mut);text-align:center;padding:20px">Busque por categoria/palavra-chave.</p>';}
-function rmSp(i){spProds.splice(i,1);renderSp();S.grupoAtual.produtos=spProds.length;renderGrupos();}
-
 /* Produto Manual */
 let mnProds=[];
 function wireManual(){renderMn();}
@@ -5289,90 +5319,6 @@ window._mlSearchInFlight=window._mlSearchInFlight||new Set();
 function _mlSearchLock(key){if(window._mlSearchInFlight.has(key))return false;window._mlSearchInFlight.add(key);return true;}
 function _mlSearchUnlock(key){window._mlSearchInFlight.delete(key);}
 
-async function mlImportarLink(){
-  const link=(document.getElementById("mlImportLink")?.value||"").trim();
-  if(!link){toast("Cole um link do ML primeiro.","⚠️");return;}
-  if(!_mlSearchLock("ml:"+link)){toast("Já buscando esse produto, aguarde…","⏳");return;}
-  const btn=document.querySelector('#pane-ml button[onclick="mlImportarLink()"]');
-  if(btn)btn.disabled=true;
-  toast("Buscando produto…","⏳");
-  try{
-    const session=await SB.auth.getSession();
-    const jwt=session?.data?.session?.access_token;
-    const r=await fetch(`${SUPA_URL}/functions/v1/product-search`,{
-      method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+jwt},
-      body:JSON.stringify({url:link})
-    });
-    const d=await r.json();
-    if(!d||(!d.title&&!d.name)){toast("Não foi possível extrair dados. Preencha manualmente.","⚠️");return;}
-    const precoAtualNum=d.price_to||d.price||null;
-    const precoOrigNum=d.price_from||d.price_original||null;
-    window._mlImportData={title:d.title||d.name,price:precoAtualNum,price_from:precoOrigNum,affiliate_url:link,image_url:d.image||d.thumbnail||d.image_url,discount_pct:d.discount_pct||null};
-    // Preenche campos de preço na tela automaticamente
-    const elPrecoAtual=document.getElementById("mlLinkPrecoAtual");
-    const elPrecoOrig=document.getElementById("mlLinkPrecoOrig");
-    if(elPrecoAtual&&precoAtualNum)elPrecoAtual.value=String(precoAtualNum).replace(".",",");
-    if(elPrecoOrig&&precoOrigNum)elPrecoOrig.value=String(precoOrigNum).replace(".",",");
-    const body=document.getElementById("mlImportBody");
-    const prev=document.getElementById("mlImportPreview");
-    if(body)body.innerHTML=`<div class="prod" style="align-items:center">
-      <div class="pimg">${window._mlImportData.image_url?`<img src="${window._mlImportData.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:"🛒"}</div>
-      <div style="flex:1"><strong>${window._mlImportData.title}</strong><br>
-      <small style="color:var(--mut)">${precoOrigNum?`De R$ ${String(precoOrigNum).replace(".",",")} · `:""}${precoAtualNum?`Por R$ ${String(precoAtualNum).replace(".",",")}`:""} ${window._mlImportData.discount_pct?" · "+window._mlImportData.discount_pct+"% OFF":""}</small></div>
-    </div>`;
-    if(prev)prev.style.display="block";
-    toast("Produto encontrado!","✅");
-  }catch(e){toast("Erro: "+e.message,"⚠️");}
-  finally{_mlSearchUnlock("ml:"+link);if(btn)btn.disabled=false;}
-}
-
-async function mlConfirmarImport(postarAgora=false){
-  const link=(document.getElementById("mlImportLink")?.value||"").trim();
-  const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
-  if(!gid){toast("Salve o grupo primeiro.","⚠️");return;}
-  if(!link&&!window._mlImportData){toast("Busque um produto primeiro.","⚠️");return;}
-  // Limite de produtos por grupo, de acordo com o plano (plan_features.max_products)
-  {
-    const maxProd=lim("max_products")??15;
-    if(maxProd!==-1){
-      const{count}=await SB.from("products").select("id",{count:"exact",head:true}).eq("niche_group_id",gid);
-      if((count||0)>=maxProd){toast(`Limite de ${maxProd} produtos por grupo no plano ${myFeatures().label}. Faça upgrade para adicionar mais!`,"🔒");go("assinatura");return;}
-    }
-  }
-  const precoAtual=parseFloat(String(document.getElementById("mlLinkPrecoAtual")?.value||"").replace(",","."))||window._mlImportData?.price||null;
-  const precoOrig=parseFloat(String(document.getElementById("mlLinkPrecoOrig")?.value||"").replace(",","."))||null;
-  const discPct=precoOrig&&precoAtual&&precoAtual<precoOrig?Math.round((1-precoAtual/precoOrig)*100):window._mlImportData?.discount_pct||null;
-  const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gid).order("position",{ascending:false}).limit(1).maybeSingle();
-  const pos=(last?.position||0)+1;
-  // Re-gera o link com as credenciais (matt_tool/etiqueta) do usuário logado
-  const linkBase=link||window._mlImportData?.affiliate_url||"";
-  const linkPersonalizado=linkBase?(prGerarLinkAfil(linkBase,"Mercado Livre")||linkBase):"";
-  const row={
-    niche_group_id:gid,source:"link",position:pos,
-    title:window._mlImportData?.title||"Produto ML",
-    affiliate_url:linkPersonalizado,
-    image_url:window._mlImportData?.image_url||"",
-    price:precoAtual,price_original:precoOrig,discount_pct:discPct,
-    price_suffix:null,user_id:CURRENT_USER?.id,
-  };
-  const{error}=await SB.from("products").insert(row);
-  if(error){toast("Erro ao salvar: "+error.message,"⚠️");return;}
-  window._mlImportData=null;
-  ["mlImportLink","mlLinkPrecoOrig","mlLinkPrecoAtual"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
-  const prev=document.getElementById("mlImportPreview");if(prev)prev.style.display="none";
-  S.grupoAtual.produtos=(S.grupoAtual.produtos||0)+1;renderGrupos();
-  toast("Produto ML salvo!","✅");
-  if(postarAgora){
-    window.PR_PRE_FROM_RADAR={nome:row.title,foto:row.image_url,de:row.price_original?String(row.price_original):"",por:row.price?String(row.price):"",link:row.affiliate_url,loja:"Mercado Livre"};
-    go("post-relampago");
-    toast("Produto carregado no Postar Agora!","⚡");
-  }else{
-    setTimeout(()=>{const t=document.querySelector('.tab[data-tab="prod-lista"]');if(t)t.click();},600);
-    wireProdLista();
-  }
-}
-
 async function wireProdLista(){
   const el=document.getElementById("prodListaBody");if(!el)return;
   const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
@@ -5381,7 +5327,7 @@ async function wireProdLista(){
   const{data,error}=await SB.from("products").select("*").eq("niche_group_id",gid).order("position");
   if(error||!data){el.innerHTML=`<p style="color:var(--red);text-align:center;padding:28px">Erro: ${error?.message||"desconhecido"}</p>`;return;}
   S.grupoAtual.produtos=data.length;renderGrupos();
-  loadTabProdCounts().then(()=>{const grupo=TAB_GROUPS.find(g=>g.id===_currentTabL1)||TAB_GROUPS[0];tabsBar.innerHTML=grupo.tabs.map((t,i)=>{const count=_tabProdCounts[t.id]||0;const countBadge=count>0?`<span style="margin-left:4px;font-size:10px;background:var(--volt);color:#0c0c0e;padding:1px 5px;border-radius:6px;font-weight:700">${count}</span>`:"";return `<button class="tab${tabsBar.querySelector('.tab.active')?.dataset.tab===t.id?" active":""}" data-tab="${t.id}">${t.label}${t.novo?'<span class="tag-new">NEW</span>':""}${countBadge}</button>`;}).join(""); tabsBar.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{tabsBar.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".tp").forEach(p=>p.classList.toggle("on",p.id==="pane-"+b.dataset.tab));if(b.dataset.tab==="wagrupos")wireWaGrupos();if(b.dataset.tab==="prod-meus")wireProdLista();if(b.dataset.tab==="ml")setTimeout(()=>atualizarStatusQuotaML("mlImportQuotaStatus"),50);if(b.dataset.tab==="prod-add"){wireProdAdd();prodIdeaisCalc();prodCupomTipoChange();}});});
+  loadTabProdCounts().then(()=>{const grupo=TAB_GROUPS.find(g=>g.id===_currentTabL1)||TAB_GROUPS[0];tabsBar.innerHTML=grupo.tabs.map((t,i)=>{const count=_tabProdCounts[t.id]||0;const countBadge=count>0?`<span style="margin-left:4px;font-size:10px;background:var(--volt);color:#0c0c0e;padding:1px 5px;border-radius:6px;font-weight:700">${count}</span>`:"";return `<button class="tab${tabsBar.querySelector('.tab.active')?.dataset.tab===t.id?" active":""}" data-tab="${t.id}">${t.label}${t.novo?'<span class="tag-new">NEW</span>':""}${countBadge}</button>`;}).join(""); tabsBar.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{tabsBar.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".tp").forEach(p=>p.classList.toggle("on",p.id==="pane-"+b.dataset.tab));if(b.dataset.tab==="wagrupos")wireWaGrupos();if(b.dataset.tab==="prod-meus")wireProdLista();if(MARKET_STORES.some(s=>s.id===b.dataset.tab))impRenderAlert(b.dataset.tab);if(b.dataset.tab==="prod-add"){wireProdAdd();prodIdeaisCalc();prodCupomTipoChange();}});});
   if(!data.length){el.innerHTML='<p style="color:var(--mut);text-align:center;padding:28px">Nenhum produto cadastrado ainda.<br>Use a aba <strong>➕ Adicionar</strong> para começar.</p>';return;}
   el.innerHTML=data.map((p,i)=>`
     <div class="prod" style="align-items:center">
