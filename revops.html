@@ -230,6 +230,7 @@ tbody tr:last-child td{border-bottom:none}
       <a href="#" data-sec="audit" onclick="go('audit',this);return false">📋 Auditoria</a>
       <a href="#" data-sec="ia" onclick="go('ia',this);return false">🤖 IA Insights</a>
       <a href="#" data-sec="automations" onclick="go('automations',this);return false">⚡ Automações</a>
+      <a href="#" data-sec="connections" onclick="go('connections',this);return false">🔌 Conexões Admin</a>
       <a href="#" data-sec="rules" onclick="go('rules',this);return false">⚙️ Regras de Score</a>
     </nav>
     <div class="spacer"></div>
@@ -586,6 +587,65 @@ tbody tr:last-child td{border-bottom:none}
       </div>
     </div>
 
+    <!-- CONEXÕES ADMIN -->
+    <div class="section" id="sec-connections">
+      <h2 class="pageTitle">Conexões Admin</h2>
+      <div class="pageSub">Número de WhatsApp dedicado para envios administrativos (automações e ofertas). Não use um número de cliente — pareie um número próprio só para isso aqui.</div>
+
+      <div class="grid2" style="margin-bottom:20px">
+        <!-- Pareamento -->
+        <div class="card">
+          <h3>📱 Pareamento do número admin</h3>
+          <div id="connStatusBadge" style="margin-bottom:14px"></div>
+          <div id="connQrBox" style="text-align:center;min-height:120px;display:flex;align-items:center;justify-content:center">
+            <p style="color:var(--mut);font-size:13px">Clique em "Gerar QR Code" para conectar o número dedicado.</p>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+            <button class="saveMini" id="btnConnGenQR" onclick="connGenQR()" style="padding:9px 18px;font-size:13px">📷 Gerar QR Code</button>
+            <button class="saveMini" id="btnConnDisconnect" onclick="connDisconnect()" style="padding:9px 18px;font-size:13px;background:var(--danger,#c0392b);display:none">🔌 Desconectar</button>
+          </div>
+        </div>
+
+        <!-- Status -->
+        <div class="card">
+          <h3>📶 Status da conexão</h3>
+          <div id="connStatusDetail" class="loading">Carregando…</div>
+        </div>
+      </div>
+
+      <!-- Lembrete de recarga -->
+      <div class="card" style="margin-bottom:20px">
+        <h3>🔔 Lembrete de recarga de créditos</h3>
+        <p style="color:var(--mut);font-size:13px;margin-bottom:16px">Controle manual do vencimento do plano/créditos do chip usado nesse número (a plataforma não sabe o saldo real — isso é só um lembrete).</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div>
+            <label style="display:block;font-size:11px;color:var(--mut);margin-bottom:4px">Valor da recarga (R$)</label>
+            <input id="waCreditAmount" type="number" step="0.01" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--ink);font-size:13px;width:140px">
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;color:var(--mut);margin-bottom:4px">Próximo vencimento</label>
+            <input id="waCreditDue" type="date" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--ink);font-size:13px">
+          </div>
+          <div style="flex:1;min-width:200px">
+            <label style="display:block;font-size:11px;color:var(--mut);margin-bottom:4px">Observação</label>
+            <input id="waCreditNotes" placeholder="Ex: plano pré-pago Vivo, recarga mensal" style="width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--ink);font-size:13px">
+          </div>
+          <button class="saveMini" onclick="saveWaCredit()" style="padding:9px 18px;font-size:13px">💾 Salvar</button>
+        </div>
+        <div id="waCreditAlert" style="margin-top:14px"></div>
+      </div>
+
+      <!-- Logs de comunicação -->
+      <div class="card">
+        <h3>📋 Logs de comunicação (WhatsApp administrativo)</h3>
+        <p style="color:var(--mut);font-size:13px;margin-bottom:14px">Todos os envios por WhatsApp feitos através dessa instância — automações e ofertas da IA, juntos.</p>
+        <table>
+          <thead><tr><th>Origem</th><th>Usuário</th><th>Status</th><th>Mensagem</th><th>Quando</th></tr></thead>
+          <tbody id="connLogsBody"><tr><td colspan="5" class="loading">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- RULES -->
     <div class="section" id="sec-rules">
       <h2 class="pageTitle">Regras de Score</h2>
@@ -697,6 +757,7 @@ function go(sec,el){
   if(sec==='ia'){ loadIA(); loadOffers(); loadOffersHistory(); }
   if(sec==='tasks') loadTasks();
   if(sec==='audit') loadAudit();
+  if(sec==='connections') loadConnections();
 }
 
 // ---------- HELPERS ----------
@@ -896,6 +957,244 @@ async function openTimeline(uid){
 function closeDrawer(){
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('drawerBg').classList.remove('open');
+}
+
+// ---------- CONEXÕES ADMIN (WhatsApp dedicado) ----------
+const WA_ENGINE_URL = 'https://megalinksbr-wa-engine.fwezsn.easypanel.host';
+let WA_ENGINE_TOKEN = '';
+let connPollTimer = null;
+
+async function fetchWAEngineToken(){
+  if(WA_ENGINE_TOKEN) return WA_ENGINE_TOKEN;
+  try {
+    const { data } = await sb.auth.getSession();
+    const jwt = data?.session?.access_token;
+    if(!jwt) return null;
+    const r = await fetch(`${SB_URL}/functions/v1/get-wa-engine-token`, {
+      headers: { 'Authorization': 'Bearer '+jwt, 'Content-Type': 'application/json' }
+    });
+    if(!r.ok) return null;
+    const d = await r.json();
+    WA_ENGINE_TOKEN = d.token || '';
+    return WA_ENGINE_TOKEN || null;
+  } catch(e) { return null; }
+}
+
+async function loadConnections(){
+  loadConnStatus();
+  loadWaCredit();
+  loadConnLogs();
+}
+
+async function loadConnStatus(){
+  const { data, error } = await sb.from('revops_admin_whatsapp')
+    .select('*').order('created_at',{ascending:false}).limit(1).maybeSingle();
+  renderConnStatus(data, error);
+}
+
+function renderConnStatus(row, error){
+  const badge = document.getElementById('connStatusBadge');
+  const detail = document.getElementById('connStatusDetail');
+  const btnGen = document.getElementById('btnConnGenQR');
+  const btnDisc = document.getElementById('btnConnDisconnect');
+  if(!badge || !detail) return;
+
+  if(error){ detail.innerHTML = `<div class="loading">Erro: ${esc(error.message)}</div>`; return; }
+  detail.classList.remove('loading');
+
+  if(!row || row.status !== 'connected'){
+    badge.innerHTML = '<span class="pill gray" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;background:rgba(255,255,255,.06);font-size:12.5px;color:var(--mut)"><span style="width:8px;height:8px;border-radius:50%;background:var(--dim);display:inline-block"></span> Nenhum número conectado</span>';
+    detail.innerHTML = '<div class="loading">Conecte um número dedicado ao lado para começar a usar as automações e ofertas por WhatsApp.</div>';
+    if(btnGen) btnGen.style.display='inline-flex';
+    if(btnDisc) btnDisc.style.display='none';
+    return;
+  }
+
+  badge.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;background:rgba(16,185,129,.12);font-size:12.5px;color:var(--money);font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:var(--money);display:inline-block"></span> Conectado — ${esc(row.phone||'')}</span>`;
+  detail.innerHTML = `
+    <div class="planRow"><span>Número</span><b>${esc(row.phone||'—')}</b></div>
+    <div class="planRow"><span>Conectado desde</span><b>${dtfmt(row.connected_at)}</b></div>
+    <div class="planRow"><span>Última atividade</span><b>${dtfmt(row.last_seen_at)}</b></div>
+  `;
+  if(btnGen) btnGen.style.display='none';
+  if(btnDisc) btnDisc.style.display='inline-flex';
+}
+
+async function connGenQR(){
+  const box = document.getElementById('connQrBox');
+  const btnGen = document.getElementById('btnConnGenQR');
+  box.innerHTML = '<div style="text-align:center"><div style="font-size:32px">⏳</div><p style="color:var(--mut);font-size:13px;margin-top:6px">Gerando QR Code…</p></div>';
+  btnGen.disabled = true;
+  try {
+    const token = await fetchWAEngineToken();
+    if(!token){ box.innerHTML = '<p style="color:var(--danger)">Não foi possível obter token do wa-engine. Verifique se você está logado.</p>'; btnGen.disabled=false; return; }
+    const r = await fetch(`${WA_ENGINE_URL}/pair`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+token },
+      body: JSON.stringify({})
+    });
+    if(!r.ok){ const er = await r.json().catch(()=>({})); throw new Error(er.error || ('HTTP '+r.status)); }
+    const d = await r.json();
+    if(!d.sessionId || !d.qr) throw new Error('Resposta inválida do servidor');
+
+    // registra sessão como "connecting" no banco
+    await sb.from('revops_admin_whatsapp').insert({ session_id: d.sessionId, status: 'connecting' });
+
+    connMostraQR(d.qr, '📷 Escaneie com o número dedicado');
+    connIniciaPolling(d.sessionId);
+  } catch(e) {
+    box.innerHTML = `<p style="color:var(--danger)">Erro ao gerar QR: ${esc(e.message)}</p>`;
+  } finally {
+    btnGen.disabled = false;
+  }
+}
+
+function connMostraQR(qr, statusTexto){
+  const box = document.getElementById('connQrBox');
+  box.innerHTML = `
+    <div style="text-align:center">
+      <img src="${qr}" alt="QR Code" style="width:200px;height:200px;border-radius:10px;background:#fff;padding:8px"/>
+      <p id="connQrStatusLine" style="color:var(--mut);font-size:13px;font-weight:600;margin-top:10px">${statusTexto}</p>
+      <p style="color:var(--dim);font-size:11.5px;margin-top:4px;line-height:1.5">WhatsApp → Aparelhos conectados → Conectar um aparelho → aponte a câmera</p>
+    </div>`;
+}
+
+function connPararPolling(){ if(connPollTimer){ clearInterval(connPollTimer); connPollTimer=null; } }
+
+function connIniciaPolling(sessionId){
+  connPararPolling();
+  connPollTimer = setInterval(async()=>{
+    try {
+      const token = await fetchWAEngineToken();
+      const r = await fetch(`${WA_ENGINE_URL}/pair-status/${sessionId}`, { headers: { 'Authorization': 'Bearer '+token } });
+      if(r.status===404){
+        connPararPolling();
+        document.getElementById('connQrBox').innerHTML = '<p style="color:var(--danger)">Pareamento expirado. Clique em Gerar QR Code novamente.</p>';
+        await sb.from('revops_admin_whatsapp').update({ status:'expired' }).eq('session_id', sessionId);
+        return;
+      }
+      if(!r.ok) return;
+      const d = await r.json();
+      if(d.status==='paired'){
+        connPararPolling();
+        const phone = d.phoneNumber ? '+'+d.phoneNumber : null;
+        await sb.from('revops_admin_whatsapp').update({
+          status:'connected', phone, connected_at: new Date().toISOString(), last_seen_at: new Date().toISOString()
+        }).eq('session_id', sessionId);
+        document.getElementById('connQrBox').innerHTML = '<div style="text-align:center"><div style="font-size:32px">✅</div><p style="color:var(--money);font-size:13px;margin-top:6px">Número conectado com sucesso!</p></div>';
+        toast('WhatsApp admin conectado ✓');
+        loadConnStatus();
+      } else if(d.status==='expired'){
+        connPararPolling();
+        document.getElementById('connQrBox').innerHTML = '<p style="color:var(--danger)">QR Code expirado. Clique em Gerar QR Code novamente.</p>';
+        await sb.from('revops_admin_whatsapp').update({ status:'expired' }).eq('session_id', sessionId);
+      } else if(d.status==='waiting' && d.qr){
+        connMostraQR(d.qr, '📷 Aguardando leitura…');
+      }
+    } catch(e) { /* silencioso, tenta de novo no próximo tick */ }
+  }, 2000);
+}
+
+async function connDisconnect(){
+  if(!confirm('Desconectar o número admin? Automações e ofertas por WhatsApp vão parar de funcionar até reconectar.')) return;
+  const { data: row } = await sb.from('revops_admin_whatsapp')
+    .select('*').eq('status','connected').order('connected_at',{ascending:false}).limit(1).maybeSingle();
+  if(!row){ toast('Nenhuma sessão conectada.'); return; }
+  try {
+    const token = await fetchWAEngineToken();
+    await fetch(`${WA_ENGINE_URL}/disconnect/${row.session_id}`, {
+      method: 'POST', headers: { 'Authorization': 'Bearer '+token }
+    });
+  } catch(e) { /* segue mesmo se falhar no engine */ }
+  await sb.from('revops_admin_whatsapp').update({ status:'disconnected', disconnected_at:new Date().toISOString() }).eq('id', row.id);
+  toast('Número desconectado.');
+  document.getElementById('connQrBox').innerHTML = '<p style="color:var(--mut);font-size:13px">Clique em "Gerar QR Code" para conectar o número dedicado.</p>';
+  loadConnStatus();
+}
+
+// ── Lembrete de recarga de créditos
+async function loadWaCredit(){
+  const { data } = await sb.from('revops_admin_wa_credits')
+    .select('*').order('updated_at',{ascending:false}).limit(1).maybeSingle();
+  if(data){
+    document.getElementById('waCreditAmount').value = data.amount ?? '';
+    document.getElementById('waCreditDue').value = data.due_date ?? '';
+    document.getElementById('waCreditNotes').value = data.notes ?? '';
+  }
+  renderWaCreditAlert(data);
+}
+
+function renderWaCreditAlert(data){
+  const el = document.getElementById('waCreditAlert');
+  if(!el) return;
+  if(!data || !data.due_date){ el.innerHTML=''; return; }
+  const due = new Date(data.due_date+'T00:00:00');
+  const daysLeft = Math.ceil((due.getTime()-Date.now())/86400000);
+  let color, text;
+  if(daysLeft < 0){ color='var(--danger)'; text=`⚠️ Vencido há ${Math.abs(daysLeft)} dia(s) — recarregue o número admin.`; }
+  else if(daysLeft <= 5){ color='#FFB020'; text=`🔔 Vence em ${daysLeft} dia(s) — programe a recarga.`; }
+  else { color='var(--money)'; text=`✓ Em dia — vence em ${daysLeft} dia(s).`; }
+  el.innerHTML = `<div style="padding:10px 14px;border-radius:8px;background:${color}22;color:${color};font-size:13px;font-weight:600">${text}</div>`;
+}
+
+async function saveWaCredit(){
+  const amount = document.getElementById('waCreditAmount').value || null;
+  const due_date = document.getElementById('waCreditDue').value || null;
+  const notes = document.getElementById('waCreditNotes').value || null;
+  const { error } = await sb.from('revops_admin_wa_credits').insert({
+    amount, due_date, notes, updated_at: new Date().toISOString()
+  });
+  if(error){ toast('Erro ao salvar: '+error.message); return; }
+  toast('Lembrete salvo ✓');
+  loadWaCredit();
+}
+
+// ── Logs de comunicação (automações + ofertas, canal whatsapp)
+async function loadConnLogs(){
+  const body = document.getElementById('connLogsBody');
+  if(!body) return;
+  const [{ data: autoLog, error: e1 }, { data: offers, error: e2 }] = await Promise.all([
+    sb.from('revops_automation_log').select('*').order('triggered_at',{ascending:false}).limit(30),
+    sb.from('revops_offers').select('*').in('status',['sent','error']).order('reviewed_at',{ascending:false}).limit(30),
+  ]);
+  if(e1 || e2){ body.innerHTML = `<tr><td colspan="5" class="loading">Erro: ${esc((e1||e2).message)}</td></tr>`; return; }
+
+  const rows = [];
+  (autoLog||[]).filter(l=>l.detail && l.detail.channel==='whatsapp').forEach(l=>{
+    const u = allUsers.find(x=>x.id===l.user_id);
+    rows.push({
+      origem: AUTO_LABELS[l.automation] || l.automation,
+      user: u?.full_name || u?.email || l.user_id,
+      status: l.status==='sent' ? 'sent' : 'error',
+      message: l.detail.message || '—',
+      when: l.triggered_at,
+    });
+  });
+  (offers||[]).filter(o=>o.channel==='whatsapp').forEach(o=>{
+    const u = allUsers.find(x=>x.id===o.user_id);
+    rows.push({
+      origem: OFFER_LABELS[o.offer_type] || o.offer_type,
+      user: u?.full_name || u?.email || o.user_id,
+      status: o.status,
+      message: o.message || '—',
+      when: o.sent_at || o.reviewed_at,
+    });
+  });
+  rows.sort((a,b)=> new Date(b.when) - new Date(a.when));
+
+  if(!rows.length){ body.innerHTML = '<tr><td colspan="5" class="loading">Nenhum envio por WhatsApp registrado ainda.</td></tr>'; return; }
+
+  body.innerHTML = rows.slice(0,40).map(r=>{
+    const statusColor = r.status==='sent' ? 'var(--money)' : 'var(--danger)';
+    const statusLabel = r.status==='sent' ? '✓ Enviado' : '⚠️ Erro';
+    return `<tr>
+      <td style="font-size:12.5px">${esc(r.origem)}</td>
+      <td style="font-size:12.5px">${esc(r.user)}</td>
+      <td style="color:${statusColor};font-weight:600;font-size:12px">${statusLabel}</td>
+      <td style="color:var(--mut);font-size:12px;max-width:280px;white-space:pre-wrap">${esc(r.message)}</td>
+      <td class="mono" style="font-size:11px;color:var(--dim);white-space:nowrap">${dtfmt(r.when)}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ---------- TAREFAS ----------
