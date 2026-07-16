@@ -635,6 +635,24 @@ tbody tr:last-child td{border-bottom:none}
         <div id="waCreditAlert" style="margin-top:14px"></div>
       </div>
 
+      <!-- Teste de envio -->
+      <div class="card" style="margin-bottom:20px">
+        <h3>🧪 Enviar mensagem de teste</h3>
+        <p style="color:var(--mut);font-size:13px;margin-bottom:16px">Envia direto pelo número admin conectado, sem passar por automação nem oferta. Útil para confirmar se as mensagens estão chegando de verdade (o WhatsApp pode aceitar o envio e mesmo assim filtrar a entrega para números novos/não salvos).</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div>
+            <label style="display:block;font-size:11px;color:var(--mut);margin-bottom:4px">Telefone (com DDI+DDD)</label>
+            <input id="testWaPhone" placeholder="+5531999999999" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--ink);font-size:13px;width:180px">
+          </div>
+          <div style="flex:1;min-width:220px">
+            <label style="display:block;font-size:11px;color:var(--mut);margin-bottom:4px">Mensagem</label>
+            <input id="testWaMessage" value="🧪 Teste de envio — Mega Links BR RevOps" style="width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--ink);font-size:13px">
+          </div>
+          <button class="saveMini" onclick="sendTestWa()" style="padding:9px 18px;font-size:13px">📤 Enviar teste</button>
+        </div>
+        <div id="testWaResult" style="margin-top:14px;font-size:13px;color:var(--mut)"></div>
+      </div>
+
       <!-- Logs de comunicação -->
       <div class="card">
         <h3>📋 Logs de comunicação (WhatsApp administrativo)</h3>
@@ -1110,6 +1128,46 @@ async function connDisconnect(){
   toast('Número desconectado.');
   document.getElementById('connQrBox').innerHTML = '<p style="color:var(--mut);font-size:13px">Clique em "Gerar QR Code" para conectar o número dedicado.</p>';
   loadConnStatus();
+}
+
+function normalizePhoneBR(phone){
+  let n = String(phone||'').replace(/\D/g,'');
+  if(!n.startsWith('55')) n = '55'+n;
+  if(n.length===12) n = n.slice(0,4)+'9'+n.slice(4);
+  return n;
+}
+
+async function sendTestWa(){
+  const phone = document.getElementById('testWaPhone').value.trim();
+  const message = document.getElementById('testWaMessage').value.trim();
+  const res = document.getElementById('testWaResult');
+  if(!phone || !message){ toast('Preencha telefone e mensagem.'); return; }
+
+  const { data: row } = await sb.from('revops_admin_whatsapp')
+    .select('*').eq('status','connected').order('connected_at',{ascending:false}).limit(1).maybeSingle();
+  if(!row){ res.textContent='Nenhum número admin conectado.'; res.style.color='var(--danger)'; return; }
+
+  res.textContent='Enviando…'; res.style.color='var(--mut)';
+  try {
+    const token = await fetchWAEngineToken();
+    if(!token){ res.textContent='Erro: não foi possível obter token do wa-engine.'; res.style.color='var(--danger)'; return; }
+    const r = await fetch(`${WA_ENGINE_URL}/send-message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+token },
+      body: JSON.stringify({ sessionId: row.session_id, phoneNumber: normalizePhoneBR(phone), message })
+    });
+    const d = await r.json().catch(()=>({}));
+    if(r.ok){
+      res.textContent = '✓ API retornou sucesso ao aceitar o envio para '+normalizePhoneBR(phone)+'. Confirme no celular de destino se a mensagem realmente chegou — a API aceitar não garante entrega.';
+      res.style.color='var(--money)';
+    } else {
+      res.textContent = '✗ Erro retornado pelo wa-engine: '+(d.error||('HTTP '+r.status));
+      res.style.color='var(--danger)';
+    }
+  } catch(e) {
+    res.textContent = 'Erro: '+e.message;
+    res.style.color='var(--danger)';
+  }
 }
 
 // ── Lembrete de recarga de créditos
