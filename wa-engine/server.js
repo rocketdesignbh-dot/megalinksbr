@@ -625,15 +625,41 @@ app.post('/send-message', verifyToken, async (req, res) => {
     }
 
     try {
-        const jid = phoneNumber.includes('@') ? phoneNumber : phoneNumber + '@s.whatsapp.net';
+        let jid;
+        if (phoneNumber.includes('@')) {
+            jid = phoneNumber;
+        } else {
+            // Resolve o JID REAL do numero via WhatsApp (respeita migracao LID).
+            // Enviar direto para "<numero>@s.whatsapp.net" sem resolver pode ser
+            // aceito pelo servidor mas nunca entregue (mensagem some silenciosamente).
+            const num = phoneNumber.replace(/\D/g, '');
+            let resolved = null;
+            try {
+                const results = await session.socket.onWhatsApp(num);
+                if (Array.isArray(results) && results.length) {
+                    const hit = results.find(r => r && r.exists) || results[0];
+                    resolved = hit?.jid || hit?.lid || null;
+                }
+            } catch (e) {
+                console.warn(`[SEND] onWhatsApp falhou para ${num}: ${e.message}`);
+            }
+
+            if (!resolved) {
+                console.warn(`[SEND] Numero ${num} nao resolvido no WhatsApp - nao enviado`);
+                return res.status(422).json({ ok: false, error: 'number_not_on_whatsapp', message: 'Numero nao encontrado no WhatsApp (pode nao ter conta ativa).' });
+            }
+            jid = resolved;
+        }
+
         await session.socket.sendMessage(jid, { text: message });
-        
+        console.log(`[SEND] Mensagem direta enviada para ${jid}`);
+
         // ─── RATE LIMITING: Incrementar contador após sucesso ───
         if (userId) {
             await rateLimiter.increment(userId, 1);
         }
         
-        res.json({ message: 'Message sent' });
+        res.json({ message: 'Message sent', jid });
     } catch (error) {
         console.error('[SEND] Erro:', error);
         res.status(500).json({ error: error.message });
