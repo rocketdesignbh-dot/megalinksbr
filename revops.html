@@ -537,8 +537,8 @@ tbody tr:last-child td{border-bottom:none}
       <h3 style="margin:28px 0 4px">📜 Histórico de ofertas (enviadas, com erro ou recusadas)</h3>
       <div class="pageSub" style="margin-bottom:14px">Resultado de todas as ofertas já revisadas — aqui você confirma se a mensagem chegou ao cliente por WhatsApp.</div>
       <table>
-        <thead><tr><th>Usuário</th><th>Oferta</th><th>Status</th><th>Canal</th><th>Quando</th></tr></thead>
-        <tbody id="offersHistoryBody"><tr><td colspan="5" class="loading">Carregando…</td></tr></tbody>
+        <thead><tr><th>Usuário</th><th>Oferta</th><th>Status</th><th>Canal</th><th>Quando</th><th></th></tr></thead>
+        <tbody id="offersHistoryBody"><tr><td colspan="6" class="loading">Carregando…</td></tr></tbody>
       </table>
     </div>
 
@@ -1678,8 +1678,8 @@ async function loadOffersHistory(){
     .neq('status','pending')
     .order('reviewed_at', { ascending: false })
     .limit(50);
-  if(error){ body.innerHTML=`<tr><td colspan="5" class="loading">Erro: ${esc(error.message)}</td></tr>`; return; }
-  if(!data||!data.length){ body.innerHTML='<tr><td colspan="5" class="loading">Nenhuma oferta revisada ainda.</td></tr>'; return; }
+  if(error){ body.innerHTML=`<tr><td colspan="6" class="loading">Erro: ${esc(error.message)}</td></tr>`; return; }
+  if(!data||!data.length){ body.innerHTML='<tr><td colspan="6" class="loading">Nenhuma oferta revisada ainda.</td></tr>'; return; }
   body.innerHTML = data.map(o=>{
     const u = allUsers.find(x=>x.id===o.user_id);
     const statusColor = o.status==='sent' ? 'var(--money)' : (o.status==='error' ? 'var(--danger)' : 'var(--dim)');
@@ -1692,8 +1692,25 @@ async function loadOffersHistory(){
       <td style="color:${statusColor};font-weight:600;font-size:12.5px">${OFFER_STATUS_LABEL[o.status]||esc(o.status)}</td>
       <td style="font-size:12px;color:var(--mut)">${esc(o.channel||'—')}</td>
       <td class="mono" style="font-size:11px;color:var(--dim);white-space:nowrap">${dtfmt(o.sent_at||o.reviewed_at)}</td>
+      <td style="white-space:nowrap">${o.status==='error' ? `<button class="saveMini" style="padding:5px 10px;font-size:11.5px" onclick="retryOffer('${o.id}')">🔁 Reenviar</button>` : ''}</td>
     </tr>`;
   }).join('');
+}
+
+async function retryOffer(offerId){
+  if(!confirm('Tentar reenviar essa oferta por WhatsApp agora?')) return;
+  try {
+    const r = await fetch('https://nxlfezpagporealqqbfj.supabase.co/functions/v1/revops-offer-send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ offer_id: offerId, action: 'approve' })
+    });
+    const data = await r.json();
+    toast(data.ok ? '✓ Reenviada com sucesso' : ('Falha ao reenviar: ' + (data.error||'erro desconhecido')));
+  } catch(e) {
+    toast('Erro: ' + e.message);
+  }
+  loadOffersHistory();
 }
 
 function startEditOfferMsg(offerId){
