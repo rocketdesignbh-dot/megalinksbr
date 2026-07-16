@@ -537,6 +537,11 @@ tbody tr:last-child td{border-bottom:none}
           <div id="autoLog" class="loading">Carregando…</div>
         </div>
       </div>
+      <div class="card" style="margin-bottom:20px">
+        <h3>Mensagens dos gatilhos (WhatsApp)</h3>
+        <p style="color:var(--mut);font-size:13px;margin-bottom:16px">Texto usado como fallback por WhatsApp quando o e-mail falha. Placeholders disponíveis: <span class="mono">{nome}</span>, <span class="mono">{dias}</span>.</p>
+        <div id="autoMsgList" class="loading">Carregando…</div>
+      </div>
       <div class="card">
         <h3>Testar disparo manual</h3>
         <p style="color:var(--mut);font-size:13px;margin-bottom:16px">Dispara a automação selecionada agora (útil para testar). Só envia para quem ainda não recebeu hoje.</p>
@@ -1258,13 +1263,64 @@ async function loadOffers(){
       </td>
       <td>${OFFER_LABELS[o.offer_type]||esc(o.offer_type)}</td>
       <td style="color:var(--mut);font-size:12.5px;max-width:220px">${esc(o.reasoning||'—')}</td>
-      <td style="color:var(--mut);font-size:12.5px;max-width:280px;white-space:pre-wrap">${esc(o.message)}</td>
+      <td style="max-width:300px">
+        <textarea id="offerMsgTa_${o.id}" readonly style="width:100%;min-height:60px;background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;color:var(--mut);font-size:12px;font-family:inherit;resize:vertical;white-space:pre-wrap">${esc(o.message)}</textarea>
+        <div style="display:flex;gap:6px;margin-top:6px" id="offerMsgBtns_${o.id}">
+          <button class="saveMini" style="padding:4px 8px;font-size:11px" onclick="startEditOfferMsg('${o.id}')">✏️ Editar</button>
+          <button class="saveMini" style="padding:4px 8px;font-size:11px;background:#6c63ff" onclick="aiEditOfferMsg('${o.id}')">🤖 IA</button>
+        </div>
+        <div id="offerMsgStatus_${o.id}" style="font-size:10.5px;color:var(--mut);margin-top:4px"></div>
+      </td>
       <td style="white-space:nowrap">
         <button class="saveMini" style="padding:6px 12px;font-size:12px" onclick="approveOffer('${o.id}')">✓ Aprovar e enviar</button>
         <button class="saveMini" style="padding:6px 12px;font-size:12px;background:var(--danger,#c0392b)" onclick="rejectOffer('${o.id}')">✕ Recusar</button>
       </td>
     </tr>`;
   }).join('');
+}
+
+function startEditOfferMsg(offerId){
+  const ta=document.getElementById('offerMsgTa_'+offerId);
+  ta.readOnly=false; ta.style.color='var(--ink)'; ta.focus();
+  document.getElementById('offerMsgBtns_'+offerId).innerHTML=`
+    <button class="saveMini" style="padding:4px 8px;font-size:11px" onclick="saveOfferMsg('${offerId}')">💾 Salvar</button>
+    <button class="saveMini" style="padding:4px 8px;font-size:11px;background:var(--dim)" onclick="loadOffers()">✕ Cancelar</button>
+    <button class="saveMini" style="padding:4px 8px;font-size:11px;background:#6c63ff" onclick="aiEditOfferMsg('${offerId}')">🤖 IA</button>`;
+}
+
+async function saveOfferMsg(offerId){
+  const ta=document.getElementById('offerMsgTa_'+offerId);
+  const status=document.getElementById('offerMsgStatus_'+offerId);
+  status.textContent='Salvando…'; status.style.color='var(--mut)';
+  const {error}=await sb.from('revops_offers').update({message: ta.value}).eq('id', offerId);
+  if(error){ status.textContent='Erro: '+error.message; status.style.color='var(--danger)'; return; }
+  toast('Mensagem da oferta atualizada ✓');
+  loadOffers();
+}
+
+async function aiEditOfferMsg(offerId){
+  const ta=document.getElementById('offerMsgTa_'+offerId);
+  const instruction=prompt('Como a IA deve ajustar essa mensagem? (ex: "deixe mais persuasivo e curto")');
+  if(instruction===null) return;
+  const status=document.getElementById('offerMsgStatus_'+offerId);
+  status.textContent='🤖 Reescrevendo…'; status.style.color='var(--mut)';
+  try {
+    const r=await fetch('https://nxlfezpagporealqqbfj.supabase.co/functions/v1/revops-ai-rewrite',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text: ta.value, instruction })
+    });
+    const data=await r.json();
+    if(!data.ok){ status.textContent='Erro: '+(data.error||'falha na IA'); status.style.color='var(--danger)'; return; }
+    ta.readOnly=false; ta.style.color='var(--ink)'; ta.value=data.text;
+    document.getElementById('offerMsgBtns_'+offerId).innerHTML=`
+      <button class="saveMini" style="padding:4px 8px;font-size:11px" onclick="saveOfferMsg('${offerId}')">💾 Salvar</button>
+      <button class="saveMini" style="padding:4px 8px;font-size:11px;background:var(--dim)" onclick="loadOffers()">✕ Cancelar</button>
+      <button class="saveMini" style="padding:4px 8px;font-size:11px;background:#6c63ff" onclick="aiEditOfferMsg('${offerId}')">🤖 IA</button>`;
+    status.textContent='✓ Sugestão aplicada — revise e salve'; status.style.color='var(--money)';
+  } catch(e) {
+    status.textContent='Erro: '+e.message; status.style.color='var(--danger)';
+  }
 }
 
 async function approveOffer(offerId){
@@ -1468,6 +1524,86 @@ async function loadAutomations(){
         </div>
         <span style="font-size:11px;color:var(--dim)">${dtfmt(l.triggered_at)}</span>
       </div>`).join('');
+  }
+
+  renderAutoMessages(cfg||[], e1);
+}
+
+// ---------- MENSAGENS DOS GATILHOS ----------
+function renderAutoMessages(cfg, err){
+  const el=document.getElementById('autoMsgList');
+  if(!el) return;
+  el.classList.remove('loading');
+  if(err){ el.innerHTML=`<div class="loading">Erro: ${esc(err.message)}</div>`; return; }
+  if(!cfg.length){ el.innerHTML='<div class="loading">Nenhum gatilho configurado.</div>'; return; }
+
+  el.innerHTML = cfg.map(c=>{
+    const auto = esc(c.automation);
+    const label = esc(c.label||c.automation);
+    const msg = c.message_template || '';
+    return `
+      <div class="planRow" style="flex-direction:column;align-items:stretch;gap:8px;padding:14px 0">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <span style="font-weight:600;font-size:13px">${label}</span>
+          <div style="display:flex;gap:6px" id="msgBtns_${auto}">
+            <button class="saveMini" style="padding:5px 10px;font-size:11.5px" onclick="startEditAutoMsg('${auto}')">✏️ Editar</button>
+            <button class="saveMini" style="padding:5px 10px;font-size:11.5px;background:#6c63ff" onclick="aiEditAutoMsg('${auto}')">🤖 Editar com IA</button>
+          </div>
+        </div>
+        <textarea id="msgTa_${auto}" readonly style="width:100%;min-height:70px;background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:10px 12px;color:var(--ink);font-size:12.5px;font-family:inherit;resize:vertical;white-space:pre-wrap">${esc(msg)}</textarea>
+        <div id="msgStatus_${auto}" style="font-size:11px;color:var(--mut)"></div>
+      </div>`;
+  }).join('');
+}
+
+function startEditAutoMsg(auto){
+  const ta=document.getElementById('msgTa_'+auto);
+  ta.readOnly=false;
+  ta.focus();
+  document.getElementById('msgBtns_'+auto).innerHTML=`
+    <button class="saveMini" style="padding:5px 10px;font-size:11.5px" onclick="saveAutoMsg('${auto}')">💾 Salvar</button>
+    <button class="saveMini" style="padding:5px 10px;font-size:11.5px;background:var(--dim)" onclick="loadAutomations()">✕ Cancelar</button>
+    <button class="saveMini" style="padding:5px 10px;font-size:11.5px;background:#6c63ff" onclick="aiEditAutoMsg('${auto}')">🤖 Editar com IA</button>`;
+}
+
+async function saveAutoMsg(auto){
+  const ta=document.getElementById('msgTa_'+auto);
+  const status=document.getElementById('msgStatus_'+auto);
+  const text=ta.value;
+  status.textContent='Salvando…'; status.style.color='var(--mut)';
+  const {error}=await sb.from('revops_automation_config')
+    .update({message_template:text, updated_at:new Date().toISOString()})
+    .eq('automation', auto);
+  if(error){ status.textContent='Erro: '+error.message; status.style.color='var(--danger)'; return; }
+  status.textContent='✓ Mensagem salva'; status.style.color='var(--money)';
+  ta.readOnly=true;
+  toast('Mensagem do gatilho atualizada ✓');
+  setTimeout(()=>loadAutomations(), 800);
+}
+
+async function aiEditAutoMsg(auto){
+  const ta=document.getElementById('msgTa_'+auto);
+  const instruction=prompt('Como a IA deve ajustar essa mensagem? (ex: "deixe mais urgente e informal")');
+  if(instruction===null) return;
+  const status=document.getElementById('msgStatus_'+auto);
+  status.textContent='🤖 Reescrevendo…'; status.style.color='var(--mut)';
+  try {
+    const r=await fetch('https://nxlfezpagporealqqbfj.supabase.co/functions/v1/revops-ai-rewrite',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text: ta.value, instruction })
+    });
+    const data=await r.json();
+    if(!data.ok){ status.textContent='Erro: '+(data.error||'falha na IA'); status.style.color='var(--danger)'; return; }
+    ta.readOnly=false;
+    ta.value=data.text;
+    document.getElementById('msgBtns_'+auto).innerHTML=`
+      <button class="saveMini" style="padding:5px 10px;font-size:11.5px" onclick="saveAutoMsg('${auto}')">💾 Salvar</button>
+      <button class="saveMini" style="padding:5px 10px;font-size:11.5px;background:var(--dim)" onclick="loadAutomations()">✕ Cancelar</button>
+      <button class="saveMini" style="padding:5px 10px;font-size:11.5px;background:#6c63ff" onclick="aiEditAutoMsg('${auto}')">🤖 Editar com IA</button>`;
+    status.textContent='✓ Sugestão da IA aplicada — revise e clique em Salvar'; status.style.color='var(--money)';
+  } catch(e) {
+    status.textContent='Erro: '+e.message; status.style.color='var(--danger)';
   }
 }
 
