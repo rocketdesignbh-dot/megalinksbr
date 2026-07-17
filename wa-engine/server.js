@@ -73,6 +73,7 @@ const SESSIONS = new Map(); // sessionId -> { status, qr, socket, phoneNumber, .
 
 // Controle de reconexão — backoff exponencial por sessão
 const RECONNECT_ATTEMPTS = new Map(); // sessionId -> { count, lastAttempt }
+const MANUAL_DISCONNECTS = new Set(); // sessionIds desconectados manualmente — nunca reconectar
 const MAX_RECONNECT_ATTEMPTS = 50;
 const BASE_RECONNECT_DELAY = 3000; // 3s inicial, dobra até ~49s
 
@@ -233,6 +234,15 @@ async function connectSession(sessionId, authPath, phoneNumber = null, isReconne
             const reason = lastDisconnect?.error?.output?.statusCode;
             const msg = lastDisconnect?.error?.message || 'unknown';
             console.log(`[DISCONNECTED] Sessão ${sessionId}: código ${reason} — ${msg}`);
+
+            // ── Desconexão manual pelo admin: limpar e NÃO reconectar ──
+            if (MANUAL_DISCONNECTS.has(sessionId)) {
+                console.log(`[DISCONNECTED] Sessão ${sessionId} desconectada manualmente — não reconectar.`);
+                MANUAL_DISCONNECTS.delete(sessionId);
+                SESSIONS.delete(sessionId);
+                RECONNECT_ATTEMPTS.delete(sessionId);
+                return;
+            }
 
             if (reason === DisconnectReason.loggedOut) {
                 // Usuário deslogou pelo celular — limpa tudo
@@ -458,14 +468,24 @@ app.post('/disconnect/:sessionId', verifyToken, async (req, res) => {
     }
 
     try {
-        try { session.socket.end(); } catch (e) {}
+        // Marca como desconexão manual para o handler connection.update NÃO reconectar
+        MANUAL_DISCONNECTS.add(sessionId);
         if (session.timeout) clearTimeout(session.timeout);
+
+        // logout() desregistra o aparelho no WhatsApp (encerramento limpo).
+        // Se falhar, cai no end() como fallback.
+        try { await session.socket.logout(); }
+        catch (e) { try { session.socket.end(); } catch (_) {} }
+
         SESSIONS.delete(sessionId);
         RECONNECT_ATTEMPTS.delete(sessionId);
 
         // Remove credenciais salvas
         const authPath = path.join(AUTH_DIR, sessionId);
         await fs.remove(authPath).catch(() => {});
+
+        // Limpa a marca após um tempo (caso o evento close demore)
+        setTimeout(() => MANUAL_DISCONNECTS.delete(sessionId), 15000);
 
         res.json({ message: 'Session disconnected' });
     } catch (error) {
