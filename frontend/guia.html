@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guia do novo usuário · Mega Links BR</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<meta name="description" content="Guia rápido para configurar sua conta na Mega Links BR e começar a divulgar ofertas automaticamente em grupos e canais de WhatsApp e Telegram.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --volt:#F5C518; --volt-2:#e0b010; --volt-soft:rgba(245,197,24,.13);
+  --bg:#0c0c0e; --bg2:#111116; --surf:#18181f; --surf2:#1f1f28; --surf3:#26262f;
+  --bd:#2a2a35; --bd2:#333340;
+  --tx:#f0f0f4; --tx2:#9494a8; --mut:#55556a;
+  --r:12px; --r-sm:8px; --r-xs:6px;
+  --disp:"Plus Jakarta Sans",-apple-system,"Segoe UI",sans-serif;
+  --body:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--body);background:var(--bg);color:var(--tx);font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.025em;font-weight:800}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+img{display:block;max-width:100%}
+
+/* ---- nav ---- */
+.nav{position:sticky;top:0;z-index:50;background:rgba(12,12,14,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--bd)}
+.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand img{width:34px;height:34px;border-radius:9px}
+.brand .wm{font-family:var(--disp);font-weight:800;font-size:16px;letter-spacing:-.02em}
+.brand .wm span{color:var(--volt)}
+.nav-back{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:var(--r-sm);background:var(--volt);color:#0c0c0e;font-weight:700;font-size:13.5px;font-family:var(--disp);white-space:nowrap}
+
+/* ---- hero ---- */
+.hero{padding:72px 0 56px;position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;top:-140px;right:-160px;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(245,197,24,.16),transparent 70%);pointer-events:none}
+.eyebrow{display:inline-block;padding:8px 18px;border:1px solid var(--volt);border-radius:999px;color:var(--volt);font-size:12px;font-weight:700;letter-spacing:.06em;font-family:var(--disp);margin-bottom:22px}
+.hero h1{font-size:44px;line-height:1.1;margin-bottom:18px}
+.hero h1 .g{color:var(--volt)}
+.hero p.lead{max-width:560px;color:var(--tx2);font-size:16.5px;margin-bottom:26px}
+.tagline{font-size:13px;color:var(--tx2);letter-spacing:.04em;font-family:var(--disp);font-weight:600}
+.tagline b{color:var(--volt)}
+.hero-cta{display:inline-flex;align-items:center;gap:8px;padding:13px 24px;border-radius:var(--r-sm);background:var(--volt);color:#0c0c0e;font-weight:800;font-family:var(--disp);font-size:14.5px;margin-top:8px;margin-bottom:34px;box-shadow:0 8px 26px rgba(245,197,24,.28)}
+
+/* ---- section shell ---- */
+section{padding:56px 0}
+.section-head{max-width:640px;margin-bottom:38px}
+.section-head h2{font-size:30px;margin-bottom:10px}
+.section-head p{color:var(--tx2);font-size:15px}
+
+/* ---- what it does cards ---- */
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.card{background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:26px}
+.ring-ic{width:56px;height:56px;border-radius:50%;border:2px solid var(--volt);display:grid;place-items:center;background:var(--bg);margin-bottom:18px}
+.ring-ic svg{width:24px;height:24px;stroke:var(--volt)}
+.card h3{font-size:18px;color:var(--volt);margin-bottom:8px}
+.card p{color:var(--tx2);font-size:14px}
+
+/* ---- stepper overview ---- */
+.stepper{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px}
+.stepper a{flex:none;display:flex;align-items:center;gap:10px;background:var(--surf);border:1px solid var(--bd);border-radius:999px;padding:9px 16px 9px 9px;font-size:13px;color:var(--tx2);font-weight:600}
+.stepper a b{width:26px;height:26px;border-radius:50%;background:var(--volt);color:#0c0c0e;display:grid;place-items:center;font-family:var(--disp);font-size:12.5px;flex:none}
+
+/* ---- step sections ---- */
+.step{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;padding:44px 0;border-top:1px solid var(--bd)}
+.step:first-of-type{border-top:none}
+.step.rev .step-media{order:2}
+.step-num{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--volt);color:#0c0c0e;font-family:var(--disp);font-weight:800;font-size:15px;margin-bottom:14px}
+.step-body h3{font-size:23px;margin-bottom:14px}
+.step-body ul{list-style:none;display:flex;flex-direction:column;gap:12px}
+.step-body li{position:relative;padding-left:20px;color:var(--tx);font-size:14.5px;line-height:1.55}
+.step-body li::before{content:"";position:absolute;left:0;top:8px;width:7px;height:7px;border-radius:50%;background:var(--volt)}
+.step-media{background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);min-height:220px;display:grid;place-items:center;padding:30px}
+.step-media .big-ic{width:110px;height:110px;border-radius:50%;border:2.5px solid var(--volt);display:grid;place-items:center;background:var(--bg)}
+.step-media .big-ic svg{width:48px;height:48px;stroke:var(--volt)}
+
+/* mini chips (step 3) */
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:8px}
+.chip{background:var(--surf);border:1px solid var(--bd);border-radius:var(--r-sm);padding:16px}
+.chip b{display:inline-flex;width:26px;height:26px;border-radius:50%;background:var(--volt);color:#0c0c0e;align-items:center;justify-content:center;font-family:var(--disp);font-size:12.5px;margin-bottom:10px}
+.chip p{font-size:13.5px;color:var(--tx)}
+
+/* mini flow (step 4) */
+.flow{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:34px;flex-wrap:wrap}
+.flow .fnode{display:flex;flex-direction:column;align-items:center;gap:8px;width:100px}
+.flow .fic{width:56px;height:56px;border-radius:50%;border:2px solid var(--volt);display:grid;place-items:center;background:var(--bg)}
+.flow .fic svg{width:22px;height:22px;stroke:var(--volt)}
+.flow .flabel{font-size:11.5px;color:var(--tx2);text-align:center}
+.flow .arrow{color:var(--bd2);font-size:20px}
+
+/* two-card step 5 */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:8px}
+.method{background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:26px}
+.method-h{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.method-h .ring-ic{margin-bottom:0}
+.method-h h4{font-size:16.5px;color:var(--volt)}
+.method ol{list-style:none;display:flex;flex-direction:column;gap:14px}
+.method ol li{display:flex;gap:12px;font-size:13.5px;color:var(--tx)}
+.method ol li b{flex:none;width:24px;height:24px;border-radius:50%;background:var(--volt-soft);color:var(--volt);display:grid;place-items:center;font-family:var(--disp);font-size:11.5px}
+
+/* ---- closing ---- */
+.closing{text-align:center;padding:80px 0;position:relative}
+.closing .ring-ic{margin:0 auto 26px;width:78px;height:78px}
+.closing .ring-ic svg{width:34px;height:34px}
+.closing h2{font-size:32px;margin-bottom:14px}
+.closing p{color:var(--tx2);max-width:520px;margin:0 auto 30px}
+.closing .hero-cta{margin-bottom:26px}
+
+footer{border-top:1px solid var(--bd);padding:26px 0;text-align:center;color:var(--mut);font-size:12.5px}
+
+@media (max-width:860px){
+  .hero h1{font-size:34px}
+  .grid3{grid-template-columns:1fr}
+  .step,.step.rev{grid-template-columns:1fr;gap:24px}
+  .step.rev .step-media{order:0}
+  .grid2{grid-template-columns:1fr}
+  .chips{grid-template-columns:1fr}
+  .nav-back span{display:none}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap">
+    <div class="brand">
+      <img src="/icon.png" alt="Mega Links BR">
+      <div class="wm">Mega<span>Links</span> BR</div>
+    </div>
+    <a class="nav-back" href="/">← <span>Voltar ao painel</span></a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow">GUIA DO NOVO USUÁRIO</span>
+    <h1>Bem-vindo à <span class="g">MegaLinksBR</span></h1>
+    <p class="lead">Um guia rápido e simples para você configurar sua conta e começar a divulgar ofertas automaticamente nos seus grupos e canais de WhatsApp e Telegram.</p>
+    <a class="hero-cta" href="#passos">Ver os 5 passos ↓</a>
+    <div class="tagline">MAIS QUE LINKS, <b>CONEXÕES</b> QUE GERAM <b>RESULTADOS</b>.</div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <h2>O que a MegaLinksBR faz por você</h2>
+      <p>A MegaLinksBR encontra as melhores ofertas no Mercado Livre e na Shopee e publica automaticamente nos seus grupos e canais de WhatsApp e Telegram. Você configura uma vez — o sistema cuida da divulgação todos os dias.</p>
+    </div>
+    <div class="grid3">
+      <div class="card">
+        <div class="ring-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+        <h3>Conecta</h3>
+        <p>Une seu WhatsApp, Telegram e os marketplaces em um só lugar.</p>
+      </div>
+      <div class="card">
+        <div class="ring-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-3.9M8.6 13.5l6.8 3.9"/></svg></div>
+        <h3>Compartilha</h3>
+        <p>Publica as ofertas nos seus grupos e canais, sozinha.</p>
+      </div>
+      <div class="card">
+        <div class="ring-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></svg></div>
+        <h3>Transforma</h3>
+        <p>Menos trabalho manual, mais tempo livre e resultado.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="passos">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Como funciona, em 5 passos</h2>
+      <p>Clique em qualquer passo para ir direto até ele.</p>
+    </div>
+    <div class="stepper">
+      <a href="#passo-1"><b>1</b>Conectar WhatsApp</a>
+      <a href="#passo-2"><b>2</b>Marketplaces</a>
+      <a href="#passo-3"><b>3</b>Grupo de Ofertas</a>
+      <a href="#passo-4"><b>4</b>Vincular canais</a>
+      <a href="#passo-5"><b>5</b>Adicionar produtos</a>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+
+    <div class="step" id="passo-1">
+      <div class="step-body">
+        <span class="step-num">1</span>
+        <h3>Entrar e conectar seu WhatsApp</h3>
+        <ul>
+          <li>Faça login normalmente no site da MegaLinksBR.</li>
+          <li>Em seguida, pareie (conecte) seu celular ao WhatsApp — é parecido com fazer login no WhatsApp Web.</li>
+          <li>Essa conexão é necessária porque é o seu WhatsApp que envia as ofertas para os grupos.</li>
+          <li>Fique tranquilo: a conexão acontece em um ambiente seguro.</li>
+        </ul>
+      </div>
+      <div class="step-media">
+        <div class="big-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-4.95A9 9 0 1 1 8.5 19.5L3 21z"/><path d="M8.5 12.5c.5 1.8 2.2 3.5 4 4"/></svg></div>
+      </div>
+    </div>
+
+    <div class="step rev" id="passo-2">
+      <div class="step-body">
+        <span class="step-num">2</span>
+        <h3>Cadastrar as credenciais dos marketplaces</h3>
+        <ul>
+          <li>Informe seus dados de acesso do Mercado Livre e da Shopee.</li>
+          <li>Essas credenciais permitem que o sistema busque produtos e gere seus links de afiliado automaticamente.</li>
+          <li>Sem esse cadastro, a MegaLinksBR não consegue montar as ofertas para você.</li>
+        </ul>
+      </div>
+      <div class="step-media">
+        <div class="big-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1-5h16l1 5"/><path d="M3 9h18v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9z"/><path d="M9 13h6"/></svg></div>
+      </div>
+    </div>
+
+    <div class="step" id="passo-3" style="display:block">
+      <span class="step-num">3</span>
+      <h3>Criar um Grupo de Ofertas</h3>
+      <p style="color:var(--tx2);font-size:14.5px;max-width:640px;margin:10px 0 4px">O Grupo de Ofertas é onde ficam organizados os produtos que você quer divulgar. Cada grupo pode ser publicado em um ou mais canais do WhatsApp e Telegram.</p>
+      <div class="chips">
+        <div class="chip"><b>1</b><p>Crie um grupo e dê um nome para ele</p></div>
+        <div class="chip"><b>2</b><p>Com o grupo criado, clique em Editar</p></div>
+        <div class="chip"><b>3</b><p>No menu do grupo, acesse Produtos</p></div>
+      </div>
+    </div>
+
+    <div class="step" id="passo-4">
+      <div class="step-body">
+        <span class="step-num">4</span>
+        <h3>Vincular seus grupos e canais</h3>
+        <ul>
+          <li>No seu Grupo de Ofertas, abra o menu Distribuição.</li>
+          <li>Escolha quais grupos e canais do WhatsApp e Telegram vão receber as postagens.</li>
+          <li>Pronto: as ofertas desse grupo passam a ser publicadas automaticamente neles.</li>
+        </ul>
+      </div>
+      <div class="step-media">
+        <div class="big-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="fnode">
+        <div class="fic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg></div>
+        <span class="flabel">Grupo de Ofertas</span>
+      </div>
+      <span class="arrow">→</span>
+      <div class="fnode">
+        <div class="fic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+        <span class="flabel">Distribuição</span>
+      </div>
+      <span class="arrow">→</span>
+      <div class="fnode">
+        <div class="fic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-4.95A9 9 0 1 1 8.5 19.5L3 21z"/><path d="M8.5 12.5c.5 1.8 2.2 3.5 4 4"/></svg></div>
+        <span class="flabel">WhatsApp / Telegram</span>
+      </div>
+    </div>
+
+    <div class="step" id="passo-5" style="display:block">
+      <span class="step-num">5</span>
+      <h3>Adicionar produtos: duas formas simples</h3>
+      <div class="grid2">
+        <div class="method">
+          <div class="method-h">
+            <div class="ring-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 2v10l7-3.5"/></svg></div>
+            <h4>Pelo Radar de Ofertas</h4>
+          </div>
+          <ol>
+            <li><b>1</b>Abra o Radar de Ofertas no menu inicial.</li>
+            <li><b>2</b>Encontre o produto desejado.</li>
+            <li><b>3</b>Clique em Grupo e escolha o grupo de destino.</li>
+            <li><b>4</b>Toque em "+Adicionar ao Grupo" — pronto!</li>
+          </ol>
+        </div>
+        <div class="method">
+          <div class="method-h">
+            <div class="ring-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg></div>
+            <h4>Direto no Grupo de Ofertas</h4>
+          </div>
+          <ol>
+            <li><b>1</b>Abra o grupo, clique em Editar e depois em Produtos.</li>
+            <li><b>2</b>Clique no botão "+Adicionar".</li>
+            <li><b>3</b>Escolha "Importar via Link" ou "Adicionar Manualmente".</li>
+            <li><b>4</b>Finalize clicando em "+Salvar Produto".</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section class="closing">
+  <div class="wrap">
+    <div class="ring-ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m22 4-10 10-3-3"/></svg></div>
+    <h2>Pronto! Você já pode divulgar suas primeiras ofertas</h2>
+    <p>Sempre que quiser adicionar novos produtos aos seus grupos, basta repetir o passo 5 — pelo Radar de Ofertas ou direto no Grupo de Ofertas.</p>
+    <a class="hero-cta" href="/">Ir para o painel</a>
+    <div class="tagline">MAIS QUE LINKS, <b>CONEXÕES</b> QUE GERAM <b>RESULTADOS</b>.</div>
+  </div>
+</section>
+
+<footer>MegaLinksBR — Guia do novo usuário</footer>
+
+</body>
+</html>

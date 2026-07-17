@@ -5,6 +5,7 @@ COPY index.html /usr/share/nginx/html/index.html
 COPY revops.html /usr/share/nginx/html/revops.html
 COPY privacidade.html /usr/share/nginx/html/privacidade.html
 COPY termos.html /usr/share/nginx/html/termos.html
+COPY guia.html /usr/share/nginx/html/guia.html
 COPY favicon.png /usr/share/nginx/html/favicon.png
 COPY icon.png /usr/share/nginx/html/icon.png
 COPY banner.jpg /usr/share/nginx/html/banner.jpg
@@ -26,6 +27,11 @@ resolver_timeout 5s;
 server {
   listen 80;
   root /usr/share/nginx/html;
+
+  # Guia do novo usuário — URL limpa /guia
+  location = /guia {
+    try_files /guia.html =404;
+  }
 
   # Short links — redireciona /r/{code} para a Edge Function redirect
   location /r/ {
