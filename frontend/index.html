@@ -7763,8 +7763,13 @@ function prCarregarOfertaDoRadar(){
     de:o.de?String(o.de):"",
     por:o.por?String(o.por):""
   };
-  PR.linkAfil=o.link||"";
-  PR.shortLinkAfil=o.link||""; // oferta do Radar já vem com link oficial de afiliado — não recalcular
+  // Re-gera o link de afiliado com as credenciais do usuário LOGADO (não a credencial
+  // compartilhada/mais recente que alimentou a busca do Radar) — essencial pra comissão
+  // cair pra quem clicou em Postar, e não pra quem forneceu a credencial de busca.
+  // Mesma lógica já usada em rgSalvarNoGrupo() para o fluxo "salvar no grupo".
+  const linkRegeneradoRadar=o.link?(prGerarLinkAfil(o.link,PR.loja||o.loja||"")||o.link):"";
+  PR.linkAfil=linkRegeneradoRadar;
+  PR.shortLinkAfil=linkRegeneradoRadar;
   
   // Coloca o link no campo (visualmente)
   const lnk=document.getElementById("prLink");if(lnk)lnk.value=o.link||"";
