@@ -689,6 +689,24 @@ tbody tr:last-child td{border-bottom:none}
         </table>
       </div>
 
+      <div class="card" style="margin-bottom:20px">
+        <h3>Desempenho mensal por influencer</h3>
+        <div class="pageSub" style="margin-bottom:12px">Veja se a divulgação de cada influencer está compensando a parceria: quantos cupons ela gerou e quantos viraram assinatura paga em cada mês.</div>
+        <div class="toolbar" style="margin-bottom:14px">
+          <select id="perfInfSel" onchange="renderInfluencerPerformance()" style="max-width:260px">
+            <option value="">Todas as influencers</option>
+          </select>
+          <select id="perfMonthSel" onchange="renderInfluencerPerformance()" style="max-width:180px">
+            <option value="">Todos os meses</option>
+          </select>
+        </div>
+        <div class="kpis" id="perfKpis" style="margin-bottom:18px"></div>
+        <table>
+          <thead><tr><th>Influencer</th><th>Cupom</th><th>Mês</th><th>Cupons resgatados</th><th>Convertidos em pagantes</th><th>Taxa de conversão</th><th>Meses grátis concedidos</th></tr></thead>
+          <tbody id="perfBody"><tr><td colspan="7" class="loading">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+
       <div class="card">
         <h3>Fila de mês grátis</h3>
         <div class="pageSub" style="margin-bottom:12px">Assinantes que usaram um cupom de influencer no fechamento do plano. Conceda o mês grátis somente após o fim do trial de 7 dias, com a assinatura já ativa.</div>
@@ -2238,6 +2256,7 @@ async function loadInfluencers(){
   infRedemptionsCache = redemptions || [];
   renderInfluencers();
   renderFreeMonthQueue();
+  loadInfluencerPerformance();
 }
 
 function renderInfluencers(){
@@ -2343,6 +2362,70 @@ async function denyFreeMonth(id){
   if(error){ toast('Erro: ' + error.message); return; }
   toast('Mês grátis negado');
   loadInfluencers();
+}
+
+
+// ---------- DESEMPENHO MENSAL POR INFLUENCER ----------
+let perfCache = [];
+
+async function loadInfluencerPerformance(){
+  const { data, error } = await sb.rpc('influencer_monthly_performance');
+  if(error){ document.getElementById('perfBody').innerHTML = '<tr><td colspan="7" style="color:var(--danger)">Erro: '+esc(error.message)+'</td></tr>'; return; }
+  perfCache = data || [];
+
+  const infSel = document.getElementById('perfInfSel');
+  const monthSel = document.getElementById('perfMonthSel');
+  const infNames = [...new Map(perfCache.map(r=>[r.influencer_id, r.influencer_name+' ('+r.coupon_code+')'])).entries()];
+  infSel.innerHTML = '<option value="">Todas as influencers</option>' + infNames.map(([id,label])=>`<option value="${id}">${esc(label)}</option>`).join('');
+  const months = [...new Set(perfCache.map(r=>r.month))].sort().reverse();
+  monthSel.innerHTML = '<option value="">Todos os meses</option>' + months.map(m=>`<option value="${m}">${mesLabel(m)}</option>`).join('');
+
+  renderInfluencerPerformance();
+}
+
+function mesLabel(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  return d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+}
+
+function renderInfluencerPerformance(){
+  const infId = document.getElementById('perfInfSel').value;
+  const month = document.getElementById('perfMonthSel').value;
+  const body = document.getElementById('perfBody');
+  const kpis = document.getElementById('perfKpis');
+
+  const filtered = perfCache.filter(r=>
+    (!infId || r.influencer_id===infId) && (!month || r.month===month)
+  );
+
+  if(!filtered.length){
+    body.innerHTML = '<tr><td colspan="7" class="loading">Sem resgates de cupom no período selecionado</td></tr>';
+    kpis.innerHTML = '';
+    return;
+  }
+
+  const totalResgates = filtered.reduce((s,r)=>s+Number(r.coupons_resgatados),0);
+  const totalConvertidos = filtered.reduce((s,r)=>s+Number(r.convertidos_pagantes),0);
+  const totalGratis = filtered.reduce((s,r)=>s+Number(r.meses_gratis_concedidos),0);
+  const taxaGeral = totalResgates ? Math.round(totalConvertidos/totalResgates*1000)/10 : 0;
+
+  kpis.innerHTML = `
+    <div class="kpi"><div class="lbl">Cupons resgatados</div><div class="val">${totalResgates}</div></div>
+    <div class="kpi money"><div class="lbl">Convertidos em pagantes</div><div class="val">${totalConvertidos}</div></div>
+    <div class="kpi brand"><div class="lbl">Taxa de conversão</div><div class="val">${taxaGeral}%</div></div>
+    <div class="kpi"><div class="lbl">Meses grátis concedidos</div><div class="val">${totalGratis}</div></div>
+  `;
+
+  body.innerHTML = filtered.map(r=>`
+    <tr>
+      <td>${esc(r.influencer_name)}</td>
+      <td class="mono">${esc(r.coupon_code)}</td>
+      <td>${mesLabel(r.month)}</td>
+      <td>${r.coupons_resgatados}</td>
+      <td>${r.convertidos_pagantes}</td>
+      <td><span class="prob ${r.taxa_conversao>=30?'hi':r.taxa_conversao>=10?'mid':'lo'}">${r.taxa_conversao||0}%</span></td>
+      <td>${r.meses_gratis_concedidos}</td>
+    </tr>`).join('');
 }
 
 </script>
