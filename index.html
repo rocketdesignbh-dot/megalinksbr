@@ -1601,6 +1601,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button class="btn btn-volt" onclick="fecharAvisoWaRepair('conexao')">📱 Parear agora</button>
     </div>
   </div></div>
+  <!-- Aviso admin: conexao RevOps sem heartbeat (NUNCA desconecta sozinha, so avisa) -->
+  <div class="mbg" id="modalAdminWaAlerta"><div class="modal" style="max-width:520px">
+    <div class="mh">⚠️ Conexão admin RevOps sem resposta <button class="mx" onclick="fecharAlertaAdminWa()">×</button></div>
+    <div class="mb">
+      <div class="alert" style="margin-bottom:14px;border-left:3px solid var(--volt)">
+        <strong id="adminWaAlertaNum">Conexão admin</strong> parou de enviar heartbeat.
+      </div>
+      <p id="adminWaAlertaMsg" style="color:var(--mut);line-height:1.6;margin:0 0 14px"></p>
+      <p style="color:var(--mut);font-size:12px;margin:0">
+        Essa conexão é usada pelo MegaRevOps para retenção e NUNCA é desconectada automaticamente. Verifique manualmente se o WhatsApp continua pareado.
+      </p>
+    </div>
+    <div class="mf">
+      <button class="btn btn-volt" style="flex:1" onclick="fecharAlertaAdminWa()">Entendi</button>
+    </div>
+  </div></div>
   <div class="mbg" id="modalVip">
     <div class="modal" style="max-width:520px">
       <div class="mh"><strong style="font-family:var(--disp)">⭐ Conceder acesso VIP</strong><button class="mx" onclick="closeModal('modalVip')">×</button></div>
@@ -8155,6 +8171,8 @@ async function enterApp(profile){
   }
   // Aviso de WhatsApp desconectado por falta de automacao ativa
   if(!profile.demo){setTimeout(()=>checarAvisoWaRepair(),1400);}
+  // Aviso admin: conexao RevOps sem heartbeat (nao desconecta, so avisa)
+  if(!profile.demo&&IS_ADMIN){setTimeout(()=>checarAlertaAdminWa(),1800);}
 }
 
 /* ===== Aviso: sessao WhatsApp derrubada por inatividade de automacoes =====
@@ -8169,13 +8187,9 @@ async function checarAvisoWaRepair(){
     const numEl=document.getElementById("waRepairNum");
     const msgEl=document.getElementById("waRepairMsg");
     if(numEl)numEl.textContent="Seu WhatsApp"+(n.phone?" ("+n.phone+")":"");
-    if(msgEl){
-      let quando="";
-      if(n.desconectado_em){
-        try{quando=" em "+new Date(n.desconectado_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});}catch(e){}
-      }
-      msgEl.textContent="A sessão foi encerrada"+quando+" porque nenhuma automação ficou ativa por mais de "+(n.minutos_tolerancia||30)+" minutos.";
-    }
+    // A RPC ja devolve a mensagem formatada por motivo (idle_no_automation,
+    // session_closed, heartbeat_timeout) — evita hardcode que so cobria um caso.
+    if(msgEl)msgEl.textContent=n.mensagem||"Sua sessão foi desconectada. Pareie novamente lendo o QR Code.";
     if(typeof openModal==="function")openModal("modalWaRepair");
   }catch(e){console.warn("checarAvisoWaRepair:",e);}
 }
@@ -8184,6 +8198,28 @@ async function fecharAvisoWaRepair(irPara){
   if(typeof closeModal==="function")closeModal("modalWaRepair");
   try{if(SB)await SB.rpc("ack_whatsapp_repair_notice");}catch(e){console.warn("ack aviso wa:",e);}
   if(irPara&&typeof go==="function")go(irPara);
+}
+
+/* ===== Aviso admin: conexao RevOps sem heartbeat =====
+   NUNCA desconecta essa sessao automaticamente (decisao explicita). So avisa
+   o admin que o heartbeat parou de chegar, pra verificacao manual. */
+async function checarAlertaAdminWa(){
+  if(!SB)return;
+  try{
+    const{data,error}=await SB.rpc("get_admin_whatsapp_alert");
+    if(error||!data||!data.length)return;
+    const n=data[0];
+    const numEl=document.getElementById("adminWaAlertaNum");
+    const msgEl=document.getElementById("adminWaAlertaMsg");
+    if(numEl)numEl.textContent="Conexão admin"+(n.phone?" ("+n.phone+")":"");
+    if(msgEl)msgEl.textContent=n.mensagem||"A conexão admin do RevOps parou de responder.";
+    if(typeof openModal==="function")openModal("modalAdminWaAlerta");
+  }catch(e){console.warn("checarAlertaAdminWa:",e);}
+}
+
+async function fecharAlertaAdminWa(){
+  if(typeof closeModal==="function")closeModal("modalAdminWaAlerta");
+  try{if(SB)await SB.rpc("ack_admin_whatsapp_alert");}catch(e){console.warn("ack alerta admin wa:",e);}
 }
 
 async function fecharBoasVindas(irPara){
