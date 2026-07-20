@@ -5765,6 +5765,11 @@ async function iniciarCheckout(planKey,planLabel,valor,billingType,recurring){
           oninput="this.value=this.value.replace(/[^\\d]/g,'').replace(/(\\d{3})(\\d)/,'$1.$2').replace(/(\\d{3})(\\d)/,'$1.$2').replace(/(\\d{3})(\\d{1,2})$/,'$1-$2').substring(0,14)">
         <div style="font-size:11px;color:var(--mut);margin-top:4px">Necessário para emissão da cobrança</div>
       </div>
+      <div class="field" style="margin:0">
+        <label style="font-size:12px">Cupom de Influencer <span style="font-weight:400;color:var(--mut)">(opcional)</span></label>
+        <input id="ckCoupon" type="text" placeholder="Ex: MARIA10" style="font-size:14px;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+        <div style="font-size:11px;color:var(--mut);margin-top:4px">Ganhou um cupom de uma influencer parceira? Preencha aqui para garantir seu primeiro mês grátis após o trial.</div>
+      </div>
       <button class="btn btn-volt" style="width:100%;justify-content:center" onclick="confirmarCheckout('${planKey}',${valor})">${btnTxt} — R$ ${brl(valor)}</button>
       <div style="font-size:11px;color:var(--mut);text-align:center">Seus dados são usados apenas para emissão da cobrança e ficam salvos com segurança.</div>
     </div>`;
@@ -5777,6 +5782,19 @@ async function confirmarCheckout(planKey,valor){
   if(cpf.length!==11&&cpf.length!==14){toast("Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.","⚠️");cpfInput?.focus();return;}
   const billingType=_checkoutBillingType||"PIX";
   const recurring=!!_checkoutRecurring;
+  const couponInput=document.getElementById("ckCoupon");
+  const coupon=(couponInput?.value||"").trim().toUpperCase();
+  if(coupon){
+    try{
+      const{data:cdata,error:cerr}=await SB.rpc("redeem_influencer_coupon",{p_coupon_code:coupon});
+      if(cerr||!cdata?.ok){
+        const motivo=cdata?.error==="invalid_coupon"?"Cupom inválido ou expirado.":cdata?.error==="already_redeemed"?"Você já usou um cupom de influencer anteriormente.":"Não foi possível validar o cupom.";
+        toast(motivo,"⚠️");
+      }else{
+        toast("Cupom aplicado! Seu primeiro mês grátis será liberado após o trial.","✅");
+      }
+    }catch(e){toast("Não foi possível validar o cupom agora, mas seu checkout continua normalmente.","⚠️");}
+  }
   document.getElementById("ckBody").innerHTML='<div style="text-align:center;padding:20px;color:var(--mut)">⏳ Gerando cobrança…</div>';
   try{
     const session=await SB.auth.getSession();

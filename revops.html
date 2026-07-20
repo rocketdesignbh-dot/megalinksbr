@@ -231,6 +231,7 @@ tbody tr:last-child td{border-bottom:none}
       <a href="#" data-sec="ia" onclick="go('ia',this);return false">🤖 IA Insights</a>
       <a href="#" data-sec="automations" onclick="go('automations',this);return false">⚡ Automações</a>
       <a href="#" data-sec="connections" onclick="go('connections',this);return false">🔌 Conexões Admin</a>
+      <a href="#" data-sec="influencer" onclick="go('influencer',this);return false">🎯 Cupom Influencer</a>
       <a href="#" data-sec="rules" onclick="go('rules',this);return false">⚙️ Regras de Score</a>
     </nav>
     <div class="spacer"></div>
@@ -664,6 +665,40 @@ tbody tr:last-child td{border-bottom:none}
       </div>
     </div>
 
+    <!-- INFLUENCER -->
+    <div class="section" id="sec-influencer">
+      <h2 class="pageTitle">Cupom Influencer</h2>
+      <div class="pageSub">Parcerias com influencers do Instagram — cadastro, cupom e mês grátis.</div>
+
+      <div class="card" style="margin-bottom:20px">
+        <h3>Nova parceria</h3>
+        <div class="toolbar" style="margin-bottom:10px">
+          <input id="infSearchEmail" placeholder="E-mail do usuário já cadastrado no Megalinks">
+          <input id="infCoupon" placeholder="Código do cupom (ex: MARIA10)" style="max-width:200px">
+          <input id="infHandle" placeholder="@instagram" style="max-width:180px">
+          <button class="btn" style="width:auto;margin:0" onclick="addInfluencer()">+ Adicionar</button>
+        </div>
+        <div id="infAddStatus" style="font-size:12.5px;color:var(--mut)"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <h3>Influencers parceiras</h3>
+        <table>
+          <thead><tr><th>Nome/E-mail</th><th>Instagram</th><th>Cupom</th><th>Status</th><th>Assinantes via cupom</th><th>Meses grátis concedidos</th><th></th></tr></thead>
+          <tbody id="influencersBody"><tr><td colspan="7" class="loading">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>Fila de mês grátis</h3>
+        <div class="pageSub" style="margin-bottom:12px">Assinantes que usaram um cupom de influencer no fechamento do plano. Conceda o mês grátis somente após o fim do trial de 7 dias, com a assinatura já ativa.</div>
+        <table>
+          <thead><tr><th>Assinante</th><th>Influencer / Cupom</th><th>Resgatado em</th><th>Fim do trial</th><th>Status assinatura</th><th>Status cupom</th><th></th></tr></thead>
+          <tbody id="freeMonthBody"><tr><td colspan="7" class="loading">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- RULES -->
     <div class="section" id="sec-rules">
       <h2 class="pageTitle">Regras de Score</h2>
@@ -776,6 +811,7 @@ function go(sec,el){
   if(sec==='tasks') loadTasks();
   if(sec==='audit') loadAudit();
   if(sec==='connections') loadConnections();
+  if(sec==='influencer') loadInfluencers();
 }
 
 // ---------- HELPERS ----------
@@ -2182,6 +2218,133 @@ async function saveRule(type){
   if(error){toast('Erro ao salvar: '+error.message);return;}
   toast('Regra salva. Scores recalculados automaticamente.');
 }
+
+// ---------- CUPOM INFLUENCER ----------
+let infCache = [];
+let infRedemptionsCache = [];
+
+async function loadInfluencers(){
+  document.getElementById('influencersBody').innerHTML = '<tr><td colspan="7" class="loading">Carregando…</td></tr>';
+  document.getElementById('freeMonthBody').innerHTML = '<tr><td colspan="7" class="loading">Carregando…</td></tr>';
+
+  const [{ data: partners, error: e1 }, { data: redemptions, error: e2 }] = await Promise.all([
+    sb.from('influencer_partners').select('*, profile:user_id(email,full_name)').order('created_at',{ascending:false}),
+    sb.from('influencer_coupon_redemptions').select('*, subscriber:redeemed_by_user_id(email,full_name,trial_expires_at,sub_status), influencer:influencer_id(coupon_code,user_id)').order('redeemed_at',{ascending:false})
+  ]);
+  if(e1){ document.getElementById('influencersBody').innerHTML = '<tr><td colspan="7" style="color:var(--danger)">Erro: '+esc(e1.message)+'</td></tr>'; return; }
+  if(e2){ document.getElementById('freeMonthBody').innerHTML = '<tr><td colspan="7" style="color:var(--danger)">Erro: '+esc(e2.message)+'</td></tr>'; return; }
+
+  infCache = partners || [];
+  infRedemptionsCache = redemptions || [];
+  renderInfluencers();
+  renderFreeMonthQueue();
+}
+
+function renderInfluencers(){
+  const body = document.getElementById('influencersBody');
+  if(!infCache.length){ body.innerHTML = '<tr><td colspan="7" class="loading">Nenhuma influencer cadastrada ainda</td></tr>'; return; }
+  body.innerHTML = infCache.map(inf=>{
+    const p = inf.profile || {};
+    const total = infRedemptionsCache.filter(r=>r.influencer_id===inf.id).length;
+    const granted = infRedemptionsCache.filter(r=>r.influencer_id===inf.id && r.free_month_status==='granted').length;
+    const statusTag = inf.status==='active'
+      ? '<span class="tag customer">Ativa</span>'
+      : '<span class="tag cancelled">Cancelada</span>';
+    return `<tr>
+      <td>${esc(p.full_name||p.email||inf.user_id)}</td>
+      <td>${esc(inf.instagram_handle||'—')}</td>
+      <td class="mono">${esc(inf.coupon_code)}</td>
+      <td>${statusTag}</td>
+      <td>${total}</td>
+      <td>${granted}</td>
+      <td>${inf.status==='active' ? `<button class="saveMini" style="padding:6px 10px;font-size:12px;background:var(--danger)" onclick="cancelInfluencer('${inf.id}')">Cancelar Parceria</button>` : ''}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderFreeMonthQueue(){
+  const body = document.getElementById('freeMonthBody');
+  const queue = infRedemptionsCache.filter(r=>r.free_month_status==='pending_trial' || r.free_month_status==='eligible');
+  if(!queue.length){ body.innerHTML = '<tr><td colspan="7" class="loading">Nenhum resgate aguardando análise</td></tr>'; return; }
+  body.innerHTML = queue.map(r=>{
+    const s = r.subscriber || {};
+    const inf = infCache.find(i=>i.id===r.influencer_id);
+    const trialEnd = s.trial_expires_at ? dfmt(s.trial_expires_at) : '—';
+    const subStatusTag = s.sub_status ? `<span class="tag ${esc(s.sub_status)}">${esc(s.sub_status)}</span>` : '—';
+    return `<tr>
+      <td>${esc(s.full_name||s.email||r.redeemed_by_user_id)}</td>
+      <td>${esc((inf&&inf.coupon_code)||r.coupon_code)}</td>
+      <td>${dfmt(r.redeemed_at)}</td>
+      <td>${trialEnd}</td>
+      <td>${subStatusTag}</td>
+      <td><span class="tag ${r.free_month_status==='eligible'?'trial_expired':'trial'}">${r.free_month_status==='eligible'?'Elegível':'Em trial'}</span></td>
+      <td style="white-space:nowrap">
+        <button class="saveMini" style="padding:6px 10px;font-size:12px" onclick="approveFreeMonth('${r.id}')">✓ Conceder</button>
+        <button class="saveMini" style="padding:6px 10px;font-size:12px;background:var(--danger)" onclick="denyFreeMonth('${r.id}')">✕ Negar</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function addInfluencer(){
+  const emailInput = document.getElementById('infSearchEmail');
+  const couponInput = document.getElementById('infCoupon');
+  const handleInput = document.getElementById('infHandle');
+  const status = document.getElementById('infAddStatus');
+  const email = emailInput.value.trim().toLowerCase();
+  const coupon = couponInput.value.trim().toUpperCase();
+  const handle = handleInput.value.trim();
+
+  if(!email || !coupon){ status.textContent = 'Preencha e-mail e cupom.'; status.style.color = 'var(--danger)'; return; }
+
+  status.textContent = 'Buscando usuário…'; status.style.color = 'var(--mut)';
+  const { data: user, error: findErr } = await sb.from('profiles').select('id,email,full_name').eq('email', email).maybeSingle();
+  if(findErr || !user){ status.textContent = 'Usuário não encontrado com esse e-mail (ele precisa ter conta no Megalinks).'; status.style.color = 'var(--danger)'; return; }
+
+  status.textContent = 'Cadastrando parceria…';
+  const { error: insertErr } = await sb.from('influencer_partners').insert({
+    user_id: user.id,
+    coupon_code: coupon,
+    instagram_handle: handle || null
+  });
+  if(insertErr){ status.textContent = 'Erro: ' + insertErr.message; status.style.color = 'var(--danger)'; return; }
+
+  status.textContent = '✓ ' + (user.full_name||user.email) + ' promovida a VIP e cadastrada como influencer parceira.';
+  status.style.color = 'var(--money)';
+  emailInput.value=''; couponInput.value=''; handleInput.value='';
+  toast('Influencer cadastrada ✓');
+  loadInfluencers();
+}
+
+async function cancelInfluencer(id){
+  if(!confirm('Cancelar esta parceria? O usuário voltará ao estado anterior de VIP.')) return;
+  const { error } = await sb.from('influencer_partners').update({ status: 'canceled' }).eq('id', id);
+  if(error){ toast('Erro: ' + error.message); return; }
+  toast('Parceria cancelada ✓');
+  loadInfluencers();
+}
+
+async function approveFreeMonth(id){
+  if(!confirm('Confirma a concessão do primeiro mês grátis para este assinante?')) return;
+  const { data: { user } } = await sb.auth.getUser();
+  const { error } = await sb.from('influencer_coupon_redemptions').update({
+    free_month_status: 'granted',
+    free_month_granted_at: new Date().toISOString(),
+    granted_by: user ? user.id : null
+  }).eq('id', id);
+  if(error){ toast('Erro: ' + error.message); return; }
+  toast('Mês grátis concedido ✓ — aplique o crédito correspondente no gateway de pagamento (Asaas).');
+  loadInfluencers();
+}
+
+async function denyFreeMonth(id){
+  if(!confirm('Negar o mês grátis para este resgate?')) return;
+  const { error } = await sb.from('influencer_coupon_redemptions').update({ free_month_status: 'denied' }).eq('id', id);
+  if(error){ toast('Erro: ' + error.message); return; }
+  toast('Mês grátis negado');
+  loadInfluencers();
+}
+
 </script>
 </body>
 </html>
