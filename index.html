@@ -1577,6 +1577,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
   </div>
+  <!-- Aviso: WhatsApp desconectado automaticamente por inatividade de automações -->
+  <div class="mbg" id="modalWaRepair"><div class="modal" style="max-width:520px">
+    <div class="mh">📵 WhatsApp desconectado <button class="mx" onclick="fecharAvisoWaRepair()">×</button></div>
+    <div class="mb">
+      <div class="alert" style="margin-bottom:14px;border-left:3px solid var(--volt)">
+        <strong id="waRepairNum">Seu WhatsApp</strong> foi desconectado automaticamente.
+      </div>
+      <p id="waRepairMsg" style="color:var(--mut);line-height:1.6;margin:0 0 14px"></p>
+      <div style="background:var(--surf2);border-radius:10px;padding:14px 16px">
+        <div style="font-weight:700;margin-bottom:10px">Para voltar a disparar:</div>
+        <div style="display:grid;gap:8px;font-size:13px;color:var(--mut)">
+          <div><strong style="color:var(--txt)">1.</strong> Pareie o aparelho novamente lendo o QR Code</div>
+          <div><strong style="color:var(--txt)">2.</strong> Acione o botão <strong style="color:var(--txt)">▶ Iniciar</strong> em pelo menos uma automação</div>
+        </div>
+      </div>
+      <p style="color:var(--mut);font-size:12px;margin:14px 0 0">
+        Desconectamos sessões sem nenhuma automação ativa para manter a rede estável. Com uma automação acionada, sua sessão permanece conectada.
+      </p>
+    </div>
+    <div class="mf">
+      <button class="btn btn-ghost" onclick="fecharAvisoWaRepair()">Depois</button>
+      <button class="btn btn-volt" onclick="fecharAvisoWaRepair('conexao')">📱 Parear agora</button>
+    </div>
+  </div></div>
   <div class="mbg" id="modalVip">
     <div class="modal" style="max-width:520px">
       <div class="mh"><strong style="font-family:var(--disp)">⭐ Conceder acesso VIP</strong><button class="mx" onclick="closeModal('modalVip')">×</button></div>
@@ -8116,6 +8140,37 @@ async function enterApp(profile){
       if(typeof openModal==="function")openModal("modalBoasVindas");
     },700);
   }
+  // Aviso de WhatsApp desconectado por falta de automacao ativa
+  if(!profile.demo){setTimeout(()=>checarAvisoWaRepair(),1400);}
+}
+
+/* ===== Aviso: sessao WhatsApp derrubada por inatividade de automacoes =====
+   A regra desconecta a sessao quando o usuario fica 30 min sem NENHUMA
+   automacao com o botao Iniciar acionado. Aqui avisamos no proximo login. */
+async function checarAvisoWaRepair(){
+  if(!SB)return;
+  try{
+    const{data,error}=await SB.rpc("get_whatsapp_repair_notice");
+    if(error||!data||!data.length)return;
+    const n=data[0];
+    const numEl=document.getElementById("waRepairNum");
+    const msgEl=document.getElementById("waRepairMsg");
+    if(numEl)numEl.textContent="Seu WhatsApp"+(n.phone?" ("+n.phone+")":"");
+    if(msgEl){
+      let quando="";
+      if(n.desconectado_em){
+        try{quando=" em "+new Date(n.desconectado_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});}catch(e){}
+      }
+      msgEl.textContent="A sessão foi encerrada"+quando+" porque nenhuma automação ficou ativa por mais de "+(n.minutos_tolerancia||30)+" minutos.";
+    }
+    if(typeof openModal==="function")openModal("modalWaRepair");
+  }catch(e){console.warn("checarAvisoWaRepair:",e);}
+}
+
+async function fecharAvisoWaRepair(irPara){
+  if(typeof closeModal==="function")closeModal("modalWaRepair");
+  try{if(SB)await SB.rpc("ack_whatsapp_repair_notice");}catch(e){console.warn("ack aviso wa:",e);}
+  if(irPara&&typeof go==="function")go(irPara);
 }
 
 async function fecharBoasVindas(irPara){
