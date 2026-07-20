@@ -247,6 +247,11 @@ async function connectSession(sessionId, authPath, phoneNumber = null, isReconne
             if (reason === DisconnectReason.loggedOut) {
                 // Usuário deslogou pelo celular — limpa tudo
                 console.log(`[LOGOUT] Sessão ${sessionId} deslogada pelo usuário.`);
+                // Avisa o Supabase na hora: a sessão sai de SESSIONS logo abaixo e o
+                // heartbeat periódico nunca chegaria a reportá-la como morta.
+                // (Não fazemos isso no código 440, que é troca normal de sessão.)
+                const _foneMorto = SESSIONS.get(sessionId)?.phoneNumber;
+                if (_foneMorto) reportarSessaoMorta(_foneMorto);
                 SESSIONS.delete(sessionId);
                 RECONNECT_ATTEMPTS.delete(sessionId);
                 await fs.remove(authPath).catch(() => {});
@@ -1380,6 +1385,91 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
     console.error(`[UNHANDLED_REJECTION] ${reason?.code || ''} ${reason?.message || reason}`);
 });
+
+// ══════════════════════════════════════════════════════════════════
+// HEARTBEAT — sinal de vida das sessões para o Supabase
+//
+// Motivo: até então nada atualizava whatsapp_instances.last_seen_at. O banco
+// mantinha sessões como 'connected' por semanas depois de mortas, e a queda só
+// era descoberta quando um disparo falhava. Agora o engine avisa periodicamente
+// quais sessões estão vivas.
+//
+// Não usamos a SERVICE_ROLE_KEY aqui de propósito: ela daria a este container
+// acesso irrestrito ao banco. Autenticamos na Edge Function wa-heartbeat com o
+// WA_ENGINE_TOKEN, que já é compartilhado entre os dois lados.
+// ══════════════════════════════════════════════════════════════════
+const HEARTBEAT_MS = Number(process.env.WA_HEARTBEAT_MS || 120000); // 2 min
+const HEARTBEAT_URL = `${SUPABASE_URL}/functions/v1/wa-heartbeat`;
+
+async function enviarHeartbeat() {
+    if (!WA_ENGINE_TOKEN) return;
+
+    const sessions = [];
+    for (const [, s] of SESSIONS) {
+        if (!s.phoneNumber) continue;
+        // Só reporta estados conclusivos. 'waiting'/'reconnecting' são transitórios
+        // e reportá-los derrubaria sessões que estão apenas se restabelecendo.
+        if (s.status === 'paired') {
+            sessions.push({ phone: s.phoneNumber, status: 'paired' });
+            s.lastSeenAt = Date.now();
+        } else if (s.status === 'closed' || s.status === 'logged_out') {
+            sessions.push({ phone: s.phoneNumber, status: 'closed' });
+        }
+    }
+
+    if (!sessions.length) return;
+
+    try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 15000);
+        const r = await fetch(HEARTBEAT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${WA_ENGINE_TOKEN}`,
+            },
+            body: JSON.stringify({ sessions }),
+            signal: ctrl.signal,
+        });
+        clearTimeout(t);
+        if (!r.ok) {
+            const txt = await r.text().catch(() => '');
+            console.warn(`[HEARTBEAT] HTTP ${r.status} — ${txt.slice(0, 160)}`);
+        } else {
+            console.log(`[HEARTBEAT] ${sessions.length} sessão(ões) reportada(s)`);
+        }
+    } catch (err) {
+        // Falha de heartbeat nunca pode derrubar o engine nem interromper disparos.
+        console.warn(`[HEARTBEAT] falhou: ${err?.message || err}`);
+    }
+}
+
+// Aviso imediato de sessao definitivamente morta (logout pelo celular).
+// Nao aguarda o ciclo do heartbeat porque a sessao e removida da memoria na hora.
+async function reportarSessaoMorta(phoneNumber) {
+    if (!WA_ENGINE_TOKEN || !phoneNumber) return;
+    try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 15000);
+        await fetch(HEARTBEAT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${WA_ENGINE_TOKEN}`,
+            },
+            body: JSON.stringify({ sessions: [{ phone: phoneNumber, status: 'logged_out' }] }),
+            signal: ctrl.signal,
+        });
+        clearTimeout(t);
+        console.log(`[HEARTBEAT] sessão ${phoneNumber} reportada como encerrada`);
+    } catch (err) {
+        console.warn(`[HEARTBEAT] falha ao reportar sessão morta: ${err?.message || err}`);
+    }
+}
+
+setInterval(() => { enviarHeartbeat().catch(() => {}); }, HEARTBEAT_MS);
+// Primeiro envio logo apos o startup restaurar as sessoes do disco
+setTimeout(() => { enviarHeartbeat().catch(() => {}); }, 20000);
 
 startup();
 
