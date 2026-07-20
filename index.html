@@ -3840,7 +3840,20 @@ function waMostraConectado(){
   // persiste instância no Supabase
   const uid=CURRENT_USER?.id;
   if(uid){
-    SB.from("whatsapp_instances").upsert({user_id:uid,phone:S.waNumber,status:"connected",last_seen_at:new Date().toISOString()},{onConflict:"user_id,phone"}).then(()=>{});
+    // Ao parear, limpa TODO o estado da desconexão anterior. Sem isso o
+    // disconnect_reason continuaria preenchido e o aviso de repareamento
+    // reapareceria a cada login, mesmo com o WhatsApp já reconectado.
+    SB.from("whatsapp_instances").upsert({
+      user_id:uid,
+      phone:S.waNumber,
+      status:"connected",
+      last_seen_at:new Date().toISOString(),
+      idle_since:null,
+      disconnect_requested_at:null,
+      auto_disconnected_at:null,
+      disconnect_reason:null,
+      repair_notice_ack_at:null
+    },{onConflict:"user_id,phone"}).then(()=>{});
   }
   renderInstCard();
   renderOnb();toast("WhatsApp pareado com sucesso!","🎉");

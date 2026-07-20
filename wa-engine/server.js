@@ -220,6 +220,12 @@ async function connectSession(sessionId, authPath, phoneNumber = null, isReconne
             // Reset reconexão — sessão está saudável
             RECONNECT_ATTEMPTS.delete(sessionId);
 
+            // Avisa o Supabase IMEDIATAMENTE que esta sessão está viva.
+            // Sem isso, um pareamento novo só seria reconhecido no próximo ciclo
+            // do heartbeat (até 2 min), e o usuário continuaria vendo o aviso de
+            // "WhatsApp desconectado" mesmo após ler o QR Code.
+            reportarSessaoViva(connectedNumber);
+
             // Salva metadados para restauração futura
             const metaFile = path.join(authPath, '_meta.json');
             await fs.writeJson(metaFile, {
@@ -1464,6 +1470,34 @@ async function reportarSessaoMorta(phoneNumber) {
         console.log(`[HEARTBEAT] sessão ${phoneNumber} reportada como encerrada`);
     } catch (err) {
         console.warn(`[HEARTBEAT] falha ao reportar sessão morta: ${err?.message || err}`);
+    }
+}
+
+// Aviso imediato de sessao recem-conectada (pareamento novo ou restauracao apos
+// restart). Nao espera o ciclo do heartbeat para o painel refletir a realidade.
+async function reportarSessaoViva(phoneNumber) {
+    if (!WA_ENGINE_TOKEN || !phoneNumber) return;
+    try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 15000);
+        const r = await fetch(HEARTBEAT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${WA_ENGINE_TOKEN}`,
+            },
+            body: JSON.stringify({ sessions: [{ phone: phoneNumber, status: 'paired' }] }),
+            signal: ctrl.signal,
+        });
+        clearTimeout(t);
+        if (!r.ok) {
+            const txt = await r.text().catch(() => '');
+            console.warn(`[HEARTBEAT] sessão ${phoneNumber} — HTTP ${r.status} ${txt.slice(0, 120)}`);
+        } else {
+            console.log(`[HEARTBEAT] sessão ${phoneNumber} reportada como conectada`);
+        }
+    } catch (err) {
+        console.warn(`[HEARTBEAT] falha ao reportar sessão viva: ${err?.message || err}`);
     }
 }
 
