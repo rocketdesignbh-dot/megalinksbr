@@ -657,6 +657,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="rail-foot">
       <strong>🛡️ Modo Admin</strong>
       <span style="color:var(--tx2);font-size:11.5px">Acesso total · auditado</span>
+      <button id="adminWaBadge" onclick="checarAlertaAdminWa(true)" title="Conexão admin RevOps sem heartbeat" style="display:none;margin-top:8px;width:100%;align-items:center;gap:6px;justify-content:center;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:6px 8px;font-size:11.5px;font-weight:700;cursor:pointer">⚠️ WA admin sem heartbeat</button>
     </div>
   </nav>
   </div><!-- /rail-body -->
@@ -8172,7 +8173,7 @@ async function enterApp(profile){
   // Aviso de WhatsApp desconectado por falta de automacao ativa
   if(!profile.demo){setTimeout(()=>checarAvisoWaRepair(),1400);}
   // Aviso admin: conexao RevOps sem heartbeat (nao desconecta, so avisa)
-  if(!profile.demo&&IS_ADMIN){setTimeout(()=>checarAlertaAdminWa(),1800);}
+  if(!profile.demo&&IS_ADMIN){setTimeout(()=>checarAlertaAdminWa(true),1800);setInterval(()=>checarAlertaAdminWa(false),5*60*1000);}
 }
 
 /* ===== Aviso: sessao WhatsApp derrubada por inatividade de automacoes =====
@@ -8203,23 +8204,30 @@ async function fecharAvisoWaRepair(irPara){
 /* ===== Aviso admin: conexao RevOps sem heartbeat =====
    NUNCA desconecta essa sessao automaticamente (decisao explicita). So avisa
    o admin que o heartbeat parou de chegar, pra verificacao manual. */
-async function checarAlertaAdminWa(){
+async function checarAlertaAdminWa(mostrarModal){
   if(!SB)return;
+  const badge=document.getElementById("adminWaBadge");
   try{
     const{data,error}=await SB.rpc("get_admin_whatsapp_alert");
-    if(error||!data||!data.length)return;
+    if(error||!data||!data.length){
+      if(badge)badge.style.display="none";
+      return;
+    }
     const n=data[0];
     const numEl=document.getElementById("adminWaAlertaNum");
     const msgEl=document.getElementById("adminWaAlertaMsg");
     if(numEl)numEl.textContent="Conexão admin"+(n.phone?" ("+n.phone+")":"");
     if(msgEl)msgEl.textContent=n.mensagem||"A conexão admin do RevOps parou de responder.";
-    if(typeof openModal==="function")openModal("modalAdminWaAlerta");
+    if(badge)badge.style.display="flex";
+    if(mostrarModal!==false&&typeof openModal==="function")openModal("modalAdminWaAlerta");
   }catch(e){console.warn("checarAlertaAdminWa:",e);}
 }
 
 async function fecharAlertaAdminWa(){
   if(typeof closeModal==="function")closeModal("modalAdminWaAlerta");
   try{if(SB)await SB.rpc("ack_admin_whatsapp_alert");}catch(e){console.warn("ack alerta admin wa:",e);}
+  const badge=document.getElementById("adminWaBadge");
+  if(badge)badge.style.display="none";
 }
 
 async function fecharBoasVindas(irPara){
