@@ -2925,7 +2925,7 @@ const RPROD=["Fone Bluetooth TWS","Air Fryer 4L Digital","Smartwatch Fit Pro","K
 let radarData=[],radarFilter="Todas",radarLive=false;
 function genRadar(){radarData=[];} // sem fictício: Radar só mostra ofertas reais
 // busca ofertas reais gravadas pela Edge Function "radar" (Shopee/AliExpress/Amazon Affiliate API)
-async function fetchRadarLive(searchQ=""){
+async function fetchRadarLive(searchQ="",lojaFiltro="Todas"){
   try{
     const session=await SB.auth.getSession();
     const jwt=session?.data?.session?.access_token||SUPA_KEY;
@@ -2933,6 +2933,13 @@ async function fetchRadarLive(searchQ=""){
     if(searchQ){
       q+=`&or=(title.ilike.*${encodeURIComponent(searchQ)}*,keyword.ilike.*${encodeURIComponent(searchQ)}*)`;
     }
+    // Filtra por loja direto no banco quando uma loja especifica esta selecionada. Sem isso,
+    // o limit=120 do ranking global (score.desc entre TODAS as lojas) sempre cortava fora
+    // lojas com pontuacao media mais baixa (ex: Amazon via scraping, sem commission/rating/sales
+    // reais) -- selecionar o filtro "Amazon" resultava em lista vazia mesmo com ofertas no banco.
+    const lojaParaSourceFiltro={"Shopee":"shopee","Mercado Livre":"mercado_livre","Amazon":"amazon","AliExpress":"aliexpress"};
+    const sourceFiltro=lojaParaSourceFiltro[lojaFiltro];
+    if(sourceFiltro)q+=`&source=eq.${sourceFiltro}`;
     const r=await fetch(`${SUPA_URL}/rest/v1/radar_offers?${q}`,{headers:{apikey:SUPA_KEY,authorization:"Bearer "+jwt}});
     if(!r.ok){console.warn("fetchRadarLive HTTP",r.status,await r.text());return null;}
     const d=await r.json();
@@ -3460,7 +3467,7 @@ async function renderRadar(forceRefresh){
   const radarContainer=document.getElementById("radarFull");
   if(radarContainer)radarContainer.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)"><span class="typing"><i></i><i></i><i></i></span> Carregando ofertas…</div>';
   const searchQ=(document.getElementById("radarSearch")?.value||"").toLowerCase().trim();
-  const live=await fetchRadarLive(searchQ);
+  const live=await fetchRadarLive(searchQ,radarFilter);
   if(live){radarData=live;radarLive=true;}else{radarData=[];radarLive=false;}
   
   // Calcula "novas" desde a última visita
