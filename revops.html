@@ -688,8 +688,8 @@ tbody tr:last-child td{border-bottom:none}
       <div class="card" style="margin-bottom:20px">
         <h3>Influencers parceiras</h3>
         <table>
-          <thead><tr><th>Nome/E-mail</th><th>Instagram</th><th>Cupom</th><th>Status</th><th>Assinantes via cupom</th><th>Meses grátis concedidos</th><th></th></tr></thead>
-          <tbody id="influencersBody"><tr><td colspan="7" class="loading">Carregando…</td></tr></tbody>
+          <thead><tr><th>Nome/E-mail</th><th>Instagram</th><th>Cupom</th><th>Link p/ divulgar</th><th>Status</th><th>Assinantes via cupom</th><th>Meses grátis concedidos</th><th></th></tr></thead>
+          <tbody id="influencersBody"><tr><td colspan="8" class="loading">Carregando…</td></tr></tbody>
         </table>
       </div>
 
@@ -2246,7 +2246,7 @@ let infCache = [];
 let infRedemptionsCache = [];
 
 async function loadInfluencers(){
-  document.getElementById('influencersBody').innerHTML = '<tr><td colspan="7" class="loading">Carregando…</td></tr>';
+  document.getElementById('influencersBody').innerHTML = '<tr><td colspan="8" class="loading">Carregando…</td></tr>';
   document.getElementById('freeMonthBody').innerHTML = '<tr><td colspan="7" class="loading">Carregando…</td></tr>';
 
   const [{ data: partners, error: e1 }, { data: redemptions, error: e2 }] = await Promise.all([
@@ -2263,9 +2263,23 @@ async function loadInfluencers(){
   loadInfluencerPerformance();
 }
 
+const SITE_BASE_URL = 'https://www.megalinksbr.com.br';
+
+function influencerLink(coupon){
+  return `${SITE_BASE_URL}/?cupom=${encodeURIComponent(coupon)}`;
+}
+
+function copyInfLink(coupon, btn){
+  const link = influencerLink(coupon);
+  navigator.clipboard.writeText(link).then(()=>{
+    toast('Link copiado ✓');
+    if(btn){ const old = btn.textContent; btn.textContent = '✓ Copiado'; setTimeout(()=>{ btn.textContent = old; }, 1500); }
+  }).catch(()=>{ toast('Não foi possível copiar — copie manualmente: ' + link); });
+}
+
 function renderInfluencers(){
   const body = document.getElementById('influencersBody');
-  if(!infCache.length){ body.innerHTML = '<tr><td colspan="7" class="loading">Nenhuma influencer cadastrada ainda</td></tr>'; return; }
+  if(!infCache.length){ body.innerHTML = '<tr><td colspan="8" class="loading">Nenhuma influencer cadastrada ainda</td></tr>'; return; }
   body.innerHTML = infCache.map(inf=>{
     const p = inf.profile || {};
     const total = infRedemptionsCache.filter(r=>r.influencer_id===inf.id).length;
@@ -2273,10 +2287,17 @@ function renderInfluencers(){
     const statusTag = inf.status==='active'
       ? '<span class="tag customer">Ativa</span>'
       : '<span class="tag cancelled">Cancelada</span>';
+    const link = influencerLink(inf.coupon_code);
     return `<tr>
       <td>${esc(p.full_name||p.email||inf.user_id)}</td>
       <td>${esc(inf.instagram_handle||'—')}</td>
       <td class="mono">${esc(inf.coupon_code)}</td>
+      <td>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <input readonly value="${esc(link)}" onclick="this.select()" style="max-width:220px;font-size:11.5px;background:var(--panel2,#1c1c22);border:1px solid var(--line);border-radius:6px;padding:5px 8px;color:var(--ink)">
+          <button class="saveMini" style="padding:6px 10px;font-size:12px" onclick="copyInfLink('${esc(inf.coupon_code)}', this)">📋 Copiar</button>
+        </div>
+      </td>
       <td>${statusTag}</td>
       <td>${total}</td>
       <td>${granted}</td>
@@ -2380,7 +2401,7 @@ async function addInfluencer(){
   });
   if(insertErr){ status.textContent = 'Erro: ' + insertErr.message; status.style.color = 'var(--danger)'; return; }
 
-  status.textContent = '✓ ' + (user.full_name||user.email) + ' promovida a VIP e cadastrada como influencer parceira.';
+  status.innerHTML = '✓ ' + esc(user.full_name||user.email) + ' promovida a VIP e cadastrada como influencer parceira. Link p/ divulgar: <span class="mono">' + esc(influencerLink(coupon)) + '</span>';
   status.style.color = 'var(--money)';
   emailInput.value=''; couponInput.value=''; handleInput.value=''; infSelectedUser = null;
   toast('Influencer cadastrada ✓');
