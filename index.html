@@ -657,7 +657,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="rail-foot">
       <strong>🛡️ Modo Admin</strong>
       <span style="color:var(--tx2);font-size:11.5px">Acesso total · auditado</span>
-      <button id="adminWaBadge" onclick="checarAlertaAdminWa(true)" title="Conexão admin RevOps sem heartbeat" style="display:none;margin-top:8px;width:100%;align-items:center;gap:6px;justify-content:center;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:6px 8px;font-size:11.5px;font-weight:700;cursor:pointer">⚠️ WA admin sem heartbeat</button>
     </div>
   </nav>
   </div><!-- /rail-body -->
@@ -1578,46 +1577,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
   </div>
-  <!-- Aviso: WhatsApp desconectado automaticamente por inatividade de automações -->
-  <div class="mbg" id="modalWaRepair"><div class="modal" style="max-width:520px">
-    <div class="mh">📵 WhatsApp desconectado <button class="mx" onclick="fecharAvisoWaRepair()">×</button></div>
-    <div class="mb">
-      <div class="alert" style="margin-bottom:14px;border-left:3px solid var(--volt)">
-        <strong id="waRepairNum">Seu WhatsApp</strong> foi desconectado automaticamente.
-      </div>
-      <p id="waRepairMsg" style="color:var(--mut);line-height:1.6;margin:0 0 14px"></p>
-      <div style="background:var(--surf2);border-radius:10px;padding:14px 16px">
-        <div style="font-weight:700;margin-bottom:10px">Para voltar a disparar:</div>
-        <div style="display:grid;gap:8px;font-size:13px;color:var(--mut)">
-          <div><strong style="color:var(--txt)">1.</strong> Pareie o aparelho novamente lendo o QR Code</div>
-          <div><strong style="color:var(--txt)">2.</strong> Acione o botão <strong style="color:var(--txt)">▶ Iniciar</strong> em pelo menos uma automação</div>
-        </div>
-      </div>
-      <p style="color:var(--mut);font-size:12px;margin:14px 0 0">
-        Desconectamos sessões sem nenhuma automação ativa para manter a rede estável. Com uma automação acionada, sua sessão permanece conectada.
-      </p>
-    </div>
-    <div class="mf">
-      <button class="btn btn-ghost" onclick="fecharAvisoWaRepair()">Depois</button>
-      <button class="btn btn-volt" onclick="fecharAvisoWaRepair('conexao')">📱 Parear agora</button>
-    </div>
-  </div></div>
-  <!-- Aviso admin: conexao RevOps sem heartbeat (NUNCA desconecta sozinha, so avisa) -->
-  <div class="mbg" id="modalAdminWaAlerta"><div class="modal" style="max-width:520px">
-    <div class="mh">⚠️ Conexão admin RevOps sem resposta <button class="mx" onclick="fecharAlertaAdminWa()">×</button></div>
-    <div class="mb">
-      <div class="alert" style="margin-bottom:14px;border-left:3px solid var(--volt)">
-        <strong id="adminWaAlertaNum">Conexão admin</strong> parou de enviar heartbeat.
-      </div>
-      <p id="adminWaAlertaMsg" style="color:var(--mut);line-height:1.6;margin:0 0 14px"></p>
-      <p style="color:var(--mut);font-size:12px;margin:0">
-        Essa conexão é usada pelo MegaRevOps para retenção e NUNCA é desconectada automaticamente. Verifique manualmente se o WhatsApp continua pareado.
-      </p>
-    </div>
-    <div class="mf">
-      <button class="btn btn-volt" style="flex:1" onclick="fecharAlertaAdminWa()">Entendi</button>
-    </div>
-  </div></div>
   <div class="mbg" id="modalVip">
     <div class="modal" style="max-width:520px">
       <div class="mh"><strong style="font-family:var(--disp)">⭐ Conceder acesso VIP</strong><button class="mx" onclick="closeModal('modalVip')">×</button></div>
@@ -1852,20 +1811,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <button class="btn btn-volt" onclick="fecharBoasVindas('conexao')">Vamos começar →</button>
   </div>
 </div></div>
-<!-- Guia da Mega Links BR — aparece apos o login para novos usuarios ate marcarem "nao mostrar mais" -->
-<div class="mbg" id="modalGuia"><div class="modal" style="max-width:900px;width:94vw">
-  <div class="mh">📘 Guia da Mega Links BR <button class="mx" onclick="fecharGuia()">×</button></div>
-  <div class="mb" style="padding:0">
-    <iframe id="guiaFrame" src="about:blank" title="Guia da Mega Links BR" style="width:100%;height:min(70vh,640px);border:0;display:block;background:#0c0c0e"></iframe>
-  </div>
-  <div class="mf" style="justify-content:space-between;align-items:center">
-    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;color:var(--mut);user-select:none">
-      <input type="checkbox" id="guiaDismissCheck" onchange="guiaCheckDismiss(this)" style="accent-color:var(--volt);width:15px;height:15px;cursor:pointer">
-      Não quero ver este guia novamente
-    </label>
-    <button class="btn btn-volt" onclick="fecharGuia()">Fechar</button>
-  </div>
-</div></div>
 <div class="mbg" id="modalGrupo"><div class="modal">
   <div class="mh">Novo Grupo de Oferta <button class="mx" onclick="closeModal('modalGrupo')">×</button></div>
   <div class="mb"><div class="field"><label>Nome do Grupo de Oferta</label><input id="inNomeGrupo" placeholder="ex.: Achadinhos da Semana"></div>
@@ -1991,7 +1936,7 @@ function hideLoading(){
 const S={grupos:[],nextId:42809,planLimit:1,grupoAtual:null,bill:"m",role:"afiliado",
   waConnected:false,waNumber:"",queuePaused:false};
 // declarado cedo para evitar TDZ em funções de boot
-let IS_ADMIN=false, CURRENT_USER=null, authMode="login";
+let IS_ADMIN=false, CURRENT_USER=null, authMode="login", MY_PROFILE=null;
 
 /* ── Persistência local (grupos + credenciais) ── */
 function lsKey(k){const uid=CURRENT_USER&&CURRENT_USER.id||"local";return "mlbr_"+uid+"_"+k;}
@@ -2967,6 +2912,14 @@ function renderOnb(){
 // Conexão com o Supabase (Radar lê ofertas reais da Shopee daqui)
 const SUPA_URL="https://nxlfezpagporealqqbfj.supabase.co";
 const SUPA_KEY="sb_publishable_FQTFJaF46KfwSnODD5UjPA_nOagscIu";
+// Captura o cupom de influencer/campanha vindo por link (?cupom=CODIGO) e persiste
+// ate o cadastro ser concluido (usuario pode clicar no link antes de criar a conta).
+(function(){
+  try{
+    const q=new URLSearchParams(location.search).get("cupom");
+    if(q&&q.trim())localStorage.setItem("ml_cupom_pendente",q.trim().toUpperCase());
+  }catch(e){}
+})();
 const RLOJAS=["Shopee","AliExpress","Amazon","Mercado Livre","Magalu","Shein"];
 const RPROD=["Fone Bluetooth TWS","Air Fryer 4L Digital","Smartwatch Fit Pro","Kit 10 Organizadores","Luminária LED Galaxy","Mini Projetor HD","Aspirador Robô Slim","Tênis Runner Flex","Cafeteira Espresso","Mochila Antifurto USB","Teclado Mecânico RGB","Garrafa Térmica 1L"];
 let radarData=[],radarFilter="Todas",radarLive=false;
@@ -3871,20 +3824,7 @@ function waMostraConectado(){
   // persiste instância no Supabase
   const uid=CURRENT_USER?.id;
   if(uid){
-    // Ao parear, limpa TODO o estado da desconexão anterior. Sem isso o
-    // disconnect_reason continuaria preenchido e o aviso de repareamento
-    // reapareceria a cada login, mesmo com o WhatsApp já reconectado.
-    SB.from("whatsapp_instances").upsert({
-      user_id:uid,
-      phone:S.waNumber,
-      status:"connected",
-      last_seen_at:new Date().toISOString(),
-      idle_since:null,
-      disconnect_requested_at:null,
-      auto_disconnected_at:null,
-      disconnect_reason:null,
-      repair_notice_ack_at:null
-    },{onConflict:"user_id,phone"}).then(()=>{});
+    SB.from("whatsapp_instances").upsert({user_id:uid,phone:S.waNumber,status:"connected",last_seen_at:new Date().toISOString()},{onConflict:"user_id,phone"}).then(()=>{});
   }
   renderInstCard();
   renderOnb();toast("WhatsApp pareado com sucesso!","🎉");
@@ -5833,10 +5773,10 @@ async function iniciarCheckout(planKey,planLabel,valor,billingType,recurring){
           oninput="this.value=this.value.replace(/[^\\d]/g,'').replace(/(\\d{3})(\\d)/,'$1.$2').replace(/(\\d{3})(\\d)/,'$1.$2').replace(/(\\d{3})(\\d{1,2})$/,'$1-$2').substring(0,14)">
         <div style="font-size:11px;color:var(--mut);margin-top:4px">Necessário para emissão da cobrança</div>
       </div>
-      <div class="field" style="margin:0">
+      <div class="field" style="margin:0" id="ckCouponField">
         <label style="font-size:12px">Cupom de Influencer <span style="font-weight:400;color:var(--mut)">(opcional)</span></label>
-        <input id="ckCoupon" type="text" placeholder="Ex: MARIA10" style="font-size:14px;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
-        <div style="font-size:11px;color:var(--mut);margin-top:4px">Ganhou um cupom de uma influencer parceira? Preencha aqui para garantir seu primeiro mês grátis após o trial.</div>
+        <input id="ckCoupon" type="text" placeholder="Ex: MARIA10" style="font-size:14px;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" value="${(MY_PROFILE&&MY_PROFILE.signup_coupon_code)||''}">
+        <div style="font-size:11px;color:var(--mut);margin-top:4px">${(MY_PROFILE&&MY_PROFILE.signup_coupon_code)?"Cupom identificado automaticamente pelo seu link de cadastro.":"Ganhou um cupom de uma influencer parceira? Preencha aqui para garantir seu primeiro mês grátis após o trial."}</div>
       </div>
       <button class="btn btn-volt" style="width:100%;justify-content:center" onclick="confirmarCheckout('${planKey}',${valor})">${btnTxt} — R$ ${brl(valor)}</button>
       <div style="font-size:11px;color:var(--mut);text-align:center">Seus dados são usados apenas para emissão da cobrança e ficam salvos com segurança.</div>
@@ -7971,6 +7911,14 @@ async function doAuth(){
         if(_utm.get("utm_term"))_utmData.signup_utm_term=_utm.get("utm_term");
         if(_utm.get("utm_content"))_utmData.signup_utm_content=_utm.get("utm_content");
         await SB.from("profiles").update(_utmData).eq("id",data.user.id);
+        // Cupom de influencer/campanha capturado via link (?cupom=) antes do cadastro
+        try{
+          const _cupomPendente=localStorage.getItem("ml_cupom_pendente");
+          if(_cupomPendente){
+            await SB.rpc("capture_signup_coupon",{p_coupon_code:_cupomPendente});
+            localStorage.removeItem("ml_cupom_pendente");
+          }
+        }catch(e){}
       }
       // E-mail de boas-vindas
       if(data.user?.email){
@@ -8006,6 +7954,7 @@ async function afterLogin(user){
       trackEvent("login",{user_id:user.id,method:user.app_metadata?.provider||"email"});
     }
   }catch(e){}
+  try{SB.rpc("track_login").catch(()=>{});}catch(e){}
   await loadPlanFeatures();
 
   // Dados que vêm do Google OAuth (ou signup normal)
@@ -8016,7 +7965,7 @@ async function afterLogin(user){
   let profile={id:user.id,full_name:googleName||userEmail,is_admin:false,is_vip:false,plan:"starter"};
 
   try{
-    const{data}=await SB.from("profiles").select("id,full_name,email,phone,cpf_cnpj,is_admin,is_vip,plan,sub_status,user_display_id,trial_expires_at,welcome_seen_at,onboarding_dismissed,guia_dismissed").eq("id",user.id).single();
+    const{data}=await SB.from("profiles").select("id,full_name,email,phone,cpf_cnpj,is_admin,is_vip,plan,sub_status,user_display_id,trial_expires_at,welcome_seen_at,onboarding_dismissed,signup_coupon_code,trial_mission_completed_at,trial_mission_notified").eq("id",user.id).single();
     if(data)profile=Object.assign(profile,data);
 
     // Se veio do Google e o nome/email ainda não estão salvos, faz upsert
@@ -8086,7 +8035,12 @@ function demoEnter(asAdmin){
 }
 async function enterApp(profile){
   await fetchWAEngineToken().catch(e=>console.warn("token wa-engine:",e));
+  MY_PROFILE=profile;
   IS_ADMIN=!!profile.is_admin;
+  if(profile.trial_mission_completed_at&&!profile.trial_mission_notified){
+    toast("Parabéns! Você completou a missão e ganhou mais 23 dias de trial grátis! 🎉","🎁");
+    SB.from("profiles").update({trial_mission_notified:true}).eq("id",profile.id).catch(()=>{});
+  }
   CURRENT_USER=CURRENT_USER||{};
   ONB_DISMISSED=!!profile.onboarding_dismissed;
   MY_PLAN=(profile.plan||"starter").toLowerCase();
@@ -8202,93 +8156,6 @@ async function enterApp(profile){
       if(typeof openModal==="function")openModal("modalBoasVindas");
     },700);
   }
-  // Guia da Mega Links BR — aparece apos o login pra todo usuario novo, em todo login,
-  // ate ele marcar "nao mostrar mais" (profiles.guia_dismissed). Atrasado quando tambem
-  // ha boas-vindas na tela pra nao abrir os dois modais ao mesmo tempo.
-  if(!profile.demo&&!profile.guia_dismissed){
-    setTimeout(()=>abrirGuia(),profile.welcome_seen_at?900:2200);
-  }
-  // Aviso de WhatsApp desconectado por falta de automacao ativa
-  if(!profile.demo){setTimeout(()=>checarAvisoWaRepair(),1400);}
-  // Aviso admin: conexao RevOps sem heartbeat (nao desconecta, so avisa)
-  if(!profile.demo&&IS_ADMIN){setTimeout(()=>checarAlertaAdminWa(true),1800);setInterval(()=>checarAlertaAdminWa(false),5*60*1000);}
-}
-
-/* ===== Aviso: sessao WhatsApp derrubada por inatividade de automacoes =====
-   A regra desconecta a sessao quando o usuario fica 30 min sem NENHUMA
-   automacao com o botao Iniciar acionado. Aqui avisamos no proximo login. */
-async function checarAvisoWaRepair(){
-  if(!SB)return;
-  try{
-    const{data,error}=await SB.rpc("get_whatsapp_repair_notice");
-    if(error||!data||!data.length)return;
-    const n=data[0];
-    const numEl=document.getElementById("waRepairNum");
-    const msgEl=document.getElementById("waRepairMsg");
-    if(numEl)numEl.textContent="Seu WhatsApp"+(n.phone?" ("+n.phone+")":"");
-    // A RPC ja devolve a mensagem formatada por motivo (idle_no_automation,
-    // session_closed, heartbeat_timeout) — evita hardcode que so cobria um caso.
-    if(msgEl)msgEl.textContent=n.mensagem||"Sua sessão foi desconectada. Pareie novamente lendo o QR Code.";
-    if(typeof openModal==="function")openModal("modalWaRepair");
-  }catch(e){console.warn("checarAvisoWaRepair:",e);}
-}
-
-async function fecharAvisoWaRepair(irPara){
-  if(typeof closeModal==="function")closeModal("modalWaRepair");
-  try{if(SB)await SB.rpc("ack_whatsapp_repair_notice");}catch(e){console.warn("ack aviso wa:",e);}
-  if(irPara&&typeof go==="function")go(irPara);
-}
-
-/* ===== Aviso admin: conexao RevOps sem heartbeat =====
-   NUNCA desconecta essa sessao automaticamente (decisao explicita). So avisa
-   o admin que o heartbeat parou de chegar, pra verificacao manual. */
-async function checarAlertaAdminWa(mostrarModal){
-  if(!SB)return;
-  const badge=document.getElementById("adminWaBadge");
-  try{
-    const{data,error}=await SB.rpc("get_admin_whatsapp_alert");
-    if(error||!data||!data.length){
-      if(badge)badge.style.display="none";
-      return;
-    }
-    const n=data[0];
-    const numEl=document.getElementById("adminWaAlertaNum");
-    const msgEl=document.getElementById("adminWaAlertaMsg");
-    if(numEl)numEl.textContent="Conexão admin"+(n.phone?" ("+n.phone+")":"");
-    if(msgEl)msgEl.textContent=n.mensagem||"A conexão admin do RevOps parou de responder.";
-    if(badge)badge.style.display="flex";
-    if(mostrarModal!==false&&typeof openModal==="function")openModal("modalAdminWaAlerta");
-  }catch(e){console.warn("checarAlertaAdminWa:",e);}
-}
-
-async function fecharAlertaAdminWa(){
-  if(typeof closeModal==="function")closeModal("modalAdminWaAlerta");
-  try{if(SB)await SB.rpc("ack_admin_whatsapp_alert");}catch(e){console.warn("ack alerta admin wa:",e);}
-  const badge=document.getElementById("adminWaBadge");
-  if(badge)badge.style.display="none";
-}
-
-const GUIA_URL="https://www.megalinksbr.com.br/guia";
-
-function abrirGuia(){
-  const frame=document.getElementById("guiaFrame");
-  if(frame&&frame.src==="about:blank")frame.src=GUIA_URL;
-  if(typeof openModal==="function")openModal("modalGuia");
-}
-
-function fecharGuia(){
-  if(typeof closeModal==="function")closeModal("modalGuia");
-}
-
-async function guiaCheckDismiss(el){
-  if(!el.checked)return;
-  const uid=CURRENT_USER?.id;
-  if(uid){
-    const{error}=await SB.from("profiles").update({guia_dismissed:true}).eq("id",uid);
-    if(error){console.warn("guiaCheckDismiss:",error);el.checked=false;return;}
-  }
-  toast("Guia ocultado. Você pode acessá-lo a qualquer momento em "+GUIA_URL,"✅");
-  setTimeout(()=>fecharGuia(),600);
 }
 
 async function fecharBoasVindas(irPara){
