@@ -538,6 +538,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="field" id="nameField" style="display:none"><label>Nome completo</label><input id="authName" placeholder="Seu nome"></div>
     <div class="field" id="cpfField" style="display:none"><label>CPF / CNPJ <span style="color:var(--red)">*</span></label><input id="authCpf" placeholder="000.000.000-00" maxlength="18" oninput="let v=this.value.replace(/\D/g,'');if(v.length<=11)this.value=v.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');else this.value=v.replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2').substring(0,18)"></div>
     <div class="field" id="phoneField" style="display:none"><label>WhatsApp <span style="color:var(--red)">*</span></label><input id="authPhone" placeholder="(11) 99999-0000" maxlength="16" oninput="let v=this.value.replace(/\D/g,'').substring(0,11);if(v.length>10)this.value=v.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3');else this.value=v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3');"></div>
+    <div class="field" id="couponField" style="display:none"><label>Código do cupom <span style="color:var(--mut);font-weight:400">(opcional)</span></label><input id="authCoupon" placeholder="Ex: MARIA10" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"><div style="font-size:11px;color:var(--mut);margin-top:4px">Ganhou um cupom de uma influencer parceira? Preencha aqui para garantir seu primeiro mês grátis após o trial.</div></div>
     <div class="field"><label>E-mail</label><input id="authEmail" type="email" placeholder="voce@email.com" autocomplete="email"></div>
     <div class="field"><label>Senha</label><div class="pass-wrap"><input id="authPass" type="password" placeholder="••••••••" autocomplete="current-password"><button type="button" class="pass-toggle" id="passToggle" onclick="togglePassVis()" title="Mostrar/esconder senha">👁️</button></div></div>
     <button class="btn btn-volt" id="authSubmit" style="width:100%;justify-content:center">Entrar</button>
@@ -7862,6 +7863,14 @@ function switchAuth(mode){authMode=mode;
   nameField.style.display=mode==="signup"?"block":"none";
   const cf=document.getElementById("cpfField");if(cf)cf.style.display=mode==="signup"?"block":"none";
   const pf=document.getElementById("phoneField");if(pf)pf.style.display=mode==="signup"?"block":"none";
+  const kf=document.getElementById("couponField");
+  if(kf){
+    kf.style.display=mode==="signup"?"block":"none";
+    if(mode==="signup"){
+      const kc=document.getElementById("authCoupon");
+      try{const pend=localStorage.getItem("ml_cupom_pendente");if(pend&&kc&&!kc.value)kc.value=pend;}catch(e){}
+    }
+  }
   authTitle.textContent=mode==="signup"?"Criar sua conta":"Entrar na sua conta";
   authSubmit.textContent=mode==="signup"?"Criar conta":"Entrar";setAuthErr("");}
 tabLogin.onclick=()=>switchAuth("login");tabSignup.onclick=()=>switchAuth("signup");
@@ -7924,9 +7933,11 @@ async function doAuth(){
         if(_utm.get("utm_term"))_utmData.signup_utm_term=_utm.get("utm_term");
         if(_utm.get("utm_content"))_utmData.signup_utm_content=_utm.get("utm_content");
         await SB.from("profiles").update(_utmData).eq("id",data.user.id);
-        // Cupom de influencer/campanha capturado via link (?cupom=) antes do cadastro
+        // Cupom de influencer/campanha: prioriza o capturado via link (?cupom=), com
+        // fallback pro que o usuário digitou manualmente no campo de Cadastro
         try{
-          const _cupomPendente=localStorage.getItem("ml_cupom_pendente");
+          const _cupomDigitado=(document.getElementById("authCoupon")?.value||"").trim().toUpperCase();
+          const _cupomPendente=localStorage.getItem("ml_cupom_pendente")||_cupomDigitado;
           if(_cupomPendente){
             await SB.rpc("capture_signup_coupon",{p_coupon_code:_cupomPendente});
             localStorage.removeItem("ml_cupom_pendente");
