@@ -6683,6 +6683,7 @@ async function renderConfig(){
 renderGrupos();renderOnb();renderPlans();renderFaq();renderRadar();
 /* ================= ADMIN: MEMBROS VIP ================= */
 let VIP_LIST=[]; // [{id,userId,userName,plan,tipo,exp,createdAt}] — sincronizado com vip_members no banco
+let INFLUENCER_USER_IDS=new Set(); // ids de usuários que também são influencers parceiras ativas
 
 // Carrega membros VIP do banco
 async function loadVipMembers(){
@@ -6701,6 +6702,10 @@ async function loadVipMembers(){
       exp:r.expires_at,
       createdAt:r.created_at
     }));
+    try{
+      const{data:infData}=await SB.from("influencer_partners").select("user_id").eq("status","active");
+      INFLUENCER_USER_IDS=new Set((infData||[]).map(i=>i.user_id));
+    }catch(e){console.warn("loadInfluencerIds erro:",e);}
   }catch(e){console.warn("loadVipMembers exception:",e);}
 }
 
@@ -6742,8 +6747,9 @@ function renderVip(){
     const st=vipStatus(v);
     const expTxt=v.tipo==="vitalicio"?"—":v.exp?new Date(v.exp).toLocaleDateString("pt-BR"):"—";
     const planF=planRow(v.plan);
+    const isInfluencer=INFLUENCER_USER_IDS.has(v.userId);
     return `<tr>
-      <td><strong>${v.userName||"—"}</strong></td>
+      <td><strong>${isInfluencer?'<span title="Também é influencer parceira">⭐ </span>':""}${v.userName||"—"}</strong></td>
       <td class="mono" style="font-size:11px;color:var(--mut)">${(v.userId||"").slice(0,16)}…</td>
       <td><span class="pill sky">${planF.label.toUpperCase()}</span></td>
       <td style="color:var(--mut)">${v.tipo==="vitalicio"?"♾️ Vitalício":"📅 Com expiração"}</td>
@@ -8151,6 +8157,22 @@ async function enterApp(profile){
   // entra sempre pela área de afiliado
   authGate.style.display="none";
   setRole("afiliado");
+  // Atalho: acesso direto ao Cadastro VIP vindo de outra tela (ex: painel de Cupom Influencer)
+  try{
+    const dl=new URLSearchParams(location.search);
+    if(dl.get("admin")==="vip"&&IS_ADMIN){
+      setRole("admin");
+      setTimeout(()=>{
+        go("adm-vip");
+        openVipModal();
+        const q=dl.get("q");
+        if(q){
+          const si=document.getElementById("vipSearch");
+          if(si){si.value=q;searchUsers(q);}
+        }
+      },300);
+    }
+  }catch(e){}
   // carrega analítico em background
   setTimeout(()=>{if(typeof loadAnalitico==="function")loadAnalitico();},500);
   // banner de upgrade contextual no dashboard
