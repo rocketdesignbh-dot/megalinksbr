@@ -1936,7 +1936,7 @@ function hideLoading(){
 const S={grupos:[],nextId:42809,planLimit:1,grupoAtual:null,bill:"m",role:"afiliado",
   waConnected:false,waNumber:"",queuePaused:false};
 // declarado cedo para evitar TDZ em funções de boot
-let IS_ADMIN=false, CURRENT_USER=null, authMode="login";
+let IS_ADMIN=false, CURRENT_USER=null, authMode="login", MY_PROFILE=null;
 
 /* ── Persistência local (grupos + credenciais) ── */
 function lsKey(k){const uid=CURRENT_USER&&CURRENT_USER.id||"local";return "mlbr_"+uid+"_"+k;}
@@ -2912,6 +2912,14 @@ function renderOnb(){
 // Conexão com o Supabase (Radar lê ofertas reais da Shopee daqui)
 const SUPA_URL="https://nxlfezpagporealqqbfj.supabase.co";
 const SUPA_KEY="sb_publishable_FQTFJaF46KfwSnODD5UjPA_nOagscIu";
+// Captura o cupom de influencer/campanha vindo por link (?cupom=CODIGO) e persiste
+// ate o cadastro ser concluido (usuario pode clicar no link antes de criar a conta).
+(function(){
+  try{
+    const q=new URLSearchParams(location.search).get("cupom");
+    if(q&&q.trim())localStorage.setItem("ml_cupom_pendente",q.trim().toUpperCase());
+  }catch(e){}
+})();
 const RLOJAS=["Shopee","AliExpress","Amazon","Mercado Livre","Magalu","Shein"];
 const RPROD=["Fone Bluetooth TWS","Air Fryer 4L Digital","Smartwatch Fit Pro","Kit 10 Organizadores","Luminária LED Galaxy","Mini Projetor HD","Aspirador Robô Slim","Tênis Runner Flex","Cafeteira Espresso","Mochila Antifurto USB","Teclado Mecânico RGB","Garrafa Térmica 1L"];
 let radarData=[],radarFilter="Todas",radarLive=false;
@@ -5765,10 +5773,10 @@ async function iniciarCheckout(planKey,planLabel,valor,billingType,recurring){
           oninput="this.value=this.value.replace(/[^\\d]/g,'').replace(/(\\d{3})(\\d)/,'$1.$2').replace(/(\\d{3})(\\d)/,'$1.$2').replace(/(\\d{3})(\\d{1,2})$/,'$1-$2').substring(0,14)">
         <div style="font-size:11px;color:var(--mut);margin-top:4px">Necessário para emissão da cobrança</div>
       </div>
-      <div class="field" style="margin:0">
+      <div class="field" style="margin:0" id="ckCouponField">
         <label style="font-size:12px">Cupom de Influencer <span style="font-weight:400;color:var(--mut)">(opcional)</span></label>
-        <input id="ckCoupon" type="text" placeholder="Ex: MARIA10" style="font-size:14px;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
-        <div style="font-size:11px;color:var(--mut);margin-top:4px">Ganhou um cupom de uma influencer parceira? Preencha aqui para garantir seu primeiro mês grátis após o trial.</div>
+        <input id="ckCoupon" type="text" placeholder="Ex: MARIA10" style="font-size:14px;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" value="${(MY_PROFILE&&MY_PROFILE.signup_coupon_code)||''}">
+        <div style="font-size:11px;color:var(--mut);margin-top:4px">${(MY_PROFILE&&MY_PROFILE.signup_coupon_code)?"Cupom identificado automaticamente pelo seu link de cadastro.":"Ganhou um cupom de uma influencer parceira? Preencha aqui para garantir seu primeiro mês grátis após o trial."}</div>
       </div>
       <button class="btn btn-volt" style="width:100%;justify-content:center" onclick="confirmarCheckout('${planKey}',${valor})">${btnTxt} — R$ ${brl(valor)}</button>
       <div style="font-size:11px;color:var(--mut);text-align:center">Seus dados são usados apenas para emissão da cobrança e ficam salvos com segurança.</div>
@@ -7903,6 +7911,14 @@ async function doAuth(){
         if(_utm.get("utm_term"))_utmData.signup_utm_term=_utm.get("utm_term");
         if(_utm.get("utm_content"))_utmData.signup_utm_content=_utm.get("utm_content");
         await SB.from("profiles").update(_utmData).eq("id",data.user.id);
+        // Cupom de influencer/campanha capturado via link (?cupom=) antes do cadastro
+        try{
+          const _cupomPendente=localStorage.getItem("ml_cupom_pendente");
+          if(_cupomPendente){
+            await SB.rpc("capture_signup_coupon",{p_coupon_code:_cupomPendente});
+            localStorage.removeItem("ml_cupom_pendente");
+          }
+        }catch(e){}
       }
       // E-mail de boas-vindas
       if(data.user?.email){
@@ -7938,6 +7954,7 @@ async function afterLogin(user){
       trackEvent("login",{user_id:user.id,method:user.app_metadata?.provider||"email"});
     }
   }catch(e){}
+  try{SB.rpc("track_login").catch(()=>{});}catch(e){}
   await loadPlanFeatures();
 
   // Dados que vêm do Google OAuth (ou signup normal)
@@ -7948,7 +7965,7 @@ async function afterLogin(user){
   let profile={id:user.id,full_name:googleName||userEmail,is_admin:false,is_vip:false,plan:"starter"};
 
   try{
-    const{data}=await SB.from("profiles").select("id,full_name,email,phone,cpf_cnpj,is_admin,is_vip,plan,sub_status,user_display_id,trial_expires_at,welcome_seen_at,onboarding_dismissed").eq("id",user.id).single();
+    const{data}=await SB.from("profiles").select("id,full_name,email,phone,cpf_cnpj,is_admin,is_vip,plan,sub_status,user_display_id,trial_expires_at,welcome_seen_at,onboarding_dismissed,signup_coupon_code,trial_mission_completed_at,trial_mission_notified").eq("id",user.id).single();
     if(data)profile=Object.assign(profile,data);
 
     // Se veio do Google e o nome/email ainda não estão salvos, faz upsert
@@ -8018,7 +8035,12 @@ function demoEnter(asAdmin){
 }
 async function enterApp(profile){
   await fetchWAEngineToken().catch(e=>console.warn("token wa-engine:",e));
+  MY_PROFILE=profile;
   IS_ADMIN=!!profile.is_admin;
+  if(profile.trial_mission_completed_at&&!profile.trial_mission_notified){
+    toast("Parabéns! Você completou a missão e ganhou mais 23 dias de trial grátis! 🎉","🎁");
+    SB.from("profiles").update({trial_mission_notified:true}).eq("id",profile.id).catch(()=>{});
+  }
   CURRENT_USER=CURRENT_USER||{};
   ONB_DISMISSED=!!profile.onboarding_dismissed;
   MY_PLAN=(profile.plan||"starter").toLowerCase();
