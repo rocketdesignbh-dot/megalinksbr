@@ -673,10 +673,14 @@ tbody tr:last-child td{border-bottom:none}
       <div class="card" style="margin-bottom:20px">
         <h3>Nova parceria</h3>
         <div class="toolbar" style="margin-bottom:10px">
-          <input id="infSearchEmail" placeholder="E-mail do usuário já cadastrado no Megalinks">
+          <div style="position:relative;flex:1;min-width:220px">
+            <input id="infSearchEmail" placeholder="Nome ou e-mail do usuário já cadastrado" autocomplete="off" oninput="searchInfUsers(this.value)" style="width:100%">
+            <div id="infSearchResults" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;max-height:220px;overflow-y:auto;z-index:20;margin-top:4px"></div>
+          </div>
           <input id="infCoupon" placeholder="Código do cupom (ex: MARIA10)" style="max-width:200px">
           <input id="infHandle" placeholder="@instagram" style="max-width:180px">
           <button class="btn" style="width:auto;margin:0" onclick="addInfluencer()">+ Adicionar</button>
+          <button class="btn" style="width:auto;margin:0;background:var(--panel2,#1c1c22)" onclick="irParaCadastroVip()">⭐ Cadastro VIP</button>
         </div>
         <div id="infAddStatus" style="font-size:12.5px;color:var(--mut)"></div>
       </div>
@@ -2305,20 +2309,68 @@ function renderFreeMonthQueue(){
   }).join('');
 }
 
+let infSelectedUser = null;
+
+async function searchInfUsers(query){
+  const box = document.getElementById('infSearchResults');
+  infSelectedUser = null;
+  const q = query.trim();
+  if(!q){ box.style.display = 'none'; return; }
+  const { data, error } = await sb.from('profiles').select('id,full_name,email')
+    .or(`full_name.ilike.%${q}%,email.ilike.%${q}%`).limit(8);
+  if(error || !data || !data.length){
+    box.innerHTML = '<div style="padding:10px 12px;font-size:12.5px;color:var(--mut)">Nenhum usuário encontrado</div>';
+    box.style.display = 'block';
+    return;
+  }
+  box.innerHTML = data.map(u=>`<div style="padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer" onmouseover="this.style.background='var(--panel2,#1c1c22)'" onmouseout="this.style.background='transparent'" onclick='selectInfUser(${JSON.stringify(u.id)},${JSON.stringify(u.full_name||u.email||"")},${JSON.stringify(u.email||"")})'>
+    <div style="font-weight:600;font-size:13px">${esc(u.full_name||u.email)}</div>
+    <div style="font-size:11px;color:var(--mut)">${esc(u.email||'')}</div>
+  </div>`).join('');
+  box.style.display = 'block';
+}
+
+function selectInfUser(id, name, email){
+  infSelectedUser = { id, name, email };
+  document.getElementById('infSearchEmail').value = name;
+  document.getElementById('infSearchResults').style.display = 'none';
+}
+
+document.addEventListener('click', (e)=>{
+  const box = document.getElementById('infSearchResults');
+  const input = document.getElementById('infSearchEmail');
+  if(box && input && !box.contains(e.target) && e.target !== input) box.style.display = 'none';
+});
+
+function irParaCadastroVip(){
+  const q = (document.getElementById('infSearchEmail').value || '').trim();
+  const url = 'index.html?admin=vip' + (q ? ('&q=' + encodeURIComponent(q)) : '');
+  window.open(url, '_blank');
+}
+
 async function addInfluencer(){
   const emailInput = document.getElementById('infSearchEmail');
   const couponInput = document.getElementById('infCoupon');
   const handleInput = document.getElementById('infHandle');
   const status = document.getElementById('infAddStatus');
-  const email = emailInput.value.trim().toLowerCase();
+  const typed = emailInput.value.trim();
   const coupon = couponInput.value.trim().toUpperCase();
   const handle = handleInput.value.trim();
 
-  if(!email || !coupon){ status.textContent = 'Preencha e-mail e cupom.'; status.style.color = 'var(--danger)'; return; }
+  if(!typed || !coupon){ status.textContent = 'Preencha nome/e-mail e cupom.'; status.style.color = 'var(--danger)'; return; }
 
-  status.textContent = 'Buscando usuário…'; status.style.color = 'var(--mut)';
-  const { data: user, error: findErr } = await sb.from('profiles').select('id,email,full_name').eq('email', email).maybeSingle();
-  if(findErr || !user){ status.textContent = 'Usuário não encontrado com esse e-mail (ele precisa ter conta no Megalinks).'; status.style.color = 'var(--danger)'; return; }
+  let user = null;
+  if(infSelectedUser && infSelectedUser.name === typed){
+    user = { id: infSelectedUser.id, email: infSelectedUser.email, full_name: infSelectedUser.name };
+  } else {
+    status.textContent = 'Buscando usuário…'; status.style.color = 'var(--mut)';
+    const email = typed.toLowerCase();
+    const { data, error: findErr } = await sb.from('profiles').select('id,email,full_name')
+      .or(`email.eq.${email},full_name.ilike.%${typed}%`).limit(2);
+    if(findErr || !data || !data.length){ status.textContent = 'Usuário não encontrado (digite o nome e selecione na lista, ou confira o e-mail).'; status.style.color = 'var(--danger)'; return; }
+    if(data.length > 1){ status.textContent = 'Mais de um usuário encontrado — digite o nome/e-mail e selecione na lista de sugestões.'; status.style.color = 'var(--danger)'; return; }
+    user = data[0];
+  }
 
   status.textContent = 'Cadastrando parceria…';
   const { error: insertErr } = await sb.from('influencer_partners').insert({
@@ -2330,7 +2382,7 @@ async function addInfluencer(){
 
   status.textContent = '✓ ' + (user.full_name||user.email) + ' promovida a VIP e cadastrada como influencer parceira.';
   status.style.color = 'var(--money)';
-  emailInput.value=''; couponInput.value=''; handleInput.value='';
+  emailInput.value=''; couponInput.value=''; handleInput.value=''; infSelectedUser = null;
   toast('Influencer cadastrada ✓');
   loadInfluencers();
 }
