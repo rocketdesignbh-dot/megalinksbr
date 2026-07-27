@@ -7845,6 +7845,20 @@ document.querySelectorAll(".nav[data-page='post-relampago']").forEach(n=>n.addEv
 /* ================= AUTENTICAÇÃO + SEPARAÇÃO DE PAPÉIS ================= */
 let SB=null;
 try{ if(window.supabase) SB=window.supabase.createClient(SUPA_URL,SUPA_KEY); }catch(e){ SB=null; }
+// Registra o listener de recovery IMEDIATAMENTE após criar o client, antes de qualquer outro código
+// rodar — se registrássemos isso só dentro de bootAuth() (chamado no fim do script), o Supabase
+// já podia ter processado o token da URL e disparado PASSWORD_RECOVERY sem ninguém escutando,
+// fazendo o usuário cair direto na tela de login.
+if(SB){
+  SB.auth.onAuthStateChange((event)=>{
+    if(event==="PASSWORD_RECOVERY"){
+      const gate=document.getElementById("authGate");
+      if(gate)gate.style.display="none";
+      const modal=document.getElementById("modalNewPass");
+      if(modal)modal.style.display="flex";
+    }
+  });
+}
 
 async function loadPlanFeatures(){
   if(!SB) return;
@@ -8409,14 +8423,7 @@ async function saveNewPassword(){
 
 async function bootAuth(){
   if(SB){
-    // Listener para recovery (resolve race condition onde getSession() retorna null antes do token ser processado)
-    SB.auth.onAuthStateChange((event,session)=>{
-      if(event==="PASSWORD_RECOVERY"){
-        authGate.style.display="none";
-        const modal=document.getElementById("modalNewPass");
-        if(modal){modal.style.display="flex";}
-      }
-    });
+    // (listener PASSWORD_RECOVERY já registrado logo na criação do SB, ver acima)
     // Fallback: hash já presente e sessão já disponível (fluxo implicit)
     const hash=window.location.hash;
     const qs=new URLSearchParams(window.location.search);
