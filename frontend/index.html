@@ -7854,6 +7854,8 @@ if(SB){
     if(event==="PASSWORD_RECOVERY"){
       const gate=document.getElementById("authGate");
       if(gate)gate.style.display="none";
+      const splash=document.getElementById("splashBoasVindas");
+      if(splash)splash.style.display="none";
       const modal=document.getElementById("modalNewPass");
       if(modal)modal.style.display="flex";
     }
@@ -8436,6 +8438,8 @@ async function bootAuth(){
         if(!excError){
           history.replaceState(null,"",window.location.pathname);
           authGate.style.display="none";
+          const splash1=document.getElementById("splashBoasVindas");
+          if(splash1)splash1.style.display="none";
           const modal=document.getElementById("modalNewPass");
           if(modal){modal.style.display="flex";}
           return;
@@ -8447,6 +8451,8 @@ async function bootAuth(){
         const{data}=await SB.auth.getSession();
         if(data&&data.session){
           authGate.style.display="none";
+          const splash2=document.getElementById("splashBoasVindas");
+          if(splash2)splash2.style.display="none";
           const modal=document.getElementById("modalNewPass");
           if(modal){modal.style.display="flex";}
           return;
@@ -8646,6 +8652,12 @@ applyDynamicSeo();
   const SPLASH_KEY="ml_splash_visto";
   const splash=document.getElementById("splashBoasVindas");
   if(!splash)return;
+  // Nunca mostrar o splash durante um fluxo de recuperação de senha (o splash tem
+  // z-index maior que o modal de nova senha e ficava cobrindo a tela de reset).
+  const _hash=window.location.hash;
+  const _qs=new URLSearchParams(window.location.search);
+  const isRecoveryFlow=(_hash&&_hash.includes("type=recovery"))||_qs.get("type")==="recovery";
+  if(isRecoveryFlow){splash.style.display="none";return;}
   // Só mostra se nunca foi visto E não há sessão ativa
   const jaVisto=localStorage.getItem(SPLASH_KEY);
   if(!jaVisto){
