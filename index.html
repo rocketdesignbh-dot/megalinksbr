@@ -576,7 +576,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="field"><label>E-mail</label><input id="forgotEmail" type="email" placeholder="seu@email.com"></div>
         <div class="alert" id="forgotErr" style="display:none;margin-bottom:14px"></div>
         <button class="btn btn-volt" onclick="sendResetLink()" style="width:100%;justify-content:center" id="btnResetSend">Enviar link de reset</button>
-        <div style="text-align:center;margin-top:12px;color:var(--tx2);font-size:12px" id="forgotMsg" style="display:none">Verifique seu e-mail para o link de recuperação</div>
+        <div style="text-align:center;margin-top:12px;color:var(--tx2);font-size:12px;display:none" id="forgotMsg">Verifique seu e-mail para o link de recuperação</div>
       </div>
     </div>
   </div>
@@ -6869,24 +6869,53 @@ async function sendResetLink(){
     return;
   }
   
+  let sucesso=false;
   try{
     btnEl.disabled=true;
     btnEl.textContent="Enviando...";
-    
-    const{error}=await SB.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+window.location.pathname});
-    
+    errEl.style.display="none";
+    msgEl.style.display="none";
+
+    if(!SB)throw new Error("Servico indisponivel no momento. Recarregue a pagina e tente novamente.");
+
+    // Timeout de seguranca: sem isso, se a requisicao ficar pendurada (SMTP lento,
+    // rede caindo, etc) o botao trava em "Enviando..." para sempre, sem feedback.
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error("__TIMEOUT__")),20000));
+    const{error}=await Promise.race([
+      SB.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+window.location.pathname}),
+      timeout
+    ]);
+
     if(error)throw error;
-    
+
+    sucesso=true;
     errEl.style.display="none";
     btnEl.style.display="none";
     msgEl.style.display="block";
     msgEl.textContent="✅ Verifique seu e-mail para o link de recuperação";
-    
+
   }catch(e){
-    errEl.textContent=e.message||"Erro ao enviar link de recuperação";
+    const raw=(e&&e.message)||"";
+    let amigavel;
+    if(raw==="__TIMEOUT__"){
+      amigavel="O servidor demorou demais para responder. Verifique sua conexão e tente novamente em alguns minutos.";
+    }else if(e&&(e.status===429||/rate limit|too many/i.test(raw))){
+      amigavel="Muitas tentativas seguidas. Aguarde alguns minutos antes de pedir um novo link.";
+    }else if(/failed to fetch|networkerror|load failed/i.test(raw)){
+      amigavel="Não foi possível contatar o servidor. Verifique sua conexão com a internet.";
+    }else{
+      amigavel=raw||"Erro ao enviar link de recuperação. Tente novamente.";
+    }
+    console.error("[sendResetLink] falhou:",e);
+    errEl.textContent=amigavel;
     errEl.style.display="block";
-    btnEl.disabled=false;
-    btnEl.textContent="Enviar link de reset";
+  }finally{
+    // Garante que o botao NUNCA fique preso em "Enviando..."
+    if(!sucesso){
+      btnEl.disabled=false;
+      btnEl.style.display="";
+      btnEl.textContent="Enviar link de reset";
+    }
   }
 }
 
