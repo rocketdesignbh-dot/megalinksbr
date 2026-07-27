@@ -2926,26 +2926,65 @@ const RPROD=["Fone Bluetooth TWS","Air Fryer 4L Digital","Smartwatch Fit Pro","K
 let radarData=[],radarFilter="Todas",radarLive=false;
 function genRadar(){radarData=[];} // sem fictício: Radar só mostra ofertas reais
 // busca ofertas reais gravadas pela Edge Function "radar" (Shopee/AliExpress/Amazon Affiliate API)
+// Lojas consultadas pelo Radar e quanto cada uma pode ocupar da lista.
+// A busca e feita por loja (uma query cada) em vez de um unico ranking global
+// score.desc+limit: como o score medio varia MUITO entre marketplaces (ML 40-93,
+// Shopee 18-75, Amazon 0-73), um ranking global fazia as lojas de score mais baixo
+// serem cortadas inteiras pelo limit -- o usuario buscava, os produtos eram gravados
+// no banco, e mesmo assim a tela mostrava 0 itens daquela loja.
+const RADAR_SOURCES=["mercado_livre","shopee","amazon","aliexpress"];
+const RADAR_LIMITE_POR_LOJA=60;
+const RADAR_LIMITE_LOJA_UNICA=120;
+const RADAR_SOURCE_NOME={mercado_livre:"Mercado Livre",shopee:"Shopee",amazon:"Amazon",aliexpress:"AliExpress"};
+// Resumo da ultima consulta: {porLoja:{source:{exibidas,total}}, exibidas, total}
+let RADAR_ULTIMO_RESUMO=null;
+const RADAR_SELECT="title,shop_name,price,price_original,discount_pct,commission_rate,rating,sales,score,affiliate_url,image_url,category,keyword,fetched_at,source";
+
+// Uma consulta ao radar_offers. Usa Prefer:count=exact pra saber quantas ofertas
+// existem de verdade, nao so quantas couberam no limit -- e isso que permite avisar
+// o usuario que ha ofertas gravadas fora da exibicao.
+async function radarQuery(jwt,{searchQ,source,limit}){
+  let q=`select=${RADAR_SELECT}&order=score.desc&limit=${limit}`;
+  if(searchQ)q+=`&or=(title.ilike.*${encodeURIComponent(searchQ)}*,keyword.ilike.*${encodeURIComponent(searchQ)}*)`;
+  if(source)q+=`&source=eq.${source}`;
+  try{
+    const r=await fetch(`${SUPA_URL}/rest/v1/radar_offers?${q}`,{headers:{apikey:SUPA_KEY,authorization:"Bearer "+jwt,Prefer:"count=exact"}});
+    if(!r.ok){console.warn("radarQuery HTTP",r.status,source||"todas");return{rows:[],total:0};}
+    const d=await r.json();
+    const rows=Array.isArray(d)?d:[];
+    const cr=r.headers.get("content-range")||"";
+    const total=Number(String(cr).split("/")[1])||rows.length;
+    return{rows,total};
+  }catch(e){console.warn("radarQuery exc",source||"todas",e);return{rows:[],total:0};}
+}
+
 async function fetchRadarLive(searchQ="",lojaFiltro="Todas"){
   try{
     const session=await SB.auth.getSession();
     const jwt=session?.data?.session?.access_token||SUPA_KEY;
-    let q="select=title,shop_name,price,price_original,discount_pct,commission_rate,rating,sales,score,affiliate_url,image_url,category,keyword,fetched_at,source&order=score.desc&limit=120";
-    if(searchQ){
-      q+=`&or=(title.ilike.*${encodeURIComponent(searchQ)}*,keyword.ilike.*${encodeURIComponent(searchQ)}*)`;
-    }
-    // Filtra por loja direto no banco quando uma loja especifica esta selecionada. Sem isso,
-    // o limit=120 do ranking global (score.desc entre TODAS as lojas) sempre cortava fora
-    // lojas com pontuacao media mais baixa (ex: Amazon via scraping, sem commission/rating/sales
-    // reais) -- selecionar o filtro "Amazon" resultava em lista vazia mesmo com ofertas no banco.
     const lojaParaSourceFiltro={"Shopee":"shopee","Mercado Livre":"mercado_livre","Amazon":"amazon","AliExpress":"aliexpress"};
     const sourceFiltro=lojaParaSourceFiltro[lojaFiltro];
-    if(sourceFiltro)q+=`&source=eq.${sourceFiltro}`;
-    const r=await fetch(`${SUPA_URL}/rest/v1/radar_offers?${q}`,{headers:{apikey:SUPA_KEY,authorization:"Bearer "+jwt}});
-    if(!r.ok){console.warn("fetchRadarLive HTTP",r.status,await r.text());return null;}
-    const d=await r.json();
-    if(!Array.isArray(d)||!d.length)return null;
-    return d.map(o=>({
+    const porLoja={};
+    let brutas=[];
+    if(sourceFiltro){
+      const{rows,total}=await radarQuery(jwt,{searchQ,source:sourceFiltro,limit:RADAR_LIMITE_LOJA_UNICA});
+      porLoja[sourceFiltro]={exibidas:rows.length,total};
+      brutas=rows;
+    }else{
+      const res=await Promise.all(RADAR_SOURCES.map(s=>radarQuery(jwt,{searchQ,source:s,limit:RADAR_LIMITE_POR_LOJA})));
+      RADAR_SOURCES.forEach((s,i)=>{
+        porLoja[s]={exibidas:res[i].rows.length,total:res[i].total};
+        brutas=brutas.concat(res[i].rows);
+      });
+    }
+    RADAR_ULTIMO_RESUMO={
+      porLoja,
+      exibidas:brutas.length,
+      total:Object.values(porLoja).reduce((a,b)=>a+(b.total||0),0)
+    };
+    if(!brutas.length)return null;
+    brutas.sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0));
+    return brutas.map(o=>({
       p:o.title,
       loja:o.source==="shopee"?"Shopee":o.source==="mercado_livre"?"Mercado Livre":o.source==="amazon"?"Amazon":o.source==="aliexpress"?"AliExpress":o.shop_name||o.source||"Outra",
       de:Number(o.price_original||o.price||0),
@@ -3336,6 +3375,7 @@ async function radarDispararBusca(){
     let totalUpserts=0;
     let mlQuotaAtingida=false;
     let mlKeywordRepetida=false;
+    let radarResults=null;
 
     // ML e Shopee: sempre via Edge Function backend (protegida por gate de quota no ML)
     const sourcesBackend=[];
@@ -3354,6 +3394,7 @@ async function radarDispararBusca(){
       if(r.ok){
         const d=await r.json();
         totalUpserts+=(d.upserts||0);
+        radarResults=d.results||null;
         // Detecta se o lote de ML foi pulado por limite diário/mensal ou keyword repetida (nunca mostrar como "erro" cru)
         mlKeywordRepetida=Array.isArray(d.errors)&&d.errors.some(e=>String(e).includes("keyword_repetida"));
         mlQuotaAtingida=!mlKeywordRepetida&&Array.isArray(d.errors)&&d.errors.some(e=>String(e).includes("ML pulado"));
@@ -3373,6 +3414,23 @@ async function radarDispararBusca(){
       toast(`${totalUpserts} ofertas ${lojaMsg}encontradas${kwMsg} 🛰️`,"🔥");
     }
     await renderRadar(true);
+    // Aviso: a busca gravou ofertas de alguma loja, mas nenhuma delas aparece na
+    // lista atual (filtro de loja, desconto minimo ou preco maximo). Sem esse aviso
+    // o usuario ve "0 produtos" e acha que a busca falhou -- quando na verdade ela
+    // funcionou e o resultado esta escondido pelos filtros.
+    try{
+      const achados={
+        "Mercado Livre":Number(radarResults?.mercadolivre??radarResults?.ml_encontrados??0),
+        "Shopee":Number(radarResults?.shopee_encontrados??0),
+        "Amazon":Number(radarResults?.amazon??radarResults?.amazon_encontrados??0)
+      };
+      const visiveis=Array.isArray(window.RADAR_VISIVEL)?window.RADAR_VISIVEL:[];
+      const ocultas=Object.entries(achados).filter(([loja,n])=>n>0&&!visiveis.some(o=>o.loja===loja));
+      if(ocultas.length){
+        const txt=ocultas.map(([loja,n])=>`${loja} (${n})`).join(", ");
+        setTimeout(()=>toast(`Encontramos ofertas em ${txt}, mas elas nao aparecem com os filtros atuais. Clique no chip da loja ou zere os filtros de desconto/preco pra ver.`,"👁️"),2600);
+      }
+    }catch(e){console.warn("aviso ofertas ocultas:",e);}
     if(typeof atualizarStatusBuscaML==="function")atualizarStatusBuscaML();
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent=labelOrig||"🔍 Buscar agora";}
@@ -3536,6 +3594,9 @@ async function renderRadar(forceRefresh){
     recent:(a,b)=>(new Date(b.ts).getTime()||0)-(new Date(a.ts).getTime()||0)
   };
   list.sort(sortMap[sort]||sortMap.score);
+  // Expoe a lista JA filtrada pra que radarDispararBusca possa detectar lojas
+  // que trouxeram ofertas mas ficaram invisiveis pelos filtros atuais.
+  window.RADAR_VISIVEL=list;
   
   // Renderiza grid principal
   const radarFullEl=document.getElementById("radarFull");
