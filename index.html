@@ -3735,10 +3735,9 @@ const LOJAS=[
     {k:"API TOKEN",pwd:true,ph:"Token de acesso à API"}
   ],dica:`<p>Para encontrar suas credenciais:</p><ol><li>Acesse <a href="https://ui.awin.com" target="_blank" style="color:var(--volt)">ui.awin.com</a></li><li>Vá em <strong>Account → API Credentials</strong></li><li>Copie o <strong>Publisher ID</strong> e gere um <strong>Token</strong></li></ol>`},
   {n:"Shopee",e:"🧡",img:"",f:[
-    {k:"ID de Afiliado",altKey:"App Key",pwd:false,ph:"AppID / ID de Afiliado (ex: 18344180897)"},
-    {k:"App Key",pwd:false,ph:"AppID (mesmo número do ID de Afiliado)",optional:true,advanced:true},
-    {k:"App Secret",pwd:true,ph:"Senha (App Secret) — painel Abrir API",optional:true,advanced:true}
-  ],dica:`<div>✅ <strong>Só tem o ID de Afiliado? Já basta!</strong> Acesse <a href="https://affiliate.shopee.com.br" target="_blank" style="color:var(--volt)">affiliate.shopee.com.br</a> → <strong>Configurações da Conta</strong> e copie seu <strong>ID de Afiliado</strong>.</div><p style="margin-top:8px">Para ativar a <strong>busca automática de produtos Shopee no Radar</strong>, expanda as opções avançadas e preencha também a <strong>Senha (App Secret)</strong> — acesse <a href="https://affiliate.shopee.com.br" target="_blank" style="color:var(--volt)">affiliate.shopee.com.br</a> → <strong>Abrir API</strong>.</p><div class="alert g" style="margin-top:8px;font-size:12px">💡 <strong>AppID = ID de Afiliado</strong> — é o mesmo número que aparece nos dois painéis. Use-o em ambos os campos.</div>`},
+    {k:"ID de Afiliado",label:"AppID / ID de Afiliado",altKey:"App Key",mirrorTo:["App Key"],pwd:false,ph:"Ex: 18344180897"},
+    {k:"App Secret",label:"Senha (App Secret)",pwd:true,ph:"Senha exibida no painel Abrir API",optional:true,advanced:true}
+  ],dica:`<div>O painel da Shopee te mostra <strong>dois dados</strong> — e são exatamente os dois campos abaixo.</div><div class="alert g" style="margin-top:8px;font-size:12.5px;line-height:1.7"><strong>AppID</strong> → campo <strong>AppID / ID de Afiliado</strong>. É o mesmo número que aparece em <strong>Configurações da Conta</strong> como "ID de Afiliado" — não são dois valores diferentes.<br><strong>Senha</strong> → é a <strong>App Secret</strong>, dentro de Opções avançadas.</div><p style="margin-top:8px">Só o <strong>AppID</strong> já habilita seus links comissionados. A <strong>Senha</strong> é opcional e serve apenas para o Radar buscar produtos Shopee automaticamente.</p><p style="margin-top:8px;color:var(--mut);font-size:12px">Onde achar: <a href="https://affiliate.shopee.com.br" target="_blank" style="color:var(--volt)">affiliate.shopee.com.br</a> → <strong>Abrir API</strong> (AppID + Senha).</p>`},
   {n:"Magalu",e:"💙",img:"",f:[
     {k:"Nome da Loja",pwd:false,ph:"Slug da sua loja no Magalu"}
   ],dica:`<p>Para encontrar:</p><ol><li>Acesse <a href="https://www.magazinevoce.com.br" target="_blank" style="color:var(--volt)">magazinevoce.com.br</a></li><li>Copie o <strong>nome/slug</strong> da sua loja</li></ol>`},
@@ -3791,7 +3790,7 @@ function abrirModalLoja(li){
     // altKey: campo legado alternativo (ex: "App Key" salvo antes da unificação com "ID de Afiliado")
     const val=(saved[f.k]||(f.altKey?saved[f.altKey]:"")||"").replace(/"/g,"&quot;");
     return `<div class="field">
-      <label>${f.k}${f.optional?" <span style='color:var(--mut);font-weight:400;font-size:11px'>(opcional)</span>":""}${f.k.includes("Secret")||f.k.includes("TOKEN")||f.k.includes("Cookie")?" <span style='color:var(--mut);font-weight:400;font-size:11px'>(privado)</span>":""}</label>
+      <label>${f.label||f.k}${f.optional?" <span style='color:var(--mut);font-weight:400;font-size:11px'>(opcional)</span>":""}${f.k.includes("Secret")||f.k.includes("TOKEN")||f.k.includes("Cookie")?" <span style='color:var(--mut);font-weight:400;font-size:11px'>(privado)</span>":""}</label>
       <div class="pass-wrap">
         <input data-loja="${l.n}" data-field="${f.k}" ${f.pwd?'type="password"':''} placeholder="${f.ph}" value="${val}" style="padding-right:${f.pwd?"40px":"12px"}">
         ${f.pwd?`<button class="pass-toggle" type="button" onclick="this.previousElementSibling.type=this.previousElementSibling.type==='password'?'text':'password';this.textContent=this.previousElementSibling.type==='password'?'👁️':'🙈'">👁️</button>`:""}
@@ -3893,6 +3892,18 @@ async function salvarLoja(nome,li){
   if(!conteudo)return;
   const campos={};
   conteudo.querySelectorAll("input[data-field]").forEach(inp=>{campos[inp.dataset.field]=inp.value.trim();});
+  // mirrorTo: a Shopee usa o MESMO numero como AppID (autenticacao da API) e como
+  // ID de Afiliado (atribuicao no link). O painel dela mostra um valor so, entao
+  // pedimos um campo so e replicamos para as duas chaves que o backend le:
+  // gerarLinkAfiliado() procura "ID de Afiliado" e a Edge Function radar procura
+  // "App Key". Antes o usuario tinha que digitar o mesmo numero duas vezes e,
+  // quando preenchia so um, o link saia sem comissao.
+  try{
+    for(const f of ((LOJAS[li]||{}).f||[])){
+      if(!f.mirrorTo||!campos[f.k])continue;
+      for(const alvo of f.mirrorTo) campos[alvo]=campos[f.k];
+    }
+  }catch(e){console.warn("mirrorTo:",e);}
   const temValor=Object.values(campos).some(v=>v);
   if(!temValor){toast("Preencha pelo menos um campo antes de salvar.","⚠️");return;}
   CREDS_STATE[nome]=campos;
