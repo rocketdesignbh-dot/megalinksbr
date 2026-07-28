@@ -3455,6 +3455,23 @@ async function radarDispararBusca(){
       toast(`${totalUpserts} ofertas ${lojaMsg}encontradas${kwMsg} 🛰️`,"🔥");
     }
     await renderRadar(true);
+    // Auto-recuperacao do filtro de loja travado. O chip de loja filtra por source
+    // direto no banco, entao "Shopee" + palavra-chave que so existe na Amazon =
+    // zero linhas e tela vazia. Em vez de deixar o usuario num beco sem saida,
+    // volta pra "Todas" e explica o que aconteceu.
+    if(keyword&&radarFilter!=="Todas"&&!(window.RADAR_VISIVEL||[]).length){
+      const lojaAnterior=radarFilter;
+      radarFilter="Todas";
+      await renderRadar(true);
+      const achou=(window.RADAR_VISIVEL||[]).length;
+      if(achou){
+        toast(`Nada em ${lojaAnterior} para "${keyword}" — mostrando todas as lojas (${achou} ${achou===1?"oferta":"ofertas"}).`,"🔎");
+      }else{
+        // Nao ha resultado em loja nenhuma: nao faz sentido trocar o filtro do usuario.
+        radarFilter=lojaAnterior;
+        await renderRadar(true);
+      }
+    }
     // Aviso: a busca gravou ofertas de alguma loja, mas nenhuma delas aparece na
     // lista atual (filtro de loja, desconto minimo ou preco maximo). Sem esse aviso
     // o usuario ve "0 produtos" e acha que a busca falhou -- quando na verdade ela
