@@ -2575,6 +2575,16 @@ kpiRow.innerHTML=[
   {l:"Links rastreados",v:"—",d:"carregando…",c:"#9B7DFF",s:[0,0,0,0,0,0,0,0,0,0,0,0]}
 ].map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv" id="kpi_${k.l.replace(/\s/g,'_')}">${k.v}</div><div class="kd" style="color:var(--mut)" id="kpid_${k.l.replace(/\s/g,'_')}">${k.d}</div>${spark(k.s,k.c)}</div>`).join("");
 
+// Abre direto o fluxo de criação de Grupo de Oferta a partir do Post Automático.
+function paCriarGrupoOferta(){
+  go("canais-grupos");
+  setTimeout(()=>{
+    const b=document.getElementById("btnAddGrupo");
+    if(b)b.click();
+    else toast("Abra a aba Grupos de Oferta e clique em Novo Grupo.","ℹ️");
+  },320);
+}
+
 async function loadPostAutomatico(){
   if(!SB||!CURRENT_USER?.id)return;
   const uid=CURRENT_USER.id;
@@ -2621,7 +2631,23 @@ async function loadPostAutomatico(){
     // Renderiza cards de TODOS os grupos (espelhando o estilo de renderGrupos mas COM botões de automação)
     if(paLista){
       if(!(dbGrupos||[]).length){
-        paLista.innerHTML='<p style="color:var(--mut);text-align:center;padding:28px">Nenhum Grupo de Oferta criado ainda.<br><small>Crie um em <strong>Grupos de Oferta</strong>.</small></p>';
+        paLista.innerHTML=`<div style="text-align:center;padding:34px 20px">
+          <div style="font-size:44px;line-height:1;margin-bottom:10px">📢</div>
+          <div style="font-size:16px;font-weight:800;margin-bottom:6px">Você ainda não tem Grupos de Ofertas</div>
+          <div style="color:var(--mut);font-size:13px;max-width:520px;margin:0 auto 16px;line-height:1.7">
+            O Post Automático publica os produtos de um <strong>Grupo de Ofertas</strong> nos seus grupos e canais.<br>
+            Para começar, siga estes 3 passos:
+          </div>
+          <div style="max-width:460px;margin:0 auto 18px;text-align:left;display:grid;gap:8px">
+            <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--volt);color:#111;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">1</span><span><strong>Crie um Grupo de Ofertas</strong> — ex.: "Achados de Casa", "Eletrônicos".</span></div>
+            <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--volt);color:#111;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">2</span><span><strong>Adicione produtos</strong> — manualmente, por link ou direto do Radar de Ofertas.</span></div>
+            <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--volt);color:#111;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">3</span><span><strong>Vincule os destinos</strong> (grupos/canais) e ative a automação aqui.</span></div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+            <button class="btn btn-volt" onclick="paCriarGrupoOferta()">➕ Criar Grupo de Ofertas</button>
+            <button class="btn btn-ghost" onclick="go('canais-grupos')">Ver Grupos de Oferta</button>
+          </div>
+        </div>`;
       }else{
         // Usa os grupos do estado S para ter dados de produtos/canais/etc
         paLista.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">`+(dbGrupos||[]).map(db=>{
@@ -3053,6 +3079,8 @@ function postarOferta(o){
 // ─── ADICIONAR PRODUTO DO RADAR A UM GRUPO DE OFERTA (sem disparar) ───
 let RG_OFERTA_ATUAL=null;
 let RG_COR_IDX=0;
+let RG_LINK_ORIGINAL="";  // link cru da oferta (sem afiliação)
+let RG_LINK_PRONTO="";    // link já afiliado + encurtado que preenchemos no campo
 function abrirAdicionarGrupo(o){
   const check=checarLojaParaPostar(o.loja);
   if(!check.ok){
@@ -3077,13 +3105,21 @@ function abrirAdicionarGrupo(o){
   document.getElementById("rgImg").value=o.img||""; // campo oculto, preenchido automaticamente quando vem do Radar
   // Link: encurta automaticamente (mesmo padrão do Postar Agora)
   const linkEl=document.getElementById("rgLink");
+  RG_LINK_ORIGINAL=o.link||"";
+  RG_LINK_PRONTO="";
   linkEl.value=o.link||"";
   linkEl.placeholder="Cole o link do produto";
   if(o.link){
-    linkEl.placeholder="Encurtando link... ⏳";
-    mlEncurtarLink(o.link).then(short=>{
-      if(short){linkEl.value=short;rgUpdatePreview();}
-      else{linkEl.placeholder="Cole o link do produto";}
+    // ORDEM CORRETA: 1º gera o link de afiliado com as credenciais do usuário LOGADO,
+    // 2º encurta. Encurtar primeiro (bug antigo) fazia o ID de afiliado ser colado
+    // em cima do link curto — a comissão não era atribuída e o link saía quebrado.
+    linkEl.placeholder="Gerando link de afiliado e encurtando... ⏳";
+    const _afil=prGerarLinkAfil(o.link,o.loja)||o.link;
+    encurtarLinkFinal(_afil).then(short=>{
+      RG_LINK_PRONTO=short||_afil;
+      linkEl.value=RG_LINK_PRONTO;
+      linkEl.placeholder="Cole o link do produto";
+      rgUpdatePreview();
     });
   }
   // CTA
@@ -3179,12 +3215,17 @@ async function rgSalvarNoGrupo(){
   // compartilhada que alimentou o Radar) — essencial pra comissão cair pra quem postou,
   // não pra quem forneceu a API do Radar. Esse link fica salvo no produto e é o mesmo
   // reutilizado pelo Post Automático depois.
-  const linkPersonalizado=prGerarLinkAfil(link,RG_OFERTA_ATUAL?.loja||"")||link;
+  // O campo já traz o link afiliado (credenciais do usuário logado) e encurtado.
+  // Se o usuário colou outro link à mão, refaz o ciclo: afilia e só então encurta.
+  const _linkCru=(link===RG_LINK_PRONTO&&RG_LINK_ORIGINAL)?RG_LINK_ORIGINAL:link;
+  const linkPersonalizado=(link===RG_LINK_PRONTO&&RG_LINK_PRONTO)
+    ? link
+    : await encurtarLinkFinal(prGerarLinkAfil(link,RG_OFERTA_ATUAL?.loja||"")||link);
   try{
     const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gidDb).order("position",{ascending:false}).limit(1).maybeSingle();
     const pos=(last?.position||0)+1;
     const{error}=await SB.from("products").insert({
-      title:nome,affiliate_url:linkPersonalizado,original_url:link,price:por,price_original:de,
+      title:nome,affiliate_url:linkPersonalizado,original_url:_linkCru,price:por,price_original:de,
       image_url:img,niche_group_id:gidDb,source:rgLojaToMarketplace(RG_OFERTA_ATUAL?.loja),position:pos,
       coupon_code:cupom?.code||null,cta_text:ctaTexto,cta_random:ctaRandom,
       description:descExtras,
@@ -4736,7 +4777,13 @@ manual:`
           <div class="field" style="margin:0"><label>Preço original (R$)</label><input id="paPrecoOrig" placeholder="99,90"></div>
           <div class="field" style="margin:0"><label>Preço atual (R$)</label><input id="paPreco" placeholder="59,90" type="number" step="0.01"></div>
         </div>
-        <div class="field"><label>Link afiliado *</label><input id="paLink" placeholder="https://..."></div>
+        <div class="field"><label>Link do produto *</label>
+          <div style="display:flex;gap:6px">
+            <input id="paLink" placeholder="https://..." style="flex:1">
+            <button class="btn btn-ghost btn-sm" onclick="paBuscarDados()" title="Preenche nome, preços e imagem a partir do link" style="white-space:nowrap">🔍 Buscar dados</button>
+          </div>
+          <small style="color:var(--mut);font-size:11px">Cole o link do produto na loja. O link de afiliado e o encurtamento são gerados automaticamente ao salvar.</small>
+        </div>
         <div class="field"><label>URL da imagem</label><input id="paImg" placeholder="https://..."></div>
         <div class="g2" style="gap:10px">
           <div class="field" style="margin:0"><label>Desconto (%)</label><input id="paDesc" placeholder="Ex: 30" type="number" min="0" max="100"></div>
@@ -4874,11 +4921,13 @@ async function impConfirmarImport(id,postarAgora=false){
   const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gid).order("position",{ascending:false}).limit(1).maybeSingle();
   const pos=(last?.position||0)+1;
   const linkBase=link||data?.affiliate_url||"";
+  // 1º afilia com as credenciais do usuário logado, 2º encurta.
   const linkPersonalizado=linkBase?(prGerarLinkAfil(linkBase,impStoreCredLabel(id))||linkBase):"";
+  const linkFinal=linkPersonalizado?await encurtarLinkFinal(linkPersonalizado):"";
   const row={
     niche_group_id:gid,source:STORE_ENUM[impStoreCredLabel(id)]||"manual",position:pos,
     title:data?.title||`Produto ${impStoreLabel(id)}`,
-    affiliate_url:linkPersonalizado,
+    affiliate_url:linkFinal,
     original_url:linkBase,
     image_url:data?.image_url||"",
     price:precoAtual,price_original:precoOrig,discount_pct:discPct,
@@ -5495,11 +5544,13 @@ async function prodConfirmarImport(postarAgora=false){
   const linkBase=link||_prodImportData?.affiliate_url||"";
   const lojaDetectada=detectLojaLabel(linkBase);
   const linkPersonalizado=linkBase?(lojaDetectada?(prGerarLinkAfil(linkBase,lojaDetectada)||linkBase):linkBase):"";
+  // 1º afilia com as credenciais do usuário logado, 2º encurta.
+  const linkFinal=linkPersonalizado?await encurtarLinkFinal(linkPersonalizado):"";
 
   const row={
     niche_group_id:gid,source:(lojaDetectada&&STORE_ENUM[lojaDetectada])||"manual",position:pos,
     title:_prodImportData?.title||"",
-    affiliate_url:linkPersonalizado,
+    affiliate_url:linkFinal,
     original_url:linkBase,
     image_url:_prodImportData?.image_url||"",
     price:precoAtual||_prodImportData?.price||null,
@@ -5551,6 +5602,37 @@ async function prodConfirmarImport(postarAgora=false){
   wireProdLista();
 }
 
+// Preenche o formulário manual a partir do link (mesma Edge Function usada na
+// aba "Adicionar por link") — resolve o caso de o cadastro manual não puxar as
+// informações do produto.
+async function paBuscarDados(){
+  const link=(document.getElementById("paLink")?.value||"").trim();
+  if(!link){toast("Cole o link do produto primeiro.","⚠️");return;}
+  toast("Buscando dados do produto…","⏳");
+  try{
+    const session=await SB.auth.getSession();
+    const jwt=session?.data?.session?.access_token;
+    const r=await fetch(`${SUPA_URL}/functions/v1/product-search`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+jwt},
+      body:JSON.stringify({url:link,credentials:(typeof prColetarCredenciais==="function"?prColetarCredenciais():undefined)})
+    });
+    const d=await r.json();
+    const titulo=d?.title||d?.name;
+    if(!titulo){toast(d?.error||"Não consegui extrair os dados. Preencha manualmente.","⚠️");return;}
+    const precoAtual=d.price_to??d.price??null;
+    const precoOrig=d.price_from??d.price_original??null;
+    const img=d.image||d.thumbnail||d.image_url||"";
+    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!==null&&v!==undefined&&v!=="")el.value=v;};
+    set("paNome",titulo);
+    if(precoAtual!=null)set("paPreco",String(precoAtual).replace(",","."));
+    if(precoOrig!=null)set("paPrecoOrig",String(precoOrig).replace(".",","));
+    set("paImg",img);
+    if(d.discount_pct)set("paDesc",d.discount_pct);
+    toast("Dados preenchidos! Revise e salve.","✅");
+  }catch(e){toast("Erro ao buscar: "+e.message,"⚠️");}
+}
+
 async function prodAdicionarManual(postarAgora=false){
   const nome=(document.getElementById("paNome")?.value||"").trim();
   const link=(document.getElementById("paLink")?.value||"").trim();
@@ -5568,19 +5650,29 @@ async function prodAdicionarManual(postarAgora=false){
   const _maxProd=lim("max_products")??15;if(_maxProd!==-1){const{count}=await SB.from("products").select("id",{count:"exact",head:true}).eq("niche_group_id",gid);if((count||0)>=_maxProd){toast(`Limite de ${_maxProd} produtos por grupo no plano ${myFeatures().label}. Faça upgrade!`,"🔒");go("assinatura");return;}}
   const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gid).order("position",{ascending:false}).limit(1).maybeSingle();
   const pos=(last?.position||0)+1;
+  // Cadastro manual passa pelo MESMO ciclo do Radar/importação por link:
+  // detecta a loja pelo domínio → gera o link de afiliado com as credenciais do
+  // usuário LOGADO → só então encurta. Sem isso o produto manual saía com o link
+  // cru, sem afiliação e sem encurtamento, tanto no Postar Agora quanto no Post Automático.
+  const lojaDetectada=detectLojaLabel(link);
+  const temCred=temCredencialLoja(lojaDetectada);
+  const linkAfil=(lojaDetectada&&temCred)?(prGerarLinkAfil(link,lojaDetectada)||link):link;
+  const linkFinal=await encurtarLinkFinal(linkAfil);
+  const sourceFinal=(lojaDetectada&&temCred&&STORE_ENUM[lojaDetectada])||"manual";
   const{error}=await SB.from("products").insert({
-    title:nome,affiliate_url:link,price:preco,price_original:precoOrig,
-    image_url:img,discount_pct:desc,niche_group_id:gid,source:"manual",position:pos,
+    title:nome,affiliate_url:linkFinal,original_url:link,price:preco,price_original:precoOrig,
+    image_url:img,discount_pct:desc,niche_group_id:gid,source:sourceFinal,position:pos,
     price_suffix:sufixo,price_installment:parcelado,coupon_code:cupom||null,
     user_id:CURRENT_USER?.id,
   });
   if(error){toast("Erro: "+error.message,"⚠️");return;}
+  if(lojaDetectada&&!temCred)toast(`Link de ${lojaDetectada} salvo sem afiliação: cadastre suas credenciais em Config. Afiliados.`,"⚠️");
   ["paNome","paLink","paPreco","paPrecoOrig","paImg","paDesc","paParcelado","paCupom"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
   const suf=document.getElementById("paSufixo");if(suf)suf.value="";
   S.grupoAtual.produtos=(S.grupoAtual.produtos||0)+1;renderGrupos();prodIdeaisCalc();
   toast(`"${nome}" adicionado! ✅`,"📦");
   if(postarAgora){
-    window.PR_PRE_FROM_RADAR={nome,foto:img||"",de:precoOrig?String(precoOrig):"",por:preco?String(preco):"",link,loja:null};
+    window.PR_PRE_FROM_RADAR={nome,foto:img||"",de:precoOrig?String(precoOrig):"",por:preco?String(preco):"",link:linkFinal,loja:lojaDetectada||null};
     go("post-relampago");
     toast("Produto carregado no Postar Agora!","⚡");
   }else{
@@ -7431,6 +7523,8 @@ function prAutoBuscar(){
 
 // Gera link de afiliado injetando o ID configurado
 function prGerarLinkAfil(link,loja){
+  // Nunca afiliar um short link nosso (já contém o destino afiliado dentro dele).
+  try{ const _u=new URL(link,window.location.origin); if(_u.hostname.replace(/^www\./,"")==="megalinksbr.com.br"&&_u.pathname.startsWith("/r/"))return link; }catch(e){}
   const cred=CREDS_STATE[loja]||{};
   // Shopee: formato oficial de redirecionamento com atribuição (an_redir) — só precisa do ID de Afiliado,
   // não precisa de App Key/App Secret. Anexar af_sub1 no link original (jeito antigo) NÃO gera atribuição real.
@@ -7504,6 +7598,21 @@ async function mlEncurtarLink(longUrl, postRef){
     if(d.ok&&d.short_url)return d.short_url;
     return null;
   }catch(e){console.warn("[encurtar] erro:",e.message);return null;}
+}
+
+// Encurta apenas se ainda não for um short link próprio (evita /r/ apontando para /r/).
+// SEMPRE receber aqui o link JÁ afiliado com as credenciais do usuário logado.
+async function encurtarLinkFinal(longUrl,postRef){
+  if(!longUrl)return longUrl;
+  try{ if(new URL(longUrl,window.location.origin).pathname.startsWith("/r/"))return longUrl; }catch(e){}
+  try{ const s=await mlEncurtarLink(longUrl,postRef); return s||longUrl; }catch(e){ return longUrl; }
+}
+
+// Usuário logado tem credencial cadastrada para essa loja?
+function temCredencialLoja(loja){
+  if(!loja)return false;
+  const c=CREDS_STATE[loja]||{};
+  return Object.values(c).some(v=>v&&String(v).trim());
 }
 
 function prPreencherStep2(){

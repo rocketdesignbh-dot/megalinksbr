@@ -1,13 +1,11 @@
-// Mega Links BR · Edge Function "send-post" v8
-// + regenera o link de afiliado no momento do post (usa credenciais atuais do usuário)
-// + respeita gate de marketplaces por PLANO (Starter/Pro) — mantido
-// + pula produto sem credencial de afiliado configurada para a loja — mantido
-// + Starter: 1 disparo automático por dia por grupo — mantido
-// - REMOVIDO: filtro por "Lojas ativas" do grupo (coluna niche_groups.marketplaces não existe
-//   mais — foi renomeada para active_stores e a função nunca foi atualizada, causando 500 em
-//   toda chamada do cron desde então). A funcionalidade de "lojas ativas" por grupo foi
-//   descontinuada no frontend; um grupo agora é dedicado a uma loja por convenção (nomeie o
-//   grupo pela loja e adicione só produtos dela).
+// Mega Links BR · Edge Function "send-post" v12
+// v12: ENCURTAMENTO NO DISPARO. O link postado passa a ser sempre encurtado
+//      (megalinksbr.com.br/r/CODE) usando o user_id do DONO do grupo — o mesmo
+//      padrão do "Postar Agora". Antes o Post Automático regenerava o link de
+//      afiliado mas postava a URL longa, ignorando o encurtamento configurado.
+// v11: AUTO-FLAG de sessão morta.
+// v10: registra o erro real do canal em scheduled_posts.error.
+// v9:  corrige o payload enviado para a telegram-send (chat_id / text / image_url).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "@supabase/supabase-js";
 
@@ -16,6 +14,8 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const CRON_SECRET  = Deno.env.get("CRON_SECRET") ?? "";
 const ENGINE_URL   = Deno.env.get("WA_ENGINE_URL") ?? "";
 const ENGINE_TOKEN = Deno.env.get("WA_ENGINE_TOKEN") ?? "";
+
+const SHORT_DOMAIN = "https://megalinksbr.com.br";
 
 const LOJAS_QUE_EXIGEM_CREDENCIAL = new Set([
   "shopee", "amazon", "mercado_livre", "aliexpress",
@@ -44,10 +44,25 @@ function sortearCta(): string {
   return CTAS[Math.floor(Math.random() * CTAS.length)];
 }
 
-// Gera o link de afiliado personalizado do usuário a partir do link original do produto.
-// Espelha a lógica do frontend (prGerarLinkAfil no index.html) para garantir que o Post
-// Automático sempre use o link mais atual com as credenciais do usuário — mesmo que elas
-// tenham sido configuradas DEPOIS de o produto já estar salvo no grupo.
+function ehSessaoMorta(status: number, corpo: string): boolean {
+  if (status !== 404) return false;
+  const c = corpo.toLowerCase();
+  return c.includes("sess") && (
+    c.includes("não encontrada") || c.includes("nao encontrada") ||
+    c.includes("not found")      || c.includes("não pareada") ||
+    c.includes("nao pareada")    || c.includes("not paired")
+  );
+}
+
+async function lerCorpo(r: Response): Promise<string> {
+  try { return (await r.text()).replace(/\s+/g, " ").trim(); } catch { return ""; }
+}
+
+function descreverExcecao(canal: string, e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  return `${canal}: ${msg.replace(/\s+/g, " ").trim().slice(0, 160)}`;
+}
+
 function gerarLinkAfiliado(url: string, store: string | null, cred: Record<string, string> | null): string {
   if (!url) return url;
   if (!cred || !store) return url;
@@ -90,7 +105,52 @@ function gerarLinkAfiliado(url: string, store: string | null, cred: Record<strin
   }
 }
 
-// Busca de uma vez todas as credenciais de afiliado do usuário (cache por grupo processado).
+// Reconhece nossos próprios short links (com ou sem www) — eles nunca devem ser
+// re-afiliados nem re-encurtados. Produtos antigos ficaram com /r/ salvo em
+// original_url por causa do bug de ordem (encurtava antes de afiliar).
+function ehLinkCurtoProprio(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.hostname.replace(/^www\./, "") === "megalinksbr.com.br" && u.pathname.startsWith("/r/");
+  } catch { return false; }
+}
+
+// ── Encurtamento (mesmo padrão do Postar Agora) ────────────────────────────────
+function gerarCode(len = 7): string {
+  const chars = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+// Encurta no MOMENTO do disparo usando o user_id do DONO do grupo (o usuário logado
+// que cadastrou o produto) — assim o clique é atribuído a ele em link_clicks.
+// Reaproveita o code já existente para a mesma URL: o cron roda a cada poucos minutos
+// e não pode criar uma linha nova de short_links a cada disparo do mesmo produto.
+async function encurtarLink(sb: any, userId: string, url: string): Promise<string> {
+  if (!url) return url;
+  if (ehLinkCurtoProprio(url)) return url;
+  try {
+    const { data: existing } = await sb.from("short_links")
+      .select("code").eq("long_url", url).eq("user_id", userId).limit(1).maybeSingle();
+    if (existing?.code) return `${SHORT_DOMAIN}/r/${existing.code}`;
+
+    let code = gerarCode();
+    for (let i = 0; i < 5; i++) {
+      const { data: clash } = await sb.from("short_links").select("code").eq("code", code).maybeSingle();
+      if (!clash) break;
+      code = gerarCode();
+    }
+    const { error } = await sb.from("short_links")
+      .insert({ code, long_url: url, destination: url, user_id: userId });
+    if (error) { console.warn("[short-link] insert falhou:", error.message); return url; }
+    return `${SHORT_DOMAIN}/r/${code}`;
+  } catch (e) {
+    console.warn("[short-link] erro:", e instanceof Error ? e.message : String(e));
+    return url;
+  }
+}
+
 async function carregarCredenciais(sb: any, userId: string): Promise<Record<string, Record<string, string>>> {
   const map: Record<string, Record<string, string>> = {};
   try {
@@ -98,18 +158,15 @@ async function carregarCredenciais(sb: any, userId: string): Promise<Record<stri
     for (const row of data ?? []) {
       if (row.store && row.credentials) map[row.store] = row.credentials;
     }
-  } catch {
-    // sem credenciais carregadas → cai no link original em linkFinalDoProduto
-  }
+  } catch { /* cai no link original */ }
   return map;
 }
 
-// Resolve o link final a ser postado: regenera com as credenciais atuais quando possível.
-// original_url = link cru salvo no cadastro do produto (sem afiliação).
-// affiliate_url = fallback para produtos antigos salvos antes de original_url existir.
 function linkFinalDoProduto(product: any, credsMap: Record<string, Record<string, string>>): string {
   const original = product.original_url || product.affiliate_url || "";
   if (!original) return product.affiliate_url || "";
+  // Já é um short link nosso (produto salvo pelo fluxo antigo): posta como está.
+  if (ehLinkCurtoProprio(original)) return original;
   if (!product.source || product.source === "manual") return product.affiliate_url || original;
   const cred = credsMap[product.source] || null;
   return gerarLinkAfiliado(original, product.source, cred) || product.affiliate_url || original;
@@ -175,12 +232,12 @@ Deno.serve(async (req: Request) => {
   for (const p of profiles ?? []) planMap[p.id] = p.is_vip ? "elite" : (p.plan || "starter");
 
   let totalSent = 0, totalFailed = 0, totalSkipped = 0, totalBlocked = 0;
+  const instanciasDerrubadas: string[] = [];
 
   for (const group of groups) {
     const userPlan = planMap[group.user_id] || "starter";
     const planAllowed = PLAN_MARKETPLACES[userPlan] ?? null;
 
-    // Starter: 1 disparo automático/dia por grupo
     if (userPlan === "starter") {
       const { count: sentToday } = await sb.from("scheduled_posts")
         .select("id", { count: "exact", head: true })
@@ -197,8 +254,6 @@ Deno.serve(async (req: Request) => {
     const lastPost = group.last_post_at ? new Date(group.last_post_at).getTime() : 0;
     if (Date.now() - lastPost < intervalMs) { totalSkipped++; continue; }
 
-    // Credenciais do usuário — usadas tanto para o gate (pular loja sem credencial)
-    // quanto para regenerar o link de afiliado com o valor mais atual.
     const credsMap = await carregarCredenciais(sb, group.user_id);
     const lojasComCredencial = new Set(Object.keys(credsMap).filter((store) => {
       const c = credsMap[store];
@@ -234,32 +289,65 @@ Deno.serve(async (req: Request) => {
     }
 
     const nextCursor = (cursor + 1) % total;
-    // Regenera o link de afiliado com as credenciais ATUAIS (independe de quando o produto
-    // foi salvo no grupo).
-    product.affiliate_url = linkFinalDoProduto(product, credsMap);
+    // 1º regenera a afiliação com as credenciais ATUAIS, 2º encurta com o user_id do dono.
+    product.affiliate_url = await encurtarLink(sb, group.user_id, linkFinalDoProduto(product, credsMap));
     const msg = montarTexto(product);
     let groupSent = 0, groupFailed = 0;
+    const falhas: string[] = [];
 
     if (ENGINE_URL) {
-      const { data: instance } = await sb.from("whatsapp_instances").select("phone").eq("user_id", group.user_id).eq("status", "connected").maybeSingle();
-      if (instance) {
+      const { data: instance } = await sb.from("whatsapp_instances").select("id, phone").eq("user_id", group.user_id).eq("status", "connected").maybeSingle();
+      if (!instance) {
+        falhas.push("WhatsApp: nenhuma instância conectada — repareie o aparelho");
+        groupFailed++;
+      } else {
         const phoneClean = instance.phone.replace(/\D/g, "");
+        let sessaoMorta = false;
+
+        const derrubarInstancia = async (detalhe: string) => {
+          sessaoMorta = true;
+          await sb.from("whatsapp_instances")
+            .update({ status: "disconnected", idle_since: now.toISOString(), disconnect_requested_at: now.toISOString() })
+            .eq("id", instance.id);
+          instanciasDerrubadas.push(instance.phone);
+          falhas.push(`WhatsApp ${instance.phone}: sessão caiu no wa-engine — marcada como desconectada. Repareie o QR Code. (${detalhe.slice(0,120)})`);
+        };
+
         const { data: waGroups } = await sb.from("whatsapp_groups").select("group_jid, name").eq("niche_group_id", group.id);
         for (const wg of waGroups ?? []) {
-          if (!wg.group_jid) continue;
+          if (sessaoMorta) { groupFailed++; continue; }
+          if (!wg.group_jid) { falhas.push(`WA grupo "${wg.name ?? "?"}": sem group_jid`); groupFailed++; continue; }
+          const rotulo = `WA grupo "${wg.name ?? wg.group_jid}"`;
           try {
             const r = await fetchWithTimeout(`${ENGINE_URL}/send-group`, { method:"POST", headers:{"content-type":"application/json",authorization:`Bearer ${ENGINE_TOKEN}`}, body:JSON.stringify({ sessionPhone:phoneClean, groupId:wg.group_jid, text:msg, imageUrl:product.image_url||undefined, userId:group.user_id }) });
-            if (!r.ok) throw new Error(`engine ${r.status}`); groupSent++;
-          } catch(e) { console.error(`[WA-GRUPO]`,e); groupFailed++; }
+            if (!r.ok) {
+              const corpo = await lerCorpo(r);
+              groupFailed++;
+              if (ehSessaoMorta(r.status, corpo)) { await derrubarInstancia(corpo); }
+              else { const d = `${rotulo}: HTTP ${r.status} — ${corpo.slice(0,160)}`; console.error(`[WA-GRUPO] ${d}`); falhas.push(d); }
+              continue;
+            }
+            groupSent++;
+          } catch(e) { const d = descreverExcecao(rotulo, e); console.error(`[WA-GRUPO] ${d}`); falhas.push(d); groupFailed++; }
         }
+
         const { data: waChannels } = await sb.from("whatsapp_channels").select("channel_whatsapp_id, channel_link").eq("niche_group_id", group.id);
         for (const ch of waChannels ?? []) {
           const channelId = ch.channel_whatsapp_id || ch.channel_link;
           if (!channelId) continue;
+          if (sessaoMorta) { groupFailed++; continue; }
+          const rotulo = `WA canal "${channelId}"`;
           try {
             const r = await fetchWithTimeout(`${ENGINE_URL}/send`, { method:"POST", headers:{"content-type":"application/json",authorization:`Bearer ${ENGINE_TOKEN}`}, body:JSON.stringify({ sessionPhone:phoneClean, channelId, text:msg, imageUrl:product.image_url||undefined, userId:group.user_id }) });
-            if (!r.ok) throw new Error(`engine ${r.status}`); groupSent++;
-          } catch(e) { console.error(`[WA-CANAL]`,e); groupFailed++; }
+            if (!r.ok) {
+              const corpo = await lerCorpo(r);
+              groupFailed++;
+              if (ehSessaoMorta(r.status, corpo)) { await derrubarInstancia(corpo); }
+              else { const d = `${rotulo}: HTTP ${r.status} — ${corpo.slice(0,160)}`; console.error(`[WA-CANAL] ${d}`); falhas.push(d); }
+              continue;
+            }
+            groupSent++;
+          } catch(e) { const d = descreverExcecao(rotulo, e); console.error(`[WA-CANAL] ${d}`); falhas.push(d); groupFailed++; }
         }
       }
     }
@@ -267,20 +355,26 @@ Deno.serve(async (req: Request) => {
     const { data: tgChannels } = await sb.from("telegram_channels").select("chat_id, username").eq("niche_group_id", group.id);
     for (const tg of tgChannels ?? []) {
       const chatId = tg.chat_id || tg.username; if (!chatId) continue;
+      const rotulo = `Telegram "${chatId}"`;
       try {
-        const payload: Record<string,unknown> = { action:"send", chatId };
-        if (product.image_url) { payload.type="photo"; payload.photo=product.image_url; payload.caption=msg; } else { payload.type="text"; payload.text=msg; }
+        const payload: Record<string,unknown> = { action:"send", chat_id: chatId, text: msg };
+        if (product.image_url) payload.image_url = product.image_url;
         const r = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/telegram-send`, { method:"POST", headers:{"content-type":"application/json",authorization:`Bearer ${SERVICE_ROLE}`}, body:JSON.stringify(payload) });
-        if (!r.ok) throw new Error(`tg-send ${r.status}`);
-        const d = await r.json(); if (!d.ok && !d.success) throw new Error(d.error ?? "telegram error");
+        if (!r.ok) { const corpo = await lerCorpo(r); const d = `${rotulo}: HTTP ${r.status} — ${corpo.slice(0,160)}`; console.error(`[TG] ${d}`); falhas.push(d); groupFailed++; continue; }
+        const d = await r.json();
+        if (!d.ok && !d.success) { const t = `${rotulo}: ${String(d.error ?? "telegram error").slice(0,160)}`; console.error(`[TG] ${t}`); falhas.push(t); groupFailed++; continue; }
         groupSent++;
-      } catch(e) { console.error(`[TG]`,e); groupFailed++; }
+      } catch(e) { const d = descreverExcecao(rotulo, e); console.error(`[TG] ${d}`); falhas.push(d); groupFailed++; }
     }
 
-    await sb.from("scheduled_posts").insert({ user_id:group.user_id, group_id:group.id, product_id:product.id, status:groupSent>0?"sent":"failed", scheduled_for:now.toISOString(), sent_at:groupSent>0?now.toISOString():null, is_manual:false, error:groupFailed>0?`${groupFailed} canais falharam`:null });
+    const erroDetalhado = groupFailed > 0
+      ? `${groupFailed} canais falharam — ${falhas.join(" | ")}`.slice(0, 1000)
+      : null;
+
+    await sb.from("scheduled_posts").insert({ user_id:group.user_id, group_id:group.id, product_id:product.id, status:groupSent>0?"sent":"failed", scheduled_for:now.toISOString(), sent_at:groupSent>0?now.toISOString():null, is_manual:false, error:erroDetalhado });
     await sb.from("niche_groups").update({ cursor_index:nextCursor, last_post_at:now.toISOString() }).eq("id", group.id);
     totalSent += groupSent; totalFailed += groupFailed;
   }
 
-  return new Response(JSON.stringify({ groups:groups.length, sent:totalSent, failed:totalFailed, skipped:totalSkipped, blocked:totalBlocked }), { headers:{"content-type":"application/json"} });
+  return new Response(JSON.stringify({ groups:groups.length, sent:totalSent, failed:totalFailed, skipped:totalSkipped, blocked:totalBlocked, instancias_derrubadas:instanciasDerrubadas }), { headers:{"content-type":"application/json"} });
 });

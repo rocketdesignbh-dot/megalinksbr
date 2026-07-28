@@ -1,4 +1,4 @@
-// Mega Links BR · Edge Function "group-blast" v3 — regenera link de afiliado no momento do post
+// Mega Links BR · Edge Function "group-blast" v4 — regenera link de afiliado E encurta no momento do post
 // Disparo manual imediato de TODOS os produtos de um Grupo de Oferta.
 // Uso: planos sem automação 24/7 (ex.: Starter) — limitado a 1x/24h por grupo.
 // Ignora start_hour/end_hour/loop/interval propositalmente (é um disparo único, não automação).
@@ -11,6 +11,7 @@ const ENGINE_URL = Deno.env.get("WA_ENGINE_URL") ?? "";
 const ENGINE_TOKEN = Deno.env.get("WA_ENGINE_TOKEN") ?? "";
 
 const BLAST_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 1x por 24h corridas
+const SHORT_DOMAIN = "https://megalinksbr.com.br";
 
 const CTAS = [
   "⚡ Corre! Esse preço dura minutos.",
@@ -79,6 +80,51 @@ function gerarLinkAfiliado(url: string, store: string | null, cred: Record<strin
   }
 }
 
+// Reconhece nossos próprios short links (com ou sem www) — eles nunca devem ser
+// re-afiliados nem re-encurtados. Produtos antigos ficaram com /r/ salvo em
+// original_url por causa do bug de ordem (encurtava antes de afiliar).
+function ehLinkCurtoProprio(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.hostname.replace(/^www\./, "") === "megalinksbr.com.br" && u.pathname.startsWith("/r/");
+  } catch { return false; }
+}
+
+// ── Encurtamento (mesmo padrão do Postar Agora) ────────────────────────────────
+function gerarCode(len = 7): string {
+  const chars = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+// Encurta no MOMENTO do disparo usando o user_id do usuário LOGADO que disparou —
+// assim o clique é atribuído a ele em link_clicks. Reaproveita o code já existente
+// para a mesma URL para não criar uma linha nova de short_links a cada disparo.
+async function encurtarLink(sb: any, userId: string, url: string): Promise<string> {
+  if (!url) return url;
+  if (ehLinkCurtoProprio(url)) return url;
+  try {
+    const { data: existing } = await sb.from("short_links")
+      .select("code").eq("long_url", url).eq("user_id", userId).limit(1).maybeSingle();
+    if (existing?.code) return `${SHORT_DOMAIN}/r/${existing.code}`;
+
+    let code = gerarCode();
+    for (let i = 0; i < 5; i++) {
+      const { data: clash } = await sb.from("short_links").select("code").eq("code", code).maybeSingle();
+      if (!clash) break;
+      code = gerarCode();
+    }
+    const { error } = await sb.from("short_links")
+      .insert({ code, long_url: url, destination: url, user_id: userId });
+    if (error) { console.warn("[short-link] insert falhou:", error.message); return url; }
+    return `${SHORT_DOMAIN}/r/${code}`;
+  } catch (e) {
+    console.warn("[short-link] erro:", e instanceof Error ? e.message : String(e));
+    return url;
+  }
+}
+
 // Busca de uma vez todas as credenciais de afiliado do usuário (cache por request).
 async function carregarCredenciais(sb: any, userId: string): Promise<Record<string, Record<string, string>>> {
   const map: Record<string, Record<string, string>> = {};
@@ -99,20 +145,20 @@ async function carregarCredenciais(sb: any, userId: string): Promise<Record<stri
 function linkFinalDoProduto(product: any, credsMap: Record<string, Record<string, string>>): string {
   const original = product.original_url || product.affiliate_url || "";
   if (!original) return product.affiliate_url || "";
+  // Já é um short link nosso (produto salvo pelo fluxo antigo): posta como está.
+  if (ehLinkCurtoProprio(original)) return original;
   if (!product.source || product.source === "manual") return product.affiliate_url || original;
   const cred = credsMap[product.source] || null;
   return gerarLinkAfiliado(original, product.source, cred) || product.affiliate_url || original;
 }
 
 
-function montarMsg(product: any, credsMap: Record<string, Record<string, string>>): string {
+// linkFinal chega pronto (afiliado com as credenciais ATUAIS + encurtado).
+function montarMsg(product: any, linkFinal: string): string {
   const cta = product.cta_random ? sortearCta() : (product.cta_text || "");
   const priceStr = product.price ? `R$ ${Number(product.price).toFixed(2).replace(".", ",")}` : "";
   const discStr = product.discount_pct ? `🔥 ${product.discount_pct}% OFF` : "";
   const cupomStr = product.coupon_code ? `🏷️ Utilize o cupom: ${product.coupon_code}` : "";
-  // Regenera o link de afiliado com as credenciais ATUAIS do usuário (podem ter sido
-  // configuradas depois de o produto ter sido salvo no grupo).
-  const linkFinal = linkFinalDoProduto(product, credsMap);
   return [
     product.title,
     discStr && priceStr ? `${discStr} — ${priceStr}` : discStr || priceStr,
@@ -237,7 +283,9 @@ Deno.serve(async (req: Request) => {
   const perProdutoErros: { produto: string; erros: string[] }[] = [];
 
   for (const product of products) {
-    const msg = montarMsg(product, credsMap);
+    // 1º regenera a afiliação com as credenciais ATUAIS, 2º encurta com o user_id do logado.
+    const linkFinal = await encurtarLink(sb, userId, linkFinalDoProduto(product, credsMap));
+    const msg = montarMsg(product, linkFinal);
     let sent = 0, failed = 0;
     const errosProduto: string[] = [];
 
