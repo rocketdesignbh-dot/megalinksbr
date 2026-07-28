@@ -1978,6 +1978,7 @@ async function loadGroups(){
       intervalo:r.post_auto_enabled?(r.interval_minutes+" min"):"N/A",
       startHour:r.start_hour??8,
       endHour:r.end_hour??22,
+      validadeDias:r.default_validity_days??null,
     }));
     // ─── Buscar contagens reais de grupos WA, canais e produtos vinculados ───
     try{
@@ -4580,6 +4581,14 @@ geral:`
           ${Array.from({length:24},(_,h)=>`<option value="${h}h" ${h===22?"selected":""}>${h}h</option>`).join("")}
           <option value="24h">24h (dia todo)</option>
         </select></div>
+        <div class="field"><label>Validade padrão das ofertas</label><select id="pgValidade">
+          <option value="">— Sem prazo —</option>
+          <option value="1">1 dia</option>
+          <option value="3">3 dias</option>
+          <option value="7">7 dias</option>
+          <option value="15">15 dias</option>
+          <option value="30">30 dias</option>
+        </select><small style="color:var(--mut);display:block;margin-top:4px">Todo produto novo deste grupo já nasce com essa data no campo "Até". Vale só para os próximos — não altera os que já estão cadastrados.</small></div>
         <div class="field"><label>Idioma</label><select><option>Português (BR)</option></select></div>
       </div></div></div>
     <div class="card" style="margin:0"><div class="ch">🏷️ Cupom padrão</div><div class="cb">
@@ -4773,9 +4782,10 @@ manual:`
         <div class="ch" style="font-size:12px;padding:10px 14px">📅 Agendamento <small style="color:var(--mut);font-weight:400">(opcional)</small></div>
         <div class="cb" style="padding-top:0">
           <div class="g2" style="gap:10px">
-            <div class="field" style="margin:0"><label>Data e hora</label><input id="prodAgendamento" type="datetime-local"></div>
+            <div class="field" style="margin:0"><label>A partir de</label><input id="prodAgendamento" type="datetime-local"></div>
+            <div class="field" style="margin:0"><label>Até</label><input id="prodValidoAte" type="datetime-local"></div>
             <div class="field" style="margin:0;display:flex;align-items:flex-end;padding-bottom:2px">
-              <label style="display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" id="prodNaoExpira" style="width:auto"> Não expira</label>
+              <label style="display:flex;gap:8px;align-items:center;font-size:13px" title="Ignora a validade acima. Não impede a saída caso o produto suma do marketplace."><input type="checkbox" id="prodNaoExpira" style="width:auto"> Não expira</label>
             </div>
           </div>
         </div>
@@ -5029,6 +5039,9 @@ function buildTabs(){
     if(pgIni&&g.startHour!=null){const opt=[...pgIni.options].find(o=>o.value===g.startHour+"h");if(opt)pgIni.value=g.startHour+"h";}
     const pgFim=document.getElementById("pgFim");
     if(pgFim&&g.endHour!=null){const opt=[...pgFim.options].find(o=>o.value===g.endHour+"h");if(opt)pgFim.value=g.endHour+"h";}
+    const pgValidade=document.getElementById("pgValidade");
+    if(pgValidade)pgValidade.value=g.validadeDias?String(g.validadeDias):"";
+    prodPreencherValidade();
     const pgCupom=document.getElementById("pgCupomPadrao");
     if(pgCupom){
       pgCupom.innerHTML='<option value="">— Nenhum —</option>'+COUPONS.map(c=>`<option value="${c.id}">[${esc(c.store)}] ${esc(c.code)}${c.label?" — "+esc(c.label):""}</option>`).join("");
@@ -5061,6 +5074,21 @@ function buildTabs(){
     }
   },60);
 }
+// Converte a validade padrao do grupo (em dias) no formato do input
+// datetime-local, que espera horario LOCAL sem timezone.
+function prodValidadePadraoISO(){
+  const dias=Number(S.grupoAtual?.validadeDias||0);
+  if(!dias||dias<=0)return "";
+  const d=new Date(Date.now()+dias*86400000);
+  const p=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+// Pre-preenche o campo "Ate" com a validade padrao do grupo. Nunca sobrescreve
+// o que o usuario ja digitou -- o padrao e sugestao, nao imposicao.
+function prodPreencherValidade(){
+  const el=document.getElementById("prodValidoAte");
+  if(el&&!el.value)el.value=prodValidadePadraoISO();
+}
 async function salvarGeral(){
   const g=S.grupoAtual;
   const hasPostAuto=!!(PLAN_FEATURES[MY_PLAN]||{}).wa_post_automation;
@@ -5072,6 +5100,8 @@ async function salvarGeral(){
   g.startHour=Number(ini);g.endHour=Number(fim);
   g.intervalo=intervalo+" min";
   g.defaultCouponId=document.getElementById("pgCupomPadrao")?.value||null;
+  const validadeSel=document.getElementById("pgValidade")?.value||"";
+  g.validadeDias=validadeSel?Number(validadeSel):null;
 
   if(document.getElementById("pgAuto")?.checked){
     if(!hasPostAuto){
@@ -5104,6 +5134,7 @@ async function salvarGeral(){
         start_hour:g.startHour,
         end_hour:g.endHour,
         default_coupon_id:g.defaultCouponId||null,
+        default_validity_days:g.validadeDias||null,
       }).eq("id",g.db_id);
     }catch(e){console.warn("salvarGeral update:",e);}
   }
@@ -5563,6 +5594,15 @@ async function prodConfirmarImport(postarAgora=false){
   const cupomCodigo=document.getElementById("prodCupomCodigo")?.value||"";
   const cupomValor=parseFloat(document.getElementById("prodCupomValor")?.value||"")||null;
   const cupomMinimo=parseFloat(document.getElementById("prodCupomMinimo")?.value||"")||null;
+  // O input datetime-local devolve horario LOCAL sem timezone ("2026-08-04T13:00").
+  // Mandar essa string crua pro timestamptz fazia o Postgres ler como UTC, jogando
+  // tudo 3h pra frente no horario de Brasilia. So passou a importar quando o
+  // send-post v14 comecou a ler scheduled_at de verdade.
+  const dtLocalParaISO=v=>{
+    if(!v)return null;
+    const d=new Date(v);
+    return isNaN(d.getTime())?null:d.toISOString();
+  };
   const agendamento=document.getElementById("prodAgendamento")?.value||"";
   const naoExpira=document.getElementById("prodNaoExpira")?.checked||false;
   const discPct=precoOrig&&precoAtual&&precoAtual<precoOrig?Math.round((1-precoAtual/precoOrig)*100):_prodImportData?.discount_pct||null;
@@ -5591,7 +5631,8 @@ async function prodConfirmarImport(postarAgora=false){
     coupon_code:cupomCodigo||null,
     coupon_value:cupomValor,
     coupon_minimum:cupomMinimo,
-    scheduled_at:agendamento||null,
+    scheduled_at:dtLocalParaISO(agendamento),
+    valid_until:dtLocalParaISO(document.getElementById("prodValidoAte")?.value||""),
     never_expires:naoExpira,
     user_id:CURRENT_USER?.id,
   };
@@ -5606,6 +5647,8 @@ async function prodConfirmarImport(postarAgora=false){
   const body=document.getElementById("prodImportBody");if(body)body.innerHTML="";
   if(document.getElementById("prodCupomTipo"))document.getElementById("prodCupomTipo").value="";
   if(document.getElementById("prodNaoExpira"))document.getElementById("prodNaoExpira").checked=false;
+  const elAte=document.getElementById("prodValidoAte");if(elAte)elAte.value="";
+  prodPreencherValidade();
   prodCupomTipoChange();
 
   S.grupoAtual.produtos=(S.grupoAtual.produtos||0)+1;renderGrupos();prodIdeaisCalc();
