@@ -1987,13 +1987,35 @@ async function loadGroups(){
         const[{data:wgData},{data:chData},{data:prData}]=await Promise.all([
           SB.from("whatsapp_groups").select("niche_group_id").in("niche_group_id",nicheIds),
           SB.from("whatsapp_channels").select("niche_group_id").in("niche_group_id",nicheIds),
-          SB.from("products").select("niche_group_id").in("niche_group_id",nicheIds)
+          SB.from("products").select("niche_group_id,expired,valid_until,never_expires,scheduled_at").in("niche_group_id",nicheIds)
         ]);
-        const wgCount={},chCount={},prCount={};
+        const wgCount={},chCount={},prCount={},prFora={},prVenc={},prAgend={};
         (wgData||[]).forEach(r=>{wgCount[r.niche_group_id]=(wgCount[r.niche_group_id]||0)+1;});
         (chData||[]).forEach(r=>{chCount[r.niche_group_id]=(chCount[r.niche_group_id]||0)+1;});
-        (prData||[]).forEach(r=>{prCount[r.niche_group_id]=(prCount[r.niche_group_id]||0)+1;});
-        S.grupos.forEach(g=>{g.grupos_wa=wgCount[g.db_id]||0;g.canais=chCount[g.db_id]||0;g.produtos=prCount[g.db_id]||0;});
+        // Mesma precedencia do send-post v15: fora do ar > validade vencida > agendado.
+        // Se divergir daqui, a tela passa a mentir sobre o que esta sendo postado.
+        const agoraTs=Date.now();
+        (prData||[]).forEach(r=>{
+          const k=r.niche_group_id;
+          prCount[k]=(prCount[k]||0)+1;
+          if(r.expired===true){prFora[k]=(prFora[k]||0)+1;return;}
+          if(r.never_expires!==true&&r.valid_until){
+            const t=new Date(r.valid_until).getTime();
+            if(Number.isFinite(t)&&t<agoraTs){prVenc[k]=(prVenc[k]||0)+1;return;}
+          }
+          if(r.scheduled_at){
+            const t=new Date(r.scheduled_at).getTime();
+            if(Number.isFinite(t)&&t>agoraTs){prAgend[k]=(prAgend[k]||0)+1;}
+          }
+        });
+        S.grupos.forEach(g=>{
+          g.grupos_wa=wgCount[g.db_id]||0;
+          g.canais=chCount[g.db_id]||0;
+          g.produtos=prCount[g.db_id]||0;
+          g.prodForaAr=prFora[g.db_id]||0;
+          g.prodVencidos=prVenc[g.db_id]||0;
+          g.prodAgendados=prAgend[g.db_id]||0;
+        });
       }
     }catch(e){console.warn("loadGroups counts fallback:",e);}
     lsSave("grupos",S.grupos);
@@ -3738,7 +3760,7 @@ const LOJAS=[
   {n:"Shopee",e:"🧡",img:"",f:[
     {k:"ID de Afiliado",label:"AppID / ID de Afiliado",altKey:"App Key",mirrorTo:["App Key"],pwd:false,ph:"Ex: 18344180897"},
     {k:"App Secret",label:"Senha (App Secret)",pwd:true,ph:"Senha exibida no painel Abrir API",optional:true,advanced:true}
-  ],dica:`<div>O painel da Shopee te mostra <strong>dois dados</strong> — e são exatamente os dois campos abaixo.</div><div class="alert g" style="margin-top:8px;font-size:12.5px;line-height:1.7"><strong>AppID</strong> → campo <strong>AppID / ID de Afiliado</strong>. É o mesmo número que aparece em <strong>Configurações da Conta</strong> como "ID de Afiliado" — não são dois valores diferentes.<br><strong>Senha</strong> → é a <strong>App Secret</strong>, dentro de Opções avançadas.</div><p style="margin-top:8px">Só o <strong>AppID</strong> já habilita seus links comissionados. A <strong>Senha</strong> é opcional e serve apenas para o Radar buscar produtos Shopee automaticamente.</p><p style="margin-top:8px;color:var(--mut);font-size:12px">Onde achar: <a href="https://affiliate.shopee.com.br" target="_blank" style="color:var(--volt)">affiliate.shopee.com.br</a> → <strong>Abrir API</strong> (AppID + Senha).</p>`},
+  ],dica:`<div>O painel da Shopee te mostra <strong>dois dados</strong> — e são exatamente os dois campos abaixo.</div><div class="alert g" style="margin-top:8px;font-size:12.5px"><div style="line-height:1.7;min-width:0"><strong>AppID</strong> → campo <strong>AppID / ID de Afiliado</strong>. É o mesmo número que aparece em <strong>Configurações da Conta</strong> como "ID de Afiliado" — não são dois valores diferentes.<br><strong>Senha</strong> → é a <strong>App Secret</strong>, dentro de Opções avançadas.</div></div><p style="margin-top:8px">Só o <strong>AppID</strong> já habilita seus links comissionados. A <strong>Senha</strong> é opcional e serve apenas para o Radar buscar produtos Shopee automaticamente.</p><p style="margin-top:8px;color:var(--mut);font-size:12px">Onde achar: <a href="https://affiliate.shopee.com.br" target="_blank" style="color:var(--volt)">affiliate.shopee.com.br</a> → <strong>Abrir API</strong> (AppID + Senha).</p>`},
   {n:"Magalu",e:"💙",img:"",f:[
     {k:"Nome da Loja",pwd:false,ph:"Slug da sua loja no Magalu"}
   ],dica:`<p>Para encontrar:</p><ol><li>Acesse <a href="https://www.magazinevoce.com.br" target="_blank" style="color:var(--volt)">magazinevoce.com.br</a></li><li>Copie o <strong>nome/slug</strong> da sua loja</li></ol>`},
@@ -4352,6 +4374,15 @@ function renderGrupos(){const has=S.grupos.length>0;
     const prodOk=(g.produtos||0)>0;
     const prodColor=prodOk?"#22c55e":"#ef4444";
 
+    // Produtos que existem no grupo mas nao estao entrando no rodizio agora.
+    // Sem isso eles somem do disparo em silencio -- o grupo so fica mais quieto.
+    const foraRodizio=(g.prodForaAr||0)+(g.prodVencidos||0);
+    const detalhesFora=[
+      g.prodVencidos?`${g.prodVencidos} com validade vencida`:"",
+      g.prodForaAr?`${g.prodForaAr} fora do ar na loja`:"",
+      g.prodAgendados?`${g.prodAgendados} aguardando agendamento`:"",
+    ].filter(Boolean).join(" · ");
+
     // Botão principal
     const btnStart=hasPostAuto
       ?`<button class="btn btn-sm ${autoAtivo?"btn-ghost":"btn-volt"}" style="flex:1;justify-content:center;${autoAtivo?"color:var(--red,#ef4444);border-color:var(--red,#ef4444)":""}" onclick="togglePostAuto('${g.id}')">${autoAtivo?"⏸ Pausar":"▶ Iniciar"}</button>`
@@ -4405,6 +4436,7 @@ function renderGrupos(){const has=S.grupos.length>0;
         </div>
       </div>
       ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
+      ${(foraRodizio||g.prodAgendados)?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:8px;font-size:11px;color:#f59e0b;cursor:pointer" onclick="editarGrupo('${g.id}')" title="Estes produtos continuam cadastrados, mas não estão sendo postados agora. Clique para abrir o grupo.">⏳ Fora do rodízio: ${detalhesFora}</div>`:""}
       <!-- Botões de ação — só Editar e Apagar aqui; automação fica em Visão Post Aut. -->
       <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bd)">
         <button class="btn btn-volt btn-sm" style="flex:1;justify-content:center" onclick="editarGrupo('${g.id}')">✏️ Editar</button>
