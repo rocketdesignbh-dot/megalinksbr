@@ -1,4 +1,10 @@
-// Mega Links BR · Edge Function "send-post" v14
+// Mega Links BR · Edge Function "send-post" v15
+// v15: validade da oferta.
+//      - valid_until   -> depois dessa data o produto sai do rodizio;
+//      - never_expires -> isenta o produto da validade acima. NAO isenta de
+//                         expired: se o marketplace diz que o produto acabou,
+//                         ele sai de qualquer forma. O usuario pode abrir mao
+//                         de uma politica nossa, nunca da realidade.
 // v14: passa a respeitar dois campos que ja existiam no banco e na interface,
 //      mas que nenhum codigo lia:
 //      - expired      -> produto marcado como fora do ar pelo product-refresh
@@ -240,7 +246,7 @@ Deno.serve(async (req: Request) => {
   for (const p of profiles ?? []) planMap[p.id] = p.is_vip ? "elite" : (p.plan || "starter");
 
   let totalSent = 0, totalFailed = 0, totalSkipped = 0, totalBlocked = 0;
-  let totalExpirados = 0, totalAgendados = 0;
+  let totalExpirados = 0, totalAgendados = 0, totalVencidos = 0;
   const instanciasDerrubadas: string[] = [];
 
   for (const group of groups) {
@@ -270,12 +276,12 @@ Deno.serve(async (req: Request) => {
     }));
 
     const { data: allProducts } = await sb.from("products")
-      .select("id, title, source, affiliate_url, original_url, image_url, price, price_original, price_suffix, price_installment, coupon_code, cta_text, cta_random, description, expired, scheduled_at")
+      .select("id, title, source, affiliate_url, original_url, image_url, price, price_original, price_suffix, price_installment, coupon_code, cta_text, cta_random, description, expired, scheduled_at, valid_until, never_expires")
       .eq("niche_group_id", group.id).order("position");
     if (!allProducts?.length) { totalSkipped++; continue; }
 
     const agoraMs = now.getTime();
-    let puladosExpirados = 0, puladosAgendados = 0;
+    let puladosExpirados = 0, puladosAgendados = 0, puladosVencidos = 0;
 
     const products = allProducts.filter((p: any) => {
       const src = p.source ?? "manual";
@@ -289,20 +295,29 @@ Deno.serve(async (req: Request) => {
         const quando = new Date(p.scheduled_at).getTime();
         if (Number.isFinite(quando) && quando > agoraMs) { puladosAgendados++; return false; }
       }
+      // v15: validade da oferta. never_expires isenta o produto desta regra --
+      // e so desta: o expired acima ja passou e nao tem isencao, porque e fato
+      // do marketplace, nao politica nossa.
+      if (p.never_expires !== true && p.valid_until) {
+        const ate = new Date(p.valid_until).getTime();
+        if (Number.isFinite(ate) && ate < agoraMs) { puladosVencidos++; return false; }
+      }
       return true;
     });
 
     totalExpirados += puladosExpirados;
     totalAgendados += puladosAgendados;
+    totalVencidos += puladosVencidos;
 
     if (!products.length) {
       totalSkipped++;
       // Registra o motivo real em vez de falhar em silencio.
-      if (puladosExpirados || puladosAgendados) {
+      if (puladosExpirados || puladosAgendados || puladosVencidos) {
         const motivo = [
           puladosExpirados ? `${puladosExpirados} fora do ar` : "",
           puladosAgendados ? `${puladosAgendados} aguardando agendamento` : "",
-        ].filter(Boolean).join(" e ");
+          puladosVencidos ? `${puladosVencidos} com validade vencida` : "",
+        ].filter(Boolean).join(", ");
         await sb.from("scheduled_posts").insert({
           user_id: group.user_id, group_id: group.id, product_id: allProducts[0].id,
           status: "skipped", scheduled_for: now.toISOString(), sent_at: null, is_manual: false,
@@ -416,5 +431,5 @@ Deno.serve(async (req: Request) => {
     totalSent += groupSent; totalFailed += groupFailed;
   }
 
-  return new Response(JSON.stringify({ groups:groups.length, sent:totalSent, failed:totalFailed, skipped:totalSkipped, blocked:totalBlocked, pulados_expirados:totalExpirados, pulados_agendados:totalAgendados, instancias_derrubadas:instanciasDerrubadas }), { headers:{"content-type":"application/json"} });
+  return new Response(JSON.stringify({ groups:groups.length, sent:totalSent, failed:totalFailed, skipped:totalSkipped, blocked:totalBlocked, pulados_expirados:totalExpirados, pulados_agendados:totalAgendados, pulados_vencidos:totalVencidos, instancias_derrubadas:instanciasDerrubadas }), { headers:{"content-type":"application/json"} });
 });
