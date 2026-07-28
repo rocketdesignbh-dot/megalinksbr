@@ -1011,15 +1011,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <!-- Modal Shopee em Massa -->
     <div class="mbg" id="modalShopeeEmMassa"><div class="modal" style="max-width:560px">
-      <div class="mh">🛍️ Shopee em Massa <button class="mx" onclick="closeModal('modalShopeeEmMassa')">×</button></div>
+      <div class="mh">🛍️ Importar em Massa <button class="mx" onclick="closeModal('modalShopeeEmMassa')">×</button></div>
       <div class="mb">
-        <div class="alert b" style="margin-bottom:12px">Cole um ou mais links da Shopee (um por linha). Cada link será importado como produto no seu Grupo de Oferta selecionado.</div>
+        <div class="alert b" style="margin-bottom:12px"><div>Cole um ou mais links (um por linha). A loja é identificada pelo próprio link — Shopee, Mercado Livre, Amazon e as demais suportadas. Cada link vira um produto no Grupo de Oferta escolhido.</div></div>
         <div class="field">
           <label>Grupo de Oferta destino</label>
           <select id="shMassaGrupo" style="width:100%"><option value="">— selecione —</option></select>
         </div>
         <div class="field">
-          <label>Links da Shopee (um por linha)</label>
+          <label>Links dos produtos (um por linha)</label>
           <textarea id="shMassaLinks" rows="8" placeholder="https://shopee.com.br/produto-1&#10;https://shopee.com.br/produto-2&#10;https://s.shopee.com.br/abc123&#10;..." style="width:100%;font-family:var(--mono);font-size:12px;resize:vertical"></textarea>
         </div>
         <div id="shMassaProgress" style="display:none">
@@ -3557,6 +3557,7 @@ async function shMassaImportar(){
   const session=await SB.auth.getSession();
   const jwt=session?.data?.session?.access_token;
   let ok=0,fail=0;
+  const lojasImportadas={};
 
   for(let i=0;i<links.length;i++){
     const url=links[i];
@@ -3571,7 +3572,13 @@ async function shMassaImportar(){
       });
       const d=await r.json();
       if(d.success&&(d.name||d.title)){
-        const title=d.name||d.title||"Produto Shopee";
+        // A loja vem do DOMINIO do link, nunca de um valor fixo. Antes isto era
+        // "shopee" cravado: colar link do Mercado Livre aqui gerava produto
+        // marcado como Shopee, e no disparo o link saia sem tag de afiliado --
+        // funcionando, mas sem comissao e sem erro nenhum aparecendo.
+        const lojaLabel=detectLojaLabel(url)||"Shopee";
+        const sourceEnum=STORE_ENUM[lojaLabel]||"shopee";
+        const title=d.name||d.title||`Produto ${lojaLabel}`;
         const price=d.price_to||d.price||"";
         const img=d.image||d.thumbnail||"";
         const discount=d.discount_pct||"";
@@ -3580,12 +3587,13 @@ async function shMassaImportar(){
           await SB.from("products").insert({
             niche_group_id:grupo.db_id,
             title,price:price?String(price):"",
-            affiliate_url:prGerarLinkAfil(url,"Shopee")||url,original_url:url,image_url:img,
+            affiliate_url:prGerarLinkAfil(url,lojaLabel)||url,original_url:url,image_url:img,
             discount_pct:discount?Number(discount):null,
-            source:"shopee",
+            source:sourceEnum,
             user_id:CURRENT_USER?.id
           }).catch(()=>{});
         }
+        lojasImportadas[lojaLabel]=(lojasImportadas[lojaLabel]||0)+1;
         ok++;
       }else{fail++;}
     }catch(e){fail++;}
@@ -3593,7 +3601,8 @@ async function shMassaImportar(){
     await new Promise(r=>setTimeout(r,600));
   }
 
-  status.textContent=`✅ Concluído: ${ok} importados, ${fail} falhas`;
+  const resumoLojas=Object.entries(lojasImportadas).map(([l,n])=>`${n} ${l}`).join(", ");
+  status.textContent=`✅ Concluído: ${ok} importados${resumoLojas?" ("+resumoLojas+")":""}, ${fail} falhas`;
   bar.style.width="100%";
   bar.style.background=fail>0?"var(--gold)":"var(--volt)";
   btn.disabled=false;
