@@ -1,4 +1,12 @@
-// Mega Links BR · Edge Function "send-post" v12
+// Mega Links BR · Edge Function "send-post" v14
+// v14: passa a respeitar dois campos que ja existiam no banco e na interface,
+//      mas que nenhum codigo lia:
+//      - expired      -> produto marcado como fora do ar pelo product-refresh
+//                        nunca mais e disparado (antes ia pro grupo com link morto);
+//      - scheduled_at -> o agendamento escolhido no formulario passa a valer:
+//                        o produto so entra no rodizio a partir da data marcada.
+//      A resposta agora informa quantos produtos foram pulados por cada motivo.
+// v13: guarda contra re-afiliar/re-encurtar short links proprios (com ou sem www).
 // v12: ENCURTAMENTO NO DISPARO. O link postado passa a ser sempre encurtado
 //      (megalinksbr.com.br/r/CODE) usando o user_id do DONO do grupo — o mesmo
 //      padrão do "Postar Agora". Antes o Post Automático regenerava o link de
@@ -232,6 +240,7 @@ Deno.serve(async (req: Request) => {
   for (const p of profiles ?? []) planMap[p.id] = p.is_vip ? "elite" : (p.plan || "starter");
 
   let totalSent = 0, totalFailed = 0, totalSkipped = 0, totalBlocked = 0;
+  let totalExpirados = 0, totalAgendados = 0;
   const instanciasDerrubadas: string[] = [];
 
   for (const group of groups) {
@@ -261,16 +270,47 @@ Deno.serve(async (req: Request) => {
     }));
 
     const { data: allProducts } = await sb.from("products")
-      .select("id, title, source, affiliate_url, original_url, image_url, price, price_original, price_suffix, price_installment, coupon_code, cta_text, cta_random, description")
+      .select("id, title, source, affiliate_url, original_url, image_url, price, price_original, price_suffix, price_installment, coupon_code, cta_text, cta_random, description, expired, scheduled_at")
       .eq("niche_group_id", group.id).order("position");
     if (!allProducts?.length) { totalSkipped++; continue; }
 
-    const products = allProducts.filter((p: { source: string }) => {
+    const agoraMs = now.getTime();
+    let puladosExpirados = 0, puladosAgendados = 0;
+
+    const products = allProducts.filter((p: any) => {
       const src = p.source ?? "manual";
       if (planAllowed !== null && !planAllowed.includes(src)) return false;
+      // v14: produto que o product-refresh marcou como fora do ar nunca e disparado.
+      // Antes este campo era gravado e nunca lido -- o link morto ia pro grupo igual.
+      if (p.expired === true) { puladosExpirados++; return false; }
+      // v14: agendamento do formulario ("📅 Agendamento"). Antes tambem era gravado
+      // e nunca lido, entao o produto entrava no rodizio na hora, ignorando a data.
+      if (p.scheduled_at) {
+        const quando = new Date(p.scheduled_at).getTime();
+        if (Number.isFinite(quando) && quando > agoraMs) { puladosAgendados++; return false; }
+      }
       return true;
     });
-    if (!products.length) { totalSkipped++; continue; }
+
+    totalExpirados += puladosExpirados;
+    totalAgendados += puladosAgendados;
+
+    if (!products.length) {
+      totalSkipped++;
+      // Registra o motivo real em vez de falhar em silencio.
+      if (puladosExpirados || puladosAgendados) {
+        const motivo = [
+          puladosExpirados ? `${puladosExpirados} fora do ar` : "",
+          puladosAgendados ? `${puladosAgendados} aguardando agendamento` : "",
+        ].filter(Boolean).join(" e ");
+        await sb.from("scheduled_posts").insert({
+          user_id: group.user_id, group_id: group.id, product_id: allProducts[0].id,
+          status: "skipped", scheduled_for: now.toISOString(), sent_at: null, is_manual: false,
+          error: `Nenhum produto disponivel agora: ${motivo}.`,
+        });
+      }
+      continue;
+    }
 
     const total = products.length;
     let cursor = (group.cursor_index ?? 0) % total, product = null, tentativas = 0;
@@ -376,5 +416,5 @@ Deno.serve(async (req: Request) => {
     totalSent += groupSent; totalFailed += groupFailed;
   }
 
-  return new Response(JSON.stringify({ groups:groups.length, sent:totalSent, failed:totalFailed, skipped:totalSkipped, blocked:totalBlocked, instancias_derrubadas:instanciasDerrubadas }), { headers:{"content-type":"application/json"} });
+  return new Response(JSON.stringify({ groups:groups.length, sent:totalSent, failed:totalFailed, skipped:totalSkipped, blocked:totalBlocked, pulados_expirados:totalExpirados, pulados_agendados:totalAgendados, instancias_derrubadas:instanciasDerrubadas }), { headers:{"content-type":"application/json"} });
 });
