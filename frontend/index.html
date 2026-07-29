@@ -2984,6 +2984,9 @@ function genRadar(){radarData=[];} // sem fictício: Radar só mostra ofertas re
 const RADAR_SOURCES=["mercado_livre","shopee","amazon","aliexpress"];
 const RADAR_LIMITE_POR_LOJA=60;
 const RADAR_LIMITE_LOJA_UNICA=120;
+// Teto de espera por consulta ao banco. Acima disso a loja e tratada como
+// "nao respondeu" em vez de deixar a tela pendurada.
+const RADAR_QUERY_TIMEOUT_MS=12000;
 const RADAR_SOURCE_NOME={mercado_livre:"Mercado Livre",shopee:"Shopee",amazon:"Amazon",aliexpress:"AliExpress"};
 // Resumo da ultima consulta: {porLoja:{source:{exibidas,total}}, exibidas, total}
 let RADAR_ULTIMO_RESUMO=null;
@@ -2996,15 +2999,24 @@ async function radarQuery(jwt,{searchQ,source,limit}){
   let q=`select=${RADAR_SELECT}&order=score.desc&limit=${limit}`;
   if(searchQ)q+=`&or=(title.ilike.*${encodeURIComponent(searchQ)}*,keyword.ilike.*${encodeURIComponent(searchQ)}*)`;
   if(source)q+=`&source=eq.${source}`;
+  // As consultas rodam em Promise.all: uma requisicao que nunca responde travava
+  // o Radar em "Carregando ofertas..." pra sempre, porque o Promise.all nunca
+  // resolvia. Com AbortController a busca sempre termina -- bem ou mal.
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),RADAR_QUERY_TIMEOUT_MS);
   try{
-    const r=await fetch(`${SUPA_URL}/rest/v1/radar_offers?${q}`,{headers:{apikey:SUPA_KEY,authorization:"Bearer "+jwt,Prefer:"count=exact"}});
-    if(!r.ok){console.warn("radarQuery HTTP",r.status,source||"todas");return{rows:[],total:0};}
+    const r=await fetch(`${SUPA_URL}/rest/v1/radar_offers?${q}`,{headers:{apikey:SUPA_KEY,authorization:"Bearer "+jwt,Prefer:"count=exact"},signal:ctrl.signal});
+    if(!r.ok){console.warn("radarQuery HTTP",r.status,source||"todas");return{rows:[],total:0,falhou:true,motivo:`HTTP ${r.status}`};}
     const d=await r.json();
     const rows=Array.isArray(d)?d:[];
     const cr=r.headers.get("content-range")||"";
     const total=Number(String(cr).split("/")[1])||rows.length;
     return{rows,total};
-  }catch(e){console.warn("radarQuery exc",source||"todas",e);return{rows:[],total:0};}
+  }catch(e){
+    const expirou=e&&e.name==="AbortError";
+    console.warn("radarQuery",expirou?"timeout":"exc",source||"todas",e);
+    return{rows:[],total:0,falhou:true,motivo:expirou?"sem resposta":"erro de rede"};
+  }finally{clearTimeout(timer);}
 }
 
 async function fetchRadarLive(searchQ="",lojaFiltro="Todas"){
@@ -3014,20 +3026,24 @@ async function fetchRadarLive(searchQ="",lojaFiltro="Todas"){
     const lojaParaSourceFiltro={"Shopee":"shopee","Mercado Livre":"mercado_livre","Amazon":"amazon","AliExpress":"aliexpress"};
     const sourceFiltro=lojaParaSourceFiltro[lojaFiltro];
     const porLoja={};
+    const falhas=[];
     let brutas=[];
     if(sourceFiltro){
-      const{rows,total}=await radarQuery(jwt,{searchQ,source:sourceFiltro,limit:RADAR_LIMITE_LOJA_UNICA});
-      porLoja[sourceFiltro]={exibidas:rows.length,total};
-      brutas=rows;
+      const res=await radarQuery(jwt,{searchQ,source:sourceFiltro,limit:RADAR_LIMITE_LOJA_UNICA});
+      porLoja[sourceFiltro]={exibidas:res.rows.length,total:res.total};
+      if(res.falhou)falhas.push({source:sourceFiltro,motivo:res.motivo});
+      brutas=res.rows;
     }else{
       const res=await Promise.all(RADAR_SOURCES.map(s=>radarQuery(jwt,{searchQ,source:s,limit:RADAR_LIMITE_POR_LOJA})));
       RADAR_SOURCES.forEach((s,i)=>{
         porLoja[s]={exibidas:res[i].rows.length,total:res[i].total};
+        if(res[i].falhou)falhas.push({source:s,motivo:res[i].motivo});
         brutas=brutas.concat(res[i].rows);
       });
     }
     RADAR_ULTIMO_RESUMO={
       porLoja,
+      falhas,
       exibidas:brutas.length,
       total:Object.values(porLoja).reduce((a,b)=>a+(b.total||0),0)
     };
@@ -3618,6 +3634,21 @@ async function renderRadar(forceRefresh){
   const searchQ=(document.getElementById("radarSearch")?.value||"").toLowerCase().trim();
   const live=await fetchRadarLive(searchQ,radarFilter);
   if(live){radarData=live;radarLive=true;}else{radarData=[];radarLive=false;}
+  // Consulta que falhou e lista vazia sao coisas diferentes. Sem esta distincao,
+  // banco fora do ar aparecia como "nenhuma oferta" e mandava o usuario procurar
+  // problema no lugar errado.
+  const _falhas=(RADAR_ULTIMO_RESUMO&&RADAR_ULTIMO_RESUMO.falhas)||[];
+  if(_falhas.length&&!radarData.length){
+    const nomes={mercado_livre:"Mercado Livre",shopee:"Shopee",amazon:"Amazon",aliexpress:"AliExpress"};
+    const txt=_falhas.map(f=>`${nomes[f.source]||f.source} (${f.motivo})`).join(", ");
+    if(radarContainer)radarContainer.innerHTML=`<div class="card"><div class="cb" style="text-align:center;padding:30px">
+      <div style="font-size:32px;margin-bottom:8px">⚠️</div>
+      <strong>Nao consegui consultar as ofertas salvas</strong>
+      <p style="color:var(--mut);font-size:13px;margin:8px 0 16px">Sem resposta de: ${txt}. Suas ofertas continuam salvas — e a consulta que falhou, nao os dados.</p>
+      <button class="btn btn-volt" onclick="renderRadar(true)">🔄 Tentar de novo</button>
+    </div></div>`;
+    return;
+  }
   
   // Calcula "novas" desde a última visita
   const lastVisit=getRadarLastVisit();
