@@ -5586,6 +5586,35 @@ function wireProdAdd(){
   const prev=document.getElementById("prodImportPreview");if(prev)prev.style.display="none";
 }
 
+// Preenche os campos de preco do "Importar via link" com o que a busca retornou.
+// So escreve em campo vazio -- reimportar um link nao apaga ajuste manual.
+function prodPreencherPrecos(){
+  const fmt=v=>{const n=Number(String(v??"").replace(",","."));return Number.isFinite(n)&&n>0?n.toFixed(2).replace(".",","):"";};
+  const set=(id,v)=>{const el=document.getElementById(id);const t=fmt(v);if(el&&!String(el.value||"").trim()&&t)el.value=t;};
+  set("prodLinkPrecoOrig",_prodImportData?.price_from);
+  set("prodLinkPrecoAtual",_prodImportData?.price_to);
+  if(typeof prodCalcDesc==="function")prodCalcDesc();
+}
+
+// O wa-engine normaliza a imagem do ML para a variante -O (maior resolucao),
+// mas nem todo anuncio tem -O na mesma extensao da original. Quando nao tem,
+// o preview mostrava o icone de imagem quebrada. Tentamos as variantes
+// conhecidas antes de desistir e cair no emoji.
+function _prodImgFallback(el){
+  const tentadas=(el.dataset.tent||"").split("|").filter(Boolean);
+  const src=el.getAttribute("src")||"";
+  const cands=[
+    src.replace(/-O\.(webp|png|jpeg)$/i,"-O.jpg"),
+    src.replace(/-[OF]\.(jpg|webp|png|jpeg)$/i,"-F.webp"),
+    src.replace(/-[OFV]\.(jpg|webp|png|jpeg)$/i,"-V.jpg"),
+  ];
+  const prox=cands.find(c=>c&&c!==src&&!tentadas.includes(c));
+  if(prox){el.dataset.tent=[...tentadas,src].join("|");el.src=prox;return;}
+  el.onerror=null;
+  const box=el.parentElement;
+  if(box)box.textContent="📦";
+}
+
 async function prodImportarLink(){
   const link=(document.getElementById("prodImportLink")?.value||"").trim();
   if(!link){toast("Cole um link primeiro.","⚠️");return;}
@@ -5603,16 +5632,21 @@ async function prodImportarLink(){
     });
     const d=await r.json();
     if(!d||(!d.title&&!d.name)){toast("Não foi possível extrair dados do produto.","⚠️");return;}
-    _prodImportData={title:d.title||d.name||d.name,price:d.price||d.price_to||d.price_from,affiliate_url:link,image_url:d.image||d.thumbnail||d.image_url,discount_pct:d.discount_pct||d.discount||null};
+    _prodImportData={title:d.title||d.name||d.name,price:d.price||d.price_to||d.price_from,price_from:d.price_from||null,price_to:d.price_to||d.price||null,affiliate_url:link,image_url:d.image||d.thumbnail||d.image_url,discount_pct:d.discount_pct||d.discount||null};
     const body=document.getElementById("prodImportBody");
     const prev=document.getElementById("prodImportPreview");
     if(body)body.innerHTML=`
       <div class="prod" style="align-items:center">
-        <div class="pimg">${_prodImportData.image_url?`<img src="${_prodImportData.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:"📦"}</div>
+        <div class="pimg">${_prodImportData.image_url?`<img src="${_prodImportData.image_url}" onerror="_prodImgFallback(this)" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:"📦"}</div>
         <div style="flex:1"><strong>${_prodImportData.title}</strong><br>
           <small style="color:var(--mut)">${_prodImportData.price?`R$ ${_prodImportData.price} · `:""}${_prodImportData.discount_pct?_prodImportData.discount_pct+"% OFF":""}</small></div>
       </div>`;
     if(prev)prev.style.display="block";
+    // A product-search ja devolvia price_from (original) e price_to (atual), mas
+    // esses valores morriam no preview e o usuario redigitava tudo na mao.
+    // Nao sobrescreve campo ja preenchido: o que a pessoa digitou vale mais que
+    // o que a loja diz.
+    prodPreencherPrecos();
     toast("Produto encontrado!","✅");
   }catch(e){toast("Erro: "+e.message,"⚠️");}
   finally{_mlSearchUnlock("prod:"+link);if(btn)btn.disabled=false;}
