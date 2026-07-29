@@ -2990,6 +2990,9 @@ const RADAR_QUERY_TIMEOUT_MS=12000;
 const RADAR_SOURCE_NOME={mercado_livre:"Mercado Livre",shopee:"Shopee",amazon:"Amazon",aliexpress:"AliExpress"};
 // Resumo da ultima consulta: {porLoja:{source:{exibidas,total}}, exibidas, total}
 let RADAR_ULTIMO_RESUMO=null;
+// Ultimo bloco "results" devolvido pela Edge Function radar (traz amazon_bloqueada,
+// amazon_ultimo_sucesso, cotas do ML etc).
+let RADAR_ULTIMO_RESULTADO=null;
 const RADAR_SELECT="title,shop_name,price,price_original,discount_pct,commission_rate,rating,sales,score,affiliate_url,image_url,category,keyword,fetched_at,source";
 
 // Uma consulta ao radar_offers. Usa Prefer:count=exact pra saber quantas ofertas
@@ -3432,6 +3435,20 @@ async function atualizarStatusBuscaML(){
     }
   }catch(e){console.warn("atualizarStatusBuscaML:",e);}
 }
+// Texto auxiliar do aviso de bloqueio da Amazon: transforma o timestamp da ultima
+// coleta bem-sucedida em algo legivel. Sem numero inventado -- ou sabemos, ou calamos.
+function radarDesdeUltimoSucessoAmazon(){
+  const iso=RADAR_ULTIMO_RESULTADO&&RADAR_ULTIMO_RESULTADO.amazon_ultimo_sucesso;
+  if(!iso)return "";
+  const t=new Date(iso).getTime();
+  if(!Number.isFinite(t))return "";
+  const min=Math.floor((Date.now()-t)/60000);
+  if(min<1)return " A última coleta foi agora há pouco.";
+  if(min<60)return ` A última coleta bem-sucedida foi há ${min}min.`;
+  const h=Math.floor(min/60);
+  return ` A última coleta bem-sucedida foi há ${h}h.`;
+}
+
 async function radarDispararBusca(){
   const btn=document.getElementById("btnBuscarAgora")||document.querySelector("[onclick='radarDispararBusca()']");
   const keyword=(document.getElementById("radarSearch")?.value||"").trim();
@@ -3475,6 +3492,7 @@ async function radarDispararBusca(){
         const d=await r.json();
         totalUpserts+=(d.upserts||0);
         radarResults=d.results||null;
+        RADAR_ULTIMO_RESULTADO=radarResults;
         // Detecta se o lote de ML foi pulado por limite diário/mensal ou keyword repetida (nunca mostrar como "erro" cru)
         mlKeywordRepetida=Array.isArray(d.errors)&&d.errors.some(e=>String(e).includes("keyword_repetida"));
         mlQuotaAtingida=!mlKeywordRepetida&&Array.isArray(d.errors)&&d.errors.some(e=>String(e).includes("ML pulado"));
@@ -3490,6 +3508,12 @@ async function radarDispararBusca(){
       toast(`Você já buscou "${keyword}" recentemente — exibindo o resultado já coletado. Quer um produto diferente? Busque direto no site do Mercado Livre e use Postar Agora.`,"ℹ️");
     }else if(mlQuotaAtingida&&totalUpserts===0){
       toast("Exibindo as últimas ofertas do Mercado Livre já coletadas. Próxima atualização automática às 11h/19h. Para um produto específico agora, use Postar Agora com o link.","ℹ️");
+    }else if(radarResults?.amazon_bloqueada===true&&totalUpserts===0){
+      // A Amazon devolve pagina vazia quando bloqueia o nosso IP -- inclusive para
+      // uma palavra que acabou de funcionar. Dizer "0 ofertas encontradas" fazia o
+      // usuario concluir que a loja nao tem o produto, e ir procurar defeito no
+      // lugar errado. Ver Edge Function radar v32.
+      toast(`A Amazon bloqueou a consulta — tente daqui a pouco.${radarDesdeUltimoSucessoAmazon()} Isso não significa que o produto não existe lá.`,"🚫");
     }else{
       toast(`${totalUpserts} ofertas ${lojaMsg}encontradas${kwMsg} 🛰️`,"🔥");
     }
