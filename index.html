@@ -614,6 +614,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <nav class="nav-grp show" id="navAfiliado">
     <div class="nav active" data-page="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Dashboard</div>
     <div class="nav-cta" data-page="post-relampago"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M13 2L4.5 13.5H11L10 22L19.5 10H13L13 2Z"/></svg>🚀 Postar Agora<span class="tag orange">NEW</span></div>
+    <div class="nav" data-page="clone-post"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Clone Post<span class="tag dot" id="cloneBadge" style="display:none">0</span></div>
     <div class="nav" data-page="radar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 3v4.5M12 12l6-4"/></svg>Radar de Ofertas<span class="tag dot" id="radarBadge">0</span></div>
     <div class="nav" data-page="analitico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 20V8M10 20V4M16 20v-9M21 20H3"/></svg>Analítico</div>
     <div class="nav" data-page="post-automatico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>⚡ Post. Automático<span class="tag dot" id="autoPostBadge" style="display:none">0</span></div>
@@ -932,6 +933,51 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </section>
 
   <!-- ===== RADAR ===== -->
+  <section class="page" id="page-clone-post">
+    <div class="phead">
+      <div>
+        <h1 class="pt">🧬 Clone Post</h1>
+        <div class="psub">Viu uma oferta boa no grupo de outra pessoa? Cole a mensagem aqui: o link do afiliado dela sai, o seu entra, e o post vai pro seu Grupo de Oferta.</div>
+        <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button>
+      </div>
+    </div>
+
+    <div id="cloneGate" style="display:none"></div>
+
+    <div id="cloneApp">
+      <div class="card" style="margin-bottom:16px">
+        <div class="ch">📋 Colar mensagem do grupo</div>
+        <div class="cb">
+          <label>Mensagem copiada</label>
+          <textarea id="cloneTexto" rows="6" placeholder="Cole aqui a mensagem inteira, com o link.&#10;&#10;Exemplo:&#10;🔥 AIR FRYER MONDIAL 4L&#10;💸 De R$ 399 por R$ 249 no Pix&#10;👉 https://s.shopee.com.br/9pxKq2Lm3" style="width:100%;font-family:var(--mono);font-size:12.5px;resize:vertical"></textarea>
+          <div class="g2" style="margin-top:12px">
+            <div>
+              <label>Grupo de Oferta de destino</label>
+              <select id="cloneGrupo" style="width:100%" onchange="cloneAtualizarAuto()"></select>
+            </div>
+            <div>
+              <label>Aprovação deste grupo</label>
+              <div style="display:flex;align-items:center;gap:10px;height:38px">
+                <input type="checkbox" id="cloneAuto" onchange="cloneToggleAuto()" style="width:auto">
+                <span id="cloneAutoTxt" style="font-size:12.5px;color:var(--tx2)">revisar antes de publicar</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+            <button class="btn btn-gold" id="cloneBtn" onclick="cloneResolver()">🧬 Clonar oferta</button>
+            <button class="btn btn-ghost" onclick="cloneLimpar()">Limpar</button>
+          </div>
+          <div id="cloneStatus" style="display:none;margin-top:14px"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ch">🗂️ Fila de clones <span class="r"><a href="#" onclick="cloneCarregarFila();return false">atualizar</a></span></div>
+        <div class="cb" id="cloneFila"><div style="color:var(--tx2);font-size:13px">Carregando…</div></div>
+      </div>
+    </div>
+  </section>
+
   <section class="page" id="page-radar">
     <div class="phead">
       <div>
@@ -2381,10 +2427,10 @@ async function loadCreds(){
 
 /* ================= PLANOS REAIS (plan_features) — definido cedo, antes de qualquer uso ================= */
 const PLAN_FALLBACK={
-  starter:{plan:"starter",label:"Starter",color:"#10B981",price_month:57.90,wa_groups:1,wa_channels:2,wa_connections:1,wa_post_automation:true,tg_channels:1,tg_post_automation:false,marketplaces:1,links_simultaneous:10,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:false,support_level:"comunidade",sort_order:1,max_products:15},
-  pro:{plan:"pro",label:"Pro",color:"#3B82F6",price_month:97.90,wa_groups:3,wa_channels:6,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,marketplaces:3,links_simultaneous:30,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:true,support_level:"email",sort_order:2,max_products:50},
-  elite:{plan:"elite",label:"Elite",color:"#8B5CF6",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",sort_order:3,max_products:150},
-  premium:{plan:"premium",label:"Premium",color:"#F59E0B",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",sort_order:4,max_products:300}
+  starter:{plan:"starter",label:"Starter",color:"#10B981",price_month:57.90,wa_groups:1,wa_channels:2,wa_connections:1,wa_post_automation:true,tg_channels:1,tg_post_automation:false,marketplaces:1,links_simultaneous:10,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:false,support_level:"comunidade",clone_post:false,sort_order:1,max_products:15},
+  pro:{plan:"pro",label:"Pro",color:"#3B82F6",price_month:97.90,wa_groups:3,wa_channels:6,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,marketplaces:3,links_simultaneous:30,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:true,support_level:"email",clone_post:true,sort_order:2,max_products:50},
+  elite:{plan:"elite",label:"Elite",color:"#8B5CF6",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",clone_post:true,sort_order:3,max_products:150},
+  premium:{plan:"premium",label:"Premium",color:"#F59E0B",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",clone_post:true,sort_order:4,max_products:300}
 };
 let PLAN_FEATURES={...PLAN_FALLBACK};
 let MY_PLAN="starter";
@@ -2492,6 +2538,7 @@ function go(page){
   // Hook: ao entrar no Analítico, carrega dados reais
   if(page==="analitico")setTimeout(()=>{if(typeof SB!=="undefined"&&SB&&CURRENT_USER?.id)loadAnalitico();},120);
   if(page==="cupons")setTimeout(()=>{if(typeof loadCuponsPage==="function")loadCuponsPage();},120);
+  if(page==="clone-post")setTimeout(()=>{if(typeof cloneAbrirPagina==="function")cloneAbrirPagina();},120);
   if(page==="post-automatico")setTimeout(()=>{if(typeof SB!=="undefined"&&SB&&CURRENT_USER?.id)loadPostAutomatico();},120);
   // Hook: ao entrar em Assinatura, re-renderiza com dados frescos do plano
   if(page==="assinatura")setTimeout(()=>renderPlans(),80);
@@ -7807,6 +7854,305 @@ async function encurtarLinkFinal(longUrl,postRef){
   if(!longUrl)return longUrl;
   try{ if(new URL(longUrl,window.location.origin).pathname.startsWith("/r/"))return longUrl; }catch(e){}
   try{ const s=await mlEncurtarLink(longUrl,postRef); return s||longUrl; }catch(e){ return longUrl; }
+}
+
+/* ================= CLONE POST ================= */
+// Clona uma oferta postada em outro grupo: resolve o link encurtado (resolve-link),
+// descarta o ID de afiliado de quem postou, injeta o do usuario logado e joga na
+// fila do Grupo de Oferta escolhido. Grupo com clone_auto_approve=true publica direto.
+let CLONE_ATUAL=null;
+
+function clonePlanoLiberado(){return !!myFeatures().clone_post;}
+
+function cloneGrupoSel(){
+  const id=document.getElementById("cloneGrupo")?.value||"";
+  return S.grupos.find(g=>String(g.db_id||g.id)===String(id))||null;
+}
+
+function cloneLimpar(){
+  CLONE_ATUAL=null;
+  const t=document.getElementById("cloneTexto");if(t)t.value="";
+  const s=document.getElementById("cloneStatus");if(s){s.style.display="none";s.innerHTML="";}
+}
+
+function cloneAbrirPagina(){
+  const gate=document.getElementById("cloneGate");
+  const app=document.getElementById("cloneApp");
+  if(!gate||!app)return;
+  if(!clonePlanoLiberado()){
+    gate.style.display="block";
+    gate.innerHTML='<div class="alert y" style="display:flex;align-items:center;gap:12px"><span style="font-size:20px">🔒</span><span style="flex:1">O <strong>Clone Post</strong> está disponível a partir do plano <strong>Pro</strong>. Cada clone consulta a loja de origem pra conferir preço e imagem — por isso não entra no Starter.</span><button class="btn btn-gold btn-sm" onclick="go(\'assinatura\')">Ver planos</button></div>';
+    app.style.display="none";
+    return;
+  }
+  gate.style.display="none";
+  app.style.display="block";
+  clonePreencherGrupos();
+  cloneCarregarFila();
+}
+
+function clonePreencherGrupos(){
+  const sel=document.getElementById("cloneGrupo");
+  if(!sel)return;
+  const atual=sel.value;
+  if(!S.grupos.length){
+    sel.innerHTML='<option value="">— nenhum Grupo de Oferta criado —</option>';
+  }else{
+    sel.innerHTML=S.grupos.map(g=>`<option value="${g.db_id||g.id}">${g.nome}</option>`).join("");
+    if(atual)sel.value=atual;
+  }
+  cloneAtualizarAuto();
+}
+
+async function cloneAtualizarAuto(){
+  const g=cloneGrupoSel();
+  const chk=document.getElementById("cloneAuto");
+  const txt=document.getElementById("cloneAutoTxt");
+  if(!chk||!txt)return;
+  if(!g){chk.checked=false;chk.disabled=true;txt.textContent="selecione um grupo";return;}
+  chk.disabled=false;
+  let auto=g.cloneAuto;
+  if(auto===undefined){
+    try{
+      const{data}=await SB.from("niche_groups").select("clone_auto_approve").eq("id",g.db_id||g.id).maybeSingle();
+      auto=!!data?.clone_auto_approve;g.cloneAuto=auto;
+    }catch(e){auto=false;}
+  }
+  chk.checked=!!auto;
+  txt.textContent=auto?"publica direto, sem revisão":"revisar antes de publicar";
+}
+
+async function cloneToggleAuto(){
+  const g=cloneGrupoSel();
+  const chk=document.getElementById("cloneAuto");
+  if(!g||!chk)return;
+  const novo=chk.checked;
+  const{error}=await SB.from("niche_groups").update({clone_auto_approve:novo}).eq("id",g.db_id||g.id);
+  if(error){chk.checked=!novo;toast("Não consegui salvar: "+error.message,"⚠️");return;}
+  g.cloneAuto=novo;
+  const txt=document.getElementById("cloneAutoTxt");
+  if(txt)txt.textContent=novo?"publica direto, sem revisão":"revisar antes de publicar";
+  toast(novo?"Clones deste grupo vão direto pro ar.":"Clones deste grupo passam por revisão.","✅");
+}
+
+async function cloneResolver(){
+  if(!clonePlanoLiberado()){toast("Clone Post é a partir do plano Pro.","🔒");return;}
+  const texto=(document.getElementById("cloneTexto")?.value||"").trim();
+  const st=document.getElementById("cloneStatus");
+  const btn=document.getElementById("cloneBtn");
+  const grupo=cloneGrupoSel();
+  if(!texto){toast("Cole a mensagem do grupo primeiro.","⚠️");return;}
+  if(!grupo){toast("Crie ou selecione um Grupo de Oferta de destino.","⚠️");return;}
+  if(btn)btn.disabled=true;
+  st.style.display="block";
+  st.innerHTML='<div class="alert b" style="margin:0">🔗 Resolvendo o link e removendo o afiliado de origem…</div>';
+  try{
+    const session=await SB.auth.getSession();
+    const jwt=session?.data?.session?.access_token;
+    if(!jwt)throw new Error("Sessão expirada — entre de novo.");
+
+    const r=await fetch(`${SUPA_URL}/functions/v1/resolve-link`,{
+      method:"POST",
+      headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"},
+      body:JSON.stringify({text:texto})
+    });
+    const d=await r.json();
+    if(!d.ok){
+      st.innerHTML=`<div class="alert r" style="margin:0"><span><strong>Não deu pra clonar.</strong><br>${d.error||"erro desconhecido"}${d.stage?` <small style="opacity:.7">(etapa: ${d.stage})</small>`:""}</span></div>`;
+      return;
+    }
+
+    st.innerHTML=`<div class="alert b" style="margin:0">🔎 Link resolvido (${d.store_label||d.store}). Consultando preço e imagem na loja…</div>`;
+
+    const prod={title:"",price:null,price_original:null,image:"",discount:null};
+    let buscaErro="";
+    try{
+      const rp=await fetch(`${SUPA_URL}/functions/v1/product-search`,{
+        method:"POST",
+        headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"},
+        body:JSON.stringify({url:d.url,credentials:prColetarCredenciais()})
+      });
+      const dp=await rp.json();
+      if(dp.success){
+        prod.title=(dp.name||dp.title||"").slice(0,120);
+        prod.image=dp.image||dp.thumbnail||"";
+        prod.price=parseFloat(String(dp.price_to||dp.price||"").replace(",","."))||null;
+        prod.price_original=parseFloat(String(dp.price_from||"").replace(",","."))||null;
+        prod.discount=dp.discount_pct||null;
+      }else{
+        buscaErro=dp.error||"a loja não devolveu os dados do produto";
+      }
+    }catch(e){buscaErro=e.message||String(e);}
+
+    const lojaLabel=d.store_label||detectLojaLabel(d.url)||"";
+    const linkAfiliado=prGerarLinkAfil(d.url,lojaLabel)||d.url;
+
+    CLONE_ATUAL={texto,resolve:d,prod,lojaLabel,linkAfiliado,grupoId:grupo.db_id||grupo.id,buscaErro};
+    cloneRenderPreview();
+  }catch(e){
+    st.innerHTML=`<div class="alert r" style="margin:0"><span><strong>Falhou:</strong> ${e.message||e}</span></div>`;
+  }finally{
+    if(btn)btn.disabled=false;
+  }
+}
+
+function cloneRenderPreview(){
+  const c=CLONE_ATUAL;
+  const st=document.getElementById("cloneStatus");
+  if(!c||!st)return;
+  const d=c.resolve;
+  const semCred=!temCredencialLoja(c.lojaLabel);
+  const avisoCred=semCred?`<div class="alert y" style="margin:10px 0 0"><span>⚠️ Você não tem credencial de <strong>${c.lojaLabel||"loja"}</strong> configurada — o link vai sair <strong>sem a sua comissão</strong>. <a href="#" onclick="go('config-afiliados');return false" style="color:var(--volt)">Configurar agora</a></span></div>`:"";
+  const avisoBusca=c.buscaErro?`<div class="alert y" style="margin:10px 0 0"><span>A loja não devolveu os dados automáticos (${c.buscaErro}). Dá pra clonar assim mesmo — confira título e preço antes de aprovar.</span></div>`:"";
+  const removidos=(d.stripped||[]).length
+    ?`<span style="color:var(--volt)">removido: ${d.stripped.join(", ")}</span>`
+    :'<span style="color:var(--tx2)">o link original não tinha parâmetro de afiliado</span>';
+  const esc=s=>String(s||"").replace(/"/g,"&quot;");
+  st.style.display="block";
+  st.innerHTML=`
+  <div class="card" style="margin:0">
+    <div class="ch">🧬 Pronto pra clonar</div>
+    <div class="cb">
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        ${c.prod.image?`<img src="${c.prod.image}" style="width:96px;height:96px;object-fit:contain;border-radius:10px;background:#fff" onerror="this.style.display='none'">`:""}
+        <div style="flex:1;min-width:220px">
+          <label>Título</label>
+          <input id="cloneTitulo" value="${esc(c.prod.title)}" placeholder="Título do produto" style="width:100%">
+          <div class="g2" style="margin-top:10px">
+            <div><label>Preço original</label><input id="cloneDe" value="${c.prod.price_original||""}" placeholder="399,00" style="width:100%"></div>
+            <div><label>Preço atual</label><input id="clonePor" value="${c.prod.price||""}" placeholder="249,00" style="width:100%"></div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--tx2);line-height:1.8">
+        <div>Loja: <strong style="color:var(--tx)">${c.lojaLabel||d.store}</strong> · saltos até o link real: ${d.hops}</div>
+        <div>Afiliado de origem: ${removidos}</div>
+        <div style="word-break:break-all">Seu link: <span style="color:var(--volt)">${c.linkAfiliado}</span></div>
+      </div>
+      ${avisoCred}${avisoBusca}
+      <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+        <button class="btn btn-volt" onclick="cloneSalvar()">✅ Enviar pro grupo</button>
+        <button class="btn btn-ghost" onclick="cloneLimpar()">Descartar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function cloneSalvar(){
+  const c=CLONE_ATUAL;
+  if(!c){toast("Nada pra salvar.","⚠️");return;}
+  const titulo=(document.getElementById("cloneTitulo")?.value||"").trim();
+  const de=parseFloat(String(document.getElementById("cloneDe")?.value||"").replace(",","."))||null;
+  const por=parseFloat(String(document.getElementById("clonePor")?.value||"").replace(",","."))||null;
+  if(!titulo){toast("Preencha o título do produto.","⚠️");return;}
+  const desc=(de&&por&&por<de)?Math.round((1-por/de)*100):(c.prod.discount||null);
+  const g=S.grupos.find(x=>String(x.db_id||x.id)===String(c.grupoId));
+  const auto=!!(g&&g.cloneAuto);
+  const row={
+    user_id:CURRENT_USER?.id,
+    niche_group_id:c.grupoId,
+    status:auto?"approved":"pending",
+    source_text:String(c.texto||"").slice(0,2000),
+    source_url:c.resolve.original,
+    resolved_url:c.resolve.resolved,
+    clean_url:c.resolve.url,
+    affiliate_url:c.linkAfiliado,
+    store:STORE_ENUM[c.lojaLabel]||"manual",
+    store_label:c.lojaLabel||null,
+    stripped_params:c.resolve.stripped||[],
+    title:titulo,price:por,price_original:de,discount_pct:desc,
+    image_url:c.prod.image||null,
+    resolved_at:new Date().toISOString(),
+    approved_at:auto?new Date().toISOString():null
+  };
+  const{data:ins,error}=await SB.from("clone_posts").insert(row).select("id").maybeSingle();
+  if(error){toast("Erro ao salvar o clone: "+error.message,"⚠️");return;}
+  if(auto){
+    const ok=await cloneCriarProduto(ins.id,row);
+    if(!ok)return;
+    toast("Clonado e publicado no grupo.","🧬");
+  }else{
+    toast("Clone salvo na fila pra revisão.","🧬");
+  }
+  cloneLimpar();
+  cloneCarregarFila();
+}
+
+// Transforma uma linha da fila em produto do grupo. Se falhar, marca o clone como
+// failed com o motivo — nunca deixa o clone "sumir" sem explicacao.
+async function cloneCriarProduto(cloneId,row){
+  try{
+    const{data:last}=await SB.from("products").select("position").eq("niche_group_id",row.niche_group_id).order("position",{ascending:false}).limit(1).maybeSingle();
+    const pos=(last?.position||0)+1;
+    const linkFinal=await encurtarLinkFinal(row.affiliate_url);
+    const{data:prod,error}=await SB.from("products").insert({
+      niche_group_id:row.niche_group_id,
+      source:row.store||"manual",
+      position:pos,
+      title:row.title,
+      affiliate_url:linkFinal,
+      original_url:row.clean_url,
+      image_url:row.image_url||"",
+      price:row.price,
+      price_original:row.price_original,
+      discount_pct:row.discount_pct,
+      user_id:CURRENT_USER?.id
+    }).select("id").maybeSingle();
+    if(error)throw new Error(error.message);
+    await SB.from("clone_posts").update({status:"approved",product_id:prod?.id||null,approved_at:new Date().toISOString(),error:null}).eq("id",cloneId);
+    return true;
+  }catch(e){
+    const msg=String(e.message||e);
+    await SB.from("clone_posts").update({status:"failed",error:msg}).eq("id",cloneId);
+    toast("Clone salvo, mas não virou produto: "+msg,"⚠️");
+    cloneCarregarFila();
+    return false;
+  }
+}
+
+async function cloneCarregarFila(){
+  const el=document.getElementById("cloneFila");
+  if(!el||!CURRENT_USER?.id)return;
+  const{data,error}=await SB.from("clone_posts").select("*").eq("user_id",CURRENT_USER.id).order("created_at",{ascending:false}).limit(30);
+  if(error){el.innerHTML=`<div class="alert r" style="margin:0"><span>Não consegui carregar a fila: ${error.message}</span></div>`;return;}
+  if(!data||!data.length){
+    el.innerHTML='<div style="color:var(--tx2);font-size:13px">Nenhum clone ainda. Cole a mensagem de uma oferta acima pra começar.</div>';
+    const b0=document.getElementById("cloneBadge");if(b0)b0.style.display="none";
+    return;
+  }
+  const nomeGrupo=id=>{const g=S.grupos.find(x=>String(x.db_id||x.id)===String(id));return g?g.nome:"—";};
+  const badge={
+    pending:'<span class="pill" style="background:rgba(245,197,24,.15);color:var(--gold)">aguardando revisão</span>',
+    approved:'<span class="pill" style="background:rgba(25,226,125,.15);color:var(--volt)">publicado</span>',
+    rejected:'<span class="pill" style="background:rgba(255,81,104,.12);color:var(--red)">descartado</span>',
+    failed:'<span class="pill" style="background:rgba(255,81,104,.2);color:var(--red)">falhou</span>'
+  };
+  el.innerHTML=data.map(c=>`
+    <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--bd)">
+      ${c.image_url?`<img src="${c.image_url}" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#fff;flex:none" onerror="this.style.display='none'">`:""}
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13.5px">${c.title||"(sem título)"}</div>
+        <div style="font-size:12px;color:var(--tx2);margin-top:3px">${c.store_label||c.store||""} · ${nomeGrupo(c.niche_group_id)} · ${c.price?("R$ "+c.price):"sem preço"} ${badge[c.status]||c.status}</div>
+        ${c.error?`<div style="font-size:11.5px;color:var(--red);margin-top:3px">${c.error}</div>`:""}
+      </div>
+      ${c.status==="pending"?`<div style="display:flex;gap:8px;flex:none"><button class="btn btn-volt btn-sm" onclick="cloneAprovar('${c.id}')">Aprovar</button><button class="btn btn-ghost btn-sm" onclick="cloneRejeitar('${c.id}')">Descartar</button></div>`:""}
+    </div>`).join("");
+  const pend=data.filter(c=>c.status==="pending").length;
+  const b=document.getElementById("cloneBadge");
+  if(b){b.textContent=pend;b.style.display=pend?"inline-flex":"none";}
+}
+
+async function cloneAprovar(id){
+  const{data,error}=await SB.from("clone_posts").select("*").eq("id",id).maybeSingle();
+  if(error||!data){toast("Clone não encontrado.","⚠️");return;}
+  const ok=await cloneCriarProduto(id,data);
+  if(ok){toast("Clone publicado no grupo.","✅");cloneCarregarFila();}
+}
+
+async function cloneRejeitar(id){
+  const{error}=await SB.from("clone_posts").update({status:"rejected"}).eq("id",id);
+  if(error){toast("Erro: "+error.message,"⚠️");return;}
+  cloneCarregarFila();
 }
 
 // Usuário logado tem credencial cadastrada para essa loja?
