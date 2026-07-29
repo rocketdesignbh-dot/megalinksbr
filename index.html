@@ -950,8 +950,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="card" style="padding:12px 16px;margin-bottom:12px">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
         <div style="flex:1;min-width:180px">
-          <label style="font-size:11px;color:var(--mut);font-weight:600;display:block;margin-bottom:5px">BUSCAR PRODUTO</label>
-          <input id="radarSearch" placeholder="🔍 Filtrar ou digite uma categoria (ex: cafeteira) pra buscar no Mercado Livre agora…" oninput="clearTimeout(window._radarSearchTimer);window._radarSearchTimer=setTimeout(()=>renderRadar(),500)" style="width:100%">
+          <label style="font-size:11px;color:var(--mut);font-weight:600;display:block;margin-bottom:5px">FILTRAR NA LISTA</label>
+          <input id="radarSearch" placeholder="Filtre as ofertas já coletadas — ou digite uma categoria (ex: cafeteira) e clique em Buscar novas ofertas" oninput="clearTimeout(window._radarSearchTimer);window._radarSearchTimer=setTimeout(()=>renderRadar(),500)" style="width:100%">
         </div>
         <div style="min-width:140px">
           <label style="font-size:11px;color:var(--mut);font-weight:600;display:block;margin-bottom:5px">ORDENAR POR</label>
@@ -985,8 +985,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <option value="500">R$ 500</option>
           </select>
         </div>
-        <button class="btn btn-volt btn-sm" onclick="renderRadar()" style="align-self:flex-end;white-space:nowrap">🔄 Atualizar</button>
-        <button class="btn btn-ghost btn-sm" id="btnBuscarAgora" onclick="radarDispararBusca()" style="align-self:flex-end;white-space:nowrap">🔍 Buscar agora</button>
+        <button class="btn btn-volt btn-sm" id="btnBuscarAgora" onclick="radarDispararBusca()" style="align-self:flex-end;white-space:nowrap">🛰️ Buscar novas ofertas</button>
+        <button class="btn btn-ghost btn-sm" onclick="renderRadar()" title="Relê as ofertas já salvas, sem consultar as lojas" style="align-self:flex-end;white-space:nowrap">↻ Recarregar lista</button>
         <button class="btn btn-ghost btn-sm" onclick="radarShopeeEmMassa()" style="align-self:flex-end;white-space:nowrap">🛍️ Shopee em massa</button>
       </div>
       <!-- Filtros de loja dinâmicos -->
@@ -3368,12 +3368,12 @@ function radarEmpty(){
     <div class="ico">🛰️</div>
     <h3 style="margin:8px 0 6px">Radar ainda sem ofertas</h3>
     <p style="max-width:460px;margin:0 auto 16px;color:var(--tx2)">
-      Clique em <strong>🔄 Buscar agora</strong> para o Radar buscar ofertas reais do 
+      Clique em <strong>🛰️ Buscar novas ofertas</strong> para o Radar buscar ofertas reais do 
       <strong>Mercado Livre</strong> e <strong>Shopee</strong> automaticamente.<br>
       <small style="color:var(--mut)">Shopee atualiza a cada 30min. Mercado Livre atualiza 2x ao dia (11h e 19h) para manter a qualidade do serviço.</small>
     </p>
     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-      <button class="btn btn-volt" onclick="radarDispararBusca()">🔄 Buscar ofertas agora</button>
+      <button class="btn btn-volt" onclick="radarDispararBusca()">🛰️ Buscar novas ofertas</button>
       <button class="btn btn-ghost" onclick="radarShopeeEmMassa()">🛍️ Importar links Shopee em massa</button>
     </div>
   </div>`;
@@ -3481,7 +3481,7 @@ async function radarDispararBusca(){
       }
     }
 
-    if(btn){btn.disabled=false;btn.textContent=labelOrig||"🔍 Buscar agora";}
+    if(btn){btn.disabled=false;btn.textContent=labelOrig||"🛰️ Buscar novas ofertas";}
     const lojaMsg=radarFilter==="Todas"?"":radarFilter+" ";
     const kwMsg=keyword?` para "${keyword}"`:"";
     if(mlSemKeywordBloqueado&&!buscaShopee){
@@ -3530,7 +3530,7 @@ async function radarDispararBusca(){
     }catch(e){console.warn("aviso ofertas ocultas:",e);}
     if(typeof atualizarStatusBuscaML==="function")atualizarStatusBuscaML();
   }catch(e){
-    if(btn){btn.disabled=false;btn.textContent=labelOrig||"🔍 Buscar agora";}
+    if(btn){btn.disabled=false;btn.textContent=labelOrig||"🛰️ Buscar novas ofertas";}
     toast("Erro ao buscar: "+(e.message||"verifique as credenciais"),"⛔");
   }
 }
@@ -3686,8 +3686,8 @@ async function renderRadar(forceRefresh){
         const icone=lojaLogoImg(l,lojaIcone[l]||"🏷️",16);
         const temDados=lojasNoDados.includes(l);
         const conectada=lojaConectada(l);
-        const label=temDados?" ✓":(conectada?" (clique Buscar agora)":"");
-        return `<button class="fc ${l===radarFilter?"on":""}" onclick="radarFilter='${l}';renderRadar()" title="${conectada?"Conectada — clique Buscar agora para carregar":"Sem credencial"}" style="${!temDados?"opacity:.7":""}">${icone} ${l}${label}</button>`;
+        const label=temDados?" ✓":(conectada?" (sem ofertas)":"");
+        return `<button class="fc ${l===radarFilter?"on":""}" onclick="radarFilter='${l}';renderRadar()" title="${conectada?"Conectada — clique em Buscar novas ofertas para carregar":"Sem credencial"}" style="${!temDados?"opacity:.7":""}">${icone} ${l}${label}</button>`;
       })
     ].join("");
   }
