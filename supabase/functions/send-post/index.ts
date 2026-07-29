@@ -1,4 +1,13 @@
-// Mega Links BR · Edge Function "send-post" v15
+// Mega Links BR · Edge Function "send-post" v16
+// v16: timeout do wa-engine subiu de 10s para 20s nas chamadas /send-group e
+//      /send. Motivo medido: em 29/07 as duas rodadas do cron das 11:32 UTC
+//      falharam com "The signal has been aborted" -- o AbortController de 10s
+//      cortou a espera enquanto o Baileys ainda baixava a imagem do produto.
+//      O post provavelmente chegou ao grupo; o painel e que marcou failed.
+//      Telegram continua em 10s (nao baixa midia pela VPS).
+//      20s e nao 30s de proposito: a funcao percorre todos os grupos em
+//      sequencia na mesma invocacao e o cron roda a cada minuto -- timeout
+//      alto demais em um canal lento segura a fila inteira.
 // v15: validade da oferta.
 //      - valid_until   -> depois dessa data o produto sai do rodizio;
 //      - never_expires -> isenta o produto da validade acima. NAO isenta de
@@ -30,6 +39,10 @@ const ENGINE_URL   = Deno.env.get("WA_ENGINE_URL") ?? "";
 const ENGINE_TOKEN = Deno.env.get("WA_ENGINE_TOKEN") ?? "";
 
 const SHORT_DOMAIN = "https://megalinksbr.com.br";
+
+// v16: o wa-engine baixa a imagem do produto antes de enviar pelo Baileys.
+// Imagem grande ou CDN lenta estoura 10s com facilidade.
+const ENGINE_TIMEOUT_MS = 20000;
 
 const LOJAS_QUE_EXIGEM_CREDENCIAL = new Set([
   "shopee", "amazon", "mercado_livre", "aliexpress",
@@ -374,7 +387,7 @@ Deno.serve(async (req: Request) => {
           if (!wg.group_jid) { falhas.push(`WA grupo "${wg.name ?? "?"}": sem group_jid`); groupFailed++; continue; }
           const rotulo = `WA grupo "${wg.name ?? wg.group_jid}"`;
           try {
-            const r = await fetchWithTimeout(`${ENGINE_URL}/send-group`, { method:"POST", headers:{"content-type":"application/json",authorization:`Bearer ${ENGINE_TOKEN}`}, body:JSON.stringify({ sessionPhone:phoneClean, groupId:wg.group_jid, text:msg, imageUrl:product.image_url||undefined, userId:group.user_id }) });
+            const r = await fetchWithTimeout(`${ENGINE_URL}/send-group`, { method:"POST", headers:{"content-type":"application/json",authorization:`Bearer ${ENGINE_TOKEN}`}, body:JSON.stringify({ sessionPhone:phoneClean, groupId:wg.group_jid, text:msg, imageUrl:product.image_url||undefined, userId:group.user_id }) }, ENGINE_TIMEOUT_MS);
             if (!r.ok) {
               const corpo = await lerCorpo(r);
               groupFailed++;
@@ -393,7 +406,7 @@ Deno.serve(async (req: Request) => {
           if (sessaoMorta) { groupFailed++; continue; }
           const rotulo = `WA canal "${channelId}"`;
           try {
-            const r = await fetchWithTimeout(`${ENGINE_URL}/send`, { method:"POST", headers:{"content-type":"application/json",authorization:`Bearer ${ENGINE_TOKEN}`}, body:JSON.stringify({ sessionPhone:phoneClean, channelId, text:msg, imageUrl:product.image_url||undefined, userId:group.user_id }) });
+            const r = await fetchWithTimeout(`${ENGINE_URL}/send`, { method:"POST", headers:{"content-type":"application/json",authorization:`Bearer ${ENGINE_TOKEN}`}, body:JSON.stringify({ sessionPhone:phoneClean, channelId, text:msg, imageUrl:product.image_url||undefined, userId:group.user_id }) }, ENGINE_TIMEOUT_MS);
             if (!r.ok) {
               const corpo = await lerCorpo(r);
               groupFailed++;
