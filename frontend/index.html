@@ -7862,7 +7862,13 @@ async function encurtarLinkFinal(longUrl,postRef){
 // fila do Grupo de Oferta escolhido. Grupo com clone_auto_approve=true publica direto.
 let CLONE_ATUAL=null;
 
-function clonePlanoLiberado(){return !!myFeatures().clone_post;}
+// Quem pode usar o Clone Post. Admin ve tudo. VIP tem acesso enquanto for VIP
+// (saiu do VIP, perde junto). Fora isso quem manda e o plano: Pro pra cima.
+function cloneAcessoLiberado(){
+  if(IS_ADMIN)return true;
+  if(MY_PROFILE&&MY_PROFILE.is_vip)return true;
+  return !!myFeatures().clone_post;
+}
 
 function cloneGrupoSel(){
   const id=document.getElementById("cloneGrupo")?.value||"";
@@ -7875,11 +7881,15 @@ function cloneLimpar(){
   const s=document.getElementById("cloneStatus");if(s){s.style.display="none";s.innerHTML="";}
 }
 
-function cloneAbrirPagina(){
+function cloneAbrirPagina(tentativa){
   const gate=document.getElementById("cloneGate");
   const app=document.getElementById("cloneApp");
   if(!gate||!app)return;
-  if(!clonePlanoLiberado()){
+  // enterApp() so define MY_PLAN depois de esperar o token do wa-engine. Se a
+  // pagina abrir nessa janela, o plano ainda e o "starter" inicial e o cadeado
+  // aparecia pra quem tem plano. Espera o perfil chegar antes de decidir.
+  if(!MY_PROFILE&&(tentativa||0)<12){setTimeout(()=>cloneAbrirPagina((tentativa||0)+1),300);return;}
+  if(!cloneAcessoLiberado()){
     gate.style.display="block";
     gate.innerHTML='<div class="alert y" style="display:flex;align-items:center;gap:12px"><span style="font-size:20px">🔒</span><span style="flex:1">O <strong>Clone Post</strong> está disponível a partir do plano <strong>Pro</strong>. Cada clone consulta a loja de origem pra conferir preço e imagem — por isso não entra no Starter.</span><button class="btn btn-gold btn-sm" onclick="go(\'assinatura\')">Ver planos</button></div>';
     app.style.display="none";
@@ -7936,7 +7946,7 @@ async function cloneToggleAuto(){
 }
 
 async function cloneResolver(){
-  if(!clonePlanoLiberado()){toast("Clone Post é a partir do plano Pro.","🔒");return;}
+  if(!cloneAcessoLiberado()){toast("Clone Post é a partir do plano Pro.","🔒");return;}
   const texto=(document.getElementById("cloneTexto")?.value||"").trim();
   const st=document.getElementById("cloneStatus");
   const btn=document.getElementById("cloneBtn");
