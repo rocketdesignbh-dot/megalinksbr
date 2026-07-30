@@ -1,4 +1,35 @@
-// Mega Links BR · Edge Function "product-refresh" v13
+// Mega Links BR · Edge Function "product-refresh" v14
+// v14: DETECCAO DE PRODUTO FORA DO AR NA AMAZON. Ate a v13 o detector so cobria
+//      Mercado Livre, e produto de qualquer outra loja era pulado com
+//      "ainda sem verificador" -- ponto cego que ja aparecia para o cliente,
+//      porque monitoramento e argumento de venda do Pro pra cima. A captura
+//      automatica de 30/07 trouxe 4 produtos Amazon de uma vez e tornou isso
+//      concreto.
+//
+//      MEDIDO em 30/07/2026, nos dois sentidos, como foi feito com o ML:
+//        estado      | HTTP | id="productTitle" | add-to-cart | id="outOfStock"
+//        ------------|------|-------------------|-------------|----------------
+//        vivo (x5)   | 200  | sim               | SIM         | nao
+//        esgotado    | 200  | sim               | NAO         | SIM   (Echo Dot 3a, 3 rodadas)
+//        removido    | 404  | nao               | nao         | nao
+//        captcha     | 200  | NAO               | nao         | nao   (2 de 4 requisicoes)
+//
+//      Duas hipoteses cairam no teste, as duas do mesmo jeito que a do ML caiu:
+//        * casar frase NAO funciona: a pagina VIVA da Lavadora Karcher traz
+//          "Em estoque" E "Indisponivel no momento" no mesmo HTML.
+//        * outOfStockBuyBox NAO serve: aparece em pagina de produto disponivel.
+//
+//      A Amazon responde direto, sem proxy: a consulta NAO gasta credito de
+//      Scrape.do nem ocupa o pool compartilhado. O preco disso e o captcha em
+//      ~metade das rodadas, e por isso "desconhecido" e estado de primeira
+//      classe: nao conta strike, nao zera contador, nao expira nada.
+//
+//      NAO le preco da Amazon de proposito. A pagina tem varias ocorrencias de
+//      a-price-whole (variacoes, produtos relacionados) e nao ha como provar qual
+//      e a do buybox sem medir. Preco errado publicado no grupo da cliente nao se
+//      desfaz -- entao esta rodada confere disponibilidade e deixa o preco como
+//      estava. Pendencia separada, para ser medida em vez de chutada.
+//
 // v13: o aviso de produto fora do ar passa a sair da CONEXAO ADMIN
 //      (revops_admin_whatsapp, +55 31 7354-5214) para o numero da usuaria.
 //      A v11/v12 mandava da sessao dela para ela mesma: isso cai na conversa
@@ -30,10 +61,6 @@
 //       do ML embute um dicionario i18n com "Esta pagina nao esta disponivel", e casar
 //       texto solto nesse HTML acusa produto bom como morto.
 //
-//       Ao expirar, avisa a dona do produto:
-//         plano starter -> e-mail (send-email v9)
-//         demais planos -> WhatsApp na propria sessao conectada dela
-//
 // v10 — orcamento de tempo (DEADLINE de relogio por rodada).
 // v9  — verifica preco pelo wa-engine em vez de chamar a scrape.do direto.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -56,6 +83,21 @@ const STRIKES_PARA_EXPIRAR = 2;   // rodadas consecutivas de "indisponivel"
 // Starter posta Mercado Livre desde 30/07, mas nao tem o produto conferido -- e isso
 // tambem protege o pool de creditos do Scrape.do, que e o custo real desta rodada.
 const PLANOS_COM_MONITORAMENTO = new Set(['pro', 'elite', 'premium', 'infinity']);
+
+// Lojas que tem verificador. Produto de loja fora desta lista e pulado com motivo,
+// nunca marcado como fora do ar -- nao saber nao e prova.
+const LOJAS_COM_VERIFICADOR = new Set(['mercado_livre', 'amazon']);
+
+// Preposicao junto do nome de proposito: "no Mercado Livre" / "na Amazon".
+// Montar isso na frase daria "no Amazon".
+const ONDE_LOJA: Record<string, string> = {
+  mercado_livre: 'no Mercado Livre',
+  amazon: 'na Amazon',
+};
+
+// UA de navegador real. A Amazon devolve captcha para cliente sem UA plausivel,
+// e captcha aqui vem com status 200 -- por isso ele nunca e a prova de nada.
+const AMZ_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -120,7 +162,65 @@ async function consultarML(url: string, cred: { token: string; token2: string; c
   }
 }
 
-// ── Aviso a dona do produto ────────────────────────────────────────────────────
+// ── Amazon ──────────────────────────────────────────────────────────────────
+// A tabela de sinais medidos esta no cabecalho desta funcao (v14). Diferente do
+// ML, aqui falamos direto com a loja: sem wa-engine, sem Scrape.do, sem pool.
+async function consultarAmazon(url: string): Promise<Consulta> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), TIMEOUT_CONSULTA_MS);
+  try {
+    const r = await fetch(url, {
+      headers: {
+        'User-Agent': AMZ_UA,
+        'Accept-Language': 'pt-BR,pt;q=0.9',
+        'Accept': 'text/html,application/xhtml+xml',
+      },
+      redirect: 'follow',
+      signal: ctrl.signal,
+    });
+
+    // Produto fora do catalogo. MEDIDO: ASIN inexistente devolve 404 com 2,3 KB e
+    // "Nao foi possivel encontrar esta pagina". Mesma regra ja adotada no
+    // scrapeDoWithFailover: 404/410 do destino e resposta do destino, nao falha de
+    // token -- nao adianta tentar de novo.
+    if (r.status === 404 || r.status === 410) {
+      return { estado: 'indisponivel', sinal: `amazon:http_${r.status}` };
+    }
+    if (!r.ok) return { estado: 'desconhecido', motivo: `HTTP ${r.status}` };
+
+    const html = await r.text();
+
+    // PROVA DE QUE A PAGINA E CONFIAVEL, antes de qualquer leitura. Status 200 nao
+    // basta: 2 de 4 requisicoes voltaram captcha com 200 e 3,9 KB. Sem o
+    // productTitle nao ha o que afirmar -- e "desconhecido", nunca "esgotado". Se
+    // isto virasse "indisponivel", metade das rodadas mataria produto que esta no ar.
+    if (!html.includes('id="productTitle"')) {
+      return {
+        estado: 'desconhecido',
+        motivo: html.length < 8000 ? 'bloqueio/captcha da Amazon' : 'pagina sem productTitle',
+      };
+    }
+
+    const temBotao = html.includes('id="add-to-cart-button"') || html.includes('id="buy-now-button"');
+    const semEstoque = html.includes('id="outOfStock"');
+
+    // So afirma o que foi medido. #outOfStock apareceu nas 3 rodadas do Echo Dot e
+    // em nenhum dos 5 produtos vivos: e o sinal positivo de esgotado.
+    if (semEstoque) return { estado: 'indisponivel', sinal: 'amazon:outOfStock' };
+    if (temBotao) {
+      return { estado: 'ok', preco: null, usouPool: false, disponibilidade: 'disponivel', sinal: 'amazon:add_to_cart' };
+    }
+    // Pagina de produto, sem #outOfStock e sem botao: layout que nao foi medido.
+    // Nao inventa veredito -- volta na proxima rodada.
+    return { estado: 'desconhecido', motivo: 'pagina de produto sem botao e sem outOfStock' };
+  } catch (e) {
+    return { estado: 'desconhecido', motivo: `excecao: ${(e instanceof Error ? e.message : String(e)).slice(0, 70)}` };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+// ── Aviso a dona do produto ──────────────────────────────────────────────────
 // Sai da conexao ADMIN da plataforma para o numero da usuaria. Falha de aviso NUNCA
 // derruba a rodada: o produto ja saiu do rodizio, que e a parte que protege o grupo.
 // O aviso e o complemento.
@@ -140,12 +240,13 @@ async function avisarDona(
   dono: { id: string; email: string; plan: string; is_vip: boolean; phone: string },
   produto: { title: string; id: string },
   sinal: string,
+  ondeLoja: string,
 ): Promise<string> {
   const nome = String(produto.title ?? '').slice(0, 80);
   const texto =
     `⚠️ Produto fora do ar\n\n` +
     `"${nome}"\n\n` +
-    `O Mercado Livre informou que este anúncio não está mais disponível, ` +
+    `Este anúncio não está mais disponível ${ondeLoja}, ` +
     `então ele foi removido do rodízio de postagens do seu grupo — ` +
     `assim ninguém recebe um link que não vende.\n\n` +
     `Se o anúncio voltar, é só reativar o produto no painel.`;
@@ -274,7 +375,7 @@ Deno.serve(async (req: Request) => {
   }
 
   let conferidos = 0, precoMudou = 0, desconhecidos = 0, pulados = 0, usosDoPool = 0;
-  let expirados = 0, suspeitos = 0, reabilitados = 0;
+  let expirados = 0, suspeitos = 0, reabilitados = 0, conferidosAmazon = 0;
   let interrompidoPorTempo = false;
   const detalhes: string[] = [];
   const avisos: string[] = [];
@@ -285,29 +386,37 @@ Deno.serve(async (req: Request) => {
     const agora = new Date().toISOString();
     const url = String(p.original_url || p.affiliate_url || '');
     const nome = String(p.title ?? '').slice(0, 38);
+    const loja = String(p.source ?? '');
 
     if (!url || ehLinkCurtoProprio(url)) {
       pulados++; detalhes.push(`- ${nome} — sem URL original consultavel`); continue;
     }
-    if (p.source !== 'mercado_livre') {
-      pulados++; detalhes.push(`- ${nome} — ${p.source ?? 'sem loja'}: ainda sem verificador`); continue;
+    if (!LOJAS_COM_VERIFICADOR.has(loja)) {
+      pulados++; detalhes.push(`- ${nome} — ${loja || 'sem loja'}: ainda sem verificador`); continue;
     }
 
     const perfil = perfilPorDono[p.user_id];
     const planoDono = perfil?.is_vip ? 'elite' : String(perfil?.plan ?? 'starter');
     if (!PLANOS_COM_MONITORAMENTO.has(planoDono)) {
-      pulados++; detalhes.push(`- ${nome} \u2014 plano ${planoDono}: sem monitoramento de estoque`); continue;
+      pulados++; detalhes.push(`- ${nome} — plano ${planoDono}: sem monitoramento de estoque`); continue;
     }
 
-    const cred = credPorDono[p.user_id] ?? { token: '', token2: '', cookie: '' };
-    const temProprio = !!(cred.token || cred.token2 || cred.cookie);
-    if (!temProprio && usosDoPool >= MAX_POOL_POR_RODADA) {
-      pulados++; detalhes.push(`- ${nome} — teto do pool compartilhado nesta rodada`); continue;
+    let res: Consulta;
+    if (loja === 'amazon') {
+      // Fala direto com a loja: nao consome credito de Scrape.do nem o pool
+      // compartilhado, entao tambem nao passa pelo teto de pool da rodada.
+      res = await consultarAmazon(url);
+      conferidosAmazon++;
+    } else {
+      const cred = credPorDono[p.user_id] ?? { token: '', token2: '', cookie: '' };
+      const temProprio = !!(cred.token || cred.token2 || cred.cookie);
+      if (!temProprio && usosDoPool >= MAX_POOL_POR_RODADA) {
+        pulados++; detalhes.push(`- ${nome} — teto do pool compartilhado nesta rodada`); continue;
+      }
+      res = await consultarML(url, cred);
     }
 
-    const res = await consultarML(url, cred);
-
-    // ── Anuncio fora do ar ────────────────────────────────────────────────────
+    // ── Anuncio fora do ar ─────────────────────────────────────────────────────
     if (res.estado === 'indisponivel') {
       const strikes = Number(p.unavailable_strikes ?? 0) + 1;
 
@@ -335,7 +444,7 @@ Deno.serve(async (req: Request) => {
 
         const dono = perfilPorDono[p.user_id];
         if (dono && !semAviso) {
-          const via = await avisarDona(SB, dono, p, res.sinal);
+          const via = await avisarDona(SB, dono, p, res.sinal, ONDE_LOJA[loja] ?? 'na loja');
           avisos.push(`${nome} -> ${via}`);
         }
       }
@@ -359,6 +468,8 @@ Deno.serve(async (req: Request) => {
     }
     const patchStrikes = zerar ? { unavailable_strikes: 0, unavailable_signal: null } : {};
 
+    // Amazon devolve preco null de proposito (ver cabecalho v14): o bloco abaixo
+    // e pulado sozinho e o preco gravado continua o que estava.
     const precoNovo = res.preco;
     const precoAntigo = Number(p.price);
     if (precoNovo && precoAntigo > 0) {
@@ -379,6 +490,7 @@ Deno.serve(async (req: Request) => {
     dry_run: dryRun,
     candidatos: produtos.length,
     conferidos,
+    conferidos_amazon: conferidosAmazon,
     preco_mudou: precoMudou,
     fora_do_ar_confirmado: expirados,
     fora_do_ar_suspeito: suspeitos,
