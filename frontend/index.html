@@ -269,6 +269,25 @@ tr:hover td{background:var(--surf2)}
 
 /* ── RADAR DE OFERTAS — Cards ── */
 .radar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+/* Fontes automaticas (Clone Post Fase 2). Mesmo auto-fill/minmax dos Grupos de
+   Oferta: o layout ja colapsa sozinho no celular, sem media query propria. */
+.cs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.cs-card{background:var(--surf2);border:1px solid var(--bd2);border-radius:var(--r-sm);padding:14px;display:flex;flex-direction:column;gap:10px}
+.cs-card.off{opacity:.62}
+.cs-card h4{margin:0;font-size:13.5px;font-weight:700;line-height:1.35;word-break:break-word}
+.cs-dest{font-size:12px;color:var(--tx2);line-height:1.5}
+.cs-bar{height:5px;border-radius:99px;background:rgba(255,255,255,.09);overflow:hidden}
+.cs-bar>i{display:block;height:100%;background:var(--volt);border-radius:99px}
+.cs-bar.full>i{background:#F59E0B}
+.cs-meta{font-size:11.5px;color:var(--mut);line-height:1.6}
+.cs-veredito{font-size:11.5px;color:var(--tx2);line-height:1.65;border-top:1px solid var(--bd);padding-top:9px}
+.cs-veredito b{color:var(--tx)}
+.cs-acoes{display:flex;gap:8px;margin-top:auto;padding-top:4px}
+.cs-add{border:1px dashed var(--bd2);background:transparent;border-radius:var(--r-sm);padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:150px;cursor:pointer;color:var(--tx2);font-size:12.5px;text-align:center;transition:border-color .15s,color .15s}
+.cs-add:hover{border-color:var(--volt);color:var(--tx)}
+.cs-add.travado{cursor:not-allowed;opacity:.55}
+.cs-add.travado:hover{border-color:var(--bd2);color:var(--tx2)}
+.cs-add span.mais{font-size:22px;line-height:1}
 .radar-card{background:var(--surf);border:1px solid var(--bd2);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;transition:.15s;position:relative}
 .radar-card:hover{border-color:var(--bd);transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.25)}
 .radar-card.is-new::before{content:"🆕 NOVA";position:absolute;top:8px;left:8px;background:var(--volt);color:#0c0c0e;font-size:9px;font-weight:800;padding:3px 6px;border-radius:4px;letter-spacing:.05em;z-index:2}
@@ -2432,10 +2451,10 @@ async function loadCreds(){
 
 /* ================= PLANOS REAIS (plan_features) — definido cedo, antes de qualquer uso ================= */
 const PLAN_FALLBACK={
-  starter:{plan:"starter",label:"Starter",color:"#10B981",price_month:57.90,wa_groups:1,wa_channels:2,wa_connections:1,wa_post_automation:true,tg_channels:1,tg_post_automation:false,marketplaces:2,links_simultaneous:10,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:false,support_level:"comunidade",clone_post:false,clone_auto:false,stock_monitor:false,auto_posts_daily:1,sort_order:1,max_products:15},
-  pro:{plan:"pro",label:"Pro",color:"#3B82F6",price_month:97.90,wa_groups:3,wa_channels:6,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,marketplaces:3,links_simultaneous:30,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:true,support_level:"email",clone_post:true,clone_auto:false,stock_monitor:true,auto_posts_daily:null,sort_order:2,max_products:50},
-  elite:{plan:"elite",label:"Elite",color:"#8B5CF6",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",clone_post:true,clone_auto:true,stock_monitor:true,auto_posts_daily:null,sort_order:3,max_products:150},
-  premium:{plan:"premium",label:"Premium",color:"#F59E0B",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",clone_post:true,clone_auto:true,stock_monitor:true,auto_posts_daily:null,sort_order:4,max_products:300}
+  starter:{plan:"starter",label:"Starter",color:"#10B981",price_month:57.90,wa_groups:1,wa_channels:2,wa_connections:1,wa_post_automation:true,tg_channels:1,tg_post_automation:false,marketplaces:2,links_simultaneous:10,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:false,support_level:"comunidade",clone_post:false,clone_auto:false,clone_sources_max:0,stock_monitor:false,auto_posts_daily:1,sort_order:1,max_products:15},
+  pro:{plan:"pro",label:"Pro",color:"#3B82F6",price_month:97.90,wa_groups:3,wa_channels:6,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,marketplaces:3,links_simultaneous:30,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:true,support_level:"email",clone_post:true,clone_auto:false,clone_sources_max:0,stock_monitor:true,auto_posts_daily:null,sort_order:2,max_products:50},
+  elite:{plan:"elite",label:"Elite",color:"#8B5CF6",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",clone_post:true,clone_auto:true,clone_sources_max:3,stock_monitor:true,auto_posts_daily:null,sort_order:3,max_products:150},
+  premium:{plan:"premium",label:"Premium",color:"#F59E0B",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",clone_post:true,clone_auto:true,clone_sources_max:10,stock_monitor:true,auto_posts_daily:null,sort_order:4,max_products:300}
 };
 let PLAN_FEATURES={...PLAN_FALLBACK};
 let MY_PLAN="starter";
@@ -8211,6 +8230,83 @@ async function cloneRejeitar(id){
 // a captura automática consulta a loja sozinha, sem ninguém olhando.
 let CS_FONTES=[];
 let CS_GRUPOS_WA=[];
+// Veredito das ultimas 24h por grupo-fonte, vindo de clone_ingest_log.
+// A chave e o source_jid e nao o clone_source_id: as recusas que acontecem ANTES
+// de a fonte ser localizada (mensagem antiga, mensagem sem link) chegam com
+// source_id nulo, e sao justamente elas que explicam o silencio.
+let CS_VEREDITOS={};
+
+// Quantas fontes o plano permite. 0 = recurso fechado, -1 = sem teto.
+// Existe porque cada fonte gasta ate max_per_day consultas de loja por dia: o
+// booleano clone_auto so dizia SE podia, nunca QUANTAS.
+function cloneFontesMax(){
+  if(IS_ADMIN)return -1;
+  if(MY_PROFILE&&MY_PROFILE.is_vip)return -1;
+  const v=myFeatures().clone_sources_max;
+  return (v===null||v===undefined)?0:Number(v);
+}
+function cloneFontesCheio(){
+  const max=cloneFontesMax();
+  return max>=0&&CS_FONTES.length>=max;
+}
+
+// Rotulo humano de cada status da clone-ingest. O status cru serve no suporte;
+// na tela do dono ele nao significa nada.
+const CS_ROTULO_STATUS={
+  salvo:"capturadas",
+  salvo_incompleto:"capturadas sem pre\u00e7o",
+  duplicado:"repetidas",
+  filtro:"fora do filtro",
+  teto:"acima do teto do dia",
+  antiga:"antigas demais",
+  plano:"bloqueadas pelo plano",
+  resolve_falhou:"link n\u00e3o resolveu",
+  ignorado:"sem link",
+  sem_fonte:"descartadas",
+  sem_sessao:"descartadas",
+  outro_dono:"descartadas",
+  outra_sessao:"descartadas",
+  erro:"erro"
+};
+
+function csQuandoTxt(iso){
+  if(!iso)return "sem captura ainda";
+  const min=Math.floor((Date.now()-new Date(iso).getTime())/60000);
+  if(min<1)return "agora h\u00e1 pouco";
+  if(min<60)return "h\u00e1 "+min+" min";
+  const h=Math.floor(min/60);
+  if(h<24)return "h\u00e1 "+h+"h";
+  return "h\u00e1 "+Math.floor(h/24)+" dia(s)";
+}
+
+// O log e o unico jeito de distinguir "o grupo ficou quieto" de "chegaram 12
+// mensagens e todas foram recusadas". Falha aqui nao derruba a tela: sem
+// veredito o card apenas deixa de mostrar a linha de resumo.
+async function csCarregarVereditos(){
+  CS_VEREDITOS={};
+  if(!CS_FONTES.length)return;
+  const desde=new Date(Date.now()-86400000).toISOString();
+  const{data,error}=await SB.from("clone_ingest_log")
+    .select("source_jid,status").gte("created_at",desde).limit(2000);
+  if(error||!data)return;
+  for(const r of data){
+    const j=r.source_jid||"";
+    if(!CS_VEREDITOS[j])CS_VEREDITOS[j]={total:0,por:{}};
+    CS_VEREDITOS[j].total++;
+    const rot=CS_ROTULO_STATUS[r.status]||r.status;
+    CS_VEREDITOS[j].por[rot]=(CS_VEREDITOS[j].por[rot]||0)+1;
+  }
+}
+
+function csVereditoHtml(jid){
+  const v=CS_VEREDITOS[jid];
+  if(!v||!v.total){
+    return '<div class="cs-veredito">\u{1F4E5} <b>Nada chegou</b> deste grupo nas \u00faltimas 24h.</div>';
+  }
+  const partes=Object.entries(v.por).sort((a,b)=>b[1]-a[1])
+    .map(function(p){return p[1]+" "+p[0];}).join(" \u00b7 ");
+  return '<div class="cs-veredito">\u{1F4E5} <b>'+v.total+'</b> mensagem(ns) avaliada(s) em 24h<br>'+partes+'</div>';
+}
 
 function cloneAutoLiberado(){
   if(IS_ADMIN)return true;
@@ -8228,40 +8324,75 @@ async function csCarregar(){
   const{data,error}=await SB.from("clone_sources").select("*").eq("user_id",CURRENT_USER.id).order("created_at",{ascending:false});
   if(error){box.innerHTML=`<div class="alert r" style="margin:0"><span>Não consegui carregar as fontes: ${error.message}</span></div>`;return;}
   CS_FONTES=data||[];
+  await csCarregarVereditos();
   csRender();
 }
 
 function csRender(){
   const box=document.getElementById("csBox");
   if(!box)return;
-  const nomeGrupo=id=>{const g=S.grupos.find(x=>String(x.db_id||x.id)===String(id));return g?g.nome:"— grupo removido —";};
-  const linhas=CS_FONTES.length?CS_FONTES.map(f=>`
-    <div style="display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--bd)">
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:600;font-size:13.5px">${f.source_label||f.source_jid}</div>
-        <div style="font-size:12px;color:var(--tx2);margin-top:3px">
-          → ${nomeGrupo(f.niche_group_id)} · até ${f.max_per_day}/dia
-          ${f.captured_today?` · ${f.captured_today} hoje`:""}
-          ${f.active?'<span class="pill" style="background:rgba(25,226,125,.15);color:var(--volt);margin-left:6px">ativa</span>':'<span class="pill" style="background:rgba(255,255,255,.08);color:var(--tx2);margin-left:6px">pausada</span>'}
-        </div>
+  const nomeGrupo=id=>{const g=S.grupos.find(x=>String(x.db_id||x.id)===String(id));return g?g.nome:"\u2014 grupo removido \u2014";};
+  const hoje=new Date().toISOString().slice(0,10);
+
+  const cards=CS_FONTES.map(function(f){
+    // captured_today so vale se o contador for de hoje: quem zera e a
+    // clone-ingest na proxima captura, nao a virada do relogio.
+    const usados=(f.captured_day===hoje)?Number(f.captured_today||0):0;
+    const teto=Number(f.max_per_day||10);
+    const pct=Math.min(100,Math.round(usados*100/(teto||1)));
+    const cheio=usados>=teto;
+    return `
+    <div class="cs-card${f.active?"":" off"}">
+      <div style="display:flex;gap:8px;align-items:flex-start">
+        <h4 style="flex:1">${esc(f.source_label||f.source_jid)}</h4>
+        ${f.active
+          ?'<span class="pill" style="background:rgba(25,226,125,.15);color:var(--volt);flex:none">ativa</span>'
+          :'<span class="pill" style="background:rgba(255,255,255,.08);color:var(--tx2);flex:none">pausada</span>'}
       </div>
-      <div style="display:flex;gap:8px;flex:none">
+      <div class="cs-dest">\u2192 ${esc(nomeGrupo(f.niche_group_id))}</div>
+      <div>
+        <div class="cs-meta" style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px">
+          <span>${usados} de ${teto} hoje</span>
+          <span>${cheio?"teto do dia atingido":"\u00faltima "+csQuandoTxt(f.last_capture_at)}</span>
+        </div>
+        <div class="cs-bar${cheio?" full":""}"><i style="width:${pct}%"></i></div>
+      </div>
+      ${csVereditoHtml(f.source_jid)}
+      <div class="cs-acoes">
         <button class="btn btn-ghost btn-sm" onclick="csAlternar('${f.id}',${f.active?"false":"true"})">${f.active?"Pausar":"Ativar"}</button>
         <button class="btn btn-ghost btn-sm" onclick="csRemover('${f.id}')">Remover</button>
       </div>
-    </div>`).join(""):'<div style="color:var(--tx2);font-size:13px">Nenhuma fonte ainda. Escolha um grupo que você já acompanha e o sistema captura as ofertas dele pra sua fila.</div>';
+    </div>`;
+  }).join("");
+
+  const max=cloneFontesMax();
+  const addCard=cloneFontesCheio()
+    ? '<div class="cs-add travado" onclick="csAbrirForm()"><span class="mais">\u{1F512}</span><span>Voc\u00ea usou as <b>'+max+'</b> fonte(s)<br>do seu plano</span></div>'
+    : '<div class="cs-add" onclick="csAbrirForm()"><span class="mais">+</span><span><b>Nova fonte</b><br>monitorar mais um grupo</span></div>';
+
+  const contador=(max<0)
+    ? CS_FONTES.length+" fonte(s)"
+    : CS_FONTES.length+" de "+max+" fonte(s) do seu plano";
+
   box.innerHTML=`
-    <div style="font-size:12.5px;color:var(--tx2);margin-bottom:10px;line-height:1.7">
-      Toda oferta capturada entra na <strong>fila de revisão</strong> — nada vai pro seu grupo sem você aprovar.
+    <div style="font-size:12.5px;color:var(--tx2);margin-bottom:12px;line-height:1.7">
+      Toda oferta capturada entra na <strong>fila de revis\u00e3o</strong> \u2014 nada vai pro seu grupo sem voc\u00ea aprovar.
+      <span style="color:var(--mut)">\u00b7 ${contador}</span>
     </div>
-    ${linhas}
-    <div style="margin-top:14px"><button class="btn btn-volt btn-sm" onclick="csAbrirForm()">+ Adicionar fonte</button></div>
+    ${CS_FONTES.length?"":'<div style="color:var(--tx2);font-size:13px;margin-bottom:12px">Nenhuma fonte ainda. Escolha um grupo que voc\u00ea j\u00e1 acompanha e o sistema captura as ofertas dele pra sua fila.</div>'}
+    <div class="cs-grid">${cards}${addCard}</div>
     <div id="csForm" style="display:none;margin-top:14px"></div>`;
 }
 
 async function csAbrirForm(){
   const el=document.getElementById("csForm");
   if(!el)return;
+  // Barrar aqui, antes de ir buscar os grupos no engine: nao faz sentido gastar
+  // a ida e volta pra depois recusar o salvamento.
+  if(cloneFontesCheio()){
+    toast("Seu plano permite "+cloneFontesMax()+" fonte(s) de captura autom\u00e1tica. Remova uma para trocar.","\u{1F512}");
+    return;
+  }
   el.style.display="block";
   el.innerHTML='<div style="color:var(--tx2);font-size:13px">Buscando seus grupos do WhatsApp…</div>';
   if(!S.grupos.length){
@@ -8327,6 +8458,9 @@ async function csSalvar(){
   const destino=document.getElementById("csDestino")?.value||"";
   const max=parseInt(document.getElementById("csMax")?.value||"10",10)||10;
   if(!jid||!destino){toast("Escolha o grupo de origem e o de destino.","⚠️");return;}
+  // Segunda checagem de proposito: o formulario pode ter ficado aberto enquanto
+  // outra aba cadastrava. Aviso educado, nao trava de seguranca.
+  if(cloneFontesCheio()){toast("Seu plano permite "+cloneFontesMax()+" fonte(s).","\u{1F512}");return;}
   const g=CS_GRUPOS_WA.find(x=>(x.id||x.jid)===jid);
   const{error}=await SB.from("clone_sources").insert({
     user_id:CURRENT_USER.id,
