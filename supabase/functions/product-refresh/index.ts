@@ -1,4 +1,7 @@
-// Mega Links BR · Edge Function "product-refresh" v11
+// Mega Links BR · Edge Function "product-refresh" v12
+// v12: monitoramento passa a ser feature de plano (Pro pra cima). Starter posta ML
+//      desde 30/07, mas nao tem verificacao -- e assim o custo de Scrape.do fica
+//      com quem paga por ele.
 //
 // v11 — DETECCAO DE PRODUTO FORA DO AR. Ate a v10 esta funcao so verificava preco e
 //       nunca marcava expired, porque o /ml-product devolvia ok:false tanto para
@@ -42,6 +45,11 @@ const TOLERANCIA_PRECO = 0.05;    // 5%
 const DEADLINE_MS = 70000;        // orcamento de relogio da rodada
 const TIMEOUT_CONSULTA_MS = 15000;
 const STRIKES_PARA_EXPIRAR = 2;   // rodadas consecutivas de "indisponivel"
+
+// Monitoramento de estoque e feature paga (stock_monitor no PLAN_FALLBACK do painel).
+// Starter posta Mercado Livre desde 30/07, mas nao tem o produto conferido -- e isso
+// tambem protege o pool de creditos do Scrape.do, que e o custo real desta rodada.
+const PLANOS_COM_MONITORAMENTO = new Set(['pro', 'elite', 'premium', 'infinity']);
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -259,6 +267,12 @@ Deno.serve(async (req: Request) => {
     }
     if (p.source !== 'mercado_livre') {
       pulados++; detalhes.push(`- ${nome} — ${p.source ?? 'sem loja'}: ainda sem verificador`); continue;
+    }
+
+    const perfil = perfilPorDono[p.user_id];
+    const planoDono = perfil?.is_vip ? 'elite' : String(perfil?.plan ?? 'starter');
+    if (!PLANOS_COM_MONITORAMENTO.has(planoDono)) {
+      pulados++; detalhes.push(`- ${nome} \u2014 plano ${planoDono}: sem monitoramento de estoque`); continue;
     }
 
     const cred = credPorDono[p.user_id] ?? { token: '', token2: '', cookie: '' };
