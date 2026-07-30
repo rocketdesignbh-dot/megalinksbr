@@ -1373,27 +1373,29 @@ app.post('/amazon-search', verifyToken, async (req, res) => {
 // -- Groups list --
 app.get('/groups', verifyToken, async (req, res) => {
     const phoneParam = String(req.query.phone || '').replace(/\D/g, '');
+
+    // SEM FALLBACK, de proposito. Este endpoint tinha um "se nao achou pelo
+    // phone, usa qualquer sessao paired" que, com varias sessoes no mesmo
+    // container, devolvia os grupos do WhatsApp de OUTRO usuario para quem
+    // perguntou. Isso e vazamento entre contas, e chegava em dois lugares: na
+    // tela de vincular grupos ao Grupo de Oferta e no cadastro de fontes do
+    // Clone Post. Sem saber de quem e o numero, nao ha resposta correta possivel.
+    if (!phoneParam) {
+        return res.status(400).json({ error: 'Informe o número da sessão em ?phone=. Sem ele não dá pra saber de quem são os grupos.', groups: [] });
+    }
+
     let session = null;
-
-    if (phoneParam) {
-        // Busca a sessão do número específico do usuário
-        for (const [, s] of SESSIONS) {
-            const sp = String(s.phoneNumber || '').replace(/\D/g, '');
-            if (sp && sp.slice(-9) === phoneParam.slice(-9) && s.status === 'paired') {
-                session = s; break;
-            }
-        }
-    }
-
-    // Fallback: se não encontrou pelo phone, tenta qualquer paired
-    if (!session) {
-        for (const [, s] of SESSIONS) {
-            if (s.status === 'paired') { session = s; break; }
-        }
+    for (const [, s] of SESSIONS) {
+        if (s.status !== 'paired') continue;
+        const sp = String(s.phoneNumber || '').replace(/\D/g, '');
+        if (!sp) continue;
+        // Os ultimos 8 digitos sao estaveis entre as duas grafias (com e sem o
+        // nono digito) que convivem no cadastro — mesmo criterio da wa-heartbeat.
+        if (sp.slice(-8) === phoneParam.slice(-8)) { session = s; break; }
     }
 
     if (!session) {
-        return res.status(404).json({ error: 'Nenhuma sessão conectada' });
+        return res.status(404).json({ error: 'Nenhuma sessão conectada para esse número.', groups: [] });
     }
 
     try {

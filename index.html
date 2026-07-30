@@ -5473,8 +5473,11 @@ async function wireWaGrupos(){
   }
 
   try{
+    // Sem o numero da sessao nao da pra pedir grupo nenhum: o engine nao tem como
+    // saber de quem responder, e antes ele devolvia os grupos de outro usuario.
     const waPhone=(S.waNumber||"").replace(/\D/g,"");
-    const r=await fetch(`${WA_ENGINE_URL}/groups${waPhone?"?phone="+waPhone:""}`,{
+    if(!waPhone)throw new Error("conecte seu WhatsApp antes de vincular grupos");
+    const r=await fetch(`${WA_ENGINE_URL}/groups?phone=${waPhone}`,{
       headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}
     });
     if(!r.ok)throw new Error("HTTP "+r.status);
@@ -8256,14 +8259,22 @@ async function csAbrirForm(){
     el.innerHTML='<div class="alert y" style="margin:0"><span>Crie um Grupo de Oferta antes: é pra ele que as ofertas capturadas vão.</span></div>';
     return;
   }
+  const waPhone=(S.waNumber||"").replace(/\D/g,"");
+  if(!waPhone){
+    el.innerHTML='<div class="alert y" style="margin:0"><span>Conecte seu WhatsApp primeiro. Só dá pra monitorar grupos da <strong>sua</strong> conexão.</span></div>';
+    return;
+  }
   try{
-    const waPhone=(S.waNumber||"").replace(/\D/g,"");
-    const r=await fetch(`${WA_ENGINE_URL}/groups${waPhone?"?phone="+waPhone:""}`,{headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}});
-    if(!r.ok)throw new Error("HTTP "+r.status);
+    // Sempre com o numero: e ele que amarra a resposta a SUA sessao.
+    const r=await fetch(`${WA_ENGINE_URL}/groups?phone=${waPhone}`,{headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}});
+    if(!r.ok){
+      const dd=await r.json().catch(()=>({}));
+      throw new Error(dd.error||("HTTP "+r.status));
+    }
     const d=await r.json();
     CS_GRUPOS_WA=Array.isArray(d)?d:d.groups||[];
   }catch(e){
-    el.innerHTML=`<div class="alert r" style="margin:0"><span>Não consegui listar os grupos do WhatsApp (${e.message}). Confira se a sessão está conectada.</span></div>`;
+    el.innerHTML=`<div class="alert r" style="margin:0"><span>Não consegui listar os grupos do seu WhatsApp: ${e.message}</span></div>`;
     return;
   }
   if(!CS_GRUPOS_WA.length){
