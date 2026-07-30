@@ -8132,6 +8132,11 @@ async function cloneCriarProduto(cloneId,row){
       price:row.price,
       price_original:row.price_original,
       discount_pct:row.discount_pct,
+      // O cupom e o parcelamento vem do texto da oferta clonada. A send-post le
+      // products.coupon_code e imprime "Utilize o cupom" no post; sem propagar
+      // aqui, o cupom morria na fila e o post saia sem ele.
+      coupon_code:row.coupon_code||null,
+      price_installment:row.price_installment||null,
       user_id:CURRENT_USER?.id
     }).select("id").maybeSingle();
     if(error)throw new Error(error.message);
@@ -8163,12 +8168,16 @@ async function cloneCarregarFila(){
     rejected:'<span class="pill" style="background:rgba(255,81,104,.12);color:var(--red)">descartado</span>',
     failed:'<span class="pill" style="background:rgba(255,81,104,.2);color:var(--red)">falhou</span>'
   };
+  // Quando a loja nao tem integracao automatica (Amazon, por exemplo), titulo e
+  // preco sao lidos do texto da mensagem capturada. Isso NAO foi conferido na
+  // loja: e copia do que outra pessoa digitou. Quem aprova precisa saber.
+  const doTexto='<span class="pill" title="Titulo e preco foram lidos do texto da mensagem capturada, nao conferidos na loja. Confira antes de aprovar." style="background:rgba(245,197,24,.12);color:var(--gold);margin-left:6px">📋 do texto da mensagem</span>';
   el.innerHTML=data.map(c=>`
     <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--bd)">
       ${c.image_url?`<img src="${c.image_url}" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#fff;flex:none" onerror="this.style.display='none'">`:""}
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:13.5px">${c.title||"(sem título)"}</div>
-        <div style="font-size:12px;color:var(--tx2);margin-top:3px">${c.store_label||c.store||""} · ${nomeGrupo(c.niche_group_id)} · ${c.price?("R$ "+c.price):"sem preço"} ${badge[c.status]||c.status}</div>
+        <div style="font-size:12px;color:var(--tx2);margin-top:3px">${c.store_label||c.store||""} · ${nomeGrupo(c.niche_group_id)} · ${c.price?("R$ "+c.price):"sem preço"}${c.coupon_code?` · 🏷️ ${c.coupon_code}`:""} ${badge[c.status]||c.status}${c.data_source==="message"?doTexto:""}</div>
         ${c.error?`<div style="font-size:11.5px;color:var(--red);margin-top:3px">${c.error}</div>`:""}
       </div>
       ${c.status==="pending"?`<div style="display:flex;gap:8px;flex:none"><button class="btn btn-volt btn-sm" onclick="cloneAprovar('${c.id}')">Aprovar</button><button class="btn btn-ghost btn-sm" onclick="cloneRejeitar('${c.id}')">Descartar</button></div>`:""}
