@@ -630,9 +630,12 @@ app.post('/send', verifyToken, async (req, res) => {
 
 // -- Send direct message --
 app.post('/send-message', verifyToken, async (req, res) => {
-    const { sessionId, phoneNumber, message, userId } = req.body;
+    const { sessionId, sessionPhone, phoneNumber, message, userId } = req.body;
 
-    if (!sessionId || !phoneNumber || !message) {
+    // sessionPhone e alternativa ao sessionId: quem chama de fora (Edge Functions)
+    // conhece o telefone da instancia, nao o id interno da sessao. Mesma resolucao
+    // usada no /send-group.
+    if ((!sessionId && !sessionPhone) || !phoneNumber || !message) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -650,7 +653,14 @@ app.post('/send-message', verifyToken, async (req, res) => {
         }
     }
 
-    const session = SESSIONS.get(sessionId);
+    let session = sessionId ? SESSIONS.get(sessionId) : null;
+    if (!session && sessionPhone) {
+        const alvo = String(sessionPhone).replace(/\D/g, '');
+        for (const [, s] of SESSIONS) {
+            const sp = (s.phone || s.phoneNumber || '').replace(/\D/g, '');
+            if (sp.slice(-9) === alvo.slice(-9) && s.status === 'paired') { session = s; break; }
+        }
+    }
     if (!session || session.status !== 'paired') {
         return res.status(404).json({ error: 'Session not paired' });
     }
@@ -948,6 +958,35 @@ async function fetchWithMlCookie(targetUrl, cookie) {
 // tentar o próximo token quando o atual retorna 401. Já 200/404 consomem crédito.
 // Ordem de tentativa: token pessoal PRIMÁRIO → token pessoal BACKUP → token da
 // PLATAFORMA (compartilhado). Retorna o HTML e qual token funcionou.
+// ── Disponibilidade do anuncio pelo JSON-LD da pagina ──────────────────────────
+// MEDIDO em 29/07/2026 nas duas direcoes, pelo proprio Scrape.do (super=true):
+//   anuncio morto (Yara Lattafa)  -> "availability":"https://schema.org/OutOfStock", "price":0
+//   anuncio vivo  (Fakhar Gold)   -> "availability":"https://schema.org/InStock",    "price":150.82
+// Nos dois casos o <h1 class="ui-pdp-title"> existe -- por isso a checagem por
+// titulo, que e a unica de hoje, da o anuncio morto como saudavel.
+//
+// POR QUE NAO CASAR TEXTO SOLTO: a pagina do ML embute um dicionario i18n com
+// TODAS as mensagens possiveis, inclusive "Esta pagina nao esta disponivel".
+// Procurar essa frase no HTML cru acusa produto bom como morto -- foi exatamente
+// esse tipo de falso-positivo que expirou o catalogo inteiro na v7 da product-refresh.
+// Aqui olhamos um par chave/valor especifico (schema.org), nunca frase traduzida.
+function lerDisponibilidadeML(html) {
+    if (!html) return { estado: 'desconhecido', sinal: 'sem_html' };
+    // O JSON embutido escapa as barras como \u002F; normaliza antes de procurar.
+    const norm = html.replace(/\\u002F/gi, '/');
+    const m = norm.match(/"availability"\s*:\s*"[^"]*schema\.org\/(\w+)"/i);
+    if (!m) return { estado: 'desconhecido', sinal: 'sem_campo_availability' };
+    const v = m[1].toLowerCase();
+    if (['instock', 'limitedavailability', 'preorder', 'backorder', 'onlineonly'].includes(v)) {
+        return { estado: 'disponivel', sinal: `schema:${m[1]}` };
+    }
+    if (['outofstock', 'soldout', 'discontinued'].includes(v)) {
+        return { estado: 'indisponivel', sinal: `schema:${m[1]}` };
+    }
+    // Valor novo que a gente ainda nao viu: nao arrisca, devolve desconhecido.
+    return { estado: 'desconhecido', sinal: `schema_nao_mapeado:${m[1]}` };
+}
+
 async function scrapeDoWithFailover(targetUrl, tokens) {
     // tokens: array de { token, label }. Remove vazios e duplicados preservando ordem.
     const seen = new Set();
@@ -984,6 +1023,13 @@ async function scrapeDoWithFailover(targetUrl, tokens) {
         if (r.status === 429) {
             console.log(`[scrape.do:${label}] 429 (throttle) — tentando próximo token`);
             continue;
+        }
+        // 404/410 vem do SITE de destino, nao do scrape.do: o anuncio nao existe mais.
+        // Trocar de token nao muda esse resultado -- so queimaria credito (10 por
+        // requisicao com super=true). Encerra a cadeia e devolve como resposta definitiva.
+        if (r.status === 404 || r.status === 410) {
+            console.log(`[scrape.do:${label}] HTTP ${r.status} no destino — pagina inexistente, resposta definitiva`);
+            return { ok: false, html: null, tokenUsed: label, lastStatus: r.status, definitivo: true };
         }
         if (!r.ok) {
             console.warn(`[scrape.do:${label}] HTTP ${r.status} — tentando próximo token`);
@@ -1085,10 +1131,23 @@ app.get('/ml-product', verifyToken, async (req, res) => {
             }
         }
 
+        // Resposta definitiva do destino (404/410): o anuncio saiu do ar. Nao e antibot,
+        // nao e falta de credito -- e a informacao que a product-refresh precisa.
+        if (!scrape.ok && scrape.definitivo) {
+            return res.json({
+                ok: false,
+                error: `Anuncio nao existe mais no Mercado Livre (HTTP ${scrape.lastStatus}).`,
+                availability: 'indisponivel',
+                availabilitySignal: `http_${scrape.lastStatus}`,
+            });
+        }
+
         if (!scrape.ok) {
             const semCredito = scrape.lastStatus === 401;
             return res.json({
                 ok: false,
+                availability: 'desconhecido',
+                availabilitySignal: semCredito ? 'sem_credito' : `scrape_http_${scrape.lastStatus}`,
                 error: semCredito
                     ? 'Créditos do Scrape.do esgotados em todos os tokens. Cadastre um token de contingência ou aguarde a renovação.'
                     : userMlCookie
@@ -1098,7 +1157,12 @@ app.get('/ml-product', verifyToken, async (req, res) => {
             });
         }
 
-        if (!title || !$) return res.json({ ok: false, error: 'Produto não encontrado (antibot). Preencha manualmente.' });
+        // Sem titulo a pagina nem chegou a ser a do produto: isso e antibot, NAO e
+        // produto fora do ar. Manter os dois casos separados e o ponto central desta
+        // mudanca -- confundi-los e o que impedia marcar expired com seguranca.
+        if (!title || !$) return res.json({ ok: false, availability: 'desconhecido', availabilitySignal: 'sem_titulo_antibot', error: 'Produto não encontrado (antibot). Preencha manualmente.' });
+
+        const disp = lerDisponibilidadeML(scrape.html);
 
         // Prioridade: data-zoom (full-res) → og:image (boa res) → src (evitar: thumbnail lazy-load)
         // og:image ANTES de src: src pode ser thumbnail pequeno (-V/-I.jpg) quando JS nao carregou.
@@ -1119,7 +1183,10 @@ app.get('/ml-product', verifyToken, async (req, res) => {
             ? Math.round((1 - priceTo / priceFrom) * 100) : null;
 
         console.log(`[ml-product] HTML scraping OK via token '${scrape.tokenUsed}': ${title.slice(0, 50)}`);
+        console.log(`[ml-product] disponibilidade: ${disp.estado} (${disp.sinal})`);
         return res.json({ ok: true, name: title, title, image,
+            availability: disp.estado,
+            availabilitySignal: disp.sinal,
             price_to: priceTo ? String(priceTo) : undefined,
             price_from: priceFrom ? String(priceFrom) : undefined,
             discount_pct: discPct || undefined,
@@ -1128,7 +1195,7 @@ app.get('/ml-product', verifyToken, async (req, res) => {
         });
     } catch (e) {
         const msg = e.name === 'AbortError' ? 'Timeout buscando produto ML' : e.message;
-        return res.status(502).json({ ok: false, error: msg });
+        return res.status(502).json({ ok: false, availability: 'desconhecido', availabilitySignal: 'excecao', error: msg });
     }
 });
 
