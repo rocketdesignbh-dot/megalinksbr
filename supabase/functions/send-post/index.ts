@@ -1,4 +1,5 @@
-// Mega Links BR · Edge Function "send-post" v16
+// Mega Links BR · Edge Function "send-post" v17
+// v17: Mercado Livre liberado no plano Starter.
 // v16: timeout do wa-engine subiu de 10s para 20s nas chamadas /send-group e
 //      /send. Motivo medido: em 29/07 as duas rodadas do cron das 11:32 UTC
 //      falharam com "The signal has been aborted" -- o AbortController de 10s
@@ -50,7 +51,9 @@ const LOJAS_QUE_EXIGEM_CREDENCIAL = new Set([
 ]);
 
 const PLAN_MARKETPLACES: Record<string, string[] | null> = {
-  starter: ["shopee", "manual", "outra"],
+  // ML liberado no Starter em 30/07/2026: o acesso a loja virou aquisicao e o
+  // diferencial pago passou a ser o monitoramento de estoque (product-refresh).
+  starter: ["shopee", "mercado_livre", "manual", "outra"],
   pro:     ["shopee", "mercado_livre", "amazon", "manual", "outra"],
   elite:   null,
   premium: null,
