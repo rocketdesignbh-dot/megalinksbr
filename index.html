@@ -537,7 +537,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="auth-err" id="authErr"></div>
     <div class="field" id="nameField" style="display:none"><label>Nome completo</label><input id="authName" placeholder="Seu nome"></div>
     <div class="field" id="cpfField" style="display:none"><label>CPF / CNPJ <span style="color:var(--red)">*</span></label><input id="authCpf" placeholder="000.000.000-00" maxlength="18" oninput="let v=this.value.replace(/\D/g,'');if(v.length<=11)this.value=v.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');else this.value=v.replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2').substring(0,18)"></div>
-    <div class="field" id="phoneField" style="display:none"><label>WhatsApp <span style="color:var(--red)">*</span></label><input id="authPhone" placeholder="(11) 99999-0000" maxlength="16" oninput="let v=this.value.replace(/\D/g,'').substring(0,11);if(v.length>10)this.value=v.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3');else this.value=v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3');"></div>
+    <div class="field" id="phoneField" style="display:none"><label>WhatsApp <span style="color:var(--red)">*</span> <span style="color:var(--tx2);font-weight:400;font-size:11px">— só DDD + número, o +55 é automático</span></label><input id="authPhone" placeholder="(11) 99999-0000" maxlength="16" oninput="let v=this.value.replace(/\D/g,'').substring(0,11);if(v.length>10)this.value=v.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3');else this.value=v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3');"></div>
     <div class="field" id="couponField" style="display:none"><label>Código do cupom <span style="color:var(--mut);font-weight:400">(opcional)</span></label><input id="authCoupon" placeholder="Ex: MARIA10" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"><div style="font-size:11px;color:var(--mut);margin-top:4px">Ganhou um cupom de uma influencer parceira? Preencha aqui para garantir seu primeiro mês grátis após o trial.</div></div>
     <div class="field"><label>E-mail</label><input id="authEmail" type="email" placeholder="voce@email.com" autocomplete="email"></div>
     <div class="field"><label>Senha</label><div class="pass-wrap"><input id="authPass" type="password" placeholder="••••••••" autocomplete="current-password"><button type="button" class="pass-toggle" id="passToggle" onclick="togglePassVis()" title="Mostrar/esconder senha">👁️</button></div></div>
@@ -1875,7 +1875,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div style="font-weight:800;font-size:18px;margin-bottom:6px">Complete seu cadastro</div>
   <div style="color:#999;font-size:13px;margin-bottom:16px">Precisamos desses dados para enviar confirmações, alertas de pagamento e ofertas — eles não aparecem publicamente.</div>
   <div class="field" id="cpiNameField" style="display:none"><label>Nome completo</label><input id="cpiName" placeholder="Seu nome"></div>
-  <div class="field"><label>WhatsApp <span style="color:var(--red)">*</span></label><input id="cpiPhone" placeholder="(11) 99999-0000" maxlength="16" oninput="let v=this.value.replace(/\D/g,'').substring(0,11);if(v.length>10)this.value=v.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3');else this.value=v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3');"></div>
+  <div class="field"><label>WhatsApp <span style="color:var(--red)">*</span> <span style="color:var(--tx2);font-weight:400;font-size:11px">— só DDD + número, o +55 é automático</span></label><input id="cpiPhone" placeholder="(11) 99999-0000" maxlength="16" oninput="let v=this.value.replace(/\D/g,'').substring(0,11);if(v.length>10)this.value=v.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3');else this.value=v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3');"></div>
   <div class="field" id="cpiCpfField" style="display:none"><label>CPF / CNPJ <span style="color:var(--red)">*</span></label><input id="cpiCpf" placeholder="000.000.000-00" maxlength="18" oninput="let v=this.value.replace(/\D/g,'');if(v.length<=11)this.value=v.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');else this.value=v.replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2').substring(0,18)"></div>
   <div class="auth-err" id="cpiErr" style="display:none"></div>
   <button class="btn btn-volt" id="cpiSubmit" style="width:100%;justify-content:center" onclick="salvarPerfilIncompleto()">Continuar</button>
@@ -8806,6 +8806,19 @@ async function loadPlanFeatures(){
 }
 
 
+// Espelha public.normalizar_telefone_br() do banco. O banco tem um trigger que
+// normaliza de qualquer jeito -- isto aqui existe so para o que e gravado bater
+// com o que a tela mostra na mesma sessao, sem precisar reler o perfil.
+function telWhats(bruto){
+  const jaInternacional=String(bruto||"").trim().startsWith("+");
+  const d=String(bruto||"").replace(/\D/g,"");
+  if(!d)return null;
+  if(jaInternacional)return "+"+d;
+  if(d.length===10||d.length===11)return "+55"+d;
+  if(d.length>=12)return "+"+d;
+  return d;
+}
+
 function setAuthErr(msg){authErr.style.display=msg?"block":"none";authErr.textContent=msg||"";}
 function switchAuth(mode){authMode=mode;
   tabLogin.classList.toggle("on",mode==="login");tabSignup.classList.toggle("on",mode==="signup");
@@ -8875,7 +8888,7 @@ async function doAuth(){
       // é o único ponto em que faz sentido, pra atribuição de origem em revops_events)
       if(data.user?.id&&SB){
         const _utm=new URLSearchParams(location.search);
-        const _utmData={cpf_cnpj:cpfRaw,phone:phoneRaw};
+        const _utmData={cpf_cnpj:cpfRaw,phone:telWhats(phoneRaw)};
         if(_utm.get("utm_source"))_utmData.signup_utm_source=_utm.get("utm_source");
         if(_utm.get("utm_medium"))_utmData.signup_utm_medium=_utm.get("utm_medium");
         if(_utm.get("utm_campaign"))_utmData.signup_utm_campaign=_utm.get("utm_campaign");
@@ -8980,7 +8993,7 @@ async function salvarPerfilIncompleto(){
   const err=document.getElementById("cpiErr");
   const phoneRaw=(document.getElementById("cpiPhone").value||"").replace(/\D/g,"");
   if(!phoneRaw||phoneRaw.length<10){err.textContent="Informe um WhatsApp válido com DDD.";err.style.display="block";return;}
-  const upd={phone:phoneRaw};
+  const upd={phone:telWhats(phoneRaw)};
   if(document.getElementById("cpiNameField").style.display!=="none"){
     const nome=(document.getElementById("cpiName").value||"").trim();
     if(!nome){err.textContent="Informe seu nome completo.";err.style.display="block";return;}
