@@ -680,32 +680,54 @@ app.post('/send-message', verifyToken, async (req, res) => {
             // aceito pelo servidor mas nunca entregue (mensagem some silenciosamente).
             const num = phoneNumber.replace(/\D/g, '');
             let resolved = null;
+            let soLid = false;
             try {
                 const results = await session.socket.onWhatsApp(num);
                 if (Array.isArray(results) && results.length) {
-                    const hit = results.find(r => r && r.exists) || results[0];
-                    resolved = hit?.jid || hit?.lid || null;
+                    // SEMPRE preferir o jid @s.whatsapp.net. O @lid e identificador
+                    // interno da migracao do WhatsApp: o servidor ACEITA e nao entrega.
+                    // A versao anterior fazia `hit?.jid || hit?.lid` e, quando caia no
+                    // lid, respondia 200 para uma mensagem que nunca chegou.
+                    const ehReal = (r) => typeof r?.jid === 'string' && r.jid.endsWith('@s.whatsapp.net');
+                    const hit = results.find(r => r && r.exists && ehReal(r)) || results.find(ehReal);
+                    resolved = hit?.jid || null;
+                    if (!resolved) soLid = results.some(r => r && (r.lid || String(r.jid || '').endsWith('@lid')));
                 }
             } catch (e) {
                 console.warn(`[SEND] onWhatsApp falhou para ${num}: ${e.message}`);
             }
 
             if (!resolved) {
-                console.warn(`[SEND] Numero ${num} nao resolvido no WhatsApp - nao enviado`);
-                return res.status(422).json({ ok: false, error: 'number_not_on_whatsapp', message: 'Numero nao encontrado no WhatsApp (pode nao ter conta ativa).' });
+                console.warn(`[SEND] Numero ${num} nao resolvido${soLid ? ' (so veio @lid)' : ''} - nao enviado`);
+                return res.status(422).json({
+                    ok: false,
+                    error: soLid ? 'only_lid' : 'number_not_on_whatsapp',
+                    message: soLid
+                        ? 'O WhatsApp so devolveu identificador interno (@lid) para este numero; envio para @lid nao e entregue.'
+                        : 'Numero nao encontrado no WhatsApp (pode nao ter conta ativa).',
+                });
             }
             jid = resolved;
         }
 
-        await session.socket.sendMessage(jid, { text: message });
-        console.log(`[SEND] Mensagem direta enviada para ${jid}`);
+        // Devolve a PROVA do envio, nao so um 200. Sem key.id nao da para separar
+        // "entreguei" de "o servidor aceitou e engoliu" -- foi essa ambiguidade que
+        // deixou o aviso de produto fora do ar sumir sem rastro em 30/07.
+        const enviado = await session.socket.sendMessage(jid, { text: message });
+        const messageId = enviado?.key?.id ?? null;
+        console.log(`[SEND] Mensagem direta enviada para ${jid} (id=${messageId})`);
+
+        if (!messageId) {
+            console.warn(`[SEND] sendMessage nao devolveu key.id para ${jid} - envio NAO confirmado`);
+            return res.status(502).json({ ok: false, error: 'sem_confirmacao', jid, message: 'O WhatsApp aceitou a chamada mas nao devolveu id da mensagem.' });
+        }
 
         // ─── RATE LIMITING: Incrementar contador após sucesso ───
         if (userId) {
             await rateLimiter.increment(userId, 1);
         }
-        
-        res.json({ message: 'Message sent', jid });
+
+        res.json({ ok: true, message: 'Message sent', jid, messageId });
     } catch (error) {
         console.error('[SEND] Erro:', error);
         res.status(500).json({ error: error.message });
