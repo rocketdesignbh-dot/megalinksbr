@@ -1,4 +1,10 @@
-// Mega Links BR · Edge Function "send-post" v17
+// Mega Links BR · Edge Function "send-post" v18
+// v18: o teto diario de disparo automatico passa a vir de plan_features
+//      (auto_posts_daily) em vez de ficar cravado como "starter = 1". As tres
+//      fontes discordavam: a tabela dizia que o Starter NAO tinha automacao, o
+//      PLAN_FALLBACK dizia que tinha, e aqui havia um if pelo nome do plano.
+//      Se a leitura da tabela falhar, cai no que sempre valeu (starter = 1/dia)
+//      -- nunca em "sem limite".
 // v17: Mercado Livre liberado no plano Starter.
 // v16: timeout do wa-engine subiu de 10s para 20s nas chamadas /send-group e
 //      /send. Motivo medido: em 29/07 as duas rodadas do cron das 11:32 UTC
@@ -261,6 +267,15 @@ Deno.serve(async (req: Request) => {
   const planMap: Record<string, string> = {};
   for (const p of profiles ?? []) planMap[p.id] = p.is_vip ? "elite" : (p.plan || "starter");
 
+  // Teto de disparos automaticos por grupo por dia. null = sem teto.
+  // O padrao abaixo e o comportamento historico: se a tabela nao responder, o
+  // Starter continua limitado em vez de passar a disparar sem limite.
+  const tetoDiario: Record<string, number | null> = { starter: 1 };
+  try {
+    const { data: planos } = await sb.from("plan_features").select("plan, auto_posts_daily");
+    for (const pf of planos ?? []) tetoDiario[pf.plan] = pf.auto_posts_daily ?? null;
+  } catch { /* mantem o padrao acima */ }
+
   let totalSent = 0, totalFailed = 0, totalSkipped = 0, totalBlocked = 0;
   let totalExpirados = 0, totalAgendados = 0, totalVencidos = 0;
   const instanciasDerrubadas: string[] = [];
@@ -269,12 +284,13 @@ Deno.serve(async (req: Request) => {
     const userPlan = planMap[group.user_id] || "starter";
     const planAllowed = PLAN_MARKETPLACES[userPlan] ?? null;
 
-    if (userPlan === "starter") {
+    const teto = tetoDiario[userPlan] ?? null;
+    if (teto !== null && teto > 0) {
       const { count: sentToday } = await sb.from("scheduled_posts")
         .select("id", { count: "exact", head: true })
         .eq("group_id", group.id).eq("is_manual", false).eq("status", "sent")
         .gte("sent_at", todayBR + "T00:00:00Z");
-      if ((sentToday ?? 0) >= 1) { totalSkipped++; continue; }
+      if ((sentToday ?? 0) >= teto) { totalSkipped++; continue; }
     }
 
     const startH = group.start_hour ?? 0, endH = group.end_hour ?? 23;
