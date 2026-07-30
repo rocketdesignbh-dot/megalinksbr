@@ -1871,7 +1871,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div></div>
 
 <!-- ===== MODAL CHECKOUT PIX ===== -->
-<div class="mbg" id="modalPerfilIncompleto"><div class="modal" style="max-width:420px">
+<div class="mbg" id="modalPerfilIncompleto" data-bloqueante="1"><div class="modal" style="max-width:420px">
   <div style="font-weight:800;font-size:18px;margin-bottom:6px">Complete seu cadastro</div>
   <div style="color:#999;font-size:13px;margin-bottom:16px">Precisamos desses dados para enviar confirmações, alertas de pagamento e ofertas — eles não aparecem publicamente.</div>
   <div class="field" id="cpiNameField" style="display:none"><label>Nome completo</label><input id="cpiName" placeholder="Seu nome"></div>
@@ -2615,7 +2615,10 @@ btnUser.onclick=e=>{e.stopPropagation();const o=ddUser.classList.contains("open"
 document.addEventListener("click",closeDD);
 function openModal(id){document.getElementById(id).classList.add("open");}
 function closeModal(id){document.getElementById(id).classList.remove("open");}
-document.querySelectorAll(".mbg").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("open");}));
+// Modal com data-bloqueante nao fecha por clique no fundo nem por ESC. O de
+// perfil incompleto e um deles: o afterLogin faz return sem chamar enterApp, entao
+// fechar por acidente deixava o usuario numa tela em branco -- sem app e sem login.
+document.querySelectorAll(".mbg").forEach(m=>m.addEventListener("click",e=>{if(e.target===m&&!m.dataset.bloqueante)m.classList.remove("open");}));
 // Rastreia botao clicado para ancorar toast proximo a ele (desktop)
 let _twAnchor=null;
 document.addEventListener('click',e=>{
@@ -6384,7 +6387,7 @@ function renderPal(){const items=palItems();palSel=Math.min(palSel,Math.max(0,it
 function execPal(p){closePalette();if(p.act)p.act();else go(p.go);}
 palInput.addEventListener("input",()=>{palSel=0;renderPal();});
 palInput.addEventListener("keydown",e=>{const items=palItems();if(e.key==="ArrowDown"){palSel=Math.min(palSel+1,items.length-1);renderPal();e.preventDefault();}else if(e.key==="ArrowUp"){palSel=Math.max(palSel-1,0);renderPal();e.preventDefault();}else if(e.key==="Enter"&&items[palSel])execPal(items[palSel]);});
-document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();palbg.classList.contains("open")?closePalette():openPalette();}if(e.key==="Escape"){closePalette();closeDrawer();document.querySelectorAll(".mbg").forEach(m=>m.classList.remove("open"));}});
+document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();palbg.classList.contains("open")?closePalette():openPalette();}if(e.key==="Escape"){closePalette();closeDrawer();document.querySelectorAll(".mbg:not([data-bloqueante])").forEach(m=>m.classList.remove("open"));}});
 
 /* ================= MEGAIA ================= */
 let _aiSessionStarted=false;
