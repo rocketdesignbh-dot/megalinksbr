@@ -288,6 +288,9 @@ tr:hover td{background:var(--surf2)}
 .cs-add.travado{cursor:not-allowed;opacity:.55}
 .cs-add.travado:hover{border-color:var(--bd2);color:var(--tx2)}
 .cs-add span.mais{font-size:22px;line-height:1}
+/* Carimbo de "quando isto foi lido". Sem ele, clicar em atualizar num painel
+   que nao mudou e indistinguivel de clicar num botao morto. */
+.cs-upd{font-size:11px;color:var(--mut);margin-right:10px;font-weight:400}
 .radar-card{background:var(--surf);border:1px solid var(--bd2);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;transition:.15s;position:relative}
 .radar-card:hover{border-color:var(--bd);transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.25)}
 .radar-card.is-new::before{content:"🆕 NOVA";position:absolute;top:8px;left:8px;background:var(--volt);color:#0c0c0e;font-size:9px;font-weight:800;padding:3px 6px;border-radius:4px;letter-spacing:.05em;z-index:2}
@@ -991,12 +994,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
 
       <div class="card" style="margin-bottom:16px">
-        <div class="ch">🤖 Fontes automáticas <span class="r"><a href="#" onclick="csCarregar();return false">atualizar</a></span></div>
+        <div class="ch">🤖 Fontes automáticas <span class="r"><span id="csUpd" class="cs-upd"></span><a href="#" onclick="csAtualizar();return false">atualizar</a></span></div>
         <div class="cb" id="csBox"><div style="color:var(--tx2);font-size:13px">Carregando…</div></div>
       </div>
 
       <div class="card">
-        <div class="ch">🗂️ Fila de clones <span class="r"><a href="#" onclick="cloneCarregarFila();return false">atualizar</a></span></div>
+        <div class="ch">🗂️ Fila de clones <span class="r"><span id="clfUpd" class="cs-upd"></span><a href="#" onclick="cloneFilaAtualizar();return false">atualizar</a></span></div>
         <div class="cb" id="cloneFila"><div style="color:var(--tx2);font-size:13px">Carregando…</div></div>
       </div>
     </div>
@@ -8327,6 +8330,32 @@ async function csCarregar(){
   await csCarregarVereditos();
   csRender();
 }
+
+// ── Sinal de vida do "atualizar" ──────────────────────────────────────
+// MEDIDO em 30/07: o console nao acusava nenhum erro ao clicar, e mesmo assim o
+// botao parecia morto. Ele estava funcionando: relia o banco e redesenhava o
+// MESMO conteudo, porque nada tinha mudado. Do lado de quem clica, "nao mudou
+// nada" e "nao fez nada" sao a mesma imagem.
+// Acao sem confirmacao visivel e acao que o usuario assume que falhou. O carimbo
+// da hora resolve porque ele muda mesmo quando o dado nao muda.
+async function csComCarimbo(spanId, tarefa){
+  const el = document.getElementById(spanId);
+  if (el) el.textContent = "atualizando\u2026";
+  try {
+    await tarefa();
+    if (el) el.textContent = "atualizado \u00e0s " +
+      new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  } catch (e) {
+    // O erro nao pode morrer no console: quem clicou precisa saber que falhou.
+    if (el) el.textContent = "falhou ao atualizar";
+    console.warn("[atualizar] " + spanId + ": " + (e?.message || e));
+  }
+}
+
+// O csRender recria o miolo do card, entao o carimbo mora no cabecalho, fora
+// dele. Se ficasse dentro, cada atualizacao apagaria a propria confirmacao.
+function csAtualizar(){ return csComCarimbo("csUpd", csCarregar); }
+function cloneFilaAtualizar(){ return csComCarimbo("clfUpd", cloneCarregarFila); }
 
 function csRender(){
   const box=document.getElementById("csBox");
