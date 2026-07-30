@@ -137,6 +137,11 @@ async function connectSession(sessionId, authPath, phoneNumber = null, isReconne
         catch (e) { console.warn(`[CREDS] Falha ao salvar creds de ${sessionId} (ignorado): ${e.code || e.message}`); }
     });
 
+    // Clone Post Fase 2 — escuta os grupos-fonte cadastrados pelo usuario.
+    // Registrado aqui, junto com os outros handlers, pra valer tambem nas
+    // reconexoes: sessao restaurada sem listener capturaria nada em silencio.
+    registrarListenerClone(socket, sessionId);
+
     // Cria ou atualiza entrada no Map
     if (!SESSIONS.has(sessionId)) {
         const timeout = isReconnect ? null : setTimeout(() => {
@@ -1567,6 +1572,146 @@ async function reportarSessaoViva(phoneNumber) {
         console.warn(`[HEARTBEAT] falha ao reportar sessão viva: ${err?.message || err}`);
     }
 }
+
+// ══════════════════════════════════════════════════════════════════
+// CLONE POST FASE 2 — captura automatica de ofertas de grupos-fonte
+//
+// O engine escuta APENAS os grupos que o usuario cadastrou como fonte e manda o
+// texto pra Edge Function clone-ingest, que resolve o link, troca o afiliado e
+// grava na fila pra revisao. Aqui nao ha nenhuma decisao de produto: o engine
+// filtra pelo JID e repassa. Plano, teto diario e deduplicacao moram do outro lado.
+//
+// Tres cuidados que valem estar escritos:
+//  1. Nada aqui pode derrubar a sessao. O handler inteiro vive dentro de
+//     try/catch e qualquer falha de rede vira console.warn, nunca excecao solta.
+//  2. Sem a lista de JIDs carregada o listener nao faz absolutamente nada — ele
+//     nunca vira firehose das conversas de quem conectou o WhatsApp.
+//  3. Mensagem sem link nao vira nada: e conversa de grupo, nao oferta.
+//
+// A lista de grupos vem da propria clone-ingest (action:'jids'). O engine fala
+// com o banco pela chave publishable e o RLS de clone_sources so deixa o dono
+// ler; pedir a lista pela Edge Function evita colocar a service role no container.
+// ══════════════════════════════════════════════════════════════════
+const CLONE_INGEST_URL = `${SUPABASE_URL}/functions/v1/clone-ingest`;
+const CLONE_JIDS = new Set();
+const CLONE_FILA = [];
+const CLONE_VISTAS = new Set(); // msgIds ja enfileirados neste processo
+const CLONE_REFRESH_MS = Number(process.env.CLONE_REFRESH_MS || 300000); // 5 min
+const CLONE_FLUSH_MS = Number(process.env.CLONE_FLUSH_MS || 10000);      // 10 s
+const CLONE_LOTE_MAX = 20;
+
+async function recarregarFontesClone() {
+    if (!WA_ENGINE_TOKEN) return;
+    try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 15000);
+        const r = await fetch(CLONE_INGEST_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${WA_ENGINE_TOKEN}` },
+            body: JSON.stringify({ action: 'jids' }),
+            signal: ctrl.signal,
+        });
+        clearTimeout(t);
+        if (!r.ok) { console.warn(`[CLONE] lista de fontes — HTTP ${r.status}`); return; }
+        const d = await r.json();
+        if (!d || !Array.isArray(d.jids)) return;
+        CLONE_JIDS.clear();
+        for (const j of d.jids) CLONE_JIDS.add(String(j).toLowerCase());
+        console.log(`[CLONE] ${CLONE_JIDS.size} grupo(s)-fonte monitorado(s)`);
+    } catch (err) {
+        console.warn(`[CLONE] não consegui recarregar as fontes: ${err?.message || err}`);
+    }
+}
+
+// Texto util de uma mensagem. Legenda de imagem conta: e o formato mais comum
+// de post de oferta em grupo de WhatsApp.
+function textoDaMensagem(m) {
+    const c = m || {};
+    return c.conversation
+        || c.extendedTextMessage?.text
+        || c.imageMessage?.caption
+        || c.videoMessage?.caption
+        || c.documentWithCaptionMessage?.message?.documentMessage?.caption
+        || c.documentMessage?.caption
+        || '';
+}
+
+// messageTimestamp as vezes vem como Long do protobuf, e Number(Long) da NaN.
+function tsDaMensagem(raw) {
+    if (typeof raw === 'number') return raw;
+    if (raw && typeof raw.toNumber === 'function') { try { return raw.toNumber(); } catch (e) {} }
+    if (raw && typeof raw.low === 'number') return raw.low;
+    return Number(raw) || 0;
+}
+
+async function despejarFilaClone() {
+    if (!CLONE_FILA.length || !WA_ENGINE_TOKEN) return;
+    const lote = CLONE_FILA.splice(0, CLONE_LOTE_MAX);
+    try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 90000);
+        const r = await fetch(CLONE_INGEST_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${WA_ENGINE_TOKEN}` },
+            body: JSON.stringify({ messages: lote }),
+            signal: ctrl.signal,
+        });
+        clearTimeout(t);
+        if (!r.ok) {
+            const txt = await r.text().catch(() => '');
+            console.warn(`[CLONE] ingest HTTP ${r.status} — ${txt.slice(0, 200)}`);
+            return;
+        }
+        const d = await r.json().catch(() => null);
+        console.log(`[CLONE] ${lote.length} mensagem(ns) enviada(s) · ${d?.salvos ?? '?'} clonada(s)`);
+    } catch (err) {
+        // Perder um lote e melhor que reenfileirar pra sempre: o dedupe do outro
+        // lado protege contra repeticao, mas fila que nunca esvazia vira vazamento.
+        console.warn(`[CLONE] falha ao enviar lote (${lote.length} descartada(s)): ${err?.message || err}`);
+    }
+}
+
+function registrarListenerClone(socket, sessionId) {
+    socket.ev.on('messages.upsert', (evt) => {
+        try {
+            // 'append' e sincronizacao de historico; so 'notify' e mensagem nova.
+            if (!evt || evt.type !== 'notify' || !CLONE_JIDS.size) return;
+            const fone = SESSIONS.get(sessionId)?.phoneNumber || null;
+            for (const m of evt.messages || []) {
+                const jid = String(m?.key?.remoteJid || '').toLowerCase();
+                if (!jid.endsWith('@g.us')) continue;   // so grupo
+                if (m?.key?.fromMe) continue;           // nao clonar o proprio post
+                if (!CLONE_JIDS.has(jid)) continue;     // grupo nao cadastrado como fonte
+                const id = String(m?.key?.id || '');
+                if (id && CLONE_VISTAS.has(id)) continue;
+                const texto = textoDaMensagem(m?.message);
+                if (!texto || !/https?:\/\//i.test(texto)) continue; // sem link nao e oferta
+                if (id) {
+                    CLONE_VISTAS.add(id);
+                    // Cache curto, so pra nao reenviar no mesmo processo.
+                    // A verdade do dedupe esta no banco.
+                    if (CLONE_VISTAS.size > 500) CLONE_VISTAS.clear();
+                }
+                CLONE_FILA.push({
+                    sessionPhone: fone,
+                    jid,
+                    msgId: id,
+                    text: String(texto).slice(0, 2000),
+                    ts: tsDaMensagem(m?.messageTimestamp),
+                });
+                console.log(`[CLONE] capturada em ${jid} (${id.slice(0, 12)})`);
+            }
+        } catch (err) {
+            // Um erro aqui NUNCA pode derrubar a sessao de WhatsApp.
+            console.warn(`[CLONE] listener de ${sessionId} ignorou um erro: ${err?.message || err}`);
+        }
+    });
+}
+
+setInterval(() => { recarregarFontesClone().catch(() => {}); }, CLONE_REFRESH_MS);
+setInterval(() => { despejarFilaClone().catch(() => {}); }, CLONE_FLUSH_MS);
+// Primeira carga logo apos o startup restaurar as sessoes do disco.
+setTimeout(() => { recarregarFontesClone().catch(() => {}); }, 15000);
 
 setInterval(() => { enviarHeartbeat().catch(() => {}); }, HEARTBEAT_MS);
 // Primeiro envio logo apos o startup restaurar as sessoes do disco
