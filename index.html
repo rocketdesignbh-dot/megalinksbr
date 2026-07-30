@@ -8631,7 +8631,17 @@ async function loadPlanFeatures(){
   try{
     const{data,error}=await SB.from("plan_features").select("*");
     if(error||!data||!data.length) return; // mantém fallback
-    const map={};data.forEach(r=>map[r.plan]=r);
+    // MESCLA, nunca substitui. A tabela plan_features nao tem todas as colunas do
+    // PLAN_FALLBACK -- clone_post e stock_monitor sao exemplos. Quando isto fazia
+    // PLAN_FEATURES=map, essas chaves viravam undefined, e undefined e falsy: o
+    // recurso ficava travado justamente para quem pagou por ele. O fallback passa a
+    // ser o piso, e o banco so sobrescreve o que ele realmente tem.
+    const map={...PLAN_FALLBACK};
+    data.forEach(r=>{
+      const base={...(PLAN_FALLBACK[r.plan]||{})};
+      Object.keys(r).forEach(k=>{ if(r[k]!==null&&r[k]!==undefined) base[k]=r[k]; });
+      map[r.plan]=base;
+    });
     PLAN_FEATURES=map;
   }catch(e){/* mantém fallback */}
 }
