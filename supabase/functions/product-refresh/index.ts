@@ -1,4 +1,10 @@
-// Mega Links BR · Edge Function "product-refresh" v12
+// Mega Links BR · Edge Function "product-refresh" v13
+// v13: o aviso de produto fora do ar passa a sair da CONEXAO ADMIN
+//      (revops_admin_whatsapp, +55 31 7354-5214) para o numero da usuaria.
+//      A v11/v12 mandava da sessao dela para ela mesma: isso cai na conversa
+//      "consigo mesma" do WhatsApp, nao parece vir da plataforma, e o engine
+//      respondia 200 sem provar entrega. O aviso do Yara Lattafa sumiu assim.
+//      Agora a resposta guarda o messageId; sem ele, nao contamos como enviado.
 // v12: monitoramento passa a ser feature de plano (Pro pra cima). Starter posta ML
 //      desde 30/07, mas nao tem verificacao -- e assim o custo de Scrape.do fica
 //      com quem paga por ele.
@@ -115,12 +121,23 @@ async function consultarML(url: string, cred: { token: string; token2: string; c
 }
 
 // ── Aviso a dona do produto ────────────────────────────────────────────────────
-// Starter vai por e-mail; os demais planos vao por WhatsApp, que tem visibilidade
-// muito maior. Falha de aviso NUNCA derruba a rodada: o produto ja saiu do rodizio,
-// que e a parte que protege o grupo. O aviso e o complemento.
+// Sai da conexao ADMIN da plataforma para o numero da usuaria. Falha de aviso NUNCA
+// derruba a rodada: o produto ja saiu do rodizio, que e a parte que protege o grupo.
+// O aviso e o complemento.
+//
+// Numero de destino: whatsapp_instances.phone tem prioridade porque ja esta em
+// formato internacional e e comprovadamente um WhatsApp ativo. profiles.phone e o
+// fallback, mas vem sem codigo do pais (ex.: "11976893472") -- precisa do 55.
+function normalizarBR(bruto: string): string | null {
+  const d = String(bruto ?? '').replace(/\D/g, '');
+  if (!d) return null;
+  if (d.length >= 12 && d.startsWith('55')) return d;
+  if (d.length === 10 || d.length === 11) return '55' + d;
+  return d.length >= 12 ? d : null;
+}
 async function avisarDona(
   SB: any,
-  dono: { id: string; email: string; plan: string; is_vip: boolean },
+  dono: { id: string; email: string; plan: string; is_vip: boolean; phone: string },
   produto: { title: string; id: string },
   sinal: string,
 ): Promise<string> {
@@ -132,8 +149,6 @@ async function avisarDona(
     `então ele foi removido do rodízio de postagens do seu grupo — ` +
     `assim ninguém recebe um link que não vende.\n\n` +
     `Se o anúncio voltar, é só reativar o produto no painel.`;
-
-  const plano = dono.is_vip ? 'elite' : String(dono.plan || 'starter');
 
   // A send-email so aceita `type` de uma lista fixa de templates -- nao aceita texto
   // livre. O template 'produto_fora_do_ar' e adicionado la; se ainda nao existir, a
@@ -158,31 +173,40 @@ async function avisarDona(
     }
   }
 
-  if (plano === 'starter') return await porEmail();
+  // Remetente: a conexao ADMIN da plataforma. Sem ela conectada, cai no e-mail --
+  // nunca mandamos a usuaria uma mensagem dela para ela mesma, que foi o desenho
+  // anterior e nao chegava a lugar nenhum visivel.
+  const { data: admin } = await SB.from('revops_admin_whatsapp')
+    .select('phone').eq('status', 'connected')
+    .order('last_seen_at', { ascending: false }).limit(1).maybeSingle();
 
-  // Demais planos: WhatsApp na propria sessao conectada da usuaria (ela manda para
-  // o proprio numero). Sem instancia conectada nao ha para onde mandar -- cai no e-mail.
+  if (!admin?.phone) return (await porEmail()) === 'email' ? 'email_sem_admin_wa' : 'sem_canal';
+
+  // Destino: instancia WhatsApp da usuaria, senao o telefone do cadastro.
   const { data: inst } = await SB.from('whatsapp_instances')
-    .select('phone').eq('user_id', dono.id).eq('status', 'connected').maybeSingle();
+    .select('phone').eq('user_id', dono.id).maybeSingle();
+  const destino = normalizarBR(inst?.phone ?? '') ?? normalizarBR(dono.phone ?? '');
 
-  if (!inst?.phone) {
-    const via = await porEmail();
-    return via === 'email' ? 'email_sem_whatsapp' : via;
-  }
+  if (!destino) return (await porEmail()) === 'email' ? 'email_sem_telefone' : 'sem_canal';
 
   try {
     const r = await fetch(`${WA_ENGINE_URL}/send-message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${WA_ENGINE_TOKEN}` },
       body: JSON.stringify({
-        sessionPhone: inst.phone,
-        phoneNumber: inst.phone,
+        sessionPhone: admin.phone,   // quem envia: a plataforma
+        phoneNumber: destino,        // quem recebe: a usuaria
         message: texto,
         // sem userId de proposito: aviso do sistema nao consome a cota de disparo dela.
       }),
     });
-    if (!r.ok) return `whatsapp_falhou_${r.status}`;
-    return 'whatsapp';
+    const d = await r.json().catch(() => null);
+    // 200 nao basta: so contamos como enviado se o engine devolver o id da mensagem.
+    if (!r.ok || !d?.messageId) {
+      const motivo = String(d?.error ?? `http_${r.status}`).slice(0, 30);
+      return `whatsapp_falhou:${motivo}`;
+    }
+    return `whatsapp:${String(d.messageId).slice(0, 12)}`;
   } catch (e) {
     return `whatsapp_excecao:${(e instanceof Error ? e.message : String(e)).slice(0, 40)}`;
   }
@@ -235,17 +259,17 @@ Deno.serve(async (req: Request) => {
   // Credenciais do DONO de cada produto: e o token dele que deve pagar a consulta.
   const donos = [...new Set(produtos.map((p) => p.user_id).filter(Boolean))];
   const credPorDono: Record<string, { token: string; token2: string; cookie: string }> = {};
-  const perfilPorDono: Record<string, { id: string; email: string; plan: string; is_vip: boolean }> = {};
+  const perfilPorDono: Record<string, { id: string; email: string; plan: string; is_vip: boolean; phone: string }> = {};
   if (donos.length) {
     const { data: perfis } = await SB.from('profiles')
-      .select('id, email, plan, is_vip, scrape_do_token, scrape_do_token_2, ml_session_cookie').in('id', donos);
+      .select('id, email, phone, plan, is_vip, scrape_do_token, scrape_do_token_2, ml_session_cookie').in('id', donos);
     for (const pf of perfis ?? []) {
       credPorDono[pf.id] = {
         token: String(pf.scrape_do_token ?? '').trim(),
         token2: String(pf.scrape_do_token_2 ?? '').trim(),
         cookie: String(pf.ml_session_cookie ?? '').trim(),
       };
-      perfilPorDono[pf.id] = { id: pf.id, email: String(pf.email ?? ''), plan: String(pf.plan ?? 'starter'), is_vip: pf.is_vip === true };
+      perfilPorDono[pf.id] = { id: pf.id, email: String(pf.email ?? ''), phone: String(pf.phone ?? ''), plan: String(pf.plan ?? 'starter'), is_vip: pf.is_vip === true };
     }
   }
 
