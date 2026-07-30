@@ -62,6 +62,19 @@
 //    campos ja escritos apaga o que estava la. Aqui o `status` do patch e o
 //    estado FUTURO da linha no banco; o `status` do resultado e o ROTULO do que
 //    aconteceu nesta rodada. Dois significados no mesmo nome, num objeto so.
+//
+//  * v7 — o veredito passa a ser GRAVADO (clone_ingest_log). Ate a v6 cada
+//    mensagem saia daqui com um status nomeado e um motivo legivel... dentro da
+//    resposta HTTP, que o engine descartava depois de logar o contador `salvos`.
+//    MEDIDO em 30/07: a fonte "TaNaMao" capturou 4 ofertas entre 08:11 e 08:41 e
+//    nada nas 3h45 seguintes, e nao havia como distinguir "o grupo ficou quieto"
+//    de "chegaram 12 mensagens e todas foram recusadas por repeticao". Nao ter
+//    resposta pra isso e o mesmo defeito de fundo do `price_changed` e do
+//    `expired`: dado calculado que nao chega a nenhuma tela.
+//    O log guarda o VEREDITO, nunca o texto da mensagem — o conteudo e de
+//    terceiro e ja mora em clone_posts.source_text quando a captura vinga.
+//    E falha ao gravar o log nao derruba a ingestao: ele existe pra explicar o
+//    que aconteceu, nao pra decidir o que acontece.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -620,7 +633,9 @@ Deno.serve(async (req: Request) => {
     const msgId = String(msg?.msgId ?? "").trim();
     const texto = String(msg?.text ?? "").trim();
     const sessionPhone = sufixoFone(msg?.sessionPhone);
-    const rotulo = { jid, msgId };
+    // session_phone entra no rotulo (e nao so na checagem de dono) porque o log
+    // precisa dele nas recusas que acontecem ANTES de achar a fonte.
+    const rotulo = { jid, msgId, session_phone: sessionPhone };
 
     if (!jid || !texto) { resultados.push({ ...rotulo, status: "ignorado", motivo: "mensagem sem jid ou sem texto" }); continue; }
 
@@ -640,7 +655,7 @@ Deno.serve(async (req: Request) => {
     if (!fontes?.length) { resultados.push({ ...rotulo, status: "sem_fonte", motivo: "nenhuma fonte ativa para esse grupo" }); continue; }
 
     for (const fonte of fontes) {
-      const marca = { ...rotulo, source_id: fonte.id, niche_group_id: fonte.niche_group_id };
+      const marca = { ...rotulo, source_id: fonte.id, user_id: fonte.user_id, niche_group_id: fonte.niche_group_id };
 
       // ── Isolamento entre contas ─────────────────────────────
       // A fonte e procurada SO pelo JID, e JID igual entre contas diferentes e o
@@ -856,6 +871,28 @@ Deno.serve(async (req: Request) => {
 
   const salvos = resultados.filter((r) => r.status === "salvo" || r.status === "salvo_incompleto").length;
   const doTexto = resultados.filter((r) => r.data_source === "message").length;
+
+  // ── v7 · registro das tentativas ──────────────────────────────────
+  // Uma linha por veredito, inclusive (e principalmente) os de recusa: sao eles
+  // que respondem "por que nao veio nada hoje". dryRun nao grava — ensaio nao e
+  // historico.
+  if (!dryRun && resultados.length) {
+    const linhas = resultados.map((r) => ({
+      source_jid: r.jid || null,
+      clone_source_id: r.source_id ?? null,
+      user_id: r.user_id ?? null,
+      session_phone: r.session_phone || null,
+      msg_id: r.msgId || null,
+      status: r.status,
+      motivo: typeof r.motivo === "string" ? r.motivo.slice(0, 500) : null,
+      store: r.store ?? null,
+      clone_post_id: r.clone_id ?? null,
+    }));
+    const { error: eLog } = await sb.from("clone_ingest_log").insert(linhas);
+    // Fail-open de proposito: perder a explicacao e ruim, perder a captura e pior.
+    if (eLog) console.warn(`[clone-ingest] log nao gravado: ${eLog.message}`);
+  }
+
   console.log(`[clone-ingest] recebidas=${entradas.length} salvos=${salvos} lidos_do_texto=${doTexto} dryRun=${dryRun}`);
   return json({ ok: true, dryRun, recebidas: entradas.length, salvos, resultados });
 });
