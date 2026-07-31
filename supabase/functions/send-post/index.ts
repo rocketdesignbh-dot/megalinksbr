@@ -244,6 +244,72 @@ async function fetchWithTimeout(url: string, opts: RequestInit, ms = 10000): Pro
   try { return await fetch(url, { ...opts, signal: ctrl.signal }); } finally { clearTimeout(t); }
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// HORARIOS INTELIGENTES
+// ══════════════════════════════════════════════════════════════════════
+// Tres janelas fixas, em minutos desde a meia-noite de Brasilia. Nao sao
+// configuraveis de proposito: o valor do recurso e justamente o usuario nao
+// precisar adivinhar horario. Quando ligado, start_hour, end_hour e
+// interval_minutes ficam inertes — as colunas continuam existindo porque
+// desligar o modo tem que devolver o grupo ao comportamento antigo.
+// `peso` so desempata sobra de divisao: 19-21 e a melhor janela medida, entao
+// quando duas janelas disputam o mesmo post que sobrou, ela leva. Sem isso um
+// grupo com 1 produto postava 07:05, porque manha e noite tem a mesma duracao
+// e o empate caia na primeira da lista.
+const JANELAS: Array<{ ini: number; fim: number; nome: string; peso: number }> = [
+  { ini:  7 * 60, fim:  9 * 60,      nome: "manha",  peso: 1 },
+  { ini: 12 * 60, fim: 13 * 60 + 30, nome: "almoco", peso: 0 },
+  { ini: 19 * 60, fim: 21 * 60,      nome: "noite",  peso: 2 },
+];
+
+// Piso de 10 min entre dois posts, aplicado aos 330 min de janela. E ele que
+// define o teto diario: 12 + 9 + 12 = 33. Sem piso, um grupo Elite com 150
+// produtos distribuiria os 150 nos mesmos 330 minutos — um post a cada 2,2
+// min, que e flood e provavelmente ban do numero. `auto_posts_daily` nao
+// protege disso: e null pra Pro, Elite e Premium.
+const SMART_PISO_MIN = 10;
+const SMART_MAX_DIA = JANELAS.reduce((t, j) => t + Math.floor((j.fim - j.ini) / SMART_PISO_MIN), 0);
+
+function janelaDe(min: number) {
+  return JANELAS.find((j) => min >= j.ini && min < j.fim) ?? null;
+}
+
+// Reparte N posts entre as janelas proporcionalmente a duracao de cada uma.
+// O resto da divisao vai pras janelas de maior fracao: sem isso N=10 viraria
+// 3+2+3=8 e dois posts sumiriam sem ninguem notar.
+function cotasPorJanela(N: number): number[] {
+  const durs = JANELAS.map((j) => j.fim - j.ini);
+  const total = durs.reduce((a, b) => a + b, 0);
+  const bruto = durs.map((d) => (N * d) / total);
+  const cotas = bruto.map((b) => Math.floor(b));
+  let resto = N - cotas.reduce((a, b) => a + b, 0);
+  const ordem = bruto
+    .map((b, i) => ({ i, frac: b - Math.floor(b) }))
+    .sort((a, b) => (b.frac - a.frac) || (JANELAS[b.i].peso - JANELAS[a.i].peso));
+  for (let k = 0; resto > 0 && k < ordem.length; k++, resto--) cotas[ordem[k].i]++;
+  return cotas;
+}
+
+// Quantos posts JA DEVERIAM ter saido ate `min`. Comparar isso com o que de
+// fato saiu hoje e o que torna o modo auto-corretivo: se o cron perdeu uma
+// batida ou o container reiniciou, a diferenca aparece sozinha e o proximo
+// disparo recupera, em vez de o dia terminar com buraco.
+//
+// Cada post fica no MEIO do seu slot, nunca cravado na virada da janela: as
+// 07:00 em ponto o grupo ainda nao levou nada, o primeiro sai as 07:05.
+function esperadosAte(N: number, min: number): number {
+  if (N <= 0) return 0;
+  const cotas = cotasPorJanela(N);
+  let esperados = 0;
+  JANELAS.forEach((j, w) => {
+    const n = cotas[w];
+    if (!n) return;
+    const passo = (j.fim - j.ini) / n;
+    for (let i = 0; i < n; i++) if (j.ini + (i + 0.5) * passo <= min) esperados++;
+  });
+  return esperados;
+}
+
 Deno.serve(async (req: Request) => {
   const secret = req.headers.get("x-cron-secret") ?? "";
   const auth   = req.headers.get("authorization") ?? "";
@@ -254,10 +320,15 @@ Deno.serve(async (req: Request) => {
   const now = new Date();
   const brHour = ((now.getUTCHours() - 3) % 24 + 24) % 24;
   const todayBR = new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  // Mesmo deslocamento do todayBR. Minuto (e nao so hora) porque a janela do
+  // almoco termina 13:30, e dia da semana pro corte de fim de semana.
+  const brNow = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+  const brMinutos = brNow.getUTCHours() * 60 + brNow.getUTCMinutes();
+  const brDow = brNow.getUTCDay(); // 0 = domingo, 6 = sabado
 
   const { data: groups, error: gErr } = await sb
     .from("niche_groups")
-    .select("id, user_id, name, interval_minutes, start_hour, end_hour, cursor_index, last_post_at")
+    .select("id, user_id, name, interval_minutes, start_hour, end_hour, cursor_index, last_post_at, smart_schedule, smart_weekend")
     .eq("post_auto_enabled", true);
   if (gErr) return new Response(JSON.stringify({ error: gErr.message }), { status: 500 });
   if (!groups?.length) return new Response(JSON.stringify({ processed: 0, msg: "no active groups" }));
@@ -271,9 +342,15 @@ Deno.serve(async (req: Request) => {
   // O padrao abaixo e o comportamento historico: se a tabela nao responder, o
   // Starter continua limitado em vez de passar a disparar sem limite.
   const tetoDiario: Record<string, number | null> = { starter: 1 };
+  // Horarios Inteligentes e Elite pra cima. Plano sem o recurso cai no modo
+  // antigo em vez de parar de postar: quem faz downgrade nao pode ficar mudo.
+  const planSmart: Record<string, boolean> = {};
   try {
-    const { data: planos } = await sb.from("plan_features").select("plan, auto_posts_daily");
-    for (const pf of planos ?? []) tetoDiario[pf.plan] = pf.auto_posts_daily ?? null;
+    const { data: planos } = await sb.from("plan_features").select("plan, auto_posts_daily, smart_schedule");
+    for (const pf of planos ?? []) {
+      tetoDiario[pf.plan] = pf.auto_posts_daily ?? null;
+      planSmart[pf.plan] = !!pf.smart_schedule;
+    }
   } catch { /* mantem o padrao acima */ }
 
   let totalSent = 0, totalFailed = 0, totalSkipped = 0, totalBlocked = 0;
@@ -293,13 +370,25 @@ Deno.serve(async (req: Request) => {
       if ((sentToday ?? 0) >= teto) { totalSkipped++; continue; }
     }
 
-    const startH = group.start_hour ?? 0, endH = group.end_hour ?? 23;
-    const inWindow = startH <= endH ? brHour >= startH && brHour <= endH : brHour >= startH || brHour <= endH;
-    if (!inWindow) { totalSkipped++; continue; }
+    const smart = !!group.smart_schedule && (planSmart[userPlan] ?? false);
 
-    const intervalMs = (group.interval_minutes ?? 10) * 60 * 1000;
-    const lastPost = group.last_post_at ? new Date(group.last_post_at).getTime() : 0;
-    if (Date.now() - lastPost < intervalMs) { totalSkipped++; continue; }
+    if (smart) {
+      // Fim de semana desmarcado: nao roda sabado nem domingo. Nao ha
+      // fallback pro modo antigo aqui — "nao aplicar no fim de semana"
+      // significa nao postar, e nao postar de outro jeito.
+      if ((brDow === 0 || brDow === 6) && !group.smart_weekend) { totalSkipped++; continue; }
+      // Fora das tres janelas nao ha o que decidir. O quanto postar depende do
+      // numero de produtos, que so e conhecido depois do filtro la embaixo.
+      if (!janelaDe(brMinutos)) { totalSkipped++; continue; }
+    } else {
+      const startH = group.start_hour ?? 0, endH = group.end_hour ?? 23;
+      const inWindow = startH <= endH ? brHour >= startH && brHour <= endH : brHour >= startH || brHour <= endH;
+      if (!inWindow) { totalSkipped++; continue; }
+
+      const intervalMs = (group.interval_minutes ?? 10) * 60 * 1000;
+      const lastPost = group.last_post_at ? new Date(group.last_post_at).getTime() : 0;
+      if (Date.now() - lastPost < intervalMs) { totalSkipped++; continue; }
+    }
 
     const credsMap = await carregarCredenciais(sb, group.user_id);
     const lojasComCredencial = new Set(Object.keys(credsMap).filter((store) => {
@@ -357,6 +446,21 @@ Deno.serve(async (req: Request) => {
         });
       }
       continue;
+    }
+
+    // ── Horarios Inteligentes: o ritmo sai da conta, nao do relogio ──
+    // Aqui `products` ja passou por expirado, agendado e validade, entao o N
+    // reflete o que de fato pode ir ao ar hoje. Produto que nao couber hoje
+    // entra amanha pelo cursor, que continua de onde parou.
+    if (smart) {
+      const tetoPlano = teto !== null && teto > 0 ? teto : SMART_MAX_DIA;
+      const N = Math.min(products.length, SMART_MAX_DIA, tetoPlano);
+      const esperados = esperadosAte(N, brMinutos);
+      const { count: enviadosHoje } = await sb.from("scheduled_posts")
+        .select("id", { count: "exact", head: true })
+        .eq("group_id", group.id).eq("is_manual", false).eq("status", "sent")
+        .gte("sent_at", todayBR + "T00:00:00Z");
+      if ((enviadosHoje ?? 0) >= esperados) { totalSkipped++; continue; }
     }
 
     const total = products.length;

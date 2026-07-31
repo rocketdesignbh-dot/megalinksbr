@@ -2051,6 +2051,8 @@ async function loadGroups(){
       intervalo:r.post_auto_enabled?(r.interval_minutes+" min"):"N/A",
       startHour:r.start_hour??8,
       endHour:r.end_hour??22,
+      smartSchedule:!!r.smart_schedule,
+      smartWeekend:!!r.smart_weekend,
       validadeDias:r.default_validity_days??null,
     }));
     // ─── Buscar contagens reais de grupos WA, canais e produtos vinculados ───
@@ -2454,10 +2456,10 @@ async function loadCreds(){
 
 /* ================= PLANOS REAIS (plan_features) — definido cedo, antes de qualquer uso ================= */
 const PLAN_FALLBACK={
-  starter:{plan:"starter",label:"Starter",color:"#10B981",price_month:57.90,wa_groups:1,wa_channels:2,wa_connections:1,wa_post_automation:true,tg_channels:1,tg_post_automation:false,marketplaces:2,links_simultaneous:10,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:false,support_level:"comunidade",clone_post:false,clone_auto:false,clone_sources_max:0,stock_monitor:false,auto_posts_daily:1,sort_order:1,max_products:15},
-  pro:{plan:"pro",label:"Pro",color:"#3B82F6",price_month:97.90,wa_groups:3,wa_channels:6,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,marketplaces:3,links_simultaneous:30,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:true,support_level:"email",clone_post:true,clone_auto:false,clone_sources_max:0,stock_monitor:true,auto_posts_daily:null,sort_order:2,max_products:50},
-  elite:{plan:"elite",label:"Elite",color:"#8B5CF6",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",clone_post:true,clone_auto:true,clone_sources_max:3,stock_monitor:true,auto_posts_daily:null,sort_order:3,max_products:150},
-  premium:{plan:"premium",label:"Premium",color:"#F59E0B",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",clone_post:true,clone_auto:true,clone_sources_max:10,stock_monitor:true,auto_posts_daily:null,sort_order:4,max_products:300}
+  starter:{plan:"starter",label:"Starter",color:"#10B981",price_month:57.90,wa_groups:1,wa_channels:2,wa_connections:1,wa_post_automation:true,tg_channels:1,tg_post_automation:false,marketplaces:2,links_simultaneous:10,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:false,support_level:"comunidade",clone_post:false,clone_auto:false,clone_sources_max:0,smart_schedule:false,stock_monitor:false,auto_posts_daily:1,sort_order:1,max_products:15},
+  pro:{plan:"pro",label:"Pro",color:"#3B82F6",price_month:97.90,wa_groups:3,wa_channels:6,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,marketplaces:3,links_simultaneous:30,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:true,support_level:"email",clone_post:true,clone_auto:false,clone_sources_max:0,smart_schedule:false,stock_monitor:true,auto_posts_daily:null,sort_order:2,max_products:50},
+  elite:{plan:"elite",label:"Elite",color:"#8B5CF6",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",clone_post:true,clone_auto:true,clone_sources_max:3,smart_schedule:true,stock_monitor:true,auto_posts_daily:null,sort_order:3,max_products:150},
+  premium:{plan:"premium",label:"Premium",color:"#F59E0B",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",clone_post:true,clone_auto:true,clone_sources_max:10,smart_schedule:true,stock_monitor:true,auto_posts_daily:null,sort_order:4,max_products:300}
 };
 let PLAN_FEATURES={...PLAN_FALLBACK};
 let MY_PLAN="starter";
@@ -4741,6 +4743,11 @@ geral:`
     <div class="card" style="margin:0"><div class="ch">⚙️ Postagem automática</div><div class="cb">
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:10px"><input type="checkbox" id="pgAuto" style="width:auto"> Post Automático</label>
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgLoop" style="width:auto"> Post em Loop <small style="color:var(--mut);font-weight:400">(reinicia a lista ao fim)</small></label>
+      <div style="border:1px solid var(--bd);border-radius:10px;padding:11px 12px;margin-bottom:14px;background:rgba(139,92,246,.07)">
+        <label style="display:flex;gap:9px;align-items:center;font-weight:600"><input type="checkbox" id="pgSmart" style="width:auto" onchange="pgSmartAplicar()"> 🧠 Horários Inteligentes <span class="pill" style="background:rgba(139,92,246,.18);color:#A78BFA;flex:none;font-size:10px;padding:1px 7px">ELITE+</span></label>
+        <div style="font-size:12px;color:var(--tx2);margin-top:7px;line-height:1.65">Posta só nas janelas de maior audiência, dividindo seus produtos entre elas. <strong>Substitui intervalo e horário.</strong><br>${SMART_JANELAS.map(j=>j.rot).join(" · ")} <small style="color:var(--mut)">(a última é a melhor)</small><br>Até ${SMART_MAX_DIA} posts/dia, no mínimo ${SMART_PISO_MIN} min entre um e outro. O que não couber hoje entra amanhã.</div>
+        <label id="pgSmartFdsBox" style="display:none;gap:9px;align-items:center;margin-top:10px;font-size:13px"><input type="checkbox" id="pgSmartFds" style="width:auto"> Aplicar também no fim de semana <small style="color:var(--mut)">(sem isso, sáb e dom não postam)</small></label>
+      </div>
       <div class="g2">
         <div class="field"><label>Intervalo (min)</label><select id="pgInt">
           <option value="10" selected>10 min</option>
@@ -5216,6 +5223,11 @@ function buildTabs(){
     if(pgIni&&g.startHour!=null){const opt=[...pgIni.options].find(o=>o.value===g.startHour+"h");if(opt)pgIni.value=g.startHour+"h";}
     const pgFim=document.getElementById("pgFim");
     if(pgFim&&g.endHour!=null){const opt=[...pgFim.options].find(o=>o.value===g.endHour+"h");if(opt)pgFim.value=g.endHour+"h";}
+    const pgSmart=document.getElementById("pgSmart");
+    if(pgSmart)pgSmart.checked=!!g.smartSchedule;
+    const pgSmartFds=document.getElementById("pgSmartFds");
+    if(pgSmartFds)pgSmartFds.checked=!!g.smartWeekend;
+    pgSmartAplicar();
     const pgValidade=document.getElementById("pgValidade");
     if(pgValidade)pgValidade.value=g.validadeDias?String(g.validadeDias):"";
     prodPreencherValidade();
@@ -5276,6 +5288,10 @@ async function salvarGeral(){
   const intervalo=document.getElementById("pgInt")?.value||"10";
   g.startHour=Number(ini);g.endHour=Number(fim);
   g.intervalo=intervalo+" min";
+  // Sem plano o toggle nem fica marcado (pgSmartAplicar desmarca), então aqui
+  // basta ler. A trava de verdade é a do send-post, que confere o plano.
+  g.smartSchedule=!!document.getElementById("pgSmart")?.checked&&smartTemPlano();
+  g.smartWeekend=!!document.getElementById("pgSmartFds")?.checked;
   g.defaultCouponId=document.getElementById("pgCupomPadrao")?.value||null;
   const validadeSel=document.getElementById("pgValidade")?.value||"";
   g.validadeDias=validadeSel?Number(validadeSel):null;
@@ -5310,6 +5326,8 @@ async function salvarGeral(){
         interval_minutes:Number(intervalo),
         start_hour:g.startHour,
         end_hour:g.endHour,
+        smart_schedule:!!g.smartSchedule,
+        smart_weekend:!!g.smartWeekend,
         default_coupon_id:g.defaultCouponId||null,
         default_validity_days:g.validadeDias||null,
       }).eq("id",g.db_id);
@@ -5669,12 +5687,46 @@ function prodCupomTipoChange(){
   if(div)div.style.display=tipo&&tipo!=="free_shipping"?"grid":"none";
 }
 // Calcula produtos ideais baseado em intervalo e horário do grupo
+// Horários Inteligentes anula intervalo e janela. Os três selects ficam
+// desabilitados e esmaecidos em vez de sumirem: some da tela é o usuário achar
+// que perdeu a configuração; esmaecido é ele entender que o modo tomou conta
+// deles e que desligar devolve o controle.
+function pgSmartAplicar(){
+  const cb=document.getElementById("pgSmart");
+  let on=!!cb?.checked;
+  if(on&&!smartTemPlano()){
+    if(cb)cb.checked=false;on=false;
+    toast("Horários Inteligentes disponível a partir do plano Elite.","🔒");
+  }
+  const fds=document.getElementById("pgSmartFdsBox");
+  if(fds)fds.style.display=on?"flex":"none";
+  ["pgInt","pgIni","pgFim"].forEach(function(id){
+    const el=document.getElementById(id);if(!el)return;
+    el.disabled=on;
+    const f=el.closest(".field");
+    if(f){f.style.opacity=on?".4":"";f.style.pointerEvents=on?"none":"";}
+  });
+  const g=S.grupoAtual;if(g)g.smartSchedule=on;
+  prodIdeaisCalc();
+}
+
 function prodIdeaisCalc(){
   const g=S.grupoAtual;if(!g)return;
   const numEl=document.getElementById("prodIdeaisNum");
   const descEl=document.getElementById("prodIdeaisDesc");
   const atualEl=document.getElementById("prodIdeaisAtual");
   if(!numEl)return;
+  // No modo inteligente ter poucos produtos não deixa buraco no dia: o
+  // espaçamento só aumenta. O aviso vermelho do modo antigo mentiria aqui.
+  if(g.smartSchedule){
+    const atual=g.produtos||0;
+    numEl.textContent=SMART_MAX_DIA;
+    descEl.textContent=`posts/dia no máximo · ${SMART_JANELAS.length} janelas, mín. ${SMART_PISO_MIN} min entre posts`;
+    atualEl.innerHTML=atual>=SMART_MAX_DIA
+      ? `<span style="color:var(--volt)">✅ ${atual} produtos. O dia enche os ${SMART_MAX_DIA} e o resto entra amanhã pelo rodízio.</span>`
+      : `<span style="color:var(--tx2)">Você tem ${atual} produto${atual!==1?"s":""} — eles se espalham pelas janelas com folga. Não falta nada.</span>`;
+    return;
+  }
   const ini=g.startHour??8;
   const fim=g.endHour??22;
   const intervMins=parseInt(String(g.intervalo||"60").replace(/\D/g,""))||60;
@@ -6925,10 +6977,32 @@ async function renderInstancias(){
   }
 }
 
+/* HORÁRIOS INTELIGENTES — espelho literal do send-post/index.ts.
+   Se divergir, a tela promete um horário e o cron cumpre outro. */
+const SMART_JANELAS=[
+  {ini:7*60,fim:9*60,rot:"☀️ 07:00–09:00"},
+  {ini:12*60,fim:13*60+30,rot:"🍽️ 12:00–13:30"},
+  {ini:19*60,fim:21*60,rot:"🌙 19:00–21:00"}
+];
+const SMART_PISO_MIN=10;
+const SMART_MAX_DIA=SMART_JANELAS.reduce((t,j)=>t+Math.floor((j.fim-j.ini)/SMART_PISO_MIN),0);
+function smartTemPlano(){return !!(PLAN_FEATURES[MY_PLAN]||{}).smart_schedule;}
+
 /* ADMIN: FILA (live) — dados reais via scheduled_posts / niche_groups */
 let queueTimer=null,queueUpcoming=[],queueLogRows=[];
 
 function filaEta(group,now){
+  // Modo inteligente: o próximo disparo não sai de intervalo, sai da próxima
+  // janela. Sem este ramo a Fila mostraria o ETA do modo antigo para um grupo
+  // que não usa mais o modo antigo — tela que mente é pior que tela vazia.
+  if(group.smart_schedule){
+    const br=new Date(now.getTime()-3*3600*1000);
+    const min=br.getUTCHours()*60+br.getUTCMinutes(),dow=br.getUTCDay();
+    if((dow===0||dow===6)&&!group.smart_weekend)return{etaMin:0,inWindow:false,smart:true,pausado:true};
+    if(SMART_JANELAS.some(j=>min>=j.ini&&min<j.fim))return{etaMin:0,inWindow:true,smart:true};
+    const prox=SMART_JANELAS.find(j=>j.ini>min);
+    return{etaMin:prox?prox.ini-min:(24*60-min)+SMART_JANELAS[0].ini,inWindow:false,smart:true};
+  }
   const startH=group.start_hour??0,endH=group.end_hour??23;
   const brHour=now.getUTCHours(); // painel exibe hora do servidor (UTC); ok p/ ordenação relativa
   const inWindow=startH<=endH?(brHour>=startH&&brHour<=endH):(brHour>=startH||brHour<=endH);
@@ -6948,7 +7022,7 @@ async function renderQueue(){
     const h24atras=new Date(now.getTime()-24*3600*1000);
 
     const [{data:groups},{data:hoje},{data:falhas24h},{data:log}]=await Promise.all([
-      SB.from("niche_groups").select("id,name,user_id,interval_minutes,start_hour,end_hour,cursor_index,last_post_at,post_auto_enabled").eq("post_auto_enabled",true),
+      SB.from("niche_groups").select("id,name,user_id,interval_minutes,start_hour,end_hour,cursor_index,last_post_at,post_auto_enabled,smart_schedule,smart_weekend").eq("post_auto_enabled",true),
       SB.from("scheduled_posts").select("status",{count:"exact"}).gte("created_at",hojeInicio.toISOString()),
       SB.from("scheduled_posts").select("id",{count:"exact"}).eq("status","failed").gte("created_at",h24atras.toISOString()),
       SB.from("scheduled_posts").select("id,status,error,created_at,niche_groups(name),products(title),profiles(email)").order("created_at",{ascending:false}).limit(25)
@@ -6970,7 +7044,7 @@ async function renderQueue(){
     queueList.innerHTML=queueUpcoming.length?queueUpcoming.map((q,i)=>{
       const status=!q.inWindow?"fora da janela":i===0&&q.etaMin<=0?"disparando…":`em ${q.etaMin} min`;
       const pillClass=!q.inWindow?"gray":i===0&&q.etaMin<=0?"volt":"gray";
-      return `<div class="qrow"><span class="fic">${!q.inWindow?"🌙":i===0&&q.etaMin<=0?"🚀":"⏳"}</span><span style="flex:1"><strong>${esc(q.name||"Grupo")}</strong><br><small style="color:var(--mut)">a cada ${q.interval_minutes||10} min · ${q.start_hour??0}h–${q.end_hour??23}h</small></span><span class="pill ${pillClass}">${status}</span></div>`;
+      return `<div class="qrow"><span class="fic">${!q.inWindow?"🌙":i===0&&q.etaMin<=0?"🚀":"⏳"}</span><span style="flex:1"><strong>${esc(q.name||"Grupo")}</strong><br><small style="color:var(--mut)">${q.smart_schedule?("🧠 "+SMART_JANELAS.map(j=>j.rot.replace(/^\S+\s/,"")).join(" · ")+(q.smart_weekend?"":" · seg–sex")):("a cada "+(q.interval_minutes||10)+" min · "+(q.start_hour??0)+"h–"+(q.end_hour??23)+"h")}</small></span><span class="pill ${pillClass}">${status}</span></div>`;
     }).join(""):'<div class="qrow"><span style="color:var(--mut)">Nenhuma automação ativa no momento.</span></div>';
 
     queueLogRows=log||[];
@@ -8387,7 +8461,11 @@ function csRender(){
         <div class="cs-bar${cheio?" full":""}"><i style="width:${pct}%"></i></div>
       </div>
       ${csVereditoHtml(f.source_jid)}
+      <div class="cs-meta" style="margin-top:2px">${f.smart_schedule
+        ? "🧠 captura em "+SMART_JANELAS.map(j=>j.rot.replace(/^\S+\s/,"")).join(" · ")+(f.smart_weekend?"":" · seg–sex")
+        : "🕐 captura o dia inteiro"}</div>
       <div class="cs-acoes">
+        <button class="btn btn-ghost btn-sm" onclick="csAlternarSmart('${f.id}',${f.smart_schedule?"false":"true"})">${f.smart_schedule?"Captura 24h":"🧠 Horários"}</button>
         <button class="btn btn-ghost btn-sm" onclick="csAlternar('${f.id}',${f.active?"false":"true"})">${f.active?"Pausar":"Ativar"}</button>
         <button class="btn btn-ghost btn-sm" onclick="csRemover('${f.id}')">Remover</button>
       </div>
@@ -8472,6 +8550,11 @@ async function csAbrirForm(){
         <div style="margin-top:10px;max-width:220px">
           <label>Máximo por dia</label>
           <input id="csMax" type="number" min="1" max="50" value="10" style="width:100%">
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label style="display:flex;gap:9px;align-items:center;font-weight:600"><input type="checkbox" id="csSmart" style="width:auto" onchange="csSmartForm()"> 🧠 Horários Inteligentes <span class="pill" style="background:rgba(139,92,246,.18);color:#A78BFA;flex:none;font-size:10px;padding:1px 7px">ELITE+</span></label>
+          <div style="font-size:12px;color:var(--tx2);margin-top:6px;line-height:1.6">Só captura dentro de ${SMART_JANELAS.map(j=>j.rot).join(" · ")}. Fora disso a mensagem é recusada antes de gastar crédito de consulta na loja.</div>
+          <label id="csSmartFdsBox" style="display:none;gap:9px;align-items:center;margin-top:8px;font-size:13px"><input type="checkbox" id="csSmartFds" style="width:auto"> Capturar também no fim de semana</label>
           <div style="font-size:11.5px;color:var(--tx2);margin-top:4px">Cada captura consulta a loja pra conferir preço e imagem. O teto evita gastar consulta à toa num grupo movimentado.</div>
         </div>
         <div style="display:flex;gap:10px;margin-top:14px">
@@ -8497,11 +8580,32 @@ async function csSalvar(){
     source_jid:jid,
     source_label:(g?.subject||g?.name||jid).slice(0,120),
     session_phone:(S.waNumber||"").replace(/\D/g,"")||null,
-    max_per_day:Math.min(Math.max(max,1),50)
+    max_per_day:Math.min(Math.max(max,1),50),
+    smart_schedule:!!document.getElementById("csSmart")?.checked&&smartTemPlano(),
+    smart_weekend:!!document.getElementById("csSmartFds")?.checked
   });
   if(error){toast("Não consegui salvar: "+error.message,"⚠️");return;}
   toast("Fonte cadastrada. O monitoramento começa em até 5 minutos.","🤖");
   const f=document.getElementById("csForm");if(f)f.style.display="none";
+  csCarregar();
+}
+
+function csSmartForm(){
+  const cb=document.getElementById("csSmart");
+  let on=!!cb?.checked;
+  if(on&&!smartTemPlano()){
+    if(cb)cb.checked=false;on=false;
+    toast("Horários Inteligentes disponível a partir do plano Elite.","🔒");
+  }
+  const box=document.getElementById("csSmartFdsBox");
+  if(box)box.style.display=on?"flex":"none";
+}
+
+async function csAlternarSmart(id,ligar){
+  if(ligar&&!smartTemPlano()){toast("Horários Inteligentes disponível a partir do plano Elite.","🔒");return;}
+  const{error}=await SB.from("clone_sources").update({smart_schedule:!!ligar}).eq("id",id);
+  if(error){toast("Não consegui salvar: "+error.message,"⚠️");return;}
+  toast(ligar?"Essa fonte passa a capturar só nas janelas.":"Essa fonte volta a capturar o dia inteiro.","🧠");
   csCarregar();
 }
 
