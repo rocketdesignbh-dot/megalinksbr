@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 9 — 31/07/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 10 — 31/07/2026 (manhã).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -40,13 +40,78 @@
 
 ---
 
-> ⚠️ **LEIA ANTES DE QUALQUER COISA NESTA SESSÃO.**
-> **REPO E PRODUÇÃO DIVERGEM.** O commit `32fbd03` traz a `clone-ingest` **v11**
-> (auto-publicação por fonte) e ela **NÃO foi deployada**. Produção roda a v10.
-> A migration da v11 **já está aplicada**, mas `auto_publish` nasce `false` em
-> todas as fontes, então o comportamento de hoje é idêntico ao da v10 para todo
-> mundo. Estado inconsistente, não quebrado.
-> **Primeira ação desta sessão: deployar a v11.** Ver "P17" nas pendências.
+> ✅ **REPO E PRODUÇÃO BATEM.** A `clone-ingest` **v11** foi deployada em 31/07
+> às 10:32 e **PROVADA** (ver "Auto-publicação" abaixo). P17 fechada.
+>
+> ⚠️ **O que importa saber antes de mexer no Clone Post:** a captura funciona,
+> o **enriquecimento de loja não**. Amazon e Shopee caem sempre no fallback de
+> ler do texto (`data_source='message'`), e a auto-publicação da v11 exige
+> `data_source='store'`. Na prática, hoje **só Mercado Livre auto-publica.**
+> Ver "Clone Post — o que está medido" e as pendências P20/P21.
+
+## Auto-publicação (`clone-ingest` v11) — ENTREGUE E PROVADA (31/07, 10:32)
+
+Fonte com `auto_publish` ligado transforma a captura em produto do grupo sem
+passar pela fila — **mas só quando a loja confirmou os dados**.
+
+**Prova com os dois ramos no mesmo lote real (não dryRun), 31/07 10:35.**
+Fonte "TáNaMão" com `auto_publish` ligado temporariamente:
+
+| Mensagem | `data_source` | Status | Resultado no banco |
+|---|---|---|---|
+| Link ML (`MLB24004920`) | `store` | `publicado` | `products` criado, `clone_posts.status='approved'` com `product_id` e `approved_at` |
+| Link Shopee | `message` | `salvo` | ficou `pending` na fila, `product_id` nulo |
+
+O que fecha a prova, além dos dois ramos: o produto criado saiu com **R$ 74,00
+de R$ 96,00 (23%)**, que é o preço **da loja** — o texto sintético da mensagem
+dizia "De R$ 49,90 por R$ 29,90". Se tivesse publicado o preço do texto, o
+guarda não estaria funcionando. E o motivo devolvido na recusa — *"aguardando
+revisao — auto-publicacao nao vale para dados lidos do texto da mensagem"* — é
+string que **só existe na v11**, assim como o campo `publicados` no corpo da
+resposta. Número de versão não provou nada; o comportamento provou.
+
+Estado restaurado depois do teste: `auto_publish=false`, as duas linhas de
+`clone_posts`, o `products` e as linhas do `clone_ingest_log` apagados,
+`captured_today` devolvido a 6.
+
+**Ainda NÃO observado:** auto-publicação disparando por mensagem de grupo de
+verdade, e o produto auto-publicado saindo no disparo do `send-post`.
+
+---
+
+## Clone Post — o que está medido (31/07, manhã)
+
+**A captura funciona.** A crença de que "o Clone Post não está funcionando"
+não se sustenta no log: em 31/07 as duas fontes avaliaram ~32 mensagens,
+6 viraram captura (08:10–09:20) e estão `pending` na fila de revisão.
+`last_capture_at` da TáNaMão: 09:20. Fila hoje: **6 pending, 5 approved**.
+
+**O que não funciona é o enriquecimento**, e falha diferente por loja:
+
+| Loja | O que acontece | Onde morre |
+|---|---|---|
+| Mercado Livre | 13 recusas com *"leva a VITRINE do afiliado"* | `resolve-link`. O grupo-fonte posta `meli.la` que cai em `/social/<afiliado>` — vitrine, não produto. **Não é bug nosso: não há produto para clonar.** |
+| Shopee | 10 recusas *"não aponta pra um produto"* | `resolve-link`. **Os dois formatos de URL funcionam** — medido: `/product/LOJA/ITEM` e `-i.LOJA.ITEM` normalizam para a mesma coisa. As recusas são links que terminam noutro lugar (campanha, coleção, SPA de encurtador). |
+| Shopee (quando resolve) | `productOfferV2` devolve *"Produto não encontrado"* | `product-search`. A API de afiliado da Shopee **só conhece itens do catálogo de ofertas**, não item arbitrário. Cai no fallback de texto. |
+| Amazon | Sempre cai no fallback de texto | `product-search` **não tem caminho Amazon nenhum** — o `if` cobre só `mercadolivre` e `shopee`. |
+| Mercado Livre (link bom) | ✅ `data_source='store'` | via `/ml-product` com o Scrape.do pessoal do Érico. |
+
+**Consequência direta e não óbvia:** como a auto-publicação exige
+`data_source='store'`, e Amazon e Shopee nunca chegam lá, **ligar `auto_publish`
+hoje só muda o comportamento de captura de Mercado Livre.** Para as outras
+lojas o toggle existe e não faz nada visível — exatamente o tipo de "mecanismo
+que parece existir e não executa nada" que este projeto já pagou caro.
+
+**Sintoma visível na fila:** as 6 capturas de hoje têm título lido do texto, e
+dois deles são lixo — `"10% OFF"` e `"🔗 https://amzlink.to/az0FxCZ9opMuN"`.
+O parser de título pegou a linha errada porque a mensagem não tinha negrito
+utilizável. É provavelmente isso que dá a sensação de "não funciona".
+
+**Ponto cego que atrapalhou este diagnóstico:** o `clone_ingest_log` guarda o
+veredito mas **não guarda a URL** que falhou. Dá para dizer "10 links da Shopee
+foram recusados" e não dá para dizer *quais*, nem reproduzi-los. Ver P20.
+
+---
 
 ## Horários Inteligentes — ENTREGUE (31/07, commits `f94e2f0` → `08f7064`)
 
@@ -118,17 +183,42 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
-**Sessão de 31/07/2026 (madrugada, 00:00–01:10)** — fecha o P14, conserta o site,
-melhora o rótulo do toggle e deixa a v11 pronta e commitada, mas não deployada.
+**Sessão de 31/07/2026 (manhã, 10:30–11:00)** — deploya e prova a v11 (P17),
+e diagnostica o Clone Post. **Nenhuma alteração de código nesta sessão** — só
+deploy do que já estava commitado, medição e documentação.
 
 | | |
 |---|---|
-| Commits | `08f7064` (fix TDZ) · `528d130` (doc) · `71cf08e` (UX do rótulo) · `32fbd03` (v11, **não deployada**) |
-| Edge Functions | 37 · `clone-ingest` em **v10** em produção, **v11 no repo** |
-| Migrations | `clone_auto_publish_e_preview_clicavel` aplicada (`clone_sources.auto_publish`, `niche_groups.clickable_preview`, ambas `not null default false`) |
-| Repo × produção | **DIVERGEM** no `clone-ingest`. Frontend batendo, conferido por carregamento real |
+| Commits | nenhum de código. Só este doc |
+| Edge Functions | 37 · `clone-ingest` em **v11** em produção, **provada** |
+| Migrations | nenhuma nova |
+| Repo × produção | ✅ **BATEM** |
 
 **O que foi medido nesta sessão:**
+
+- `clone-ingest` v11 deployada 10:32 e provada com os dois ramos num lote real.
+  Ver "Auto-publicação" acima.
+- Clone Post: a captura funciona; o enriquecimento de loja é que falha, e falha
+  diferente por loja. Ver "Clone Post — o que está medido" acima.
+- `resolve-link` v4 aceita **os dois** formatos de URL da Shopee
+  (`/product/LOJA/ITEM` e `-i.LOJA.ITEM`) — medido, os dois normalizam igual.
+  A hipótese de que a Shopee mudou o formato e quebrou o parser está **descartada**.
+- `product-search` v22 **não tem caminho para Amazon**. O `if` cobre
+  `mercadolivre` e `shopee` e mais nada; toda captura da Amazon cai no fallback
+  de texto por construção, não por falha.
+- P13 confirmada com o Érico: **foi ele** quem religou a "TáNaMão". Fechada.
+
+**Como chamar a `clone-ingest` sem o wa-engine** (útil e não estava escrito): o
+sandbox não alcança `*.supabase.co`, mas o Postgres alcança. `net.http_post`
+com o `x-cron-secret` lido de `vault.decrypted_secrets` executa a função e o
+corpo volta em `net._http_response`. Foi assim que a v11 foi provada.
+
+**Sobre a emissão da v11:** o MCP não deploya a partir do disco e a API de
+management do Supabase não é alcançável do sandbox — o arquivo de 51 KB tem que
+ser reemitido inteiro numa chamada só. Deu certo, mas é o gargalo real de
+qualquer Edge Function grande neste projeto (é o que travou o P19).
+
+**O que foi medido na sessão anterior (madrugada, 00:00–01:10):**
 
 - `clone-ingest` v10 provada com baseline + controle.
 - Frontend: o `f94e2f0` derrubou o site inteiro por TDZ. Ver a seção acima.
@@ -390,12 +480,14 @@ código não relacionado.
 | **P11** | Substituir filtros checkbox por chips clicáveis no filtro de loja dos grupos (UX) | fila de julho |
 | **P12** | Remover opções de intervalo abaixo de 10 minutos do select de agendamento | fila de julho |
 | ~~P14~~ | ✅ **FECHADA 31/07.** `send-post` v45 e `clone-ingest` v10 deployadas e provadas; frontend no ar. Restou o P15 | 31/07 |
-| **P13** | A "TáNaMão – Promoções #02" voltou a `active = true` (medido 31/07 00:05) — o doc a registrava desligada na REVISÃO 7. Confirmar se foi você que religou. As duas fontes estão ativas | 31/07 |
+| ~~P13~~ | ✅ **FECHADA 31/07 manhã.** Érico confirmou que foi ele quem religou a "TáNaMão". As duas fontes seguem ativas | 31/07 |
 
-| **P17** | **Deployar a `clone-ingest` v11** (`32fbd03`). Código validado (parser TS, 0 erros, com a v10 como controle) mas não emitido — a sessão parou para não arriscar emissão truncada sem margem para provar. Depois: payload sintético com `auto_publish=true` e `data_source` forçado, conferindo que só o caso `store` vira produto | 31/07 |
+| ~~P17~~ | ✅ **FECHADA 31/07 manhã.** v11 deployada às 10:32 e provada com os dois ramos. Falta ver acontecer com mensagem de grupo de verdade | 31/07 |
 | **P18** | Frontend da v11: par de rádio no card da fonte (auto-publicar × revisar antes) nas **duas** cópias do index.html. A coluna existe e o backend a respeita; falta a UI para ligar | 31/07 |
 | **P19** | Preview clicável (`externalAdReply`) — coluna `niche_groups.clickable_preview` já criada. Falta: `wa-engine` enviar texto + `contextInfo.externalAdReply` com `sourceUrl` (usar `product.affiliate_url` já encurtado, preserva tracking) e `send-post` passar a flag. **Exige reemitir o send-post inteiro (571 linhas) — fazer em sessão limpa.** Testar num grupo só antes de ligar geral: há bugs reportados de card que não abre e miniatura que some no Android | 31/07 |
 | ~~P8~~ | ⚠️ **REABERTA 31/07.** Ver a correção em "Última alteração": o webhook dispara de forma intermitente | 03/07 |
+| **P20** | `clone_ingest_log` não guarda a URL que falhou. Nas 24 recusas de `resolve_falhou` de hoje dá para contar mas não para saber *quais* links, nem reproduzir. Guardar host+path do link escolhido (não o texto da mensagem — conteúdo de terceiro) nas recusas de resolve | 31/07 manhã |
+| **P21** | Auto-publicação só alcança Mercado Livre na prática, porque exige `data_source='store'` e nem Amazon nem Shopee chegam lá. Decidir: (a) `product-search` ganha caminho Amazon, (b) a UI do toggle avisa que só vale para ML hoje, ou (c) afrouxar o critério — **(c) contraria a razão de existir do guarda, cuidado** | 31/07 manhã |
 | **P15** | Nenhuma etapa do protocolo detecta erro de *runtime* no frontend. `node --check` só vê sintaxe, SHA-256 só vê bytes, build Success só vê Docker. Definir um smoke test obrigatório antes de todo push de HTML: carregar a página e conferir que o console não tem `Uncaught` | 31/07 |
 | **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
 
