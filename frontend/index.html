@@ -4737,6 +4737,16 @@ const TAB_GROUPS=[
 // Compatibilidade com código antigo que itera TABS (achata)
 const TABS=TAB_GROUPS.flatMap(g=>g.tabs);
 function paneCred(l){return `<div class="card"><div class="cb locked"><div class="li">🔒</div><h3 style="margin-bottom:6px">Credenciais ${l} necessárias</h3><p style="color:var(--tx2);max-width:430px;margin:0 auto 16px">Conecte sua conta ${l} para importar produtos e ativar a postagem automática.</p><button class="btn btn-gold" onclick="setRole('afiliado');go('config-afiliados')">Configurar Afiliados</button></div></div>`;}
+/* HORÁRIOS INTELIGENTES — espelho literal do send-post/index.ts.
+   Se divergir, a tela promete um horário e o cron cumpre outro. */
+const SMART_JANELAS=[
+  {ini:7*60,fim:9*60,rot:"☀️ 07:00–09:00"},
+  {ini:12*60,fim:13*60+30,rot:"🍽️ 12:00–13:30"},
+  {ini:19*60,fim:21*60,rot:"🌙 19:00–21:00"}
+];
+const SMART_PISO_MIN=10;
+const SMART_MAX_DIA=SMART_JANELAS.reduce((t,j)=>t+Math.floor((j.fim-j.ini)/SMART_PISO_MIN),0);
+
 const PANES={
 geral:`
   <div class="g2">
@@ -6977,15 +6987,6 @@ async function renderInstancias(){
   }
 }
 
-/* HORÁRIOS INTELIGENTES — espelho literal do send-post/index.ts.
-   Se divergir, a tela promete um horário e o cron cumpre outro. */
-const SMART_JANELAS=[
-  {ini:7*60,fim:9*60,rot:"☀️ 07:00–09:00"},
-  {ini:12*60,fim:13*60+30,rot:"🍽️ 12:00–13:30"},
-  {ini:19*60,fim:21*60,rot:"🌙 19:00–21:00"}
-];
-const SMART_PISO_MIN=10;
-const SMART_MAX_DIA=SMART_JANELAS.reduce((t,j)=>t+Math.floor((j.fim-j.ini)/SMART_PISO_MIN),0);
 function smartTemPlano(){return !!(PLAN_FEATURES[MY_PLAN]||{}).smart_schedule;}
 
 /* ADMIN: FILA (live) — dados reais via scheduled_posts / niche_groups */
