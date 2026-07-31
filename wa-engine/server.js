@@ -1618,6 +1618,9 @@ async function reportarSessaoViva(phoneNumber) {
 // ══════════════════════════════════════════════════════════════════
 const CLONE_INGEST_URL = `${SUPABASE_URL}/functions/v1/clone-ingest`;
 const CLONE_JIDS = new Set();
+// Sufixos de 8 digitos dos telefones que sao donos de alguma fonte ativa.
+// Vazio = clone-ingest antiga (pre-v9) ou lista ainda nao carregada.
+const CLONE_DONOS = new Set();
 const CLONE_FILA = [];
 const CLONE_VISTAS = new Set(); // msgIds ja enfileirados neste processo
 const CLONE_REFRESH_MS = Number(process.env.CLONE_REFRESH_MS || 300000); // 5 min
@@ -1641,10 +1644,25 @@ async function recarregarFontesClone() {
         if (!d || !Array.isArray(d.jids)) return;
         CLONE_JIDS.clear();
         for (const j of d.jids) CLONE_JIDS.add(String(j).toLowerCase());
-        console.log(`[CLONE] ${CLONE_JIDS.size} grupo(s)-fonte monitorado(s)`);
+        // `donos` so existe da clone-ingest v9 pra frente. Ausente, o Set fica
+        // vazio e o listener volta a valer pra todas as sessoes — que e o
+        // comportamento antigo, nao uma falha nova.
+        CLONE_DONOS.clear();
+        if (Array.isArray(d.donos)) {
+            for (const f of d.donos) { const s = sufixoFoneClone(f); if (s) CLONE_DONOS.add(s); }
+        }
+        console.log(`[CLONE] ${CLONE_JIDS.size} grupo(s)-fonte monitorado(s) · ${CLONE_DONOS.size} sessao(oes) dona(s)`);
     } catch (err) {
         console.warn(`[CLONE] não consegui recarregar as fontes: ${err?.message || err}`);
     }
+}
+
+// Ultimos 8 digitos: chave estavel entre as duas grafias do numero (com e sem o
+// nono digito) que convivem no cadastro. Mesmo criterio do /groups, da
+// wa-heartbeat e da checagem de dono dentro da clone-ingest.
+function sufixoFoneClone(raw) {
+    const n = String(raw ?? '').replace(/\D/g, '');
+    return n ? n.slice(-8) : '';
 }
 
 // Texto util de uma mensagem. Legenda de imagem conta: e o formato mais comum
@@ -1701,6 +1719,18 @@ function registrarListenerClone(socket, sessionId) {
             // 'append' e sincronizacao de historico; so 'notify' e mensagem nova.
             if (!evt || evt.type !== 'notify' || !CLONE_JIDS.size) return;
             const fone = SESSIONS.get(sessionId)?.phoneNumber || null;
+            // Sessao que nao e dona de fonte nenhuma nao tem o que capturar. A
+            // conexao admin da plataforma cai exatamente aqui: ela esta nos
+            // mesmos grupos e recebe os mesmos eventos, e ate a v8 disputava
+            // cada mensagem com a sessao do dono. Quem chegasse primeiro gravava
+            // o msgId em CLONE_VISTAS e calava o outro — quando a admin ganhava
+            // a corrida, a captura morria em 'outro_dono' na clone-ingest e o
+            // dono perdia a oferta de vez. Filtrar aqui mata a corrida na raiz.
+            //
+            // Filtro no handler, e nao no registro do listener: uma sessao vira
+            // dona no minuto em que o usuario cadastra uma fonte, e isso nao
+            // pode depender de reconectar o WhatsApp.
+            if (CLONE_DONOS.size && !CLONE_DONOS.has(sufixoFoneClone(fone))) return;
             for (const m of evt.messages || []) {
                 const jid = String(m?.key?.remoteJid || '').toLowerCase();
                 if (!jid.endsWith('@g.us')) continue;   // so grupo
