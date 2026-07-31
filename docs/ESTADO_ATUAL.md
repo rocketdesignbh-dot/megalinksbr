@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 6 — 31/07/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 7 — 31/07/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -53,10 +53,19 @@ Recurso novo: Post Automático e captura do Clone Post só nas janelas
 |---|---|
 | Migration (`smart_schedule`/`smart_weekend` em `niche_groups`, `clone_sources`, `plan_features`) | ✅ **aplicada em produção** |
 | `frontend/index.html` + `index.html` (UI, trava de plano, ETA da Fila) | ✅ no repo · ❌ **não rebuildado** |
-| `send-post` (distribuição nas janelas) | ✅ no repo · ❌ **NÃO DEPLOYADO** |
+| `send-post` v45 (distribuição nas janelas) | ✅ **DEPLOYADO 31/07 02:56** · rodou 02:57:00, HTTP 200, `{groups:2, skipped:2}` — percorreu o laço inteiro e respondeu no formato certo |
 | `clone-ingest` v10 (gate de captura) | ✅ no repo · ❌ **NÃO DEPLOYADO** |
 
-**Ordem obrigatória:** deployar `send-post` e `clone-ingest` **primeiro**, e só
+**Falta só o `clone-ingest` v10.** Depois dele, o rebuild do frontend.
+
+**O ramo inteligente do `send-post` ainda NÃO foi observado rodando.** O deploy
+provou que a função boota e percorre o laço; o `if (smart)` só é exercitado dentro
+de uma janela, e o deploy foi às 23:57 BR. **Primeira verificação possível: 07:00.**
+Ligue o modo em um grupo e confira que os disparos saem 07:05, 07:15, 07:25… e que
+`scheduled_posts` de hoje bate com a cota da janela. Até essa observação, o recurso
+é "deployado", não "provado".
+
+**Ordem obrigatória:** deployar `clone-ingest` **primeiro**, e só
 depois rebuildar o frontend. Invertido, o usuário liga o modo, a tela confirma, e
 o cron segue postando pelo intervalo antigo — "mecanismo que parece existir e não
 executa nada", o padrão de falha recorrente deste projeto.
