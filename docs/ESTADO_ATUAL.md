@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 8 — 31/07/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 9 — 31/07/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -40,10 +40,13 @@
 
 ---
 
-> ⚠️ **LEIA ANTES DE QUALQUER COISA NESTA SESSÃO.** O P14 está **fechado** e o
-> site voltou ao ar às 00:23 de 31/07 depois de ~24h fora. Se você chegou aqui
-> por causa de "Horários Inteligentes", leia a seção abaixo inteira antes de
-> tocar em qualquer coisa.
+> ⚠️ **LEIA ANTES DE QUALQUER COISA NESTA SESSÃO.**
+> **REPO E PRODUÇÃO DIVERGEM.** O commit `32fbd03` traz a `clone-ingest` **v11**
+> (auto-publicação por fonte) e ela **NÃO foi deployada**. Produção roda a v10.
+> A migration da v11 **já está aplicada**, mas `auto_publish` nasce `false` em
+> todas as fontes, então o comportamento de hoje é idêntico ao da v10 para todo
+> mundo. Estado inconsistente, não quebrado.
+> **Primeira ação desta sessão: deployar a v11.** Ver "P17" nas pendências.
 
 ## Horários Inteligentes — ENTREGUE (31/07, commits `f94e2f0` → `08f7064`)
 
@@ -115,41 +118,31 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
-**Sessão de 31/07/2026 (madrugada, 00:00–00:30)** — fecha o P14 e conserta o
-site, que estava fora do ar sem ninguém ter notado.
+**Sessão de 31/07/2026 (madrugada, 00:00–01:10)** — fecha o P14, conserta o site,
+melhora o rótulo do toggle e deixa a v11 pronta e commitada, mas não deployada.
 
 | | |
 |---|---|
-| Commits | `08f7064` (fix do TDZ de `SMART_JANELAS` nas duas cópias do index.html) |
-| Edge Functions | 37 · `clone-ingest` em **v10**, `verify_jwt: false`, sem import map |
-| Jobs pg_cron | 16 |
-| Repo × produção | Batendo. Frontend conferido por SHA-256 **e por carregamento real** |
+| Commits | `08f7064` (fix TDZ) · `528d130` (doc) · `71cf08e` (UX do rótulo) · `32fbd03` (v11, **não deployada**) |
+| Edge Functions | 37 · `clone-ingest` em **v10** em produção, **v11 no repo** |
+| Migrations | `clone_auto_publish_e_preview_clicavel` aplicada (`clone_sources.auto_publish`, `niche_groups.clickable_preview`, ambas `not null default false`) |
+| Repo × produção | **DIVERGEM** no `clone-ingest`. Frontend batendo, conferido por carregamento real |
 
-**O que esta sessão mediu, e não só deployou:**
+**O que foi medido nesta sessão:**
 
-- `clone-ingest` v10 provada com baseline + controle (tabela acima).
-- Frontend: `ReferenceError` sumiu do console; `SMART_JANELAS`, `SMART_MAX_DIA`
-  (=33), `PANES`, `SB`, `filaEta`, `csAlternarSmart` todos definidos no runtime
-  — ou seja, o script passou do ponto onde antes morria.
-- **P8 resolvido: o auto-deploy do EasyPanel funciona.** Os dois serviços
-  (`app` e `wa-engine`) iniciaram build no mesmo segundo, `02:58:36 GMT`, que é
-  exatamente o timestamp do commit `7d5e7b5`. Dois serviços no mesmo segundo do
-  commit é webhook, não clique. O `08f7064` também publicou sozinho, sem ninguém
-  apertar Deploy.
-- **P13 mudou de estado sem registro:** a "TáNaMão – Promoções #02" está
-  `active = true` de novo. As duas fontes estão ativas hoje.
+- `clone-ingest` v10 provada com baseline + controle.
+- Frontend: o `f94e2f0` derrubou o site inteiro por TDZ. Ver a seção acima.
+- Rótulo do toggle no card da fonte: era `🧠 Horários`, único substantivo numa
+  fileira de verbos. Virou `🧠 Só nos horários` / `🕐 Capturar 24h` + `title=`.
+  `.cs-acoes` ganhou `flex-wrap` porque os 3 botões passam de 292px contra 272px
+  úteis do card no piso do grid — sem wrap eles transbordavam.
 
-**A janela de ordem invertida existiu de verdade.** O doc mandava deployar as
-Edge Functions antes de rebuildar o frontend. Só que o frontend nunca dependeu de
-alguém clicar Deploy — o auto-deploy publicou o `f94e2f0` sozinho, antes da
-`clone-ingest` v10 existir. O gate manual protegia contra um risco que o webhook
-contornava. **Enquanto o auto-deploy estiver ligado, "deploye A antes de
-rebuildar B" não é uma instrução executável.** Ou o gate vira técnico (feature
-flag, coluna que nasce desligada), ou o auto-deploy do `app` precisa sair.
-
-**Próxima ação sugerida:** às 07:00, ligar o modo num grupo e observar o ramo
-`if (smart)` do `send-post` rodando de verdade. É a única peça do recurso que
-nunca foi vista executando.
+**⚠️ CORREÇÃO DA REVISÃO 8 — o auto-deploy NÃO é confiável.** A revisão anterior
+declarou a P8 resolvida com base em duas observações. Na terceira ele **não
+disparou**: o push do `71cf08e` ficou 2min sem publicar e o Érico teve que clicar
+Deploy à mão. O correto é **"o webhook dispara às vezes"**, que é pior que não
+existir — convida a confiar e o gate falha em silêncio. **Sempre conferir o que
+está servido depois de um push, nunca assumir que subiu.**
 
 ---
 
@@ -392,7 +385,6 @@ código não relacionado.
 | **P5** | Enforcement server-side dos limites de plano: canais WhatsApp/Telegram e grupos WhatsApp ainda são só client-side | 03/07 |
 | **P6** | **Revogar os PATs do GitHub** — o clássico `ghp_vkOR…` acumulou 14 pushes | 30/07 |
 | **P7** | RLS de admin em `profiles` permite qualquer admin ler e-mails de todos os usuários — conhecido, não remediado | 03/07 |
-| ~~P8~~ | ✅ **RESOLVIDA 31/07.** Auto-deploy funciona nos dois serviços: build iniciado no mesmo segundo do commit (`02:58:36 GMT` = timestamp do `7d5e7b5`), e o `08f7064` publicou sozinho. Ver o efeito colateral em "janela de ordem invertida" | 03/07 |
 | **P9** | Créditos OpenAI para destravar o RevOps / IA Insights | — |
 | **P10** | Avaliar upgrade do Scrape.do para o plano Hobby quando a receita permitir | 03/07 |
 | **P11** | Substituir filtros checkbox por chips clicáveis no filtro de loja dos grupos (UX) | fila de julho |
@@ -400,6 +392,10 @@ código não relacionado.
 | ~~P14~~ | ✅ **FECHADA 31/07.** `send-post` v45 e `clone-ingest` v10 deployadas e provadas; frontend no ar. Restou o P15 | 31/07 |
 | **P13** | A "TáNaMão – Promoções #02" voltou a `active = true` (medido 31/07 00:05) — o doc a registrava desligada na REVISÃO 7. Confirmar se foi você que religou. As duas fontes estão ativas | 31/07 |
 
+| **P17** | **Deployar a `clone-ingest` v11** (`32fbd03`). Código validado (parser TS, 0 erros, com a v10 como controle) mas não emitido — a sessão parou para não arriscar emissão truncada sem margem para provar. Depois: payload sintético com `auto_publish=true` e `data_source` forçado, conferindo que só o caso `store` vira produto | 31/07 |
+| **P18** | Frontend da v11: par de rádio no card da fonte (auto-publicar × revisar antes) nas **duas** cópias do index.html. A coluna existe e o backend a respeita; falta a UI para ligar | 31/07 |
+| **P19** | Preview clicável (`externalAdReply`) — coluna `niche_groups.clickable_preview` já criada. Falta: `wa-engine` enviar texto + `contextInfo.externalAdReply` com `sourceUrl` (usar `product.affiliate_url` já encurtado, preserva tracking) e `send-post` passar a flag. **Exige reemitir o send-post inteiro (571 linhas) — fazer em sessão limpa.** Testar num grupo só antes de ligar geral: há bugs reportados de card que não abre e miniatura que some no Android | 31/07 |
+| ~~P8~~ | ⚠️ **REABERTA 31/07.** Ver a correção em "Última alteração": o webhook dispara de forma intermitente | 03/07 |
 | **P15** | Nenhuma etapa do protocolo detecta erro de *runtime* no frontend. `node --check` só vê sintaxe, SHA-256 só vê bytes, build Success só vê Docker. Definir um smoke test obrigatório antes de todo push de HTML: carregar a página e conferir que o console não tem `Uncaught` | 31/07 |
 | **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
 
