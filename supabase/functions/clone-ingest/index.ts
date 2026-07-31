@@ -76,11 +76,7 @@
 //    E falha ao gravar o log nao derruba a ingestao: ele existe pra explicar o
 //    que aconteceu, nao pra decidir o que acontece.
 
-//  * v10 — Horarios Inteligentes na captura. Fonte com smart_schedule so
-//    aceita mensagem chegada em 07:00-09:00, 12:00-13:30 ou 19:00-21:00, e
-//    respeita o corte de fim de semana. A recusa vira 'fora_da_janela' no
-//    clone_ingest_log — recusa nomeada, como todas as outras, senao volta a
-//    ser impossivel distinguir "o grupo ficou quieto" de "recusei tudo".
+//  * v10 — Horarios Inteligentes na captura. REVERTIDO na v12, ver abaixo.
 
 //  * v11 — auto-publicacao por fonte (clone_sources.auto_publish). A captura
 //    vira produto do grupo sem passar pela fila, MAS so quando a loja confirmou
@@ -91,6 +87,22 @@
 //    pending" da v1 sem abrir mao do motivo dele.
 //    Nao posta na hora: insere em products e o send-post publica no proximo
 //    disparo, respeitando intervalo, janela e Horarios Inteligentes.
+
+//  * v12 — a captura VOLTA A RODAR 24h. O gate de Horarios Inteligentes que a
+//    v10 colocou aqui foi removido; ele fica so no send-post, que e onde a
+//    janela significa alguma coisa.
+//    O motivo e assimetria de custo, e ela nao e obvia: a mensagem no grupo
+//    fonte NAO VOLTA. Recusar a captura por horario nao adia a oferta, apaga
+//    ela. Ja o disparo pode esperar — a oferta fica na fila e sai na proxima
+//    janela intacta. Gate no lado errado troca "posta mais tarde" por "perdeu".
+//    MEDIDO em 31/07: entre 10:36 e 10:45 a fonte "Melhores Ofertas" recusou 3
+//    mensagens por 'fora_da_janela'. Nenhuma delas voltou ao meio-dia.
+//    O argumento original do gate era economia de credito. Quem limita credito
+//    e o max_per_day da fonte, que conta capturas e nao horas — a janela nao
+//    economizava nada que o teto ja nao economizasse, so escolhia QUAIS ofertas
+//    perder, e escolhia mal (as de fora da janela, nao as piores).
+//    clone_sources.smart_schedule e smart_weekend ficam na tabela sem leitor.
+//    niche_groups.smart_schedule, que e o do send-post, continua valendo.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -162,31 +174,6 @@ function sufixoFone(raw: unknown): string {
 
 function normalizarJid(raw: unknown): string {
   return String(raw ?? "").trim().toLowerCase();
-}
-
-// ── Horarios Inteligentes na captura (v10) ────────────────────────────
-// Mesmas tres janelas do send-post. Aqui elas nao distribuem nada: so dizem
-// se a mensagem que acabou de chegar pode ou nao virar captura. O ganho e
-// credito — a recusa acontece ANTES do resolve-link e da product-search, que
-// e onde o Scrape.do cobra 10 creditos por chamada no ML.
-//
-// Se as janelas divergirem entre os dois arquivos, o usuario ve captura
-// entrando num horario e post saindo noutro. Mudou aqui, muda la.
-const JANELAS: Array<{ ini: number; fim: number }> = [
-  { ini:  7 * 60, fim:  9 * 60      },
-  { ini: 12 * 60, fim: 13 * 60 + 30 },
-  { ini: 19 * 60, fim: 21 * 60      },
-];
-
-// Relogio de Brasilia sem depender de toLocaleString com timeZone, que ja
-// mordeu este projeto antes: desloca 3h e le em UTC.
-function agoraBR(): { minutos: number; dow: number } {
-  const d = new Date(Date.now() - 3 * 60 * 60 * 1000);
-  return { minutos: d.getUTCHours() * 60 + d.getUTCMinutes(), dow: d.getUTCDay() };
-}
-
-function dentroDaJanela(min: number): boolean {
-  return JANELAS.some((j) => min >= j.ini && min < j.fim);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -780,24 +767,6 @@ Deno.serve(async (req: Request) => {
       if (fonte.session_phone && sufixoFone(fonte.session_phone) !== sessionPhone) {
         resultados.push({ ...marca, status: "outra_sessao", motivo: "fonte presa a outro numero do mesmo dono" });
         continue;
-      }
-
-      // ── Horarios Inteligentes: fonte so captura dentro das janelas ──
-      // Fica aqui em cima, antes dos filtros de texto e muito antes do
-      // resolve-link, porque o objetivo e nao gastar credito com mensagem que
-      // ja se sabe que nao vale. Fonte com o modo desligado ignora tudo isto.
-      if (fonte.smart_schedule) {
-        const { minutos, dow } = agoraBR();
-        if ((dow === 0 || dow === 6) && !fonte.smart_weekend) {
-          resultados.push({ ...marca, status: "fora_da_janela", motivo: "horarios inteligentes: fim de semana desligado nessa fonte" });
-          continue;
-        }
-        if (!dentroDaJanela(minutos)) {
-          const hh = String(Math.floor(minutos / 60)).padStart(2, "0");
-          const mm = String(minutos % 60).padStart(2, "0");
-          resultados.push({ ...marca, status: "fora_da_janela", motivo: `horarios inteligentes: ${hh}:${mm} esta fora de 07:00-09:00, 12:00-13:30 e 19:00-21:00` });
-          continue;
-        }
       }
 
       // Filtros de texto ANTES de gastar credito.

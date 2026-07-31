@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 10 — 31/07/2026 (manhã).** Se o número aqui não for o mais alto que você
+> **REVISÃO 11 — 31/07/2026 (meio-dia).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -40,8 +40,14 @@
 
 ---
 
-> ✅ **REPO E PRODUÇÃO BATEM.** A `clone-ingest` **v11** foi deployada em 31/07
-> às 10:32 e **PROVADA** (ver "Auto-publicação" abaixo). P17 fechada.
+> ⚠️ **REPO E PRODUÇÃO DIVERGEM DE NOVO — de propósito, e por uma sessão só.**
+> A `clone-ingest` **v12** (captura 24h, gate de horário removido) está commitada
+> e **NÃO deployada**. Produção roda a v11. **Primeira ação da próxima sessão:
+> deployar a v12** — ver P22. O frontend novo já fala "captura o dia inteiro",
+> então enquanto a v12 não subir a tela promete o que o backend ainda não faz.
+> Janela conhecida e curta; não deixe passar da próxima sessão.
+>
+> ✅ A `clone-ingest` **v11** foi deployada em 31/07 às 10:32 e **PROVADA** (ver "Auto-publicação" abaixo). P17 fechada.
 >
 > ⚠️ **O que importa saber antes de mexer no Clone Post:** a captura funciona,
 > o **enriquecimento de loja não**. Amazon e Shopee caem sempre no fallback de
@@ -486,6 +492,9 @@ código não relacionado.
 | **P18** | Frontend da v11: par de rádio no card da fonte (auto-publicar × revisar antes) nas **duas** cópias do index.html. A coluna existe e o backend a respeita; falta a UI para ligar | 31/07 |
 | **P19** | Preview clicável (`externalAdReply`) — coluna `niche_groups.clickable_preview` já criada. Falta: `wa-engine` enviar texto + `contextInfo.externalAdReply` com `sourceUrl` (usar `product.affiliate_url` já encurtado, preserva tracking) e `send-post` passar a flag. **Exige reemitir o send-post inteiro (571 linhas) — fazer em sessão limpa.** Testar num grupo só antes de ligar geral: há bugs reportados de card que não abre e miniatura que some no Android | 31/07 |
 | ~~P8~~ | ⚠️ **REABERTA 31/07.** Ver a correção em "Última alteração": o webhook dispara de forma intermitente | 03/07 |
+| **P22** | **Deployar a `clone-ingest` v12.** Código no repo, é subtração pura (removidos `JANELAS`, `agoraBR`, `dentroDaJanela` e o bloco `fora_da_janela`), `grep` confirma zero referência sobrando fora de comentário. Não foi emitida porque a sessão já tinha gasto a margem e emissão truncada de 50 KB derruba o Clone Post inteiro em produção — pior que adiar. Depois de deployar: mensagem sintética fora de janela (ex.: 15:00) numa fonte com `smart_schedule=true` deve capturar em vez de recusar | 31/07 meio-dia |
+| **P23** | Teste de clonabilidade do grupo — decidido com Érico, não implementado. (a) campo no formulário para colar mensagem, chama `resolve-link`, devolve veredito clonável/inconclusivo/não clonável; (b) alerta no card quando N mensagens avaliadas sem nenhuma captura. O caso que motivou: `meli.la` → `/social/<afiliado>` com `ref=` criptografado, irresolúvel no servidor | 31/07 meio-dia |
+| **P24** | `+ Nova fonte` não abre o formulário. Candidato forte: `csAbrirForm()` exige `S.waNumber`, que só é populado ao parear QR ou passar pela tela de Conexão WhatsApp — quem recarrega e vai direto pro Clone Post cai no "Conecte seu WhatsApp primeiro". **Não confirmado no navegador** (P15). Pedido ao Érico: clicar com o console aberto e relatar | 31/07 meio-dia |
 | **P20** | `clone_ingest_log` não guarda a URL que falhou. Nas 24 recusas de `resolve_falhou` de hoje dá para contar mas não para saber *quais* links, nem reproduzir. Guardar host+path do link escolhido (não o texto da mensagem — conteúdo de terceiro) nas recusas de resolve | 31/07 manhã |
 | **P21** | Auto-publicação só alcança Mercado Livre na prática, porque exige `data_source='store'` e nem Amazon nem Shopee chegam lá. Decidir: (a) `product-search` ganha caminho Amazon, (b) a UI do toggle avisa que só vale para ML hoje, ou (c) afrouxar o critério — **(c) contraria a razão de existir do guarda, cuidado** | 31/07 manhã |
 | **P15** | Nenhuma etapa do protocolo detecta erro de *runtime* no frontend. `node --check` só vê sintaxe, SHA-256 só vê bytes, build Success só vê Docker. Definir um smoke test obrigatório antes de todo push de HTML: carregar a página e conferir que o console não tem `Uncaught` | 31/07 |
