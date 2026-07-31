@@ -27,18 +27,27 @@
 
 ## Última alteração
 
-**Sessão de 30/07/2026 (tarde/noite)** — Clone Post Fase 2: instrumentação da captura.
+**Sessão de 31/07/2026 (madrugada)** — só a sessão dona escuta os grupos-fonte.
+Fecha o P1.
 
 | | |
 |---|---|
-| Commits | `dcc5766` (clone_ingest_log + cards de fontes + teto por plano) · `c3a9ec7` (carimbo de hora no botão atualizar) |
-| Edge Functions | 37 · `clone-ingest` em **v8** |
-| Jobs pg_cron | **16** (novo: `purgar-clone-ingest-log`, 04:17) |
-| Repo × produção | Batendo — conferido pelo HTML servido e por `get_edge_function` |
+| Commits | `057f740` (CLONE_DONOS no engine + `donos` na action `jids`) |
+| Edge Functions | 37 · `clone-ingest` em **v9** |
+| Jobs pg_cron | **16** |
+| Repo × produção | `clone-ingest` batendo (provada por invocação). **wa-engine pendente de Deploy no EasyPanel** — até lá o código do repo está à frente do container |
 
-**Próxima ação sugerida:** filtrar no engine as mensagens de sessão que não é dona
-da fonte (ver Pendência P1) — é o que hoje polui o painel do dono e queima uma
-requisição HTTP por mensagem duplicada.
+**O que o P1 realmente era.** A sessão admin não era só barulho no painel: ela
+**fazia o dono perder captura**. `CLONE_VISTAS` é um `Set` de módulo, compartilhado
+por todas as sessões do processo — o primeiro listener a ver a mensagem grava o
+`msgId` e cala todos os outros. Quando a admin ganhava a corrida, a captura morria
+em `outro_dono` na `clone-ingest` **e** o dono ficava bloqueado pelo dedupe. MEDIDO:
+1 das 11 linhas do `clone_ingest_log`. O diagnóstico anterior ("polui o painel e
+queima uma requisição") descrevia o sintoma barato e não o caro.
+
+**Próxima ação sugerida:** Deploy do wa-engine no EasyPanel e, com o container novo,
+conferir no log a linha `[CLONE] N grupo(s)-fonte monitorado(s) · N sessão(ões)
+dona(s)` e a ausência de novas linhas `outro_dono` no `clone_ingest_log`.
 
 ---
 
@@ -120,10 +129,16 @@ Captura ofertas de grupos-fonte de terceiros e replica nos grupos do usuário.
   mesmo padrão dos Grupos de Oferta). Cada card mostra uso do dia com barra, última
   captura, e resumo de 24h vindo do log. Card tracejado "+ Nova fonte" trava no teto
   do plano.
-- **Fontes ativas hoje: 2** (TáNaMão – Promoções #02 e "Melhores Ofertas da Internet").
+- **Fontes ativas hoje: 1.** "Melhores Ofertas da Internet" (ativa, `last_capture_at`
+  **nulo** — nunca capturou nada) e TáNaMão – Promoções #02 (**`active = false`**,
+  5 capturas em 30/07, última às 16:38). A TáNaMão é a única que já produziu oferta,
+  e está desligada. Ver P13.
 - **Primeiro veredito lido (30/07):** `resolve_falhou` ("só link de convite de grupo,
   nenhum link de produto") e `outro_dono`. **A captura sempre funcionou** — o que
   chegava não era oferta.
+- **Isolamento por sessão (v9, 31/07):** o engine só enfileira quando o telefone da
+  sessão é dono de alguma fonte ativa; a lista vem da action `jids`. Sessão sem fonte
+  (a admin, hoje) não disputa mais a mensagem com o dono.
 
 ### Sessão admin do WhatsApp — `…73545214`
 
@@ -132,11 +147,13 @@ sufixo `73545214` não está em nenhuma linha da tabela. **É a conexão admin d
 plataforma** (dispara mensagens do MegaLinks e do MegaRevOps) — sessão de sistema,
 sem dono no banco. Não é cadastro sujo.
 
-- Ela **também escuta os grupos-fonte** (o engine registra o listener em todo socket).
-  Cada mensagem sai do container **duas vezes**: uma pela sessão do dono (vale) e
-  outra pela admin (morre em `outro_dono`). Uma requisição HTTP inteira e uma linha de
-  log para concluir "isso não era pra você".
-- **Polui o painel do dono** — as recusas aparecem como "descartadas" no resumo de 24h.
+- ~~Ela também escuta os grupos-fonte~~ — **resolvido no `057f740`** (pendente de
+  Deploy do wa-engine). O listener continua registrado em todo socket, mas o handler
+  sai cedo quando o telefone da sessão não está em `CLONE_DONOS`. O filtro mora no
+  handler e não no registro porque uma sessão vira dona no instante em que o usuário
+  cadastra uma fonte — não pode depender de reconectar o WhatsApp.
+- Enquanto o container não for redeployado, a corrida do `CLONE_VISTAS` continua de
+  pé e a admin ainda pode roubar uma captura do dono.
 - ⚠️ **Se esse número um dia for cadastrado em `whatsapp_instances` de alguma conta,
   aquela conta passa a capturar de todos os grupos em que o admin está.** Hoje o
   isolamento por dono segura; amanhã depende de ninguém cadastrar o número.
@@ -259,7 +276,6 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
-| **P1** | Filtrar no engine mensagens de sessão que não é dona da fonte — action `jids` devolve `{jid, telefones-donos}` e o engine descarta antes de gastar a requisição. **Exige deploy do wa-engine** (derruba a sessão WA) | 30/07 |
 | **P2** | Decidir o rate limit: `GRANT EXECUTE` a `anon` (abre superfície de ataque) **ou** trocar a credencial do engine para service role | 30/07 |
 | **P3** | Investigar o 401 do `GET /sessions` do wa-engine no painel — a tela de Conexão WhatsApp fica cega. Provável mesma raiz de credencial do P2. Não investigado | 30/07 |
 | **P4** | Descobrir por que o wa-engine reiniciou sozinho às 12:45 de 30/07 (uptime 819s às 12:58, sem deploy). `CLONE_FILA` e o cache de vistas moram só em memória → todo restart descarta a fila. Olhar Deployments/Events do EasyPanel: OOM ou healthcheck | 30/07 |
@@ -271,6 +287,7 @@ código não relacionado.
 | **P10** | Avaliar upgrade do Scrape.do para o plano Hobby quando a receita permitir | 03/07 |
 | **P11** | Substituir filtros checkbox por chips clicáveis no filtro de loja dos grupos (UX) | fila de julho |
 | **P12** | Remover opções de intervalo abaixo de 10 minutos do select de agendamento | fila de julho |
+| **P13** | Confirmar se desativar a fonte "TáNaMão – Promoções #02" foi intencional. É a única fonte que já capturou alguma coisa; a única ativa hoje nunca capturou nada. Se não foi intencional, o Clone Post está no ar sem produzir | 31/07 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
@@ -295,6 +312,13 @@ código não relacionado.
 - **Dado calculado que não chega a nenhuma tela é dado que não existe.** Mesmo defeito
   de fundo do `price_changed`, do `expired` e da ingestão do clone: a informação era
   produzida e descartada antes de virar tela.
+
+- **Cache compartilhado entre produtores independentes vira corrida, não economia.**
+  `CLONE_VISTAS` foi escrito como "não reenviar a mesma mensagem duas vezes no mesmo
+  processo" e virou, sem ninguém decidir isso, o árbitro de *qual sessão* fica com a
+  captura. Um `Set` de deduplicação que não sabe de quem é cada entrada não deduplica:
+  ele sorteia. O sintoma visível (uma linha `outro_dono` no log) era o menor dos dois
+  efeitos — o outro, invisível, era o dono perder a oferta.
 
 **Sobre UX**
 
