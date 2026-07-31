@@ -481,11 +481,37 @@ Deno.serve(async (req: Request) => {
   // chave publishable e o RLS de clone_sources so deixa o dono ler. Em vez de
   // colocar a service role dentro do container, ele pergunta a lista por aqui.
   // Devolve so os JIDs — nenhum dado de usuario atravessa.
+  // v9 — devolve tambem `donos`: os sufixos de 8 digitos dos telefones que sao
+  // donos de alguma fonte ativa. Ate a v8 o engine registrava o listener de clone
+  // em TODO socket do container, inclusive na conexao admin da plataforma, que
+  // nao e dona de fonte nenhuma. Os dois listeners disputavam a mesma mensagem e
+  // o CLONE_VISTAS (Set compartilhado pelo processo) deixava passar so quem
+  // chegasse primeiro: quando a admin ganhava a corrida, a captura morria aqui em
+  // 'outro_dono' E o dono de verdade ficava bloqueado pelo dedupe. Nao era
+  // poluicao de painel, era captura perdida — MEDIDO em 30/07, 1 das 11 linhas
+  // do clone_ingest_log.
+  //
+  // Sufixo de 8 digitos, nunca o numero inteiro: e a mesma chave que a checagem
+  // de dono usa la embaixo. E nao e informacao nova pro container — todo telefone
+  // em whatsapp_instances e, por definicao, uma sessao que o proprio engine
+  // segura. Aqui nao atravessa nenhum id de usuario.
   if (body?.action === "jids") {
-    const { data, error } = await sb.from("clone_sources").select("source_jid").eq("active", true);
+    const { data, error } = await sb.from("clone_sources").select("source_jid, user_id").eq("active", true);
     if (error) return json({ ok: false, error: error.message }, 500);
     const jids = [...new Set((data ?? []).map((r) => String(r.source_jid ?? "").trim().toLowerCase()).filter(Boolean))];
-    return json({ ok: true, jids });
+    const userIds = [...new Set((data ?? []).map((r) => r.user_id).filter(Boolean))];
+    let donos: string[] = [];
+    if (userIds.length) {
+      const { data: fones, error: eFones } = await sb
+        .from("whatsapp_instances").select("phone").in("user_id", userIds);
+      // Fail-open de proposito: sem a lista, o engine mantem o comportamento
+      // antigo (escuta com todas as sessoes) e a checagem de dono aqui continua
+      // sendo a ultima palavra. Capturar demais e recusar e menos grave que
+      // parar de capturar por causa de uma leitura que falhou.
+      if (eFones) console.warn(`[clone-ingest/jids] donos nao carregados: ${eFones.message}`);
+      else donos = [...new Set((fones ?? []).map((r) => sufixoFone(r.phone)).filter(Boolean))];
+    }
+    return json({ ok: true, jids, donos });
   }
 
   // ── action: reparse ───────────────────────────────────────────────
