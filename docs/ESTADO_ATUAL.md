@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 11 — 31/07/2026 (meio-dia).** Se o número aqui não for o mais alto que você
+> **REVISÃO 12 — 31/07/2026 (tarde).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -40,12 +40,9 @@
 
 ---
 
-> ⚠️ **REPO E PRODUÇÃO DIVERGEM DE NOVO — de propósito, e por uma sessão só.**
-> A `clone-ingest` **v12** (captura 24h, gate de horário removido) está commitada
-> e **NÃO deployada**. Produção roda a v11. **Primeira ação da próxima sessão:
-> deployar a v12** — ver P22. O frontend novo já fala "captura o dia inteiro",
-> então enquanto a v12 não subir a tela promete o que o backend ainda não faz.
-> Janela conhecida e curta; não deixe passar da próxima sessão.
+> ✅ **REPO E PRODUÇÃO VOLTARAM A BATER.** A `clone-ingest` **v12** foi deployada
+> em 31/07 às 11:40 e **PROVADA** — ver "Captura 24h" abaixo. P22 fechada. O
+> frontend que diz "captura o dia inteiro" agora fala a verdade.
 >
 > ✅ A `clone-ingest` **v11** foi deployada em 31/07 às 10:32 e **PROVADA** (ver "Auto-publicação" abaixo). P17 fechada.
 >
@@ -54,6 +51,43 @@
 > ler do texto (`data_source='message'`), e a auto-publicação da v11 exige
 > `data_source='store'`. Na prática, hoje **só Mercado Livre auto-publica.**
 > Ver "Clone Post — o que está medido" e as pendências P20/P21.
+
+## Captura 24h (`clone-ingest` v12) — ENTREGUE E PROVADA (31/07, 11:40)
+
+O gate de Horários Inteligentes saiu da captura. Ele fica só no `send-post`, que
+é onde a janela significa alguma coisa. **`niche_groups.smart_schedule` (o do
+`send-post`) continua valendo — não mexa nele.** Quem ficou sem leitor é
+`clone_sources.smart_schedule`, que segue na tabela.
+
+O motivo é assimetria de custo, e não é óbvia: **a mensagem no grupo-fonte não
+volta.** Recusar a captura por horário não adia a oferta, apaga ela. Já o
+disparo pode esperar — a oferta fica na fila e sai na próxima janela intacta.
+Gate no lado errado troca "posta mais tarde" por "perdeu".
+
+**Prova com baseline e controle na mesma fonte, mesmo flag, mesmo tipo de
+horário.** Fonte "Melhores Ofertas da Internet", `smart_schedule = true` (já
+estava ligada em produção, nada foi mexido para o teste):
+
+| Horário BR | Versão | Origem | Resposta |
+|---|---|---|---|
+| 10:36 · 10:43 · 10:45 | v11 | mensagens **reais** do grupo | `fora_da_janela` — 3 linhas no `clone_ingest_log` |
+| **11:41** | **v12** | payload sintético, `dryRun` | **`salvaria`** · `data_source='store'` · **R$ 74,00 de R$ 96,00 (23%)** |
+
+Os dois horários estão igualmente fora de 07:00–09:00, 12:00–13:30 e 19:00–21:00.
+O que mudou entre eles foi só a versão da função.
+
+**O que fecha a prova além da mudança de veredito:** o preço que saiu é o **da
+loja**. O texto sintético dizia "De R$ 349,00 por R$ 199,00" e o resultado veio
+com 74/96 — ou seja, a v12 não só passou pela janela como chegou até o
+enriquecimento e o guarda `data_source` da v11 continua de pé. `dryRun`, então
+não gravou linha nenhuma: não havia estado a restaurar.
+
+**Custo de crédito não subiu** como se temia: quem limita crédito é o
+`max_per_day` da fonte, que conta capturas e não horas. A janela não economizava
+nada que o teto já não economizasse — só escolhia QUAIS ofertas perder, e
+escolhia mal (as de fora da janela, não as piores).
+
+---
 
 ## Auto-publicação (`clone-ingest` v11) — ENTREGUE E PROVADA (31/07, 10:32)
 
@@ -189,18 +223,51 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
-**Sessão de 31/07/2026 (manhã, 10:30–11:00)** — deploya e prova a v11 (P17),
-e diagnostica o Clone Post. **Nenhuma alteração de código nesta sessão** — só
-deploy do que já estava commitado, medição e documentação.
+**Sessão de 31/07/2026 (tarde)** — deploya e prova a v12 (P22), fecha o P24,
+encerra o caso da vitrine do Mercado Livre e entrega a **parte (a) do P23**:
+teste de clonabilidade no formulário da fonte.
 
 | | |
 |---|---|
-| Commits | nenhum de código. Só este doc |
-| Edge Functions | 37 · `clone-ingest` em **v11** em produção, **provada** |
-| Migrations | nenhuma nova |
-| Repo × produção | ✅ **BATEM** |
+| Commits | 1 · frontend (as duas cópias) + este doc |
+| Edge Functions | 37 · `clone-ingest` em **v12** em produção, **provada** |
+| Migrations | nenhuma nova. **Nenhuma coluna nova** — o P23 (a) não precisou de banco |
+| Repo × produção | ✅ Edge Functions batem. **Frontend commitado, aguardando Deploy no EasyPanel** |
 
 **O que foi medido nesta sessão:**
+
+- `clone-ingest` v12 deployada 11:40 e provada com baseline (v11, 3 recusas
+  reais) e controle (v12, mesma fonte, mesmo flag, fora de janela → capturou).
+  Ver "Captura 24h" acima.
+- **P24 fechada — o `+ Nova fonte` funciona.** Érico clicou e o formulário
+  abriu. A hipótese do `S.waNumber` estava errada: quem entra no Clone Post já
+  passou pela sessão com o número populado no caso real. **Nenhum código foi
+  alterado por causa disso** — a pendência era diagnóstico, não bug.
+- **P23 confirmada em campo: o grupo "Melhores Ofertas da Internet" não posta
+  link clonável.** Érico abriu `https://meli.la/1GQ52Vn` no navegador do
+  computador e **parou na vitrine do afiliado**, exatamente como a
+  `resolve-link` previu. Não é bug nosso e não há conserto no servidor: fora do
+  app do ML não existe MLB na URL. A fonte tem `last_capture_at` nulo desde o
+  cadastro (30/07) e 18 recusas de `resolve_falhou` por vitrine no log — todas
+  explicadas. **Trocar de grupo-fonte é a ação, não consertar código.**
+- Contraste medido no mesmo período: a "TáNaMão" capturou 8 vezes hoje
+  (`last_capture_at` 11:30) com `smart_schedule=false`. A diferença entre as
+  duas fontes é o grupo, não a configuração.
+- **A fonte "Melhores Ofertas da Internet" foi DESATIVADA** (`active=false`,
+  decisão do Érico). Não estava só improdutiva: estava gastando uma chamada de
+  `resolve-link` a cada mensagem, 24h por dia, para sempre recusar. Não queimava
+  Scrape.do (morre antes da `product-search`), mas enchia o log de ruído que
+  escondia as recusas que importam. **A "TáNaMão" é hoje a única fonte ativa.**
+- **P23 parte (a) entregue:** campo "Testar se esse grupo é clonável" no
+  formulário de nova fonte, nas **duas** cópias do `index.html` (`md5sum`
+  confere). Cola-se uma mensagem do grupo e sai o veredito na hora. Zero
+  backend novo, zero coluna nova — só chama a `resolve-link` e a
+  `product-search` que já existem, pelo mesmo caminho do `cloneResolver()`.
+  Custo: uma `product-search` por clique no botão (no ML isso é Scrape.do), e
+  só quando o usuário pede. **A parte (b) — alerta no card depois de N
+  mensagens avaliadas sem captura — continua aberta.**
+
+**O que foi medido na sessão anterior (manhã, 10:30–11:00):**
 
 - `clone-ingest` v11 deployada 10:32 e provada com os dois ramos num lote real.
   Ver "Auto-publicação" acima.
@@ -492,12 +559,12 @@ código não relacionado.
 | **P18** | Frontend da v11: par de rádio no card da fonte (auto-publicar × revisar antes) nas **duas** cópias do index.html. A coluna existe e o backend a respeita; falta a UI para ligar | 31/07 |
 | **P19** | Preview clicável (`externalAdReply`) — coluna `niche_groups.clickable_preview` já criada. Falta: `wa-engine` enviar texto + `contextInfo.externalAdReply` com `sourceUrl` (usar `product.affiliate_url` já encurtado, preserva tracking) e `send-post` passar a flag. **Exige reemitir o send-post inteiro (571 linhas) — fazer em sessão limpa.** Testar num grupo só antes de ligar geral: há bugs reportados de card que não abre e miniatura que some no Android | 31/07 |
 | ~~P8~~ | ⚠️ **REABERTA 31/07.** Ver a correção em "Última alteração": o webhook dispara de forma intermitente | 03/07 |
-| **P22** | **Deployar a `clone-ingest` v12.** Código no repo, é subtração pura (removidos `JANELAS`, `agoraBR`, `dentroDaJanela` e o bloco `fora_da_janela`), `grep` confirma zero referência sobrando fora de comentário. Não foi emitida porque a sessão já tinha gasto a margem e emissão truncada de 50 KB derruba o Clone Post inteiro em produção — pior que adiar. Depois de deployar: mensagem sintética fora de janela (ex.: 15:00) numa fonte com `smart_schedule=true` deve capturar em vez de recusar | 31/07 meio-dia |
-| **P23** | Teste de clonabilidade do grupo — decidido com Érico, não implementado. (a) campo no formulário para colar mensagem, chama `resolve-link`, devolve veredito clonável/inconclusivo/não clonável; (b) alerta no card quando N mensagens avaliadas sem nenhuma captura. O caso que motivou: `meli.la` → `/social/<afiliado>` com `ref=` criptografado, irresolúvel no servidor | 31/07 meio-dia |
-| **P24** | `+ Nova fonte` não abre o formulário. Candidato forte: `csAbrirForm()` exige `S.waNumber`, que só é populado ao parear QR ou passar pela tela de Conexão WhatsApp — quem recarrega e vai direto pro Clone Post cai no "Conecte seu WhatsApp primeiro". **Não confirmado no navegador** (P15). Pedido ao Érico: clicar com o console aberto e relatar | 31/07 meio-dia |
+| ~~P22~~ | ✅ **FECHADA 31/07 tarde.** `clone-ingest` v12 deployada às 11:40 e provada com baseline e controle. Ver "Captura 24h" acima | 31/07 |
+| **P23** | **Parte (a) ENTREGUE 31/07 tarde** (campo de teste no formulário, commitado, aguardando Deploy). **Parte (b) ABERTA:** alerta no card da fonte depois de N mensagens avaliadas sem nenhuma captura — query em `clone_ingest_log`, dado já existe. A (a) protege quem está cadastrando; a (b) protege quem já cadastrou e não sabe que o grupo mudou de comportamento. **Confirmado em campo 31/07:** Érico abriu o `meli.la/1GQ52Vn` no navegador e parou na vitrine do afiliado, exatamente como a `resolve-link` previa | 31/07 |
+| ~~P24~~ | ✅ **FECHADA 31/07 tarde.** O `+ Nova fonte` **funciona** — Érico clicou e o formulário abriu. A hipótese do `S.waNumber` não se confirmou. Nenhuma linha de código foi alterada. Lição: pendência aberta a partir de relato sem reprodução custou uma sessão de suspeita sobre código sadio | 31/07 |
 | **P20** | `clone_ingest_log` não guarda a URL que falhou. Nas 24 recusas de `resolve_falhou` de hoje dá para contar mas não para saber *quais* links, nem reproduzir. Guardar host+path do link escolhido (não o texto da mensagem — conteúdo de terceiro) nas recusas de resolve | 31/07 manhã |
 | **P21** | Auto-publicação só alcança Mercado Livre na prática, porque exige `data_source='store'` e nem Amazon nem Shopee chegam lá. Decidir: (a) `product-search` ganha caminho Amazon, (b) a UI do toggle avisa que só vale para ML hoje, ou (c) afrouxar o critério — **(c) contraria a razão de existir do guarda, cuidado** | 31/07 manhã |
-| **P15** | Nenhuma etapa do protocolo detecta erro de *runtime* no frontend. `node --check` só vê sintaxe, SHA-256 só vê bytes, build Success só vê Docker. Definir um smoke test obrigatório antes de todo push de HTML: carregar a página e conferir que o console não tem `Uncaught` | 31/07 |
+| **P15** | **Parcialmente endereçada 31/07 tarde.** Existe agora um smoke test executável: extrair os blocos `<script>`, rodar os quatro **no mesmo contexto** `vm` do Node com um DOM falso permissivo, e comparar contra o baseline **antes** do patch. Foi rodado neste push e pegaria o TDZ do `f94e2f0`. **Duas limitações medidas:** (1) dá falso positivo em `id` de elemento usado como global — `themeT.onclick` na linha 2496 acusa `ReferenceError` no sandbox e funciona no browser; por isso a comparação com o baseline é obrigatória, o veredito é "piorou?", não "tem erro?"; (2) não executa handler nenhum, só o top-level. **Continua aberta:** carregar a página num navegador de verdade e ler o console segue sendo a única prova real | 31/07 |
 | **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
