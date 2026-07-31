@@ -35,7 +35,7 @@ Fecha o P1.
 | Commits | `057f740` (CLONE_DONOS no engine + `donos` na action `jids`) |
 | Edge Functions | 37 · `clone-ingest` em **v9** |
 | Jobs pg_cron | **16** |
-| Repo × produção | `clone-ingest` batendo (provada por invocação). **wa-engine pendente de Deploy no EasyPanel** — até lá o código do repo está à frente do container |
+| Repo × produção | Batendo. `clone-ingest` v9 provada por invocação; wa-engine deployado 31/07 02:10 e provado pelo log |
 
 **O que o P1 realmente era.** A sessão admin não era só barulho no painel: ela
 **fazia o dono perder captura**. `CLONE_VISTAS` é um `Set` de módulo, compartilhado
@@ -45,9 +45,14 @@ em `outro_dono` na `clone-ingest` **e** o dono ficava bloqueado pelo dedupe. MED
 1 das 11 linhas do `clone_ingest_log`. O diagnóstico anterior ("polui o painel e
 queima uma requisição") descrevia o sintoma barato e não o caro.
 
-**Próxima ação sugerida:** Deploy do wa-engine no EasyPanel e, com o container novo,
-conferir no log a linha `[CLONE] N grupo(s)-fonte monitorado(s) · N sessão(ões)
-dona(s)` e a ausência de novas linhas `outro_dono` no `clone_ingest_log`.
+**Prova do P1 (31/07 02:11):** o container novo imprimiu
+`[CLONE] 1 grupo(s)-fonte monitorado(s) · 1 sessao(oes) dona(s)`. O sufixo
+`· N sessao(oes) dona(s)` **só existe no `057f740`** — a v8 não imprimia essa metade,
+então a linha prova código novo, não número de versão. E **1 dona entre 4 sessões
+conectadas** prova que a admin ficou de fora do filtro.
+
+**Próxima ação sugerida:** decidir o P13 (a fonte que capturava está desligada) — sem
+isso o Clone Post não produz oferta nenhuma, com ou sem o P1 fechado.
 
 ---
 
@@ -228,8 +233,16 @@ código não relacionado.
 - **"Force Rebuild" ≠ Deploy.** O botão verde **Deploy** dispara `git pull` fresco;
   Force Rebuild reusa fonte em cache sem buscar commits novos. Depois de todo push:
   **Deploy**.
-- Rebuildar o **wa-engine derruba a sessão do WhatsApp** e exige rescan do QR.
-  Rebuildar o frontend não afeta.
+- ~~Rebuildar o wa-engine derruba a sessão do WhatsApp e exige rescan do QR.~~
+  **Falso — MEDIDO em 31/07.** O Deploy das 02:10 subiu container novo e o `startup()`
+  restaurou as 4 sessões do disco em ~87s: `[RESTORE] 4 sessão(ões) restaurada(s) de 4
+  pasta(s) encontrada(s)`, `/health` com `connected: 4`, **nenhum QR**. A pasta de auth
+  vive em volume que sobrevive ao rebuild. Essa crença encarecia toda decisão de deploy
+  do engine — deploy do wa-engine é barato. Rebuildar o frontend também não afeta.
+- No restore, o Baileys cospe um `Timed Out` (408, `fetchProps` dentro de
+  `executeInitQueries`) por sessão. São erros do logger interno dele, não exceções
+  soltas: as 4 sessões ficaram `connected` depois deles. Observado, não diagnosticado —
+  não há log de restore anterior para saber se é novo.
 - Todo arquivo HTML novo precisa de linha explícita
   `COPY arquivo /usr/share/nginx/html/arquivo` no `frontend/Dockerfile` — senão o
   nginx serve `index.html` como fallback.
