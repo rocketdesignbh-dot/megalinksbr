@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 7 — 31/07/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 8 — 31/07/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -40,83 +40,116 @@
 
 ---
 
-> ⚠️ **LEIA ANTES DE QUALQUER COISA NESTA SESSÃO.** Há código no repo que **não
-> está em produção**. Ver "Horários Inteligentes — entrega parcial" logo abaixo.
-> **Não rebuilde o frontend** antes de deployar as duas Edge Functions.
+> ⚠️ **LEIA ANTES DE QUALQUER COISA NESTA SESSÃO.** O P14 está **fechado** e o
+> site voltou ao ar às 00:23 de 31/07 depois de ~24h fora. Se você chegou aqui
+> por causa de "Horários Inteligentes", leia a seção abaixo inteira antes de
+> tocar em qualquer coisa.
 
-## Horários Inteligentes — entrega parcial (31/07, commit `f94e2f0`)
+## Horários Inteligentes — ENTREGUE (31/07, commits `f94e2f0` → `08f7064`)
 
-Recurso novo: Post Automático e captura do Clone Post só nas janelas
+Post Automático e captura do Clone Post só nas janelas
 ☀️ 07:00–09:00 · 🍽️ 12:00–13:30 · 🌙 19:00–21:00. Elite pra cima.
 
 | Peça | Estado |
 |---|---|
-| Migration (`smart_schedule`/`smart_weekend` em `niche_groups`, `clone_sources`, `plan_features`) | ✅ **aplicada em produção** |
-| `frontend/index.html` + `index.html` (UI, trava de plano, ETA da Fila) | ✅ no repo · ❌ **não rebuildado** |
-| `send-post` v45 (distribuição nas janelas) | ✅ **DEPLOYADO 31/07 02:56** · rodou 02:57:00, HTTP 200, `{groups:2, skipped:2}` — percorreu o laço inteiro e respondeu no formato certo |
-| `clone-ingest` v10 (gate de captura) | ✅ no repo · ❌ **NÃO DEPLOYADO** |
+| Migration (`smart_schedule`/`smart_weekend`) | ✅ aplicada em produção |
+| `send-post` v45 | ✅ deployado 31/07 02:56 |
+| `clone-ingest` v10 | ✅ **deployado 31/07 00:08 · PROVADO** |
+| `frontend/index.html` + `index.html` | ✅ **no ar e funcionando** (`08f7064`) |
 
-**Falta só o `clone-ingest` v10.** Depois dele, o rebuild do frontend.
+**Prova da `clone-ingest` v10 (31/07 00:09), com baseline e controle.** Mesmo
+payload sintético, três rodadas, fonte real com `smart_schedule` ligado
+temporariamente:
 
-**O ramo inteligente do `send-post` ainda NÃO foi observado rodando.** O deploy
-provou que a função boota e percorre o laço; o `if (smart)` só é exercitado dentro
-de uma janela, e o deploy foi às 23:57 BR. **Primeira verificação possível: 07:00.**
-Ligue o modo em um grupo e confira que os disparos saem 07:05, 07:15, 07:25… e que
-`scheduled_posts` de hoje bate com a cota da janela. Até essa observação, o recurso
-é "deployado", não "provado".
+| Rodada | `smart_schedule` | Versão | Resposta |
+|---|---|---|---|
+| Baseline (antes do deploy) | true | v9 | `resolve_falhou` — ignorou a janela |
+| Prova | true | v10 | `fora_da_janela` · *"horarios inteligentes: **00:09** esta fora de 07:00-09:00, 12:00-13:30 e 19:00-21:00"* |
+| Controle | false | v10 | `resolve_falhou` — o gate não dispara com o modo desligado |
 
-**Ordem obrigatória:** deployar `clone-ingest` **primeiro**, e só
-depois rebuildar o frontend. Invertido, o usuário liga o modo, a tela confirma, e
-o cron segue postando pelo intervalo antigo — "mecanismo que parece existir e não
-executa nada", o padrão de falha recorrente deste projeto.
+O baseline é o que fecha: mesma fonte, mesmo flag, a v9 passava reto e a v10
+recusa. E o `00:09` do motivo bate com o relógio lido do Postgres de forma
+independente — `agoraBR()` está em Brasília, não em UTC (seriam 03:09). A recusa
+chegou ao `clone_ingest_log` como linha nomeada. A action `jids` da v9 segue
+respondendo `{jids:[2], donos:["98911521"]}`, sem regressão. Estado restaurado
+depois do teste: `smart_schedule=false` nas duas fontes, linhas sintéticas
+apagadas do log.
 
-**Por que parou aqui:** o MCP do Supabase não tem deploy incremental — mudar uma
-linha exige reemitir o arquivo inteiro. `send-post` tem 571 linhas e `clone-ingest`
-973. Ficar sem contexto no meio de uma emissão subiria arquivo truncado, e
-`send-post` truncado derruba a postagem automática de toda a base. Sessão nova
-tem contexto limpo e faz os dois com folga.
+### O bug que derrubou o site — e por que ninguém viu
 
-**Risco de estar parado assim:** nenhum. Todas as colunas nascem `false`, então o
-comportamento de hoje é idêntico ao de ontem para todo mundo. O estado é
-inconsistente, não quebrado.
+O `f94e2f0` colocou `const SMART_JANELAS` na linha 6982, mas `const PANES`
+(linha 4741) é um objeto de template literals **avaliado no top-level** e lia as
+constantes na 4748. `const` fica na Temporal Dead Zone até executar, então o load
+jogava `ReferenceError: Cannot access 'SMART_JANELAS' before initialization`, o
+bloco `<script>` morria ali e **nenhum handler registrava**. A tela de login
+desenhava (HTML estático) e o botão Entrar não fazia nada.
+
+**Site fora do ar para toda a base**, desde que o auto-deploy publicou o
+`f94e2f0` até o `08f7064` em 31/07 00:23. Corrigido movendo as três constantes
+para antes do `PANES`, mesmo bloco, mesmo escopo — movimento léxico puro.
+
+**O `f94e2f0` nunca foi aberto num navegador antes do push.** Nenhuma etapa do
+protocolo pegava isso: `node --check` valida sintaxe e passa (TDZ é erro de
+runtime), o SHA-256 do arquivo servido batia com o do repo, e o build do
+EasyPanel deu Success. Todas as provas eram sobre *entrega de bytes*, nenhuma
+sobre *execução*.
+
+### Ainda NÃO observado
+
+O ramo `if (smart)` do `send-post` distribuindo dentro de uma janela real, e a
+recusa `fora_da_janela` disparando por mensagem de grupo de verdade. Primeira
+verificação possível: **07:00**. Ligue o modo num grupo e confira que os disparos
+saem 07:05, 07:15, 07:25… e que `scheduled_posts` de hoje bate com a cota da
+janela. Até lá o recurso é "deployado e provado por payload sintético", não
+"provado em produção".
 
 **Decisões que já estão no código e não devem ser redecididas:** teto de 33/dia
 vindo do piso de 10 min entre posts (`auto_posts_daily` é null para Pro, Elite e
-Premium, então o teto do plano não limitava nada); cota por janela proporcional à
-duração com sobra indo para 19–21; decisão por "quantos deveriam ter saído menos
-quantos saíram" em vez de "tempo desde o último post", que torna o modo
-auto-corretivo; fim de semana desmarcado = não posta, não posta de outro jeito.
+Premium, então o teto do plano não limitava nada) — confirmado no navegador,
+`SMART_MAX_DIA === 33`; cota por janela proporcional à duração com sobra indo
+para 19–21; decisão por "quantos deveriam ter saído menos quantos saíram" em vez
+de "tempo desde o último post", que torna o modo auto-corretivo; fim de semana
+desmarcado = não posta, não posta de outro jeito.
 
 ---
 
 ## Última alteração
 
-**Sessão de 31/07/2026 (madrugada)** — só a sessão dona escuta os grupos-fonte.
-Fecha o P1.
+**Sessão de 31/07/2026 (madrugada, 00:00–00:30)** — fecha o P14 e conserta o
+site, que estava fora do ar sem ninguém ter notado.
 
 | | |
 |---|---|
-| Commits | `057f740` (CLONE_DONOS no engine + `donos` na action `jids`) |
-| Edge Functions | 37 · `clone-ingest` em **v9** |
-| Jobs pg_cron | **16** |
-| Repo × produção | Batendo. `clone-ingest` v9 provada por invocação; wa-engine deployado 31/07 02:10 e provado pelo log |
+| Commits | `08f7064` (fix do TDZ de `SMART_JANELAS` nas duas cópias do index.html) |
+| Edge Functions | 37 · `clone-ingest` em **v10**, `verify_jwt: false`, sem import map |
+| Jobs pg_cron | 16 |
+| Repo × produção | Batendo. Frontend conferido por SHA-256 **e por carregamento real** |
 
-**O que o P1 realmente era.** A sessão admin não era só barulho no painel: ela
-**fazia o dono perder captura**. `CLONE_VISTAS` é um `Set` de módulo, compartilhado
-por todas as sessões do processo — o primeiro listener a ver a mensagem grava o
-`msgId` e cala todos os outros. Quando a admin ganhava a corrida, a captura morria
-em `outro_dono` na `clone-ingest` **e** o dono ficava bloqueado pelo dedupe. MEDIDO:
-1 das 11 linhas do `clone_ingest_log`. O diagnóstico anterior ("polui o painel e
-queima uma requisição") descrevia o sintoma barato e não o caro.
+**O que esta sessão mediu, e não só deployou:**
 
-**Prova do P1 (31/07 02:11):** o container novo imprimiu
-`[CLONE] 1 grupo(s)-fonte monitorado(s) · 1 sessao(oes) dona(s)`. O sufixo
-`· N sessao(oes) dona(s)` **só existe no `057f740`** — a v8 não imprimia essa metade,
-então a linha prova código novo, não número de versão. E **1 dona entre 4 sessões
-conectadas** prova que a admin ficou de fora do filtro.
+- `clone-ingest` v10 provada com baseline + controle (tabela acima).
+- Frontend: `ReferenceError` sumiu do console; `SMART_JANELAS`, `SMART_MAX_DIA`
+  (=33), `PANES`, `SB`, `filaEta`, `csAlternarSmart` todos definidos no runtime
+  — ou seja, o script passou do ponto onde antes morria.
+- **P8 resolvido: o auto-deploy do EasyPanel funciona.** Os dois serviços
+  (`app` e `wa-engine`) iniciaram build no mesmo segundo, `02:58:36 GMT`, que é
+  exatamente o timestamp do commit `7d5e7b5`. Dois serviços no mesmo segundo do
+  commit é webhook, não clique. O `08f7064` também publicou sozinho, sem ninguém
+  apertar Deploy.
+- **P13 mudou de estado sem registro:** a "TáNaMão – Promoções #02" está
+  `active = true` de novo. As duas fontes estão ativas hoje.
 
-**Próxima ação sugerida:** decidir o P13 (a fonte que capturava está desligada) — sem
-isso o Clone Post não produz oferta nenhuma, com ou sem o P1 fechado.
+**A janela de ordem invertida existiu de verdade.** O doc mandava deployar as
+Edge Functions antes de rebuildar o frontend. Só que o frontend nunca dependeu de
+alguém clicar Deploy — o auto-deploy publicou o `f94e2f0` sozinho, antes da
+`clone-ingest` v10 existir. O gate manual protegia contra um risco que o webhook
+contornava. **Enquanto o auto-deploy estiver ligado, "deploye A antes de
+rebuildar B" não é uma instrução executável.** Ou o gate vira técnico (feature
+flag, coluna que nasce desligada), ou o auto-deploy do `app` precisa sair.
+
+**Próxima ação sugerida:** às 07:00, ligar o modo num grupo e observar o ramo
+`if (smart)` do `send-post` rodando de verdade. É a única peça do recurso que
+nunca foi vista executando.
 
 ---
 
@@ -359,13 +392,16 @@ código não relacionado.
 | **P5** | Enforcement server-side dos limites de plano: canais WhatsApp/Telegram e grupos WhatsApp ainda são só client-side | 03/07 |
 | **P6** | **Revogar os PATs do GitHub** — o clássico `ghp_vkOR…` acumulou 14 pushes | 30/07 |
 | **P7** | RLS de admin em `profiles` permite qualquer admin ler e-mails de todos os usuários — conhecido, não remediado | 03/07 |
-| **P8** | Confirmar/ativar de vez o auto-deploy do EasyPanel (webhook GitHub) — configurado nos dois serviços mas nunca confirmado funcional | 03/07 |
+| ~~P8~~ | ✅ **RESOLVIDA 31/07.** Auto-deploy funciona nos dois serviços: build iniciado no mesmo segundo do commit (`02:58:36 GMT` = timestamp do `7d5e7b5`), e o `08f7064` publicou sozinho. Ver o efeito colateral em "janela de ordem invertida" | 03/07 |
 | **P9** | Créditos OpenAI para destravar o RevOps / IA Insights | — |
 | **P10** | Avaliar upgrade do Scrape.do para o plano Hobby quando a receita permitir | 03/07 |
 | **P11** | Substituir filtros checkbox por chips clicáveis no filtro de loja dos grupos (UX) | fila de julho |
 | **P12** | Remover opções de intervalo abaixo de 10 minutos do select de agendamento | fila de julho |
-| **P14** | Deployar `send-post` e `clone-ingest` (commit `f94e2f0`) e só então rebuildar o frontend. Ver o bloco no topo | 31/07 |
-| **P13** | Confirmar se desativar a fonte "TáNaMão – Promoções #02" foi intencional. É a única fonte que já capturou alguma coisa; a única ativa hoje nunca capturou nada. Se não foi intencional, o Clone Post está no ar sem produzir | 31/07 |
+| ~~P14~~ | ✅ **FECHADA 31/07.** `send-post` v45 e `clone-ingest` v10 deployadas e provadas; frontend no ar. Restou o P15 | 31/07 |
+| **P13** | A "TáNaMão – Promoções #02" voltou a `active = true` (medido 31/07 00:05) — o doc a registrava desligada na REVISÃO 7. Confirmar se foi você que religou. As duas fontes estão ativas | 31/07 |
+
+| **P15** | Nenhuma etapa do protocolo detecta erro de *runtime* no frontend. `node --check` só vê sintaxe, SHA-256 só vê bytes, build Success só vê Docker. Definir um smoke test obrigatório antes de todo push de HTML: carregar a página e conferir que o console não tem `Uncaught` | 31/07 |
+| **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
@@ -397,6 +433,27 @@ código não relacionado.
   captura. Um `Set` de deduplicação que não sabe de quem é cada entrada não deduplica:
   ele sorteia. O sintoma visível (uma linha `outro_dono` no log) era o menor dos dois
   efeitos — o outro, invisível, era o dono perder a oferta.
+
+- **Byte igual não é comportamento igual.** Em 31/07 conferi o SHA-256 do
+  `index.html` servido contra o do repo, deu idêntico, e concluí "o frontend está
+  no ar, não precisa de deploy". Estava certo sobre os bytes e errado sobre o
+  estado: o arquivo do repo estava quebrado, e o site vinha fora do ar. Quem
+  descobriu foi o Érico atualizando a página. **Verificação de entrega
+  (SHA, versão, build Success, HTTP 200) responde "chegou?", nunca "funciona?".**
+  Para frontend, a única prova é carregar a página e ler o console.
+- **`node --check` não pega Temporal Dead Zone.** É análise sintática: `const X`
+  usado antes da declaração é sintaticamente válido e só explode em runtime. A
+  regra "validar JS antes de todo push" dava sensação de cobertura que ela não
+  tem. Ver P15.
+- **Objeto de template literals no top-level é código executando, não dado.**
+  `const PANES = { geral: \`...${X}...\` }` avalia todos os `${}` na hora em que a
+  linha é lida. Parece declaração de constante e é chamada de função. Qualquer
+  coisa referenciada ali precisa já existir *naquele ponto do arquivo*, não só
+  "em algum lugar do script".
+- **Automação silenciosa vence protocolo escrito.** O doc mandava não rebuildar o
+  frontend antes das Edge Functions. O auto-deploy publicou sozinho e a ordem foi
+  invertida sem ninguém desobedecer nada. Gate que depende de um humano não
+  clicar não é gate quando existe webhook. Ver P16.
 
 **Sobre UX**
 
