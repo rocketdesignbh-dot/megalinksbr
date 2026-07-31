@@ -282,7 +282,7 @@ tr:hover td{background:var(--surf2)}
 .cs-meta{font-size:11.5px;color:var(--mut);line-height:1.6}
 .cs-veredito{font-size:11.5px;color:var(--tx2);line-height:1.65;border-top:1px solid var(--bd);padding-top:9px}
 .cs-veredito b{color:var(--tx)}
-.cs-acoes{display:flex;gap:8px;margin-top:auto;padding-top:4px}
+.cs-acoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:4px}
 .cs-add{border:1px dashed var(--bd2);background:transparent;border-radius:var(--r-sm);padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:150px;cursor:pointer;color:var(--tx2);font-size:12.5px;text-align:center;transition:border-color .15s,color .15s}
 .cs-add:hover{border-color:var(--volt);color:var(--tx)}
 .cs-add.travado{cursor:not-allowed;opacity:.55}
@@ -8466,7 +8466,7 @@ function csRender(){
         ? "🧠 captura em "+SMART_JANELAS.map(j=>j.rot.replace(/^\S+\s/,"")).join(" · ")+(f.smart_weekend?"":" · seg–sex")
         : "🕐 captura o dia inteiro"}</div>
       <div class="cs-acoes">
-        <button class="btn btn-ghost btn-sm" onclick="csAlternarSmart('${f.id}',${f.smart_schedule?"false":"true"})">${f.smart_schedule?"Captura 24h":"🧠 Horários"}</button>
+        <button class="btn btn-ghost btn-sm" title="${f.smart_schedule?"Voltar a capturar o dia inteiro, em qualquer horário.":"Capturar só nas 3 janelas de maior audiência. Fora delas a mensagem é recusada antes de gastar crédito de consulta na loja."}" onclick="csAlternarSmart('${f.id}',${f.smart_schedule?"false":"true"})">${f.smart_schedule?"🕐 Capturar 24h":"🧠 Só nos horários"}</button>
         <button class="btn btn-ghost btn-sm" onclick="csAlternar('${f.id}',${f.active?"false":"true"})">${f.active?"Pausar":"Ativar"}</button>
         <button class="btn btn-ghost btn-sm" onclick="csRemover('${f.id}')">Remover</button>
       </div>
