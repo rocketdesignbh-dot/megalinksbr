@@ -82,6 +82,16 @@
 //    clone_ingest_log — recusa nomeada, como todas as outras, senao volta a
 //    ser impossivel distinguir "o grupo ficou quieto" de "recusei tudo".
 
+//  * v11 — auto-publicacao por fonte (clone_sources.auto_publish). A captura
+//    vira produto do grupo sem passar pela fila, MAS so quando a loja confirmou
+//    os dados (data_source === "store"). Captura que caiu no fallback de ler do
+//    texto da mensagem continua indo para revisao mesmo com o auto ligado: o
+//    preco ali e o que um terceiro digitou, nao o que a loja respondeu, e preco
+//    errado publicado no grupo da cliente nao se desfaz. Isso afrouxa o "SEMPRE
+//    pending" da v1 sem abrir mao do motivo dele.
+//    Nao posta na hora: insere em products e o send-post publica no proximo
+//    disparo, respeitando intervalo, janela e Horarios Inteligentes.
+
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")!;
@@ -670,6 +680,41 @@ Deno.serve(async (req: Request) => {
     return sufs;
   }
 
+  // ── Auto-publicacao (v11) ───────────────────────────────────────
+  // Espelho server-side do cloneCriarProduto() do index.html. O original roda
+  // no NAVEGADOR e por isso nao serve para captura automatica — nao ha ninguem
+  // logado no circuito.
+  // De proposito NAO encurta o link aqui: a send-post ja encurta todo
+  // product.affiliate_url no momento do disparo e o ehLinkCurtoProprio protege
+  // contra encurtar duas vezes. Duplicar isso criaria mais um espelho para
+  // divergir, e espelho divergente ja custou investigacao neste projeto.
+  async function publicarClone(clone: any, fonte: any) {
+    try {
+      const { data: last } = await sb.from("products")
+        .select("position").eq("niche_group_id", fonte.niche_group_id)
+        .order("position", { ascending: false }).limit(1).maybeSingle();
+      const { data: prod, error } = await sb.from("products").insert({
+        niche_group_id: fonte.niche_group_id,
+        source: clone.store || "manual",
+        position: Number(last?.position ?? 0) + 1,
+        title: clone.title,
+        affiliate_url: clone.affiliate_url,
+        original_url: clone.clean_url,
+        image_url: clone.image_url || "",
+        price: clone.price,
+        price_original: clone.price_original,
+        discount_pct: clone.discount_pct,
+        coupon_code: clone.coupon_code ?? null,
+        price_installment: clone.price_installment ?? null,
+        user_id: fonte.user_id,
+      }).select("id").maybeSingle();
+      if (error) return { ok: false, motivo: error.message };
+      return { ok: true, productId: prod?.id ?? null };
+    } catch (e) {
+      return { ok: false, motivo: (e as Error).message };
+    }
+  }
+
   async function credenciaisMlDe(userId: string) {
     if (cacheMl.has(userId)) return cacheMl.get(userId)!;
     const { data } = await sb
@@ -933,18 +978,55 @@ Deno.serve(async (req: Request) => {
         last_capture_at: agora.toISOString(),
       }).eq("id", fonte.id);
 
+      // ── Auto-publicacao (v11) ─────────────────────────────────
+      // Tres condicoes, todas obrigatorias: a fonte pede, os dados estao
+      // completos, e vieram DA LOJA. Faltando qualquer uma, cai na fila como
+      // sempre foi.
+      if (fonte.auto_publish && !semDados && dataSource === "store" && ins?.id) {
+        const pub = await publicarClone(linha, fonte);
+        if (pub.ok) {
+          await sb.from("clone_posts").update({
+            status: "approved",
+            product_id: pub.productId,
+            approved_at: agora.toISOString(),
+            error: null,
+          }).eq("id", ins.id);
+          resultados.push({
+            ...marca, status: "publicado", clone_id: ins.id, product_id: pub.productId,
+            store, title: titulo || null, data_source: dataSource,
+            motivo: "auto-publicado no rodizio do grupo — sai no proximo disparo do send-post",
+          });
+          continue;
+        }
+        // Falhou virar produto: a captura NAO some, fica na fila com o motivo.
+        await sb.from("clone_posts").update({
+          error: `auto-publicacao falhou: ${pub.motivo}`,
+        }).eq("id", ins.id);
+        resultados.push({
+          ...marca, status: "salvo", clone_id: ins.id, store, title: titulo || null,
+          data_source: dataSource,
+          motivo: `auto-publicacao falhou (${pub.motivo}) — ficou na fila para revisao`,
+        });
+        continue;
+      }
+
       resultados.push({
         ...marca, status: semDados ? "salvo_incompleto" : "salvo",
         clone_id: ins?.id ?? null, store, title: titulo || null,
         data_source: dataSource,
         motivo: semDados
           ? `${erroLoja} — e o texto da mensagem nao trazia titulo e preco`
-          : (dataSource === "message" ? "aguardando revisao — dados lidos do texto da mensagem" : "aguardando revisao"),
+          : (dataSource === "message"
+              ? (fonte.auto_publish
+                  ? "aguardando revisao — auto-publicacao nao vale para dados lidos do texto da mensagem"
+                  : "aguardando revisao — dados lidos do texto da mensagem")
+              : "aguardando revisao"),
       });
     }
   }
 
-  const salvos = resultados.filter((r) => r.status === "salvo" || r.status === "salvo_incompleto").length;
+  const salvos = resultados.filter((r) => r.status === "salvo" || r.status === "salvo_incompleto" || r.status === "publicado").length;
+  const publicados = resultados.filter((r) => r.status === "publicado").length;
   const doTexto = resultados.filter((r) => r.data_source === "message").length;
 
   // ── v7 · registro das tentativas ──────────────────────────────────
@@ -968,6 +1050,6 @@ Deno.serve(async (req: Request) => {
     if (eLog) console.warn(`[clone-ingest] log nao gravado: ${eLog.message}`);
   }
 
-  console.log(`[clone-ingest] recebidas=${entradas.length} salvos=${salvos} lidos_do_texto=${doTexto} dryRun=${dryRun}`);
-  return json({ ok: true, dryRun, recebidas: entradas.length, salvos, resultados });
+  console.log(`[clone-ingest] recebidas=${entradas.length} salvos=${salvos} publicados=${publicados} lidos_do_texto=${doTexto} dryRun=${dryRun}`);
+  return json({ ok: true, dryRun, recebidas: entradas.length, salvos, publicados, resultados });
 });
