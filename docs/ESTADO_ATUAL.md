@@ -5,6 +5,21 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
+> **REVISÃO 6 — 31/07/2026.** Se o número aqui não for o mais alto que você
+> conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
+> releia direito. Toda sessão que edita este arquivo incrementa a revisão.
+>
+> **COMO ler este arquivo — importa, e já falhou.** Leia por
+> `git clone --depth=1` do repo, ou pela interface do GitHub.
+> **NÃO leia por `raw.githubusercontent.com`:** o CDN dele serve a versão
+> anterior por vários minutos depois de um push, sem avisar. **NÃO leia pelo
+> snapshot do Knowledge anexado ao projeto:** ele é congelado por definição.
+> Aconteceu em 31/07 — uma sessão leu por um desses caminhos, viu o estado de
+> 30/07 (`clone-ingest` v8, pendências indo só até P12) e concluiu que o P14 não
+> existia. Existia: o `main` estava em `b449b9c`.
+> Na dúvida, `git ls-remote https://github.com/rocketdesignbh-dot/megalinksbr.git main`
+> e confira que o hash bate com o do seu clone.
+>
 > **No início de toda sessão:** ler este arquivo inteiro antes de propor ou
 > executar qualquer coisa. Se houver conflito entre este arquivo e o `memory.md`
 > automático, entre os docs antigos do Knowledge, ou entre a sua memória de
@@ -12,8 +27,8 @@
 >
 > **No fim de toda sessão:** atualizar as seções `Última alteração`,
 > `Estado dos componentes` e `Pendências abertas`, e commitar junto com o
-> código da sessão. Um push de código sem atualizar este arquivo é um push
-> incompleto.
+> código da sessão, **e incrementar o número da REVISÃO lá em cima**. Um push de
+> código sem atualizar este arquivo é um push incompleto.
 >
 > **Regra de ouro do projeto:** *status 200 não é prova, número de versão não é
 > prova.* O que prova é comportamento observável. Não escreva nada aqui que não
