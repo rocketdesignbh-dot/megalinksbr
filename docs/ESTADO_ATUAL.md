@@ -25,6 +25,46 @@
 
 ---
 
+> ⚠️ **LEIA ANTES DE QUALQUER COISA NESTA SESSÃO.** Há código no repo que **não
+> está em produção**. Ver "Horários Inteligentes — entrega parcial" logo abaixo.
+> **Não rebuilde o frontend** antes de deployar as duas Edge Functions.
+
+## Horários Inteligentes — entrega parcial (31/07, commit `f94e2f0`)
+
+Recurso novo: Post Automático e captura do Clone Post só nas janelas
+☀️ 07:00–09:00 · 🍽️ 12:00–13:30 · 🌙 19:00–21:00. Elite pra cima.
+
+| Peça | Estado |
+|---|---|
+| Migration (`smart_schedule`/`smart_weekend` em `niche_groups`, `clone_sources`, `plan_features`) | ✅ **aplicada em produção** |
+| `frontend/index.html` + `index.html` (UI, trava de plano, ETA da Fila) | ✅ no repo · ❌ **não rebuildado** |
+| `send-post` (distribuição nas janelas) | ✅ no repo · ❌ **NÃO DEPLOYADO** |
+| `clone-ingest` v10 (gate de captura) | ✅ no repo · ❌ **NÃO DEPLOYADO** |
+
+**Ordem obrigatória:** deployar `send-post` e `clone-ingest` **primeiro**, e só
+depois rebuildar o frontend. Invertido, o usuário liga o modo, a tela confirma, e
+o cron segue postando pelo intervalo antigo — "mecanismo que parece existir e não
+executa nada", o padrão de falha recorrente deste projeto.
+
+**Por que parou aqui:** o MCP do Supabase não tem deploy incremental — mudar uma
+linha exige reemitir o arquivo inteiro. `send-post` tem 571 linhas e `clone-ingest`
+973. Ficar sem contexto no meio de uma emissão subiria arquivo truncado, e
+`send-post` truncado derruba a postagem automática de toda a base. Sessão nova
+tem contexto limpo e faz os dois com folga.
+
+**Risco de estar parado assim:** nenhum. Todas as colunas nascem `false`, então o
+comportamento de hoje é idêntico ao de ontem para todo mundo. O estado é
+inconsistente, não quebrado.
+
+**Decisões que já estão no código e não devem ser redecididas:** teto de 33/dia
+vindo do piso de 10 min entre posts (`auto_posts_daily` é null para Pro, Elite e
+Premium, então o teto do plano não limitava nada); cota por janela proporcional à
+duração com sobra indo para 19–21; decisão por "quantos deveriam ter saído menos
+quantos saíram" em vez de "tempo desde o último post", que torna o modo
+auto-corretivo; fim de semana desmarcado = não posta, não posta de outro jeito.
+
+---
+
 ## Última alteração
 
 **Sessão de 31/07/2026 (madrugada)** — só a sessão dona escuta os grupos-fonte.
@@ -300,6 +340,7 @@ código não relacionado.
 | **P10** | Avaliar upgrade do Scrape.do para o plano Hobby quando a receita permitir | 03/07 |
 | **P11** | Substituir filtros checkbox por chips clicáveis no filtro de loja dos grupos (UX) | fila de julho |
 | **P12** | Remover opções de intervalo abaixo de 10 minutos do select de agendamento | fila de julho |
+| **P14** | Deployar `send-post` e `clone-ingest` (commit `f94e2f0`) e só então rebuildar o frontend. Ver o bloco no topo | 31/07 |
 | **P13** | Confirmar se desativar a fonte "TáNaMão – Promoções #02" foi intencional. É a única fonte que já capturou alguma coisa; a única ativa hoje nunca capturou nada. Se não foi intencional, o Clone Post está no ar sem produzir | 31/07 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
