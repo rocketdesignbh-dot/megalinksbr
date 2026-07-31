@@ -8549,6 +8549,15 @@ async function csAbrirForm(){
           <label>Máximo por dia</label>
           <input id="csMax" type="number" min="1" max="50" value="10" style="width:100%">
         </div>
+        <div class="field" style="grid-column:1/-1;margin-top:14px;border-top:1px solid var(--bd2);padding-top:12px">
+          <label>Testar se esse grupo \u00e9 clon\u00e1vel <small style="font-weight:400;color:var(--tx2)">\u2014 opcional, mas evita perder um dia</small></label>
+          <textarea id="csTeste" rows="4" placeholder="Cole aqui uma mensagem de oferta desse grupo, inteira, do jeito que ela chegou \u2014 com o link." style="width:100%;font-family:var(--mono);font-size:12.5px;resize:vertical"></textarea>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" id="csTesteBtn" onclick="csTestarClonabilidade()">Testar mensagem</button>
+            <small style="color:var(--tx2);flex:1;min-width:180px">Muito grupo posta link de <strong>vitrine do afiliado</strong>, que n\u00e3o leva a produto nenhum. Melhor descobrir agora que amanh\u00e3.</small>
+          </div>
+          <div id="csTesteRes" style="display:none;margin-top:10px"></div>
+        </div>
         <div class="field" style="grid-column:1/-1">
           <div style="font-size:12px;color:var(--tx2);line-height:1.6">A captura roda <strong>o dia inteiro</strong>. Quem controla gasto é o teto acima — a mensagem no grupo-fonte não volta, então recusar por horário perderia a oferta em vez de adiar. Os <strong>Horários Inteligentes</strong> valem no <strong>disparo</strong>, e são configurados no Grupo de Oferta de destino.</div>
         </div>
@@ -8558,6 +8567,73 @@ async function csAbrirForm(){
         </div>
       </div>
     </div>`;
+}
+
+// \u2500\u2500 P23 \u00b7 teste de clonabilidade, ANTES de salvar a fonte \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// O caso que motivou: a fonte "Melhores Ofertas da Internet" ficou cadastrada de
+// 30/07 a 31/07 com last_capture_at NULO e 18 recusas de vitrine no log. Do lado
+// de quem cadastrou, "n\u00e3o veio nada" \u00e9 indistingu\u00edvel de "o recurso est\u00e1 quebrado"
+// \u2014 e a resposta j\u00e1 existia, escrita em portugu\u00eas, dentro da resolve-link, s\u00f3 que
+// num log que ningu\u00e9m abre. Isto n\u00e3o descobre nada novo: traz a resposta pra
+// frente, pro momento em que ela ainda muda a decis\u00e3o.
+//
+// TR\u00caS vereditos, n\u00e3o dois. A resolve-link responde "d\u00e1 pra chegar no produto?",
+// que N\u00c3O \u00e9 a mesma pergunta que "d\u00e1 pra montar o post?". Link bom numa loja sem
+// enriquecimento (Amazon hoje; Shopee fora do cat\u00e1logo de ofertas) captura do
+// mesmo jeito, lendo do texto da mensagem \u2014 s\u00f3 vai pra revis\u00e3o em vez de publicar
+// sozinho. Chamar isso de "n\u00e3o clon\u00e1vel" mandaria o usu\u00e1rio embora de um grupo
+// que funciona.
+//
+// Uma mensagem n\u00e3o prova o grupo inteiro, e o texto diz isso. O alerta no card
+// depois de N mensagens sem captura (a outra metade do P23) \u00e9 que fecha a conta.
+async function csTestarClonabilidade(){
+  const texto=(document.getElementById("csTeste")?.value||"").trim();
+  const cx=document.getElementById("csTesteRes");
+  const btn=document.getElementById("csTesteBtn");
+  if(!cx)return;
+  if(!texto){toast("Cole uma mensagem do grupo primeiro.","\u26a0\ufe0f");return;}
+  cx.style.display="block";
+  cx.innerHTML='<div class="alert b" style="margin:0">\u{1F517} Resolvendo o link\u2026</div>';
+  if(btn)btn.disabled=true;
+  try{
+    const session=await SB.auth.getSession();
+    const jwt=session?.data?.session?.access_token;
+    if(!jwt)throw new Error("Sess\u00e3o expirada \u2014 entre de novo.");
+    const r=await fetch(`${SUPA_URL}/functions/v1/resolve-link`,{
+      method:"POST",
+      headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"},
+      body:JSON.stringify({text:texto})
+    });
+    const d=await r.json();
+    if(!d.ok){
+      const motivo=String(d.error||"a resolve-link n\u00e3o explicou").replace(/</g,"&lt;");
+      cx.innerHTML='<div class="alert r" style="margin:0"><span><strong>\u274c N\u00e3o d\u00e1 pra clonar essa mensagem.</strong><br>'+motivo+'<br><small style="opacity:.8">Se as mensagens desse grupo forem todas assim, ele n\u00e3o serve como fonte. Procure um grupo que poste o link da p\u00e1gina do produto.</small></span></div>';
+      return;
+    }
+    const loja=String(d.store_label||d.store||"a loja").replace(/</g,"&lt;");
+    cx.innerHTML='<div class="alert b" style="margin:0">\u{1F50E} Link resolvido ('+loja+'). Conferindo o produto na loja\u2026</div>';
+    let dp={};
+    try{
+      const rp=await fetch(`${SUPA_URL}/functions/v1/product-search`,{
+        method:"POST",
+        headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"},
+        body:JSON.stringify({url:d.url,credentials:prColetarCredenciais()})
+      });
+      dp=await rp.json();
+    }catch(e){dp={success:false,error:e.message||String(e)};}
+    const nome=String(dp.name||dp.title||"").slice(0,120).replace(/</g,"&lt;");
+    if(dp.success&&nome){
+      cx.innerHTML='<div class="alert g" style="margin:0"><span><strong>\u2705 Esse grupo \u00e9 clon\u00e1vel.</strong><br>'+loja+' \u00b7 '+nome+'<br><small style="opacity:.8">A captura pega t\u00edtulo, pre\u00e7o e imagem direto da loja. Testado em <strong>uma</strong> mensagem \u2014 se o grupo misturar formatos, alguns links ainda podem falhar.</small></span></div>';
+      return;
+    }
+    const erroLoja=String(dp.error||"sem detalhe").slice(0,180).replace(/</g,"&lt;");
+    cx.innerHTML='<div class="alert y" style="margin:0"><span><strong>\u26a0\ufe0f D\u00e1 pra capturar, mas sem conferir na loja.</strong><br>O link chega no produto ('+loja+'), s\u00f3 que a loja n\u00e3o devolveu os dados: '+erroLoja+'<br><small style="opacity:.8">A oferta vai ser montada lendo o <strong>texto da mensagem</strong> e cai na fila de revis\u00e3o em vez de publicar sozinha.</small></span></div>';
+  }catch(e){
+    const m=String(e&&e.message?e.message:e).replace(/</g,"&lt;");
+    cx.innerHTML='<div class="alert r" style="margin:0"><span><strong>Falhou o teste:</strong> '+m+'</span></div>';
+  }finally{
+    if(btn)btn.disabled=false;
+  }
 }
 
 async function csSalvar(){
