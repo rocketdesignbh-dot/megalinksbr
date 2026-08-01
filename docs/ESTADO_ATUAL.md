@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 23 — 01/08/2026 (noite).** Se o número aqui não for o mais alto que você
+> **REVISÃO 24 — 01/08/2026 (noite).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -40,6 +40,18 @@
 
 ---
 
+> 🎉 **O CLONE POST PASSOU A FAZER O QUE PROMETIA (REVISÃO 24).** Nas 24h de
+> 01/08 chegaram **7 capturas de mensagem de grupo REAL**, e **7 de 7 têm
+> `data_source='store'` e foto**. Até ontem eram 14 de 14 lidas do texto e 14 de
+> 14 sem foto. Duas linhas que estavam escritas aqui como "ainda NÃO observado"
+> deixaram de estar: **Amazon com dado de loja em campo** (4) e **Shopee com dado
+> de loja vindo de grupo de verdade** (3).
+>
+> ⚠️ **E o mesmo lote revelou a P32, já fechada:** as 3 da Shopee saíram com
+> `price_original` IGUAL ao `price` e ainda assim 53%, 42% e 35% de desconto. Os
+> produtos já estavam no rodízio. `product-search` **v25** corrige a raiz e os 3
+> foram limpos à mão. Ver "P32" abaixo.
+>
 > ✅ **P31 FECHADA (REVISÃO 23).** `clone-ingest` **v16**, coluna
 > `lojas_permitidas` e a tela — backend provado com baseline e dois controles,
 > **frontend deployado e conferido no navegador**: as funções novas existem no
@@ -100,6 +112,74 @@
 > `clone_sources` tem **uma única linha** — "TáNaMão", com `active=false`. A
 > "Melhores Ofertas da Internet" não está mais na tabela (foi apagada, não só
 > desativada). Enquanto isso a captura automática não roda para ninguém.
+
+## P32 — a Shopee devolvia um "de" que não existe (`product-search` v25)
+
+**Encontrada por acidente**, olhando o card da P31 depois do deploy. É o tipo de
+defeito que nenhuma das provas desta sessão pegaria: as três capturas de Shopee
+estavam com `data_source='store'`, com foto, com preço certo — e com um "de"
+inventado.
+
+### Medido
+
+| | |
+|---|---|
+| Capturas de Shopee em 24h | 3 |
+| Com `price_original` **igual** ao `price` | **3 de 3** |
+| E ainda assim com desconto > 0 | **3 de 3** (53%, 42%, 35%) |
+| Capturas de Amazon no mesmo lote com o defeito | **0 de 4** |
+
+Os três já eram produto no grupo. O post sairia:
+*"~~De R$ 56,80~~ por **R$ 56,80** — 53% OFF"*.
+
+### A causa, lida no código
+
+`product-search`, ramo da Shopee:
+
+```
+price_from:   node.price            ← o preço ATUAL
+price_to:     node.priceMin         ← o mesmo preço atual
+discount_pct: node.priceDiscountRate
+```
+
+**`node.price` nunca foi o "de".** É o preço de venda, o mesmo valor de
+`priceMin`. A consulta GraphQL **não pede** o preço anterior — a API de afiliado
+só informa a *taxa* de desconto. O campo carregava um número que nunca
+significou o que o nome dele diz, e nada no caminho conciliava os dois.
+
+### O conserto, e o que foi descartado
+
+**v25: não manda `price_from` nenhum para a Shopee.** Se a loja não diz qual era
+o preço antes, a plataforma não afirma — mesma regra do buybox da Amazon, que
+devolve `null` quando as duas testemunhas discordam. O selo de desconto fica,
+porque esse a API afirma.
+
+**Descartado de propósito:** calcular `price / (1 - taxa)`. Devolveria o riscado,
+mas seria número **deduzido e não lido**, sujeito a arredondamento — exatamente a
+classe de erro que a P21 e a P30 fecharam do outro lado. Decisão do Érico.
+
+**Prova (`dryRun`, item do Radar que a v24 devolvia com "de" == "por"):**
+Senbenbao X55 · `data_source='store'` · **por R$ 12,51 · "de" `null` · desconto
+65%**. O desconto sobrevive, o número falso some.
+
+**Os 3 produtos foram limpos** com `price_original = null`, junto com as 3
+capturas. O `WHERE` exigia `price_original = price`: um "de" legítimo não seria
+tocado. Estado anterior registrado antes do UPDATE.
+
+### O Radar NÃO tinha o defeito — de novo
+
+| Fonte, 3 dias | Ofertas | "de" == "por" | Desconto impossível |
+|---|---|---|---|
+| Shopee | 64 | 4 | **0** |
+| Amazon | 45 | 2 | **0** |
+| Mercado Livre | 117 | 24 | **0** |
+
+**Terceira vez que este repo tem duas implementações da mesma coisa, uma certa e
+uma errada.** Foi assim com a assinatura da Shopee (a `radar/index.ts` sempre
+assinou SHA-256 certo enquanto a `product-search` usava HMAC), e é assim de novo
+com o preço. **O Radar continua sendo o exemplar correto que ninguém consultou.**
+
+---
 
 ## P31 — filtro de loja por fonte (`clone-ingest` v16, 01/08 noite)
 
@@ -880,6 +960,32 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**Sessão da noite de 01/08/2026 (3) — P31 conferida em campo e P32 fechada.**
+
+| | |
+|---|---|
+| Commits | 1 · `product-search` e este doc |
+| Edge Functions | `product-search` **v25** |
+| Migrations | nenhuma |
+| Correção de dados | 3 produtos e 3 capturas de Shopee com `price_original = null` |
+
+- **P31 provada nos dois caminhos da tela.** O Érico recadastrou as duas fontes
+  pelo formulário (`["shopee","amazon"]` numa linha nova só pode ter vindo das
+  checkboxes) e depois clicou um chip: a "Melhores Ofertas" foi para
+  `["shopee","amazon","mercadolivre"]` e a TáNaMão ficou nas duas — a escrita foi
+  na fonte certa e só nela.
+- **Erro de método registrado:** o primeiro teste do chip que eu pedi foi clicar
+  DUAS vezes e voltar ao mesmo estado. O resultado é idêntico ao de "não
+  funcionou" — teste que não distingue não testa. Refeito com um clique só.
+- **Recadastrar as fontes não perdeu histórico:** a FK é `SET NULL`, não
+  `CASCADE`. 21 capturas e 99 linhas de log intactas, e o card continua mostrando
+  os números porque o painel agrupa por `source_jid`, não por id da fonte —
+  decisão que já estava escrita e se pagou.
+- **21 recusas de ML somadas, zero capturas**, contra 17 capturas de Amazon e
+  Shopee. Desligar o ML nas duas fontes foi decisão informada pelo dado.
+
+---
+
 **Sessão da noite de 01/08/2026 (2) — P31 entregue; frontend aguardando Deploy.**
 
 | | |
@@ -1404,6 +1510,8 @@ código não relacionado.
 | **P15** | **Parcialmente endereçada 31/07 tarde.** Existe agora um smoke test executável: extrair os blocos `<script>`, rodar os quatro **no mesmo contexto** `vm` do Node com um DOM falso permissivo, e comparar contra o baseline **antes** do patch. Foi rodado neste push e pegaria o TDZ do `f94e2f0`. **Duas limitações medidas:** (1) dá falso positivo em `id` de elemento usado como global — `themeT.onclick` na linha 2496 acusa `ReferenceError` no sandbox e funciona no browser; por isso a comparação com o baseline é obrigatória, o veredito é "piorou?", não "tem erro?"; (2) não executa handler nenhum, só o top-level. **Continua aberta:** carregar a página num navegador de verdade e ler o console segue sendo a única prova real | 31/07 |
 | **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
 
+| ~~P32~~ | ✅ **FECHADA 01/08 noite.** A Shopee devolvia `price_from = node.price`, que é o preço ATUAL e não o anterior; 3 de 3 capturas reais saíram com "de" == "por" e desconto de 53%/42%/35%, já no rodízio do grupo. `product-search` **v25** para de enviar `price_from` para a Shopee. Os 3 produtos foram limpos. O Radar, que tem leitura própria, **não** tinha o defeito — terceira vez que duas implementações da mesma coisa divergem neste repo | 01/08 |
+
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
 
@@ -1496,6 +1604,18 @@ código não relacionado.
   produto, e o erro só apareceria etapas depois, com mensagem que não aponta para
   a regra. Por isso a v5 exige 3 segmentos exatos, 6+ dígitos e lista de exclusão.
 
+- **Campo com nome certo e valor errado é invisível para toda prova de tipo.**
+  `price_from` existia, era número, era positivo e chegava preenchido — passou por
+  `success:true`, por `data_source='store'`, por foto presente e por preço certo.
+  Só a comparação com o campo AO LADO (`price_from == price_to` e ainda assim
+  desconto > 0) denunciou. **Vale checar coerência ENTRE campos, não só a
+  presença de cada um.**
+- **Teste que não distingue sucesso de falha não é teste.** Pedi ao Érico para
+  clicar duas vezes no chip e voltar ao estado inicial — o banco ia mostrar
+  exatamente a mesma coisa se o clique funcionasse ou se não fizesse nada.
+  Mesmo erro de forma do "status 200 não é prova", agora do lado de quem desenha
+  a verificação. **Antes de pedir um teste, perguntar: o que eu veria se
+  falhasse?**
 - **O estado "vazio" é o mais fácil de ler errado de uma tela.** `lojas_permitidas`
   vazio quer dizer TODAS, e nenhum chip aceso é exatamente a imagem de "nenhuma".
   Quem desmarca a última caixa espera bloquear tudo e libera tudo. Não dava para
