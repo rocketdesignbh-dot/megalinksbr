@@ -1,4 +1,16 @@
-// Mega Links BR · Edge Function "product-refresh" v17
+// Mega Links BR · Edge Function "product-refresh" v18
+// v18 (01/08, P30): consultarML passa a devolver `precoDe` a partir do
+//      `price_from` do wa-engine. Ate aqui esta funcao nao devolvia o campo, e
+//      como a reconciliacao da v16 exige `!== undefined`, ela NUNCA rodava para o
+//      Mercado Livre: o "de" ficava com o valor inteiro antigo (96 no lugar de
+//      96,79), sobra do truncamento de centavos que o wa-engine ja consertou.
+//      Erico escolheu a saida (a) em 01/08 — repassar e aceitar que o "de" seja
+//      APAGADO quando a loja nao mostra preco riscado — com a trava que nenhuma
+//      das duas saidas originais tinha: `null` so sai daqui depois de `r.ok` e
+//      `d.ok`, ou seja, leitura que DEU CERTO. Leitura que falha sai por
+//      'desconhecido', sem `precoDe`, e nao encosta no que esta gravado.
+//      A distincao ja estava escrita no tipo `Consulta` desde a v15 e so o ramo
+//      da Amazon a usava.
 // v17 (01/08): tres mudancas, todas por causa do caso "preco do post menor que o
 //      do site" relatado pela Patricia Cella.
 //      (a) ORDER BY explicito por price_checked_at, nulos primeiro. A selecao era
@@ -147,9 +159,12 @@ async function fetchComTimeout(url: string, ms = TIMEOUT_CONSULTA_MS): Promise<R
   } finally { clearTimeout(t); }
 }
 
-// `precoDe` e `imagem` sao undefined quando a loja consultada nem procurou por eles
-// (hoje: Mercado Livre). undefined significa "nao olhei"; null significa "olhei e a
-// loja nao mostra". A diferenca importa: so o segundo caso pode apagar o valor antigo.
+// `precoDe` e `imagem` sao undefined quando a loja consultada nem procurou por eles.
+// undefined significa "nao olhei"; null significa "olhei e a loja nao mostra". A
+// diferenca importa: so o segundo caso pode apagar o valor antigo.
+// Desde a P30 (01/08) o Mercado Livre TAMBEM devolve `precoDe` — ele deixou de ser
+// exemplo de "nao olhei". Quem nao olha hoje: ninguem, para `precoDe`; `imagem`
+// segue exclusiva da Amazon.
 type Consulta =
   | {
       estado: 'ok'; preco: number | null; usouPool: boolean; disponibilidade: string; sinal: string;
@@ -174,10 +189,40 @@ async function consultarML(url: string, cred: { token: string; token2: string; c
       return { estado: 'desconhecido', motivo: String(d?.error ?? `HTTP ${r.status}`).slice(0, 90) };
     }
     const preco = d.price_to ? Number(String(d.price_to).replace(',', '.')) : null;
+    const precoOk = Number.isFinite(preco as number) ? (preco as number) : null;
+
+    // ── P30 · o "de" do Mercado Livre ────────────────────────────────────
+    // Ate a v17 esta funcao nao devolvia `precoDe`, entao a reconciliacao do "de"
+    // (que exige `!== undefined`) NUNCA rodava para o ML: o price_original ficava
+    // com o valor inteiro antigo, 96 em vez de 96,79, herdado do truncamento de
+    // centavos que o wa-engine ja consertou. O efeito era conservador — o
+    // desconto aparecia MENOR do que e — e por isso nao era urgente.
+    //
+    // Saida (a), escolhida pelo Erico em 01/08: repassar e aceitar que o "de"
+    // seja APAGADO quando a loja nao mostra preco riscado. Nao publicar desconto
+    // que a loja nao exibe e a mesma regra que fechou o caso La Roche.
+    //
+    // O que fazia a saida (b) parecer necessaria era o medo de apagar um "de" bom
+    // por causa de uma leitura que falhou. Isso nao e escolher entre (a) e (b): e
+    // separar dois casos que a pendencia tratava como um so, e o tipo `Consulta`
+    // ja tinha a distincao escrita — `undefined` = nao olhei; `null` = olhei e a
+    // loja nao mostra. Só o segundo pode apagar. Aqui ja passamos por `r.ok` e
+    // `d.ok`, entao a leitura DEU CERTO: `null` daqui e afirmacao, nao ignorancia.
+    // Leitura que falha nem chega nesta linha — sai por 'desconhecido' la em cima,
+    // sem `precoDe`, e a reconciliacao nao toca no que esta gravado.
+    const de = d.price_from ? Number(String(d.price_from).replace(',', '.')) : null;
+    // Mesma regra do precoAmazon e do acharPrecos da clone-ingest: "de" que nao e
+    // maior que o "por" nao e preco riscado, e publicar isso vira desconto zero ou
+    // negativo no grupo da cliente. Vale `null` (apaga), nao o numero incoerente.
+    const deOk = (Number.isFinite(de as number) && precoOk !== null && (de as number) > precoOk)
+      ? (de as number)
+      : null;
+
     const usouPool = d.usingPersonalToken !== true && !cred.cookie;
     return {
       estado: 'ok',
-      preco: Number.isFinite(preco as number) ? (preco as number) : null,
+      preco: precoOk,
+      precoDe: deOk,
       usouPool,
       disponibilidade: String(d?.availability ?? 'desconhecido'),
       sinal: String(d?.availabilitySignal ?? '').slice(0, 60),
@@ -578,7 +623,10 @@ Deno.serve(async (req: Request) => {
     // A primeira versao disto amarrou os dois e deixou passar o La Roche: preco
     // estavel em 114,86 e um "de" de 116,99 herdado do texto do TaNaMao que a loja
     // nao mostra -- um desconto de 2% que nunca existiu, publicado no grupo.
-    // `undefined` e a loja que nem procurou (ML): nesse caso nao se mexe no que existe.
+    // `undefined` e a loja que nem procurou. Desde a v18 (P30) NAO ha mais loja
+    // assim para o "de": ML e Amazon procuram as duas. O caso vivo de `undefined`
+    // hoje e leitura que falhou, que sai por 'desconhecido' antes de chegar aqui —
+    // e e exatamente esse o ponto: quem falhou nao apaga nada.
     // `precoNovo` nulo e leitura que nao passou nas duas testemunhas: tambem nao mexe.
     if (precoNovo && res.precoDe !== undefined) {
       const antes = Number(p.price_original) || null;

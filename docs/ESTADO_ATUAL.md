@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 20 — 01/08/2026 (fim de tarde).** Se o número aqui não for o mais alto que você
+> **REVISÃO 21 — 01/08/2026 (noite).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -40,6 +40,12 @@
 
 ---
 
+> ✅ **P30 FECHADA (REVISÃO 21).** `product-refresh` **v18**: o `consultarML`
+> passa a devolver `precoDe`, e a reconciliação da v16 finalmente roda para o
+> Mercado Livre. **13 de 13 produtos medidos tiveram o "de" corrigido** — todos
+> truncamento de centavos (169 → 169,90). ⚠️ **O ramo que APAGA o "de" não foi
+> observado nenhuma vez** — ver a ressalva na seção da P30.
+>
 > ✅ **P21 FECHADA (REVISÃO 20).** A `clone-ingest` está em **v15** e a captura de
 > Amazon passa a publicar **preço lido da página**, não o que o grupo-fonte
 > digitou. Provado com baseline, controle e conferência do Érico no navegador —
@@ -67,11 +73,12 @@
 >
 > A P21 e a P20 saíram nesta sessão. Sobra:
 >
-> **1ª — filtro de loja por fonte (P31).** Agora com a P20 pronta: o card pode
-> mostrar "12 Shopee capturadas, 30 ML recusadas" e o filtro vira clique
-> informado em vez de palpite no cadastro.
-> **2ª — P30** (o "de" truncado no ML). **Decisão tomada pelo Érico em 01/08:
-> saída (a), com a trava do `undefined`/`null`** — ver a P30 abaixo. Falta codar.
+> **1ª — filtro de loja por fonte (P31).** É a única da pauta original que sobrou.
+> Agora com a P20 pronta: o card pode mostrar "12 Shopee capturadas, 30 ML
+> recusadas" e o filtro vira clique informado em vez de palpite no cadastro.
+> **2ª — observar o ramo que APAGA o "de"** (P30). Ele foi autorizado, deployado
+> e **nunca disparou em 13 medições**. Não está provado que funciona — está
+> provado que não foi acionado. Ver a ressalva na P30.
 > **3ª — P27** (reprocessar as capturas de Shopee recusadas antes de 01/08).
 > Estava bloqueada pela P20; deixou de estar para as recusas novas, mas as
 > antigas continuam sem URL no log e seguem irrecuperáveis.
@@ -87,6 +94,73 @@
 > `clone_sources` tem **uma única linha** — "TáNaMão", com `active=false`. A
 > "Melhores Ofertas da Internet" não está mais na tabela (foi apagada, não só
 > desativada). Enquanto isso a captura automática não roda para ninguém.
+
+## P30 — o "de" do Mercado Livre (`product-refresh` v18, 01/08 noite)
+
+**ENTREGUE.** O `consultarML` não devolvia `precoDe`, e a reconciliação da v16
+exige `!== undefined` — então ela **nunca rodou para o ML**. O "de" ficava com o
+inteiro antigo (169 no lugar de 169,90), sobra do truncamento de centavos que o
+wa-engine já consertou do lado do "por".
+
+### A decisão, e a trava que nenhuma das duas saídas tinha
+
+Érico escolheu a **saída (a)**: repassar e aceitar que o "de" seja apagado quando
+a loja não mostra preço riscado. Não publicar desconto que a loja não exibe é a
+mesma regra que fechou o caso La Roche.
+
+O que fazia a **(b)** parecer necessária era o medo de apagar um "de" bom por
+causa de uma leitura que falhou. **Isso não é escolher entre (a) e (b) — é
+separar dois casos que a pendência tratava como um só.** E a distinção já estava
+escrita no tipo `Consulta` desde a v15, usada só pelo ramo da Amazon:
+
+> `undefined` = não olhei · `null` = olhei e a loja não mostra.
+> **Só o segundo pode apagar.**
+
+Na v18 o `null` só sai depois de `r.ok` **e** `d.ok` — leitura que deu certo.
+Leitura que falha sai por `'desconhecido'` antes, sem `precoDe`, e não encosta no
+que está gravado.
+
+### Prova, com baseline
+
+| | v17 (baseline) | **v18** |
+|---|---|---|
+| Deo Colônia Kriska, "de" R$ 169 | `gravaria: {price_checked_at, price_changed:false}` — **o "de" nem é olhado** | **`de: 169 → 169.9 (loja)`** |
+
+**13 de 13 produtos medidos foram corrigidos**, todos pelo mesmo motivo — o
+centavo que faltava: 169→169,90 · 79→79,90 · 462→462,90 · 998→**998,85** ·
+89→89,90 · 141→141,90 · 116→116,90 · 205→205,90 · 68→**68,29** · 257→**257,80** ·
+259→259,90 · 287→287,90 · 79→79,90.
+
+Os três que não terminam em `,90` (998,85 · 68,29 · 257,80) valem mais que os
+outros dez: se a v18 estivesse inventando um `,90` em cima do inteiro em vez de
+ler a loja, os treze terminariam igual.
+
+**Controle da trava, medido por acidente e por isso mais convincente:** um
+produto com link sem MLB saiu por `desconhecidos: 1` e **não gerou patch nenhum**
+— nem `price_checked_at`. Leitura que falha não apaga nada, que é exatamente o
+que a saída (a) precisava garantir para não virar a saída (b).
+
+**Achado de brinde:** o Shampoo Kérastase subiu de R$ 191,81 para **R$ 225** na
+loja. Preço de post mais barato que o do site, de novo — o mesmo sintoma da
+Patrícia, agora pego pela rotação.
+
+### ⚠️ Ressalva honesta — o ramo que APAGA não foi observado
+
+**Em 13 de 13, a loja mostrava "de".** O caminho que apaga (`precoDe = null` com
+leitura boa) **não disparou nenhuma vez**. Ele está deployado, autorizado e
+**não medido**. Está provado que ele não foi acionado, não que ele funciona.
+
+Isso corta nos dois sentidos, e os dois merecem estar escritos:
+
+1. **O custo temido da saída (a) não apareceu.** O medo era "vou perder o
+   desconto de um monte de post". Em 13 amostras, zero.
+2. **Justamente por isso ninguém viu o apagamento acontecer.** Quando ele
+   acontecer pela primeira vez, será em produção, sozinho, sem ninguém olhando.
+   **O que conferir:** uma linha `de: X -> sem (loja)` no `detalhes` da rodada do
+   cron, e o `price_original` daquele produto virando nulo. Se aparecer em massa
+   num dia só, é sinal de leitura degradada, não de loja que tirou o desconto.
+
+---
 
 ## P21 — a Amazon lida da página (`clone-ingest` v15, 01/08 fim de tarde)
 
@@ -683,6 +757,28 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**Sessão da noite de 01/08/2026 — P30 entregue.**
+
+| | |
+|---|---|
+| Commits | 1 · `product-refresh` e este doc |
+| Edge Functions | `product-refresh` **v18**, provada com baseline |
+| Migrations | nenhuma |
+| Frontend | **não tocado** |
+| Repo × produção | ✅ **BATEM** |
+
+- **`consultarML` devolve `precoDe`.** Baseline da v17 no mesmo produto: o "de"
+  não era sequer olhado. v18: `de: 169 -> 169.9 (loja)`.
+- **13 de 13 corrigidos**, todos truncamento de centavos. Três não terminam em
+  `,90` — é o que separa "leu a loja" de "chutou um `,90`".
+- **O ramo que apaga o "de" NÃO foi observado.** Não medido, escrito como não
+  medido. Ver a ressalva na seção da P30.
+- **Comentário do tipo `Consulta` corrigido:** ele dava o ML como exemplo de loja
+  que "nem procura" o `precoDe`. Deixou de ser verdade nesta versão, e comentário
+  desatualizado ao lado de uma trava é como a P25 começou.
+
+---
+
 **Sessão do fim da tarde de 01/08/2026 — P21 e P20 entregues e provadas.**
 
 | | |
@@ -1157,7 +1253,7 @@ código não relacionado.
 | **P28** | **Não existe fonte de clone ativa.** `clone_sources` tem uma linha ("TáNaMão", `active=false`) e a "Melhores Ofertas" foi apagada da tabela. Com a Shopee destravada, nada disso aparece em produção enquanto não houver fonte ligada. Ação do Érico, não de código: religar a TáNaMão ou cadastrar um grupo-fonte novo, e então observar uma captura de Shopee real chegar com `data_source='store'` | 01/08 |
 | **P31** | **Filtro de loja por fonte** (ideia do Érico, 01/08). Fonte que presta para uma loja e não para outra — medido na "Melhores Ofertas": Shopee clona, ML não. Desenho: coluna nova `lojas_permitidas text[]` em `clone_sources` (vazio = todas, não altera fontes existentes); filtro **depois** da `resolve-link` e **antes** da `product-search`, que é onde o Scrape.do custa; checkboxes nas **duas** cópias do `index.html`. Um filtro anterior, por domínio do link cru (`meli.la`, `s.shopee.com.br`, `amzn.to`), economiza até a chamada da `resolve-link`, mas não cobre encurtador genérico. **NÃO marcar checkbox automaticamente a partir do teste de clonabilidade:** um teste valida uma loja só; no máximo sugerir. ~~Depende da P20~~ — **a P20 saiu em 01/08**, então o card já pode mostrar "12 Shopee capturadas, 30 ML recusadas" e o filtro vira clique informado em vez de palpite no cadastro. **É a primeira ação da próxima sessão** | 01/08 |
 | **P29** | **Por que 3 rodadas do cron de `product-refresh` conferiram 1 produto só?** Medido: o único carimbo de cron na base é `2026-07-30 09:00:08`, com `BATCH = 12` e ~1,7s por produto. A hipótese do `ORDER BY` foi levantada e **descartada**. Não há explicação testada. ⏰ **Os logs de 29–31/07 EXPIRARAM** — o Supabase só devolve 24h, e a tentativa de 01/08 chegou tarde. **Próxima medição possível: a rodada de 02/08 às 09:00 UTC**, que já roda a v17. Ler no mesmo dia. O que conferir: `candidatos`, `conferidos`, `pulados`, `desconhecidos`, `interrompido_por_tempo` e `duracao_ms` no corpo da resposta, e quantas linhas de `products` ganharam `price_checked_at` naquele horário. Se vier 12 candidatos e ~7 conferidos, o problema era algo que a v17 pegou de raspão e a pendência fecha; se vier 1 de novo, é bug novo com log fresco na mão | 01/08 |
-| **P30** | 🔜 **PRÓXIMA SESSÃO, PRIMEIRA AÇÃO** (combinado com o Érico em 01/08). **`price_original` ("de") continua truncado nos produtos de Mercado Livre.** O `consultarML` não devolve `precoDe`, então a reconciliação da v16 nunca roda para o ML e o "de" mantém o valor inteiro antigo (96 em vez de 96,79). O wa-engine **já devolve** `price_from` com centavos — é só repassar. **Decisão pendente e não trivial:** repassar significa que, quando a loja não mostrar "de", o `precoDe` vira `null` e a v16 **apaga** o "de" existente. Isso remove o desconto de posts que hoje exibem um. Efeito atual do bug é conservador (desconto aparece menor do que é), então não é urgente — mas é o próximo item combinado. **As duas saídas, para decidir antes de codar:** (a) repassar direto e aceitar que o "de" seja apagado quando a loja não mostrar, que é o que a v16 escolheu de propósito para não publicar desconto que não existe; (b) repassar só quando a loja mostrar "de" e nunca apagar, que preserva o desconto atual mas reabre a porta para o "de" de terceiro que o caso La Roche fechou. **DECIDIDO PELO ÉRICO EM 01/08: saída (a), com uma trava que nenhuma das duas tinha.** O que fazia a (b) parecer necessária era o risco de apagar um "de" bom por causa de uma leitura que falhou — e isso não é escolher entre (a) e (b), é distinguir dois casos que a P30 tratava como um só. O `product-refresh` já faz essa distinção e ela está escrita no tipo `Consulta`: **`undefined` = não olhei; `null` = olhei e a loja não mostra.** Só o segundo pode apagar. Patch: `consultarML` devolve `precoDe: null` quando a leitura deu certo e não havia "de", e `undefined` quando a leitura falhou; a reconciliação da v16 só apaga no primeiro caso. **Falta codar** | 01/08 |
+| ~~P30~~ | ✅ **FECHADA 01/08 noite.** `product-refresh` **v18**: `consultarML` devolve `precoDe`, saída (a) com a trava `undefined`/`null`. 13 de 13 corrigidos (169 → 169,90). ⚠️ **O ramo que APAGA não foi observado — não medido.** Ver a ressalva na seção da P30. Registro original abaixo. ~~🔜 **PRÓXIMA SESSÃO, PRIMEIRA AÇÃO** (combinado com o Érico em 01/08).~~ **`price_original` ("de") continua truncado nos produtos de Mercado Livre.** O `consultarML` não devolve `precoDe`, então a reconciliação da v16 nunca roda para o ML e o "de" mantém o valor inteiro antigo (96 em vez de 96,79). O wa-engine **já devolve** `price_from` com centavos — é só repassar. **Decisão pendente e não trivial:** repassar significa que, quando a loja não mostrar "de", o `precoDe` vira `null` e a v16 **apaga** o "de" existente. Isso remove o desconto de posts que hoje exibem um. Efeito atual do bug é conservador (desconto aparece menor do que é), então não é urgente — mas é o próximo item combinado. **As duas saídas, para decidir antes de codar:** (a) repassar direto e aceitar que o "de" seja apagado quando a loja não mostrar, que é o que a v16 escolheu de propósito para não publicar desconto que não existe; (b) repassar só quando a loja mostrar "de" e nunca apagar, que preserva o desconto atual mas reabre a porta para o "de" de terceiro que o caso La Roche fechou. **DECIDIDO PELO ÉRICO EM 01/08: saída (a), com uma trava que nenhuma das duas tinha.** O que fazia a (b) parecer necessária era o risco de apagar um "de" bom por causa de uma leitura que falhou — e isso não é escolher entre (a) e (b), é distinguir dois casos que a P30 tratava como um só. O `product-refresh` já faz essa distinção e ela está escrita no tipo `Consulta`: **`undefined` = não olhei; `null` = olhei e a loja não mostra.** Só o segundo pode apagar. Patch: `consultarML` devolve `precoDe: null` quando a leitura deu certo e não havia "de", e `undefined` quando a leitura falhou; a reconciliação da v16 só apaga no primeiro caso. **Falta codar** | 01/08 |
 | **P15** | **Parcialmente endereçada 31/07 tarde.** Existe agora um smoke test executável: extrair os blocos `<script>`, rodar os quatro **no mesmo contexto** `vm` do Node com um DOM falso permissivo, e comparar contra o baseline **antes** do patch. Foi rodado neste push e pegaria o TDZ do `f94e2f0`. **Duas limitações medidas:** (1) dá falso positivo em `id` de elemento usado como global — `themeT.onclick` na linha 2496 acusa `ReferenceError` no sandbox e funciona no browser; por isso a comparação com o baseline é obrigatória, o veredito é "piorou?", não "tem erro?"; (2) não executa handler nenhum, só o top-level. **Continua aberta:** carregar a página num navegador de verdade e ler o console segue sendo a única prova real | 31/07 |
 | **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
 
@@ -1253,6 +1349,18 @@ código não relacionado.
   produto, e o erro só apareceria etapas depois, com mensagem que não aponta para
   a regra. Por isso a v5 exige 3 segmentos exatos, 6+ dígitos e lista de exclusão.
 
+- **"Escolher entre A e B" às vezes é a pergunta errada — às vezes A e B são o
+  mesmo caso mal separado.** A P30 ficou parada como decisão binária: apagar o
+  "de" quando a loja não mostra, ou nunca apagar. As duas estavam certas sobre
+  metade do problema, porque tratavam "a loja não mostra" e "a leitura falhou"
+  como a mesma coisa. Separados, a decisão evaporou: só o primeiro apaga. E a
+  distinção **já estava escrita no tipo `Consulta` desde a v15** — usada por um
+  ramo e ignorada pelo outro. **Antes de escolher entre duas saídas ruins,
+  perguntar se elas não estão colapsando dois casos diferentes.**
+- **Prova que não disparou não é prova.** A v18 corrigiu 13 de 13 e o ramo que
+  apaga não rodou nenhuma vez. É tentador contar isso como "13/13 de sucesso" e
+  encerrar; o caminho perigoso da mudança continua sem uma única observação.
+  **Contar acertos do ramo fácil não mede o ramo difícil.**
 - **Antes de escrever a peça nova, procurar a peça que já faz isso no mesmo
   repo.** A P21 ficou dois dias catalogada como "falta caminho Amazon na
   `product-search`" — trabalho a fazer. Era trabalho já feito: o
