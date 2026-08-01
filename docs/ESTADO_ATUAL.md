@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 14 — 31/07/2026 (noite).** Se o número aqui não for o mais alto que você
+> **REVISÃO 15 — 31/07/2026 (madrugada de 01/08).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -46,11 +46,110 @@
 >
 > ✅ A `clone-ingest` **v11** foi deployada em 31/07 às 10:32 e **PROVADA** (ver "Auto-publicação" abaixo). P17 fechada.
 >
-> ⚠️ **O que importa saber antes de mexer no Clone Post:** a captura funciona,
-> o **enriquecimento de loja não**. Amazon e Shopee caem sempre no fallback de
-> ler do texto (`data_source='message'`), e a auto-publicação da v11 exige
-> `data_source='store'`. Na prática, hoje **só Mercado Livre auto-publica.**
-> Ver "Clone Post — o que está medido" e as pendências P20/P21.
+> ✅ **SHOPEE DESTRAVADA (REVISÃO 15).** Duas falhas nossas, uma tapando a
+> outra, faziam **toda** consulta de Shopee falhar desde sempre. Consertadas e
+> provadas: `resolve-link` **v5** e `product-search` **v24**. O mesmo link do
+> Radar que ontem era recusado hoje devolve nome, R$ 12,51, −65% e foto.
+> Ver "Shopee — as duas falhas" abaixo. **P26 e P25 fechadas.**
+>
+> ⚠️ **O que importa saber antes de mexer no Clone Post:** a captura funciona;
+> o enriquecimento de loja funciona agora para **Mercado Livre e Shopee**.
+> **Amazon continua caindo no fallback de texto** (`data_source='message'`), e a
+> auto-publicação da v11 exige `data_source='store'`. Ver "Clone Post — o que
+> está medido" e as pendências P20/P21.
+>
+> ⚠️ **Não há nenhuma fonte de clone ativa hoje.** Medido em 01/08: a tabela
+> `clone_sources` tem **uma única linha** — "TáNaMão", com `active=false`. A
+> "Melhores Ofertas da Internet" não está mais na tabela (foi apagada, não só
+> desativada). Enquanto isso a captura automática não roda para ninguém.
+
+## Shopee — as duas falhas, uma escondendo a outra (01/08, madrugada)
+
+O que começou como "a `resolve-link` não conhece um formato de URL" (P26) revelou
+uma segunda falha atrás dela. **As duas eram nossas.** Nenhuma era da Shopee.
+
+### Falha 1 — `resolve-link` v4 não reconhecia `/{loja}/LOJA/ITEM`
+
+**Baseline medido (v4, 01/08):** `https://s.shopee.com.br/4AykYR6yxu` → HTTP 422,
+`stage: normalize`, *"nao tem o codigo -i.LOJA.ITEM"*. O link resolvia
+corretamente para `https://shopee.com.br/opaanlp/1006215031/24442629738` e era
+recusado ali. O primeiro segmento é o **slug da loja** e varia; a v4 só casava
+`/product/LOJA/ITEM` e `-i.LOJA.ITEM`.
+
+**v5 (deployada 01/08).** Regra nova, deliberadamente estrita: exatamente 3
+segmentos, os dois últimos só dígitos e com 6+ dígitos cada, e o primeiro fora de
+uma lista de caminhos da Shopee que não são loja (`search`, `mall`, `m`,
+`collections`, `cart`, …). **Frouxo aqui não erra recusando — erra aceitando**, e
+o erro só apareceria lá na frente com mensagem que não aponta para cá.
+
+| Chamada | v4 | v5 |
+|---|---|---|
+| `s.shopee.com.br/4AykYR6yxu` | **422** *"nao tem o codigo -i.LOJA.ITEM"* | **200** → `/product/1006215031/24442629738` |
+| `shopee.com.br/collections/12345678` (controle) | 422 | **422** — segue recusando |
+
+13 casos de mesa passaram antes do deploy (3 formatos válidos + 8 negativos).
+A mensagem de recusa nova (*"nao achei o par LOJA/ITEM"*) é string que **só existe
+na v5** — foi ela que confirmou ser o código novo respondendo, não cache.
+
+### Falha 2 — `product-search` assinava a Shopee com HMAC em vez de SHA-256
+
+Resolvido o formato, a `product-search` continuou dizendo *"Produto não
+encontrado"*. **Não era o produto.**
+
+A assinatura da API de afiliado da Shopee é **SHA-256 simples** de
+`appId + timestamp + payload + appSecret`. A v22 usava **HMAC-SHA256** com o
+secret como chave. A Shopee respondia **HTTP 200** com
+`{"errors":[{"message":"error [10020]: Invalid Signature"}]}`; o código lia
+`d.data` (null), não achava node, e devolvia *"Produto não encontrado"* — uma
+mensagem que acusa o produto quando a culpa era nossa.
+
+**Medido no mesmo item, mesmas credenciais:**
+
+| Assinatura | Resposta da Shopee |
+|---|---|
+| HMAC-SHA256 (v22) | `error [10020]: Invalid Signature` |
+| SHA-256 simples | Senbenbao X55 · R$ 12,51 · −65% · `imageUrl` preenchida |
+
+**O que deveria ter denunciado isso há semanas:** a `radar/index.ts` **sempre**
+assinou certo (`sha256Hex` de concatenação) e por isso o Radar funcionava. Duas
+implementações da mesma assinatura no mesmo repo, uma certa e uma errada, e
+ninguém comparou. O Radar coletando ofertas da Shopee todo dia era a prova viva
+de que a API respondia.
+
+### Falha 3, que só apareceu depois de consertar a 2 — campo inexistente
+
+Com a assinatura certa a API passou a **de fato ler** a consulta, e a primeira
+coisa que disse foi `Cannot query field "shortLink" on type "ProductOfferV2"`.
+O campo nunca existiu; os nomes certos são `offerLink` e `productLink`.
+**Esse erro esteve ali o tempo todo**, inalcançável porque a requisição morria na
+assinatura antes de chegar ao schema. Um bug tapando o outro tapando o outro.
+`product-search` **v24** corrige.
+
+### Prova final exigida — ponta a ponta, com controle
+
+| Chamada | Resultado |
+|---|---|
+| `product-search` no item do Radar | ✅ `success:true` · *"Senbenbao X55 Fones De Ouvido TWS…"* · **R$ 12,51** · **−65%** · foto `cf.shopee.com.br/…` · `short_link: s.shopee.com.br/4AykYR6yxu` |
+| Item inexistente (`…/99999999999`) | ❌ *"esse produto nao esta no catalogo de ofertas da Shopee"* |
+
+O `short_link` que voltou é **exatamente o link que o Érico testou** — o circuito
+fecha em si mesmo. E o controle importa mais do que parece: o item inexistente
+recusa com a mensagem de **catálogo vazio**, não com a de **erro da API**. Se a
+assinatura ainda estivesse errada, os dois responderiam igual. Foi para separar
+esses dois casos que a v23 passou a dar mensagens diferentes — **a mensagem única
+foi o que escondeu a falha, não a falha em si.**
+
+### P25 estava errada — e o erro tinha a mesma raiz
+
+O registro de 31/07 concluiu que o link avulso do Érico era *"um 'não' da Shopee,
+não falha nossa"*. **Falso, medido em 01/08:** o mesmo
+`/product/1397105725/58213461759`, pela `product-search` v24, devolve
+*"Vestido Corset Feminino Longo Com Elastano…"*, **R$ 200,00**, com foto.
+A conclusão anterior foi tirada da mensagem *"Produto não encontrado"* — que era
+justamente a mensagem enganosa. **Diagnóstico apoiado em mensagem de erro que não
+foi verificada vale tanto quanto a mensagem.**
+
+---
 
 ## Foto obrigatória (`clone-ingest` v13/v14) — ENTREGUE E PROVADA (31/07, fim de tarde)
 
@@ -199,16 +298,19 @@ não se sustenta no log: em 31/07 as duas fontes avaliaram ~32 mensagens,
 | Loja | O que acontece | Onde morre |
 |---|---|---|
 | Mercado Livre | 13 recusas com *"leva a VITRINE do afiliado"* | `resolve-link`. O grupo-fonte posta `meli.la` que cai em `/social/<afiliado>` — vitrine, não produto. **Não é bug nosso: não há produto para clonar.** |
-| Shopee | 10 recusas *"não aponta pra um produto"* | `resolve-link`. ⚠️ **DIAGNÓSTICO CORRIGIDO EM 31/07 À NOITE — ver P26.** A conclusão anterior ("são links que terminam em campanha ou coleção") estava **errada**: existe um **terceiro** formato de URL de produto, `/{slug}/LOJA/ITEM`, que a `resolve-link` não reconhece. Pelo menos parte dessas recusas era página de produto legítima. |
-| Shopee (quando resolve) | `productOfferV2` devolve *"Produto não encontrado"* | `product-search`. A API de afiliado da Shopee **só conhece itens do catálogo de ofertas**, não item arbitrário. Cai no fallback de texto. |
+| Shopee | ✅ **CONSERTADO 01/08 — `resolve-link` v5.** As 10 recusas eram do formato `/{loja}/LOJA/ITEM`, que a v4 não reconhecia. Eram páginas de produto legítimas. O diagnóstico de 31/07 de manhã ("campanha ou coleção") e o da tarde estavam os dois errados | `resolve-link` v5 |
+| Shopee (quando resolve) | ✅ **CONSERTADO 01/08 — `product-search` v24.** O *"Produto não encontrado"* era **assinatura HMAC onde a Shopee espera SHA-256**, mais o campo inexistente `shortLink`. Nada a ver com o catálogo. Agora devolve nome, preço, desconto e foto | `product-search` v24 |
 | Amazon | Sempre cai no fallback de texto | `product-search` **não tem caminho Amazon nenhum** — o `if` cobre só `mercadolivre` e `shopee`. |
 | Mercado Livre (link bom) | ✅ `data_source='store'` | via `/ml-product` com o Scrape.do pessoal do Érico. |
 
-**Consequência direta e não óbvia:** como a auto-publicação exige
-`data_source='store'`, e Amazon e Shopee nunca chegam lá, **ligar `auto_publish`
-hoje só muda o comportamento de captura de Mercado Livre.** Para as outras
-lojas o toggle existe e não faz nada visível — exatamente o tipo de "mecanismo
-que parece existir e não executa nada" que este projeto já pagou caro.
+**Consequência direta e não óbvia — ATUALIZADA em 01/08:** a auto-publicação
+exige `data_source='store'`. Com a Shopee consertada, **`auto_publish` passa a
+valer para Mercado Livre E Shopee**. Só a **Amazon** continua fora, e por motivo
+próprio (P21). Antes de 01/08 o toggle não fazia nada visível fora do ML —
+exatamente o tipo de "mecanismo que parece existir e não executa nada" que este
+projeto já pagou caro. **Ainda NÃO observado:** captura de Shopee de mensagem de
+grupo de verdade chegando a `data_source='store'`. O caminho foi provado peça a
+peça, não ponta a ponta com mensagem real — e não há fonte ativa para isso hoje.
 
 **Sintoma visível na fila:** as 6 capturas de hoje têm título lido do texto, e
 dois deles são lixo — `"10% OFF"` e `"🔗 https://amzlink.to/az0FxCZ9opMuN"`.
@@ -290,6 +392,47 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**Sessão da madrugada de 01/08/2026** — destrava a Shopee inteira. `resolve-link`
+**v5** e `product-search` **v24** deployadas e provadas ponta a ponta. **P26 e
+P25 fechadas.** Duas falhas nossas, uma escondendo a outra, mais uma terceira
+escondida atrás da segunda. Ver "Shopee — as duas falhas" acima.
+
+| | |
+|---|---|
+| Commits | 1 · `resolve-link`, `product-search` e este doc |
+| Edge Functions | `resolve-link` **v5**, `product-search` **v24**, as duas provadas |
+| Migrations | nenhuma. **Nenhuma coluna nova** |
+| Frontend | **não tocado** nesta sessão |
+| Repo × produção | ✅ **BATEM** (arquivo deployado conferido byte a byte contra o do repo antes do deploy) |
+
+**O que foi medido nesta sessão:**
+
+- Baseline da v4 reproduzido antes de qualquer alteração: 422 no link real do
+  Radar. Depois v5: 200 com a URL normalizada. **Controle negativo
+  (`/collections/12345678`) continua sendo recusado** — a regra não ficou frouxa.
+- A assinatura da Shopee testada nas duas formas, mesmas credenciais, mesmo item:
+  HMAC → `Invalid Signature`; SHA-256 → produto completo. **A `radar/index.ts`
+  sempre assinou certo** — a divergência estava dentro do próprio repo.
+- `radar_offers` confirma que o item 24442629738 **está** no catálogo (coletado
+  01/08 02:00 UTC, R$ 12,51). Foi essa consulta que derrubou a hipótese de
+  "produto fora do catálogo" e mandou olhar a assinatura.
+- P25 revisitada e **derrubada**: o link avulso do Érico devolve *"Vestido Corset
+  Feminino Longo…"*, R$ 200, com foto. Não era "não" da Shopee.
+- **`clone_sources` tem uma única linha e ela está `active=false`.** A "Melhores
+  Ofertas da Internet" não está mais na tabela. **Zero fontes ativas** — a captura
+  automática não roda para ninguém hoje. Não foi alterado nada: é decisão do Érico.
+
+**Como chamar função com `verify_jwt: true` sem navegador** (não estava escrito):
+o sandbox não alcança `*.supabase.co`, mas o Postgres alcança, e a **anon key
+legada é um JWT válido**. `net.http_post` com
+`Authorization: Bearer <anon legado>` executa `resolve-link` e `product-search`,
+e o corpo volta em `net._http_response`. Foi assim que tudo aqui foi medido.
+⚠️ **Cuidado que custou três tentativas:** para assinar payload à mão em SQL, o
+`net.http_post` **re-serializa** o `jsonb` antes de enviar, então a assinatura
+precisa ser calculada sobre `payload::jsonb::text`, não sobre a string original.
+
+---
 
 **Sessão de 31/07/2026 (tarde e fim de tarde)** — deploya e prova a v12 (P22),
 fecha o P24, encerra o caso da vitrine do ML, entrega a **parte (a) do P23**
@@ -670,8 +813,10 @@ código não relacionado.
 | ~~P24~~ | ✅ **FECHADA 31/07 tarde.** O `+ Nova fonte` **funciona** — Érico clicou e o formulário abriu. A hipótese do `S.waNumber` não se confirmou. Nenhuma linha de código foi alterada. Lição: pendência aberta a partir de relato sem reprodução custou uma sessão de suspeita sobre código sadio | 31/07 |
 | **P20** | `clone_ingest_log` não guarda a URL que falhou. Nas 24 recusas de `resolve_falhou` de hoje dá para contar mas não para saber *quais* links, nem reproduzir. Guardar host+path do link escolhido (não o texto da mensagem — conteúdo de terceiro) nas recusas de resolve | 31/07 manhã |
 | **P21** | **Causa medida em 31/07: a `product-search` PENDURA para a Amazon** — mais de 90s sem responder, testado no navegador logado; o `chamarFuncao` aborta em 30s e a loja sempre "falha". Não é só "falta caminho Amazon": há um travamento. A v14 contornou o sintoma da foto (og:image via Microlink), **mas título e preço da Amazon continuam vindo do texto da mensagem** (`data_source='message'`), então a auto-publicação segue alcançando só o Mercado Livre. Decidir: (a) achar o travamento da `product-search`, (b) usar o título/preço do Microlink — ele devolve o título real, medido —, ou (c) a UI avisar que auto-publicar só vale para ML | 31/07 |
-| **P25** | ✅ **MEDIDO 31/07 à noite, com o link real do Érico.** `resolve-link` **funciona** (270 ms, limpa para `/product/1397105725/58213461759`); quem recusa é a `product-search` com *"Produto não encontrado"* em 1,1 s — a API de afiliado da Shopee só conhece item do **catálogo de ofertas** dela, e produto avulso não está lá. **É um "não" da Shopee, não falha nossa.** O Microlink **não** cobre este caso: devolveu título `"58213461759"` (só o ID) e imagem nula, porque a Shopee monta a página por JavaScript. Restam: (a) Scrape.do na página (queima crédito, decisão de orçamento), (b) preencher à mão, (c) **mínimo valioso e barato: a tela avisar em português** que a Shopee não reconhece o produto, em vez de só gerar o link em silêncio | 31/07 |
-| **P26** | 🔴 **A `resolve-link` não reconhece o formato de URL de produto que o próprio Radar da plataforma gera.** MEDIDO 31/07 à noite: `https://s.shopee.com.br/4AykYR6yxu` (link de oferta do Radar) redireciona para `https://shopee.com.br/**opaanlp**/1006215031/24442629738` — mesma estrutura de `/product/LOJA/ITEM`, **primeiro segmento variável**. A `resolve-link` só casa `/product/LOJA/ITEM` e `-i.LOJA.ITEM`, então recusa com *"não tem o código -i.LOJA.ITEM"* uma página de produto legítima, com loja e item visíveis na própria URL. **Conserto é uma regra a mais no reconhecimento de URL — pequeno em tamanho, grande em efeito.** Duplamente relevante: (1) reabre as 10 recusas de Shopee do log, cujo diagnóstico anterior estava errado; (2) esse produto **está** no catálogo de ofertas, então, resolvido o formato, a `product-search` deve responder com nome, preço e foto — diferente do caso da P25. **Exige reemitir a `resolve-link` inteira num deploy só: fazer em sessão limpa, primeira ação.** | 31/07 |
+| ~~P25~~ | ✅ **FECHADA 01/08 — e a conclusão anterior estava ERRADA.** O link avulso devolve *"Vestido Corset Feminino Longo…"*, R$ 200, com foto, pela `product-search` v24. Não era "não" da Shopee: era a assinatura HMAC. O registro abaixo ficou como exemplo de diagnóstico tirado de mensagem de erro não verificada. ~~**MEDIDO 31/07 à noite, com o link real do Érico.**~~ `resolve-link` **funciona** (270 ms, limpa para `/product/1397105725/58213461759`); quem recusa é a `product-search` com *"Produto não encontrado"* em 1,1 s — a API de afiliado da Shopee só conhece item do **catálogo de ofertas** dela, e produto avulso não está lá. **É um "não" da Shopee, não falha nossa.** O Microlink **não** cobre este caso: devolveu título `"58213461759"` (só o ID) e imagem nula, porque a Shopee monta a página por JavaScript. Restam: (a) Scrape.do na página (queima crédito, decisão de orçamento), (b) preencher à mão, (c) **mínimo valioso e barato: a tela avisar em português** que a Shopee não reconhece o produto, em vez de só gerar o link em silêncio | 31/07 |
+| ~~P26~~ | ✅ **FECHADA 01/08.** `resolve-link` v5 deployada e provada com baseline (v4 recusando) e controle negativo (`/collections/…` segue recusado). Registro original abaixo. 🔴 **A `resolve-link` não reconhecia o formato de URL de produto que o próprio Radar da plataforma gera.** MEDIDO 31/07 à noite: `https://s.shopee.com.br/4AykYR6yxu` (link de oferta do Radar) redireciona para `https://shopee.com.br/**opaanlp**/1006215031/24442629738` — mesma estrutura de `/product/LOJA/ITEM`, **primeiro segmento variável**. A `resolve-link` só casa `/product/LOJA/ITEM` e `-i.LOJA.ITEM`, então recusa com *"não tem o código -i.LOJA.ITEM"* uma página de produto legítima, com loja e item visíveis na própria URL. **Conserto é uma regra a mais no reconhecimento de URL — pequeno em tamanho, grande em efeito.** Duplamente relevante: (1) reabre as 10 recusas de Shopee do log, cujo diagnóstico anterior estava errado; (2) esse produto **está** no catálogo de ofertas, então, resolvido o formato, a `product-search` deve responder com nome, preço e foto — diferente do caso da P25. **Exige reemitir a `resolve-link` inteira num deploy só: fazer em sessão limpa, primeira ação.** | 31/07 |
+| **P27** | **Reprocessar as capturas de Shopee recusadas antes de 01/08.** As recusas de `resolve_falhou` e as capturas que caíram em `data_source='message'` por causa das duas falhas da Shopee eram, em boa parte, ofertas boas. A action `reparse` da `clone-ingest` reaplica o fallback de texto, mas **não** refaz `resolve-link` + `product-search` — não serve. Decidir: (a) estender o `reparse` para reprocessar de verdade, (b) deixar passar e olhar só daqui pra frente. Bloqueado de fato pela P20: o log **não guarda a URL**, então nem dá pra reprocessar as recusas de resolve | 01/08 |
+| **P28** | **Não existe fonte de clone ativa.** `clone_sources` tem uma linha ("TáNaMão", `active=false`) e a "Melhores Ofertas" foi apagada da tabela. Com a Shopee destravada, nada disso aparece em produção enquanto não houver fonte ligada. Ação do Érico, não de código: religar a TáNaMão ou cadastrar um grupo-fonte novo, e então observar uma captura de Shopee real chegar com `data_source='store'` | 01/08 |
 | **P15** | **Parcialmente endereçada 31/07 tarde.** Existe agora um smoke test executável: extrair os blocos `<script>`, rodar os quatro **no mesmo contexto** `vm` do Node com um DOM falso permissivo, e comparar contra o baseline **antes** do patch. Foi rodado neste push e pegaria o TDZ do `f94e2f0`. **Duas limitações medidas:** (1) dá falso positivo em `id` de elemento usado como global — `themeT.onclick` na linha 2496 acusa `ReferenceError` no sandbox e funciona no browser; por isso a comparação com o baseline é obrigatória, o veredito é "piorou?", não "tem erro?"; (2) não executa handler nenhum, só o top-level. **Continua aberta:** carregar a página num navegador de verdade e ler o console segue sendo a única prova real | 31/07 |
 | **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
 
@@ -726,6 +871,30 @@ código não relacionado.
   frontend antes das Edge Functions. O auto-deploy publicou sozinho e a ordem foi
   invertida sem ninguém desobedecer nada. Gate que depende de um humano não
   clicar não é gate quando existe webhook. Ver P16.
+
+- **Mensagem de erro única para causas diferentes é o que esconde bug por semanas.**
+  A `product-search` devolvia *"Produto não encontrado"* tanto quando a Shopee
+  respondia lista vazia quanto quando ela **recusava a requisição inteira**. As
+  duas coisas não têm nada a ver uma com a outra, e a mensagem apontava para a
+  errada — para o produto, quando a culpa era da nossa assinatura. Um diagnóstico
+  inteiro (P25) foi construído em cima dela e estava errado. **Antes de concluir
+  a partir de uma mensagem de erro, verificar que a mensagem descreve o que
+  aconteceu.**
+- **Duas implementações da mesma coisa no mesmo repo divergem, e a que funciona
+  não avisa a que não funciona.** `radar/index.ts` assinava a Shopee com SHA-256;
+  `product-search` com HMAC. O Radar coletava ofertas todo dia enquanto a
+  `product-search` falhava 100% das vezes. **Quando um caminho funciona e outro
+  não para o mesmo serviço externo, comparar os dois é o primeiro passo, não o
+  último.**
+- **Bug pode estar tapando bug.** Consertada a assinatura, apareceu na hora um
+  campo inexistente no GraphQL (`shortLink`) que estava ali desde sempre — a
+  requisição morria antes de chegar ao schema. **Consertar a primeira falha não
+  é o fim; é quando as seguintes ficam visíveis.** Medir de novo depois de cada
+  conserto, sem assumir que acabou.
+- **Regra de reconhecimento de URL: frouxa não erra recusando, erra aceitando.**
+  Uma regra `/{qualquer}/DIGITOS/DIGITOS` aceitaria caminho de sistema como
+  produto, e o erro só apareceria etapas depois, com mensagem que não aponta para
+  a regra. Por isso a v5 exige 3 segmentos exatos, 6+ dígitos e lista de exclusão.
 
 **Sobre UX**
 

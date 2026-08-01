@@ -1,4 +1,27 @@
-// product-search v22 — adiciona fallback de cookie de sessao do ML (alternativa ao Scrape.do)
+// product-search v24 — conserta a assinatura da Shopee E o campo inexistente
+// v24 (31/07, noite): com a assinatura certa a API passou a de fato LER a
+//   consulta, e a primeira coisa que ela disse foi
+//   'Cannot query field "shortLink" on type "ProductOfferV2"'. O campo nunca
+//   existiu; o nome certo e offerLink (link de afiliado) e productLink (pagina).
+//   Esse erro estava ali o tempo todo, escondido atras do 10020: a requisicao
+//   morria na assinatura antes de chegar no schema. Um bug tapando o outro.
+//   MEDIDO: offerLink do item 24442629738 volta https://s.shopee.com.br/4AykYR6yxu
+//   — exatamente o link que originou esta investigacao.
+// v23 — conserta a assinatura da API de afiliado da Shopee
+// v23 (31/07, noite): a assinatura da Shopee e SHA-256 SIMPLES de
+//   appId + timestamp + payload + appSecret. A v22 usava HMAC-SHA256 com o
+//   secret como chave. A Shopee respondia {"errors":[{"message":"error [10020]:
+//   Invalid Signature"}]} com HTTP 200, o codigo lia d.data (null), nao achava
+//   node e devolvia "Produto nao encontrado" — mensagem que aponta pro produto
+//   quando o problema era nosso. TODA consulta de Shopee falhava assim.
+//   MEDIDO em 31/07 no item 24442629738/loja 1006215031, mesmas credenciais:
+//     HMAC        -> error [10020]: Invalid Signature
+//     SHA-256     -> Senbenbao X55, R$ 12,51, -65%, imageUrl preenchida
+//   A radar/index.ts sempre assinou certo (sha256Hex de concatenacao) e por isso
+//   o Radar funcionava enquanto a product-search nao — duas implementacoes da
+//   mesma assinatura, uma certa e uma errada, no mesmo repo.
+//   Agora erro da API e resultado vazio devolvem mensagens DIFERENTES: foi a
+//   mensagem unica que escondeu isso, nao a falha em si.
 // v22: busca ml_session_cookie do profile do usuario e repassa ao wa-engine como userMlCookie;
 //   o wa-engine tenta esse cookie ANTES do Scrape.do (gratis, sem gastar credito, e nao depende
 //   do pool de IPs residenciais do Scrape.do que o ML está bloqueando).
@@ -32,6 +55,13 @@ async function fw(url: string, opts: RequestInit = {}, ms = 10000): Promise<Resp
   const t = setTimeout(() => c.abort(), ms);
   try { return await fetch(url, { ...opts, signal: c.signal }); }
   finally { clearTimeout(t); }
+}
+
+// Assinatura da API de afiliado da Shopee: SHA-256 simples da concatenacao.
+// NAO e HMAC — ver o cabecalho da v23. Web Crypto, sem import de terceiro.
+async function sha256Hex(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 function detectStore(url: string): string {
@@ -211,15 +241,14 @@ async function fetchMercadoLivre(url: string, waEngineUrl: string, waEngineToken
 }
 
 async function fetchShopee(url: string, appId: string, appSecret: string): Promise<any> {
-  const { createHmac } = await import("https://deno.land/std@0.168.0/node/crypto.ts");
   let itemId: string | undefined, shopId: string | undefined;
   const m = url.match(/\/product\/(\d+)\/(\d+)/);
   if (m) { shopId = m[1]; itemId = m[2]; }
   if (!itemId || !shopId) return { success: false, store: "shopee", error: "IDs do produto não encontrados no link" };
-  const query = `{ productOfferV2(itemId: ${itemId}, shopId: ${shopId}) { nodes { itemId shopId productName imageUrl price priceMin priceDiscountRate commissionRate ratingStar sales shortLink } } }`;
+  const query = `{ productOfferV2(itemId: ${itemId}, shopId: ${shopId}) { nodes { itemId shopId productName imageUrl price priceMin priceDiscountRate commissionRate ratingStar sales offerLink productLink } } }`;
   const ts = Math.floor(Date.now() / 1000);
   const payload = JSON.stringify({ query });
-  const sig = createHmac("sha256", appSecret).update(`${appId}${ts}${payload}${appSecret}`).digest("hex");
+  const sig = await sha256Hex(`${appId}${ts}${payload}${appSecret}`);
   const r = await fw("https://open-api.affiliate.shopee.com.br/graphql", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `SHA256 Credential=${appId},Timestamp=${ts},Signature=${sig}` },
@@ -227,8 +256,15 @@ async function fetchShopee(url: string, appId: string, appSecret: string): Promi
   }, 10000);
   if (!r.ok) return { success: false, store: "shopee", error: `HTTP ${r.status}` };
   const d = await r.json();
+  // A Shopee devolve HTTP 200 com {errors:[...]} quando recusa a consulta.
+  // Misturar isso com "resultado vazio" foi o que escondeu a assinatura errada.
+  if (Array.isArray(d?.errors) && d.errors.length) {
+    const msg = String(d.errors[0]?.message ?? "sem mensagem");
+    console.warn(`[shopee] a API recusou a consulta: ${msg}`);
+    return { success: false, store: "shopee", error: `a Shopee recusou a consulta: ${msg}` };
+  }
   const node = d?.data?.productOfferV2?.nodes?.[0];
-  if (!node) return { success: false, store: "shopee", error: "Produto não encontrado" };
+  if (!node) return { success: false, store: "shopee", error: "esse produto nao esta no catalogo de ofertas da Shopee" };
   return {
     success: true, source: "api", store: "shopee",
     name: node.productName, title: node.productName,
@@ -237,7 +273,8 @@ async function fetchShopee(url: string, appId: string, appSecret: string): Promi
     price_to: node.priceMin ? String(node.priceMin) : undefined,
     commission_rate: node.commissionRate,
     discount_pct: node.priceDiscountRate ? Math.round(node.priceDiscountRate) : undefined,
-    rating: node.ratingStar, sales: node.sales, short_link: node.shortLink,
+    rating: node.ratingStar, sales: node.sales, short_link: node.offerLink,
+    product_link: node.productLink,
   };
 }
 
@@ -245,14 +282,14 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   try {
     const { url, credentials = {} } = await req.json();
-    console.log(`[product-search v22] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
+    console.log(`[product-search v24] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
     if (!url || !/^https?:\/\//i.test(url))
       return new Response(JSON.stringify({ success: false, error: "URL inválida" }), { status: 400, headers: { ...CORS, "Content-Type": "application/json" } });
 
     const store = detectStore(url);
     const authHeader = req.headers.get("authorization");
     const userId = getUserIdFromJwt(authHeader);
-    console.log(`[product-search v22] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
+    console.log(`[product-search v24] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
 
     const waEngineUrl = Deno.env.get("WA_ENGINE_URL") || "https://megalinksbr-wa-engine.fwezsn.easypanel.host";
     const waEngineToken = Deno.env.get("WA_ENGINE_TOKEN") || "";
@@ -270,7 +307,7 @@ Deno.serve(async (req: Request) => {
       result = result || { success: false, source: "none", store, error: "Loja sem integração automática. Preencha manualmente." };
     }
 
-    console.log(`[product-search v22] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
+    console.log(`[product-search v24] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
     return new Response(JSON.stringify(result), { headers: { ...CORS, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ success: false, error: (e as Error).message }), { status: 500, headers: { ...CORS, "Content-Type": "application/json" } });
