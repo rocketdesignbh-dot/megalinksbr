@@ -1,4 +1,21 @@
-// product-search v24 — conserta a assinatura da Shopee E o campo inexistente
+// product-search v25 — a Shopee para de devolver um "de" que nao existe (P32)
+// v25 (01/08, noite): MEDIDO em producao, 3 de 3 capturas reais de Shopee
+//   chegaram com price_original IGUAL a price e ainda assim um desconto de 53%,
+//   42% e 35%. Os produtos entraram no rodizio do grupo e o post sairia
+//   "De R$ 56,80 por R$ 56,80 - 53% OFF".
+//   A causa estava aqui: `price_from` era preenchido com `node.price`, que NAO
+//   e o preco anterior — e o preco de venda, o mesmo valor que `priceMin`. A
+//   consulta GraphQL nem pede o preco original; a API so informa a TAXA
+//   (`priceDiscountRate`). Ou seja, o campo carregava um numero que nunca foi um
+//   "de", e nada no caminho conciliava os dois.
+//   CONSERTO: nao mandar `price_from` nenhum para a Shopee. Se a loja nao diz
+//   qual era o preco antes, a plataforma nao afirma — mesma regra do buybox da
+//   Amazon, que devolve null quando as duas testemunhas nao concordam. O selo de
+//   desconto continua, porque esse a API afirma.
+//   DESCARTADO de proposito: calcular price/(1-taxa). Devolveria o riscado, mas
+//   seria numero DEDUZIDO e nao lido, sujeito a arredondamento — exatamente a
+//   classe de erro que a P21 e a P30 fecharam do outro lado.
+// v24 — conserta a assinatura da Shopee E o campo inexistente
 // v24 (31/07, noite): com a assinatura certa a API passou a de fato LER a
 //   consulta, e a primeira coisa que ela disse foi
 //   'Cannot query field "shortLink" on type "ProductOfferV2"'. O campo nunca
@@ -269,7 +286,9 @@ async function fetchShopee(url: string, appId: string, appSecret: string): Promi
     success: true, source: "api", store: "shopee",
     name: node.productName, title: node.productName,
     image: node.imageUrl, thumbnail: node.imageUrl,
-    price_from: node.price ? String(node.price) : undefined,
+    // v25/P32: `price_from` NAO e enviado, de proposito. `node.price` e o preco
+    // de venda (mesmo valor de `priceMin`), nao o preco anterior. `undefined`
+    // aqui quer dizer "a Shopee nao informa o de" — e quem le nao inventa um.
     price_to: node.priceMin ? String(node.priceMin) : undefined,
     commission_rate: node.commissionRate,
     discount_pct: node.priceDiscountRate ? Math.round(node.priceDiscountRate) : undefined,
