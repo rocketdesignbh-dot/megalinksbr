@@ -1,4 +1,21 @@
-// resolve-link v4 - resolve o link de um post copiado de outro grupo (Clone Post)
+// resolve-link v5 - resolve o link de um post copiado de outro grupo (Clone Post)
+//
+// v5 (31/07, noite) - TERCEIRO formato de URL de produto da Shopee: /{loja}/LOJA/ITEM.
+//   MEDIDO: https://s.shopee.com.br/4AykYR6yxu (link gerado pelo Radar DESTA
+//   plataforma) redireciona para
+//   https://shopee.com.br/opaanlp/1006215031/24442629738?...
+//   O primeiro segmento e o slug da loja e VARIA - nao e a palavra "product".
+//   A v4 so casava /product/LOJA/ITEM e -i.LOJA.ITEM, entao recusava com
+//   "nao tem o codigo -i.LOJA.ITEM" uma pagina de produto legitima, com loja e
+//   item visiveis na propria URL. Era a nossa propria oferta sendo rejeitada.
+//   O item 24442629738 esta em radar_offers (Senbenbao X55, R$ 12,51, -65%),
+//   ou seja, veio do catalogo de ofertas da Shopee - nao era link ruim.
+//
+//   O casamento e ESTRITO de proposito: exatamente 3 segmentos, os dois ultimos
+//   so digitos e com 6+ digitos cada, e o primeiro segmento fora de uma lista de
+//   caminhos conhecidos da Shopee que nao sao loja. Regra frouxa aqui nao erra
+//   recusando: erra ACEITANDO uma pagina que nao e produto, e ai o erro so
+//   aparece la na frente, na product-search, com mensagem que nao aponta pra ca.
 //
 // Medido com dois posts reais (29/07):
 //  - go.promozone.ai/shopee/lld73p -> SPA que so redireciona por JavaScript.
@@ -54,6 +71,15 @@ const SHORTENER_HOSTS = ["s.shopee.com.br", "l.shopee.com.br", "shope.ee", "amzn
 const SHORTENER_PATHS = ["/sec/", "/an_redir", "/gz/webdevice"];
 // Parametros que carregam a url de destino dentro de uma url de rastreio.
 const WRAPPER_PARAMS = ["origin_link", "originLink", "go", "url", "redirect", "target", "dest", "u"];
+
+// Primeiros segmentos de path da Shopee que NAO sao slug de loja. Sem esta
+// lista, /{qualquer}/DIGITOS/DIGITOS aceitaria caminho de sistema como produto.
+const SHOPEE_NAO_LOJA = new Set([
+  "product", "search", "shop", "mall", "m", "web", "api", "oauth", "login",
+  "cart", "user", "buyer", "seller", "voucher", "campaign", "collections",
+  "daily_discover", "flash_sale", "find_similar_products", "universal-link",
+  "verify", "checkout", "wallet", "livestream", "video", "feed",
+]);
 
 const STORE_LABEL: Record<string, string> = {
   mercadolivre: "Mercado Livre", shopee: "Shopee", amazon: "Amazon",
@@ -220,7 +246,12 @@ function normalize(url: string, store: string): { url: string; error?: string } 
       if (/\/product\/\d+\/\d+/.test(u.pathname)) return { url: `https://shopee.com.br${u.pathname}` };
       const m = u.pathname.match(/-i\.(\d+)\.(\d+)/);
       if (m) return { url: `https://shopee.com.br/product/${m[1]}/${m[2]}` };
-      return { url, error: "esse link da Shopee nao aponta pra um produto (nao tem o codigo -i.LOJA.ITEM). Abra a oferta e copie o link da pagina do produto." };
+      // v5: /{slug-da-loja}/LOJA/ITEM - o formato que o Radar desta plataforma gera.
+      const slug = u.pathname.match(/^\/([^\/]+)\/(\d{6,})\/(\d{6,})\/?$/);
+      if (slug && !SHOPEE_NAO_LOJA.has(decodeURIComponent(slug[1]).toLowerCase())) {
+        return { url: `https://shopee.com.br/product/${slug[2]}/${slug[3]}` };
+      }
+      return { url, error: "esse link da Shopee nao aponta pra um produto (nao achei o par LOJA/ITEM na URL). Abra a oferta e copie o link da pagina do produto." };
     }
     if (store === "amazon") {
       const m = u.pathname.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
@@ -284,7 +315,7 @@ Deno.serve(async (req: Request) => {
     if (norm.error) {
       return json({ ok: false, stage: "normalize", original: picked, resolved, store, store_label: STORE_LABEL[store] || "", hops, trail, error: norm.error }, 422);
     }
-    console.log(`[resolve-link v4] ok store=${store} hops=${hops} stripped=${allStripped.join(",") || "-"} -> ${norm.url.slice(0, 80)}`);
+    console.log(`[resolve-link v5] ok store=${store} hops=${hops} stripped=${allStripped.join(",") || "-"} -> ${norm.url.slice(0, 80)}`);
     return json({
       ok: true, original: picked, resolved, url: norm.url, store,
       store_label: STORE_LABEL[store] || "", hops, trail, stripped: allStripped,
@@ -292,7 +323,7 @@ Deno.serve(async (req: Request) => {
       other_urls: urls.filter((u) => u !== picked).slice(0, 5),
     });
   } catch (e) {
-    console.error("[resolve-link v4] FALHOU:", (e as Error).message);
+    console.error("[resolve-link v5] FALHOU:", (e as Error).message);
     return json({ ok: false, stage: "server", error: (e as Error).message }, 500);
   }
 });
