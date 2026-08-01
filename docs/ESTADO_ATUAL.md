@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 22 — 01/08/2026 (noite).** Se o número aqui não for o mais alto que você
+> **REVISÃO 23 — 01/08/2026 (noite).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -40,11 +40,11 @@
 
 ---
 
-> 🟡 **P31 ENTREGUE, FALTA O DEPLOY (REVISÃO 22).** `clone-ingest` **v16** e o
-> filtro de loja por fonte estão no ar **no backend, provado com baseline e dois
-> controles**. O frontend está commitado e **ainda NÃO foi para o ar**: precisa do
-> botão **Deploy** no EasyPanel e de uma conferência no navegador. Até isso
-> acontecer, o filtro existe e não tem tela — ver "P31" abaixo.
+> ✅ **P31 FECHADA (REVISÃO 23).** `clone-ingest` **v16**, coluna
+> `lojas_permitidas` e a tela — backend provado com baseline e dois controles,
+> **frontend deployado e conferido no navegador**: as funções novas existem no
+> código servido, o console está limpo num load completo, e os três estados do
+> card foram exercitados na página real. Ver "P31" abaixo.
 >
 > ✅ **P30 FECHADA (REVISÃO 21).** `product-refresh` **v18**: o `consultarML`
 > passa a devolver `precoDe`, e a reconciliação da v16 finalmente roda para o
@@ -79,9 +79,9 @@
 >
 > A P21 e a P20 saíram nesta sessão. Sobra:
 >
-> **1ª — Deploy do frontend no EasyPanel e console limpo.** A P31 backend está
-> provada; a tela está commitada e não servida. Enquanto isso, o filtro só é
-> alcançável por SQL.
+> **1ª — um chip clicado de verdade, na sessão logada do Érico.** O render foi
+> provado no navegador com dados sintéticos; o `csAlternarLoja` gravando no banco
+> a partir de um clique real **não foi observado** — ver a ressalva na P31.
 > **2ª — observar o ramo que APAGA o "de"** (P30). Ele foi autorizado, deployado
 > e **nunca disparou em 13 medições**. Não está provado que funciona — está
 > provado que não foi acionado. Ver a ressalva na P30.
@@ -178,11 +178,43 @@ Nas **duas** cópias do `index.html` (`md5sum` confere byte a byte):
 smoke test do P15 (blocos no mesmo contexto `vm`, DOM falso) **comparado com o
 baseline** — resultado idêntico ao do `HEAD` anterior, ou seja, não piorou.
 
-⚠️ **O que NÃO está provado:** a tela carregando num navegador de verdade. O
-`node --check` não pega Temporal Dead Zone — foi exatamente assim que o
-`f94e2f0` derrubou o site inteiro em 31/07 passando por todas as verificações de
-entrega. **Enquanto o Deploy não for clicado e o console não for lido, o
-frontend da P31 é "commitado", não "funcionando".**
+### Deployado e conferido no navegador (01/08, 18:20)
+
+Build do EasyPanel: Success. **Mas Success é entrega de bytes** — o `f94e2f0`
+também deu Success e derrubou o site. O que foi lido na página servida:
+
+| Conferência | Resultado |
+|---|---|
+| `csAlternarLoja`, `csLojasHtml`, `csCarregarLojas`, `csSugestaoLoja`, `csLojasContagemHtml` | **todas `function`** |
+| `CS_LOJAS_FILTRO` | `["mercadolivre","shopee","amazon"]` |
+| `CS_ROTULO_STATUS.loja_filtrada` | *"de loja que você não escolheu"* |
+| Regra CSS `.cs-loja` nas folhas carregadas | presente |
+| `csRender` e `csSalvar` (controle: peças antigas) | **continuam `function`** |
+| Console num load completo | **zero erros** |
+
+O controle das peças antigas é o que descarta TDZ: se o bloco `<script>` tivesse
+explodido no meio, `csRender` teria sumido junto — foi exatamente essa a assinatura
+do `f94e2f0`. Todas responderem `function` prova que o bloco chegou ao fim.
+
+**Os três estados do card exercitados na página real**, com `CS_LOJAS_LOG`
+sintético e restaurado depois:
+
+| `lojas_permitidas` | texto do card | chips acesos |
+|---|---|---|
+| `[]` | *"🏬 clona **qualquer loja**"* | **0** |
+| `["shopee"]` | *"🏬 só clona: **Shopee**"* | **1** |
+| `["shopee","amazon"]` | *"🏬 só clona: **Shopee, Amazon**"* | 2 |
+
+E a contagem por loja renderizou exatamente a frase que motivou a pendência:
+*"Mercado Livre: 30 recusada(s) · Shopee: 12 capturada(s) · 1 recusada(s) —
+últimos 7 dias"*. A sugestão do teste devolve **string vazia** para loja fora da
+lista, em vez de markup quebrado.
+
+⚠️ **O que continua NÃO observado:** um **clique real** num chip, na sessão
+logada, gravando `lojas_permitidas` no banco. O que foi provado é que a função
+existe, que o render está certo e que o `update` do Supabase é o mesmo padrão do
+`csAlternar` (que funciona). **A escrita a partir do clique é dedução, não
+medição** — e neste projeto essa diferença já custou uma pendência inteira.
 
 ---
 
@@ -855,8 +887,8 @@ desmarcado = não posta, não posta de outro jeito.
 | Commits | 1 · `clone-ingest`, as **duas** cópias do `index.html` e este doc |
 | Edge Functions | `clone-ingest` **v16**, provada com baseline e 2 controles |
 | Migrations | 1 · `clone_sources_lojas_permitidas` |
-| Frontend | **tocado nas duas cópias** (`md5sum` idêntico) — **NÃO servido ainda** |
-| Repo × produção | ✅ backend · 🟡 **frontend: repo à frente do que está no ar** |
+| Frontend | **tocado nas duas cópias** (`md5sum` idêntico), **deployado e conferido no navegador** |
+| Repo × produção | ✅ **BATEM** |
 
 - **Filtro de loja provado com o controle que importava**: `lojas_permitidas`
   vazio é indistinguível de não ter filtro. Sem esse controle, a migration
@@ -865,7 +897,10 @@ desmarcado = não posta, não posta de outro jeito.
   ordem da pauta (P20 antes da P31) não era arbitrária e se pagou.
 - **Nada de marcar checkbox a partir do teste de clonabilidade** — sugere e
   explica por que não marca.
-- ⚠️ **Frontend não conferido em navegador.** Ver a ressalva na seção da P31.
+- **Frontend deployado 18:20 e conferido no navegador:** funções novas presentes
+  no código servido, console limpo, e as peças ANTIGAS (`csRender`, `csSalvar`)
+  continuam de pé — é esse controle que descarta o TDZ do `f94e2f0`.
+- ⚠️ **Clique real num chip continua não observado.** Ver a ressalva na P31.
 
 ---
 
@@ -1363,7 +1398,7 @@ código não relacionado.
 | ~~P26~~ | ✅ **FECHADA 01/08.** `resolve-link` v5 deployada e provada com baseline (v4 recusando) e controle negativo (`/collections/…` segue recusado). Registro original abaixo. 🔴 **A `resolve-link` não reconhecia o formato de URL de produto que o próprio Radar da plataforma gera.** MEDIDO 31/07 à noite: `https://s.shopee.com.br/4AykYR6yxu` (link de oferta do Radar) redireciona para `https://shopee.com.br/**opaanlp**/1006215031/24442629738` — mesma estrutura de `/product/LOJA/ITEM`, **primeiro segmento variável**. A `resolve-link` só casa `/product/LOJA/ITEM` e `-i.LOJA.ITEM`, então recusa com *"não tem o código -i.LOJA.ITEM"* uma página de produto legítima, com loja e item visíveis na própria URL. **Conserto é uma regra a mais no reconhecimento de URL — pequeno em tamanho, grande em efeito.** Duplamente relevante: (1) reabre as 10 recusas de Shopee do log, cujo diagnóstico anterior estava errado; (2) esse produto **está** no catálogo de ofertas, então, resolvido o formato, a `product-search` deve responder com nome, preço e foto — diferente do caso da P25. **Exige reemitir a `resolve-link` inteira num deploy só: fazer em sessão limpa, primeira ação.** | 31/07 |
 | **P27** | **Reprocessar as capturas de Shopee recusadas antes de 01/08.** As recusas de `resolve_falhou` e as capturas que caíram em `data_source='message'` por causa das duas falhas da Shopee eram, em boa parte, ofertas boas. A action `reparse` da `clone-ingest` reaplica o fallback de texto, mas **não** refaz `resolve-link` + `product-search` — não serve. Decidir: (a) estender o `reparse` para reprocessar de verdade, (b) deixar passar e olhar só daqui pra frente. ~~Bloqueado de fato pela P20~~ — **atualizado 01/08 fim de tarde:** a P20 saiu, então as recusas **novas** trazem host e caminho e são reproduzíveis. As **antigas** continuam sem URL no log e seguem irrecuperáveis por esse caminho; para elas resta o `clone_posts.clean_url` das que viraram captura | 01/08 |
 | **P28** | **Não existe fonte de clone ativa.** `clone_sources` tem uma linha ("TáNaMão", `active=false`) e a "Melhores Ofertas" foi apagada da tabela. Com a Shopee destravada, nada disso aparece em produção enquanto não houver fonte ligada. Ação do Érico, não de código: religar a TáNaMão ou cadastrar um grupo-fonte novo, e então observar uma captura de Shopee real chegar com `data_source='store'` | 01/08 |
-| ~~P31~~ | 🟡 **BACKEND FECHADO 01/08 noite, FRONTEND AGUARDANDO DEPLOY.** `clone-ingest` **v16** + coluna `lojas_permitidas`, provado com baseline e 2 controles. A tela (chips no card, checkboxes no formulário, contagem por loja de 7 dias) está commitada nas duas cópias e **não está servida** — falta Deploy no EasyPanel e console limpo. Registro original abaixo. ~~**Filtro de loja por fonte** (ideia do Érico, 01/08).~~ Fonte que presta para uma loja e não para outra — medido na "Melhores Ofertas": Shopee clona, ML não. Desenho: coluna nova `lojas_permitidas text[]` em `clone_sources` (vazio = todas, não altera fontes existentes); filtro **depois** da `resolve-link` e **antes** da `product-search`, que é onde o Scrape.do custa; checkboxes nas **duas** cópias do `index.html`. Um filtro anterior, por domínio do link cru (`meli.la`, `s.shopee.com.br`, `amzn.to`), economiza até a chamada da `resolve-link`, mas não cobre encurtador genérico. **NÃO marcar checkbox automaticamente a partir do teste de clonabilidade:** um teste valida uma loja só; no máximo sugerir. ~~Depende da P20~~ — **a P20 saiu em 01/08**, então o card já pode mostrar "12 Shopee capturadas, 30 ML recusadas" e o filtro vira clique informado em vez de palpite no cadastro. **É a primeira ação da próxima sessão** | 01/08 |
+| ~~P31~~ | ✅ **FECHADA 01/08 noite.** Deployada e conferida no navegador: funções novas presentes no código servido, console limpo, três estados do card exercitados. Falta só ver um clique real gravar. Registro abaixo. ~~🟡 **BACKEND FECHADO, FRONTEND AGUARDANDO DEPLOY.**~~ `clone-ingest` **v16** + coluna `lojas_permitidas`, provado com baseline e 2 controles. A tela (chips no card, checkboxes no formulário, contagem por loja de 7 dias) está **no ar e conferida**. Registro original abaixo. ~~**Filtro de loja por fonte** (ideia do Érico, 01/08).~~ Fonte que presta para uma loja e não para outra — medido na "Melhores Ofertas": Shopee clona, ML não. Desenho: coluna nova `lojas_permitidas text[]` em `clone_sources` (vazio = todas, não altera fontes existentes); filtro **depois** da `resolve-link` e **antes** da `product-search`, que é onde o Scrape.do custa; checkboxes nas **duas** cópias do `index.html`. Um filtro anterior, por domínio do link cru (`meli.la`, `s.shopee.com.br`, `amzn.to`), economiza até a chamada da `resolve-link`, mas não cobre encurtador genérico. **NÃO marcar checkbox automaticamente a partir do teste de clonabilidade:** um teste valida uma loja só; no máximo sugerir. ~~Depende da P20~~ — **a P20 saiu em 01/08**, então o card já pode mostrar "12 Shopee capturadas, 30 ML recusadas" e o filtro vira clique informado em vez de palpite no cadastro. **É a primeira ação da próxima sessão** | 01/08 |
 | **P29** | **Por que 3 rodadas do cron de `product-refresh` conferiram 1 produto só?** Medido: o único carimbo de cron na base é `2026-07-30 09:00:08`, com `BATCH = 12` e ~1,7s por produto. A hipótese do `ORDER BY` foi levantada e **descartada**. Não há explicação testada. ⏰ **Os logs de 29–31/07 EXPIRARAM** — o Supabase só devolve 24h, e a tentativa de 01/08 chegou tarde. **Próxima medição possível: a rodada de 02/08 às 09:00 UTC**, que já roda a v17. Ler no mesmo dia. O que conferir: `candidatos`, `conferidos`, `pulados`, `desconhecidos`, `interrompido_por_tempo` e `duracao_ms` no corpo da resposta, e quantas linhas de `products` ganharam `price_checked_at` naquele horário. Se vier 12 candidatos e ~7 conferidos, o problema era algo que a v17 pegou de raspão e a pendência fecha; se vier 1 de novo, é bug novo com log fresco na mão | 01/08 |
 | ~~P30~~ | ✅ **FECHADA 01/08 noite.** `product-refresh` **v18**: `consultarML` devolve `precoDe`, saída (a) com a trava `undefined`/`null`. 13 de 13 corrigidos (169 → 169,90). ⚠️ **O ramo que APAGA não foi observado — não medido.** Ver a ressalva na seção da P30. Registro original abaixo. ~~🔜 **PRÓXIMA SESSÃO, PRIMEIRA AÇÃO** (combinado com o Érico em 01/08).~~ **`price_original` ("de") continua truncado nos produtos de Mercado Livre.** O `consultarML` não devolve `precoDe`, então a reconciliação da v16 nunca roda para o ML e o "de" mantém o valor inteiro antigo (96 em vez de 96,79). O wa-engine **já devolve** `price_from` com centavos — é só repassar. **Decisão pendente e não trivial:** repassar significa que, quando a loja não mostrar "de", o `precoDe` vira `null` e a v16 **apaga** o "de" existente. Isso remove o desconto de posts que hoje exibem um. Efeito atual do bug é conservador (desconto aparece menor do que é), então não é urgente — mas é o próximo item combinado. **As duas saídas, para decidir antes de codar:** (a) repassar direto e aceitar que o "de" seja apagado quando a loja não mostrar, que é o que a v16 escolheu de propósito para não publicar desconto que não existe; (b) repassar só quando a loja mostrar "de" e nunca apagar, que preserva o desconto atual mas reabre a porta para o "de" de terceiro que o caso La Roche fechou. **DECIDIDO PELO ÉRICO EM 01/08: saída (a), com uma trava que nenhuma das duas tinha.** O que fazia a (b) parecer necessária era o risco de apagar um "de" bom por causa de uma leitura que falhou — e isso não é escolher entre (a) e (b), é distinguir dois casos que a P30 tratava como um só. O `product-refresh` já faz essa distinção e ela está escrita no tipo `Consulta`: **`undefined` = não olhei; `null` = olhei e a loja não mostra.** Só o segundo pode apagar. Patch: `consultarML` devolve `precoDe: null` quando a leitura deu certo e não havia "de", e `undefined` quando a leitura falhou; a reconciliação da v16 só apaga no primeiro caso. **Falta codar** | 01/08 |
 | **P15** | **Parcialmente endereçada 31/07 tarde.** Existe agora um smoke test executável: extrair os blocos `<script>`, rodar os quatro **no mesmo contexto** `vm` do Node com um DOM falso permissivo, e comparar contra o baseline **antes** do patch. Foi rodado neste push e pegaria o TDZ do `f94e2f0`. **Duas limitações medidas:** (1) dá falso positivo em `id` de elemento usado como global — `themeT.onclick` na linha 2496 acusa `ReferenceError` no sandbox e funciona no browser; por isso a comparação com o baseline é obrigatória, o veredito é "piorou?", não "tem erro?"; (2) não executa handler nenhum, só o top-level. **Continua aberta:** carregar a página num navegador de verdade e ler o console segue sendo a única prova real | 31/07 |
