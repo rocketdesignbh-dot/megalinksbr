@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 15 — 31/07/2026 (madrugada de 01/08).** Se o número aqui não for o mais alto que você
+> **REVISÃO 16 — 01/08/2026 (madrugada).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -62,6 +62,72 @@
 > `clone_sources` tem **uma única linha** — "TáNaMão", com `active=false`. A
 > "Melhores Ofertas da Internet" não está mais na tabela (foi apagada, não só
 > desativada). Enquanto isso a captura automática não roda para ninguém.
+
+## Preço do ML saindo menor que o do site — 2 causas (01/08)
+
+**Relato da Patrícia Cella:** quase 90% dos produtos dela de Mercado Livre saíram
+no post com preço **menor** que o do site. Verificado: procede, são **duas**
+falhas nossas, e as duas empurram para o mesmo lado — post mais barato, nunca
+mais caro.
+
+### Causa 1 — o `/ml-product` jogava os centavos fora
+
+`wa-engine/server.js` lia só `.andes-money-amount__fraction` e ignorava
+`.andes-money-amount__cents`. **R$ 74,90 virava 74.** Truncamento, sempre para
+baixo.
+
+**Medida que fecha:** 90,0% dos produtos `source='mercado_livre'` em `products`
+tinham preço redondo (63 de 70). No `radar_offers`, 19%. Na Amazon, 0%. O caminho
+do Radar usa `mlMoney()` — que está **no mesmo arquivo, ~400 linhas acima**, e lê
+fraction *e* cents. Os ~10% que a Patrícia viu certos são os produtos cujo preço
+real termina em `,00`.
+
+Corrigido com `mlMoneyPdp()`, que escopa no elemento `.andes-money-amount` e não
+no container. **Isso importa:** escopar no container pareia o `fraction` do preço
+com o `cents` da *parcela* — R$ 189,00 com parcela de R$ 18,90 viraria R$ 189,90.
+5 casos de mesa passaram, incluindo essa armadilha e o caso do
+`.ui-pdp-price__original-value`, que traz a classe de dinheiro **no próprio
+elemento** e não num filho.
+
+### Causa 2 — o `product-refresh` não tinha `ORDER BY`
+
+Esta é a que dói em reais. A seleção era
+`.or(price_checked_at nulo ou antigo).eq(expired,false).limit(12)` — **sem
+ordenação**. O PostgREST devolve as mesmas 12 linhas toda rodada enquanto a
+tabela não muda. **Não era rotação lenta: era rotação nenhuma.** 69 dos 74
+produtos ativos nunca haviam sido conferidos, com o cron rodando.
+
+Somado a isso, o cron `product-refresh-daily` **falhou por 23 dias** com
+`column "value" does not exist` (consulta errada ao vault), de 26/07 para trás.
+Voltou a rodar em 29/07.
+
+**Medido em `dryRun` em 01/08** — de 7 produtos conferidos, 2 tinham mudado de
+preço, os dois **para cima**:
+
+| Produto | Guardado | Site hoje |
+|---|---|---|
+| Loção Hidratante Corporal Sem Perfume | R$ 80 | **R$ 89** |
+| Gel De Limpeza Facial Effaclar | R$ 80 | **R$ 127** |
+
+R$ 47 de diferença no segundo. Promoção que acabou e ninguém reconferiu.
+
+Corrigido com `.order('price_checked_at', { ascending: true, nullsFirst: true })`:
+o mais desatualizado é sempre o próximo, e ninguém morre de fome. **Zero custo de
+crédito** — não aumenta o número de consultas, só muda *quais*.
+
+### Ordem de deploy — importa e não pode ser invertida
+
+O `wa-engine` vai **primeiro**. Rodar o refresh antes dele faria a plataforma
+reescrever preços ainda truncados, gastando leitura para gravar dado errado de
+novo.
+
+### Custo: a Patrícia tem token próprio
+
+`scrape_do_token` **e** `ml_session_cookie` preenchidos. Atualizar os 63 produtos
+dela **não consome a cota compartilhada** (o wa-engine tenta o cookie antes do
+Scrape.do). O orçamento não é obstáculo neste caso — era só a rotação quebrada.
+
+---
 
 ## Shopee — as duas falhas, uma escondendo a outra (01/08, madrugada)
 
@@ -872,6 +938,15 @@ código não relacionado.
   invertida sem ninguém desobedecer nada. Gate que depende de um humano não
   clicar não é gate quando existe webhook. Ver P16.
 
+- **Consulta paginada sem `ORDER BY` não rotaciona: ela repete.** O
+  `product-refresh` parecia estar "devagar" — 12 por dia para 74 produtos. Não
+  estava: sem ordenação, o Postgres devolve as **mesmas** 12 linhas toda rodada, e
+  os outros 62 nunca seriam conferidos, nem em um ano. **`LIMIT` sem `ORDER BY` é
+  amostra arbitrária, não fatia de fila.**
+- **Quando um erro é sempre para o mesmo lado, é bug; quando é para os dois, é
+  ruído.** Preço de post saindo *menor* que o do site em ~90% dos casos e nunca
+  maior já dizia, antes de abrir o código, que havia truncamento — arredondamento
+  erraria metade para cima.
 - **Mensagem de erro única para causas diferentes é o que esconde bug por semanas.**
   A `product-search` devolvia *"Produto não encontrado"* tanto quando a Shopee
   respondia lista vazia quanto quando ela **recusava a requisição inteira**. As

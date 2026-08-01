@@ -376,9 +376,15 @@ Deno.serve(async (req: Request) => {
     const q = await SB.from('products').select(campos).eq('id', soProduto).limit(1);
     produtos = q.data; error = q.error;
   } else {
+    // MEDIDO 01/08: sem ORDER BY, o PostgREST devolve as MESMAS 12 linhas toda
+    // rodada enquanto a tabela nao muda. Nao era rotacao lenta — era rotacao
+    // NENHUMA: 69 dos 74 produtos ativos nunca tinham sido conferidos, mesmo com
+    // o cron rodando. Ordenar por price_checked_at com os nulos primeiro faz o
+    // mais desatualizado ser sempre o proximo, e garante que ninguem morre de fome.
     const q = await SB.from('products').select(campos)
       .or(`price_checked_at.is.null,price_checked_at.lt.${corte}`)
       .eq('expired', false)
+      .order('price_checked_at', { ascending: true, nullsFirst: true })
       .limit(BATCH);
     produtos = q.data; error = q.error;
   }

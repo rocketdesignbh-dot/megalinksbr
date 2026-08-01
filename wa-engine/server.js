@@ -814,6 +814,20 @@ function mlMoney($scope) {
     return Number(`${frac}.${cents.slice(0, 2)}`);
 }
 
+// Le um preco do PDP tolerando que a classe .andes-money-amount esteja no
+// PROPRIO elemento do seletor (caso do .ui-pdp-price__original-value, que e um
+// <s class="andes-money-amount ...">) ou num filho (caso do __second-line, que e
+// um container). Escopar no elemento de dinheiro — e nao no container — garante
+// que fraction e cents lidos pertencem ao MESMO valor: no container, o primeiro
+// cents pode ser o da parcela, e ai 189,00 viraria 189,90.
+function mlMoneyPdp($, seletor) {
+    const $raiz = $(seletor).first();
+    if (!$raiz.length) return null;
+    const $amt = $raiz.hasClass('andes-money-amount') ? $raiz : $raiz.find('.andes-money-amount').first();
+    const v = mlMoney($amt.length ? $amt : $raiz);
+    return v > 0 ? v : null;
+}
+
 // Extrai o ID do anuncio (MLBxxxxx) a partir do link do produto
 function mlExtractId(link) {
     const m = String(link || '').match(/MLB-?(\d{6,})/i);
@@ -1202,10 +1216,13 @@ app.get('/ml-product', verifyToken, async (req, res) => {
             ? rawImage.replace(/-(V|I|B|F|T)\.(jpg|webp|jpeg|png)(\?.*)?$/i, '-O.$2')
             : rawImage;
 
-        const priceText = $('.ui-pdp-price__second-line .andes-money-amount__fraction').first().text().replace(/\D/g, '');
-        const priceTo = priceText ? parseFloat(priceText) : null;
-        const origText = $('.ui-pdp-price__original-value .andes-money-amount__fraction').first().text().replace(/\D/g, '');
-        const priceFrom = origText ? parseFloat(origText) : null;
+        // MEDIDO 01/08: ler so .andes-money-amount__fraction DESCARTAVA os centavos.
+        // R$ 74,90 virava 74 — o preco saia SEMPRE menor que o do site, nunca maior.
+        // 90% dos produtos de ML no banco tinham preco redondo por causa disto,
+        // contra 19% no radar_offers, que sempre usou a mlMoney() (linha ~809).
+        // Duas leituras da mesma coisa no mesmo arquivo, uma certa e uma errada.
+        const priceTo = mlMoneyPdp($, '.ui-pdp-price__second-line');
+        const priceFrom = mlMoneyPdp($, '.ui-pdp-price__original-value');
         const discPct = priceFrom && priceTo && priceFrom > priceTo
             ? Math.round((1 - priceTo / priceFrom) * 100) : null;
 
