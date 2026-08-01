@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 16 — 01/08/2026 (madrugada).** Se o número aqui não for o mais alto que você
+> **REVISÃO 17 — 01/08/2026 (manhã).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -89,17 +89,24 @@ com o `cents` da *parcela* — R$ 189,00 com parcela de R$ 18,90 viraria R$ 189,
 `.ui-pdp-price__original-value`, que traz a classe de dinheiro **no próprio
 elemento** e não num filho.
 
-### Causa 2 — o `product-refresh` não tinha `ORDER BY`
+### Causa 2 — os preços não eram reconferidos
 
-Esta é a que dói em reais. A seleção era
-`.or(price_checked_at nulo ou antigo).eq(expired,false).limit(12)` — **sem
-ordenação**. O PostgREST devolve as mesmas 12 linhas toda rodada enquanto a
-tabela não muda. **Não era rotação lenta: era rotação nenhuma.** 69 dos 74
-produtos ativos nunca haviam sido conferidos, com o cron rodando.
+> ⚠️ **CORREÇÃO DA REVISÃO 16.** A revisão anterior afirmou, como fato medido,
+> que a falta de `ORDER BY` fazia o PostgREST devolver "as mesmas 12 linhas toda
+> rodada" e que isso era "rotação nenhuma". **Está errado.** Quem é conferido
+> ganha `price_checked_at` e **sai do filtro** por 24h — a rotação acontece por
+> construção. A conclusão foi **inferida** de "69 de 74 nunca conferidos" em vez
+> de medida. É o mesmo erro que derrubou a P25: diagnóstico construído sobre um
+> sintoma, sem verificar o mecanismo.
 
-Somado a isso, o cron `product-refresh-daily` **falhou por 23 dias** com
+**O que está medido:** o cron `product-refresh-daily` **falhou por 23 dias** com
 `column "value" does not exist` (consulta errada ao vault), de 26/07 para trás.
-Voltou a rodar em 29/07.
+Voltou a rodar em 29/07. Depois de voltar, três rodadas conferiram **1 produto**
+— o único carimbo de cron em toda a base é `2026-07-30 09:00:08`.
+
+**O que NÃO está medido e fica aberto (P29):** por que essas três rodadas
+conferiram 1 só. Com `BATCH = 12` e ~1,7s por produto, deveriam ter conferido
+dezenas. Não há hipótese testada.
 
 **Medido em `dryRun` em 01/08** — de 7 produtos conferidos, 2 tinham mudado de
 preço, os dois **para cima**:
@@ -111,15 +118,45 @@ preço, os dois **para cima**:
 
 R$ 47 de diferença no segundo. Promoção que acabou e ninguém reconferiu.
 
-Corrigido com `.order('price_checked_at', { ascending: true, nullsFirst: true })`:
-o mais desatualizado é sempre o próximo, e ninguém morre de fome. **Zero custo de
-crédito** — não aumenta o número de consultas, só muda *quais*.
+**O que foi feito na `product-refresh` v17**, e por quê:
+
+1. `.order('price_checked_at', { ascending: true, nullsFirst: true })`. Entra por
+   **previsibilidade**, não por consertar fome: sem ordem explícita não dá para
+   depurar por que um produto sumiu da fila. Zero custo de crédito.
+2. **Os pulos por condição passam a carimbar `price_checked_at`.** Isto não é
+   enfeite — sem ele o item 1 **piora** o problema. Produto sempre pulado (plano
+   starter, loja sem verificador, link não consultável) fazia `continue` sem
+   gravar nada, ficando com `price_checked_at` nulo para sempre; com
+   `nullsFirst`, esses produtos ocupariam as primeiras posições de **toda**
+   rodada, para sempre. A ordenação sozinha transformaria fome ocasional em fome
+   garantida. **Defeito encontrado antes do deploy, não em produção.** O pulo por
+   teto de pool e a falha de leitura seguem **sem** carimbo: esses precisam
+   voltar na rodada seguinte.
+3. `forcarPreco` (desligado por padrão, o cron **não** usa): grava o preço lido
+   mesmo dentro da tolerância de 5%. Sem ele o truncamento de centavos ficaria
+   gravado para sempre — a diferença é de ~1%, e a tolerância existe justamente
+   para ignorar ~1%.
 
 ### Ordem de deploy — importa e não pode ser invertida
 
 O `wa-engine` vai **primeiro**. Rodar o refresh antes dele faria a plataforma
 reescrever preços ainda truncados, gastando leitura para gravar dado errado de
 novo.
+
+### Resultado medido em produção (01/08, manhã)
+
+| | |
+|---|---|
+| wa-engine no ar lendo centavos | ✅ mesmo produto: gravado `74.00`, lido **74,73** (e "de" `96` → **96,79**) |
+| Produtos da Patrícia reconferidos | **63 de 63** |
+| Preços corrigidos por mudança real | **37** |
+| Preços corrigidos por centavos (`forcarPreco`) | **20** |
+| Ainda com preço redondo | **5** — e esses são redondos de verdade na loja (R$ 179,00, R$ 199,00, R$ 251,00, R$ 157,00, R$ 27,00), 8% da base, que é a taxa natural |
+| Custo em crédito compartilhado | **0** |
+
+Maiores desvios encontrados: Lavadora Electrolux **R$ 2.149 → R$ 2.398,90**,
+Epson **R$ 930 → R$ 1.044,05**, Galaxy Watch 8 **R$ 1.259 → R$ 1.349,10**,
+Sérum Capilar **R$ 186 → R$ 251**, Cetaphil **R$ 139 → R$ 175,01**.
 
 ### Custo: a Patrícia tem token próprio
 
@@ -883,6 +920,8 @@ código não relacionado.
 | ~~P26~~ | ✅ **FECHADA 01/08.** `resolve-link` v5 deployada e provada com baseline (v4 recusando) e controle negativo (`/collections/…` segue recusado). Registro original abaixo. 🔴 **A `resolve-link` não reconhecia o formato de URL de produto que o próprio Radar da plataforma gera.** MEDIDO 31/07 à noite: `https://s.shopee.com.br/4AykYR6yxu` (link de oferta do Radar) redireciona para `https://shopee.com.br/**opaanlp**/1006215031/24442629738` — mesma estrutura de `/product/LOJA/ITEM`, **primeiro segmento variável**. A `resolve-link` só casa `/product/LOJA/ITEM` e `-i.LOJA.ITEM`, então recusa com *"não tem o código -i.LOJA.ITEM"* uma página de produto legítima, com loja e item visíveis na própria URL. **Conserto é uma regra a mais no reconhecimento de URL — pequeno em tamanho, grande em efeito.** Duplamente relevante: (1) reabre as 10 recusas de Shopee do log, cujo diagnóstico anterior estava errado; (2) esse produto **está** no catálogo de ofertas, então, resolvido o formato, a `product-search` deve responder com nome, preço e foto — diferente do caso da P25. **Exige reemitir a `resolve-link` inteira num deploy só: fazer em sessão limpa, primeira ação.** | 31/07 |
 | **P27** | **Reprocessar as capturas de Shopee recusadas antes de 01/08.** As recusas de `resolve_falhou` e as capturas que caíram em `data_source='message'` por causa das duas falhas da Shopee eram, em boa parte, ofertas boas. A action `reparse` da `clone-ingest` reaplica o fallback de texto, mas **não** refaz `resolve-link` + `product-search` — não serve. Decidir: (a) estender o `reparse` para reprocessar de verdade, (b) deixar passar e olhar só daqui pra frente. Bloqueado de fato pela P20: o log **não guarda a URL**, então nem dá pra reprocessar as recusas de resolve | 01/08 |
 | **P28** | **Não existe fonte de clone ativa.** `clone_sources` tem uma linha ("TáNaMão", `active=false`) e a "Melhores Ofertas" foi apagada da tabela. Com a Shopee destravada, nada disso aparece em produção enquanto não houver fonte ligada. Ação do Érico, não de código: religar a TáNaMão ou cadastrar um grupo-fonte novo, e então observar uma captura de Shopee real chegar com `data_source='store'` | 01/08 |
+| **P29** | **Por que 3 rodadas do cron de `product-refresh` conferiram 1 produto só?** Medido: o único carimbo de cron na base é `2026-07-30 09:00:08`, com `BATCH = 12` e ~1,7s por produto. A hipótese do `ORDER BY` foi levantada e **descartada**. Não há explicação testada. Olhar os logs da função nas execuções de 09:00 UTC de 29, 30 e 31/07 | 01/08 |
+| **P30** | **`price_original` ("de") continua truncado nos produtos de Mercado Livre.** O `consultarML` não devolve `precoDe`, então a reconciliação da v16 nunca roda para o ML e o "de" mantém o valor inteiro antigo (96 em vez de 96,79). O wa-engine **já devolve** `price_from` com centavos — é só repassar. **Decisão pendente e não trivial:** repassar significa que, quando a loja não mostrar "de", o `precoDe` vira `null` e a v16 **apaga** o "de" existente. Isso remove o desconto de posts que hoje exibem um. Efeito atual do bug é conservador (desconto aparece menor do que é), então não é urgente | 01/08 |
 | **P15** | **Parcialmente endereçada 31/07 tarde.** Existe agora um smoke test executável: extrair os blocos `<script>`, rodar os quatro **no mesmo contexto** `vm` do Node com um DOM falso permissivo, e comparar contra o baseline **antes** do patch. Foi rodado neste push e pegaria o TDZ do `f94e2f0`. **Duas limitações medidas:** (1) dá falso positivo em `id` de elemento usado como global — `themeT.onclick` na linha 2496 acusa `ReferenceError` no sandbox e funciona no browser; por isso a comparação com o baseline é obrigatória, o veredito é "piorou?", não "tem erro?"; (2) não executa handler nenhum, só o top-level. **Continua aberta:** carregar a página num navegador de verdade e ler o console segue sendo a única prova real | 31/07 |
 | **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
 
@@ -938,11 +977,18 @@ código não relacionado.
   invertida sem ninguém desobedecer nada. Gate que depende de um humano não
   clicar não é gate quando existe webhook. Ver P16.
 
-- **Consulta paginada sem `ORDER BY` não rotaciona: ela repete.** O
-  `product-refresh` parecia estar "devagar" — 12 por dia para 74 produtos. Não
-  estava: sem ordenação, o Postgres devolve as **mesmas** 12 linhas toda rodada, e
-  os outros 62 nunca seriam conferidos, nem em um ano. **`LIMIT` sem `ORDER BY` é
-  amostra arbitrária, não fatia de fila.**
+- **Sintoma medido não entrega o mecanismo de graça.** "69 de 74 nunca
+  conferidos" é uma medição sólida. "Logo, a falta de `ORDER BY` faz repetir as
+  mesmas 12 linhas" é um **palpite**, e estava errado — quem é conferido sai do
+  filtro por 24h. O palpite foi escrito aqui e no commit como fato medido, do
+  mesmo jeito que a P25 foi. **A pergunta que separa os dois: "eu observei isto
+  acontecer, ou deduzi que aconteceria?"**
+- **Conserto pode piorar o que parecia consertar — e o momento de descobrir é
+  antes do deploy.** Ordenar por `price_checked_at` com nulos primeiro parecia
+  puro ganho, até notar que os pulos por condição fazem `continue` sem carimbar
+  nada: os produtos permanentemente pulados passariam a ocupar a frente de toda
+  rodada, garantidamente. **Ao mudar uma ordenação, perguntar sempre quem fica no
+  fim — e se alguém pode ficar no começo para sempre.**
 - **Quando um erro é sempre para o mesmo lado, é bug; quando é para os dois, é
   ruído.** Preço de post saindo *menor* que o do site em ~90% dos casos e nunca
   maior já dizia, antes de abrir o código, que havia truncamento — arredondamento
