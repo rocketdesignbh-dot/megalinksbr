@@ -283,6 +283,18 @@ tr:hover td{background:var(--surf2)}
 .cs-veredito{font-size:11.5px;color:var(--tx2);line-height:1.65;border-top:1px solid var(--bd);padding-top:9px}
 .cs-veredito b{color:var(--tx)}
 .cs-acoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:4px}
+/* P31 - filtro de loja por fonte. Chip ligado = loja que esta fonte pode clonar.
+   NENHUM ligado = todas, e o texto acima dos chips diz isso em portugues: o
+   estado "vazio" e o mais facil de ler errado da tela inteira. */
+.cs-lojas{border-top:1px solid var(--bd);padding-top:9px}
+.cs-loja-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.cs-loja{font-family:inherit;font-size:11.5px;font-weight:600;line-height:1;padding:6px 10px;border-radius:999px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2);transition:.12s}
+.cs-loja:hover{border-color:var(--tx2);color:var(--tx)}
+.cs-loja.on{border-color:var(--volt);background:rgba(25,226,125,.14);color:var(--volt)}
+.cs-loja-conta{font-size:11px;color:var(--mut);line-height:1.6;margin-top:7px}
+.cs-loja-conta b{color:var(--tx2)}
+.cs-loja-check{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--tx);cursor:pointer}
+.cs-loja-check input{width:auto;margin:0}
 .cs-add{border:1px dashed var(--bd2);background:transparent;border-radius:var(--r-sm);padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:150px;cursor:pointer;color:var(--tx2);font-size:12.5px;text-align:center;transition:border-color .15s,color .15s}
 .cs-add:hover{border-color:var(--volt);color:var(--tx)}
 .cs-add.travado{cursor:not-allowed;opacity:.55}
@@ -8376,6 +8388,16 @@ let CS_GRUPOS_WA=[];
 // de a fonte ser localizada (mensagem antiga, mensagem sem link) chegam com
 // source_id nulo, e sao justamente elas que explicam o silencio.
 let CS_VEREDITOS={};
+// P31 - quantas mensagens de cada loja cada fonte rendeu nos ultimos 7 dias.
+// So existe porque a P20 passou a gravar `store` nas recusas: antes dela dava
+// pra contar "30 recusas" e nao dava pra dizer de que loja, que e exatamente a
+// informacao que transforma o filtro de palpite em decisao.
+let CS_LOJAS_LOG={};
+// Slugs da resolve-link, NAO o enum do banco (mercadolivre, nao mercado_livre).
+// O filtro na clone-ingest compara contra o `store` que a resolve-link devolve,
+// entao a tela grava o mesmo vocabulario da comparacao. Traduzir aqui seria
+// criar um terceiro dialeto pra divergir.
+const CS_LOJAS_FILTRO=[["mercadolivre","Mercado Livre"],["shopee","Shopee"],["amazon","Amazon"]];
 
 // Quantas fontes o plano permite. 0 = recurso fechado, -1 = sem teto.
 // Existe porque cada fonte gasta ate max_per_day consultas de loja por dia: o
@@ -8402,6 +8424,7 @@ const CS_ROTULO_STATUS={
   antiga:"antigas demais",
   plano:"bloqueadas pelo plano",
   resolve_falhou:"link n\u00e3o resolveu",
+  loja_filtrada:"de loja que voc\u00ea n\u00e3o escolheu",
   ignorado:"sem link",
   sem_fonte:"descartadas",
   sem_sessao:"descartadas",
@@ -8439,6 +8462,80 @@ async function csCarregarVereditos(){
   }
 }
 
+// P31 - contagem por loja, 7 dias. Janela maior que a do veredito (24h) de
+// proposito: 24h de uma fonte pausada e zero, e zero nao ajuda ninguem a decidir
+// quais lojas manter. Falha aqui nao derruba a tela — sem contagem o card apenas
+// deixa de mostrar a linha.
+async function csCarregarLojas(){
+  CS_LOJAS_LOG={};
+  if(!CS_FONTES.length)return;
+  const desde=new Date(Date.now()-7*86400000).toISOString();
+  const{data,error}=await SB.from("clone_ingest_log")
+    .select("source_jid,status,store").gte("created_at",desde).not("store","is",null).limit(4000);
+  if(error||!data)return;
+  const capturou=new Set(["salvo","salvo_incompleto","publicado"]);
+  for(const r of data){
+    const j=r.source_jid||"";const s=r.store||"";
+    if(!s)continue;
+    if(!CS_LOJAS_LOG[j])CS_LOJAS_LOG[j]={};
+    if(!CS_LOJAS_LOG[j][s])CS_LOJAS_LOG[j][s]={cap:0,rec:0};
+    if(capturou.has(r.status))CS_LOJAS_LOG[j][s].cap++;else CS_LOJAS_LOG[j][s].rec++;
+  }
+}
+
+function csLojaNome(slug){
+  const l=CS_LOJAS_FILTRO.find(x=>x[0]===slug);
+  return l?l[1]:slug;
+}
+
+function csLojasContagemHtml(jid){
+  const p=CS_LOJAS_LOG[jid];
+  if(!p||!Object.keys(p).length)return "";
+  const linhas=Object.entries(p)
+    .sort((a,b)=>(b[1].cap+b[1].rec)-(a[1].cap+a[1].rec))
+    .map(function(e){
+      const n=csLojaNome(e[0]).replace(/</g,"&lt;");
+      const partes=[];
+      if(e[1].cap)partes.push("<b>"+e[1].cap+"</b> capturada(s)");
+      if(e[1].rec)partes.push("<b>"+e[1].rec+"</b> recusada(s)");
+      return n+": "+partes.join(" \u00b7 ");
+    });
+  return '<div class="cs-loja-conta">'+linhas.join("<br>")+'<br><span style="opacity:.7">\u00faltimos 7 dias</span></div>';
+}
+
+// O resumo em texto vem ANTES dos chips e nao depois. Chip aceso diz "esta loja
+// pode"; nenhum chip aceso NAO diz "nenhuma pode" — diz "todas podem", e essa e
+// a leitura que a tela precisa entregar antes de o usuario clicar.
+function csLojasHtml(f){
+  const sel=new Set(Array.isArray(f.lojas_permitidas)?f.lojas_permitidas:[]);
+  const chips=CS_LOJAS_FILTRO.map(function(l){
+    const on=sel.has(l[0]);
+    return '<button type="button" class="cs-loja'+(on?" on":"")+'" onclick="csAlternarLoja(\''+f.id+'\',\''+l[0]+'\')">'+l[1]+'</button>';
+  }).join("");
+  const resumo=sel.size
+    ? "\u{1F3EC} s\u00f3 clona: <b>"+CS_LOJAS_FILTRO.filter(l=>sel.has(l[0])).map(l=>l[1]).join(", ")+"</b>"
+    : "\u{1F3EC} clona <b>qualquer loja</b>";
+  return '<div class="cs-lojas"><div class="cs-meta">'+resumo+'</div>'
+    +'<div class="cs-loja-chips">'+chips+'</div>'+csLojasContagemHtml(f.source_jid)+'</div>';
+}
+
+async function csAlternarLoja(id,slug){
+  const f=CS_FONTES.find(x=>String(x.id)===String(id));
+  if(!f)return;
+  const atual=new Set(Array.isArray(f.lojas_permitidas)?f.lojas_permitidas:[]);
+  if(atual.has(slug))atual.delete(slug);else atual.add(slug);
+  const arr=Array.from(atual);
+  const{error}=await SB.from("clone_sources").update({lojas_permitidas:arr}).eq("id",id);
+  if(error){toast("N\u00e3o consegui salvar o filtro: "+error.message,"\u26a0\ufe0f");return;}
+  // Desmarcar a ULTIMA nao deixa a fonte sem loja nenhuma: array vazio quer dizer
+  // TODAS. Quem desmarcou a ultima espera o contrario, e o card mudaria de texto
+  // sem explicar por que. Fonte que nao deve capturar nada e fonte pausada, e o
+  // botao pra isso ja existe ao lado.
+  if(!arr.length)toast("Sem nenhuma marcada, a fonte volta a clonar qualquer loja. Pra n\u00e3o capturar nada, use Pausar.","\u{1F3EC}");
+  f.lojas_permitidas=arr;
+  csRender();
+}
+
 function csVereditoHtml(jid){
   const v=CS_VEREDITOS[jid];
   if(!v||!v.total){
@@ -8466,6 +8563,7 @@ async function csCarregar(){
   if(error){box.innerHTML=`<div class="alert r" style="margin:0"><span>Não consegui carregar as fontes: ${error.message}</span></div>`;return;}
   CS_FONTES=data||[];
   await csCarregarVereditos();
+  await csCarregarLojas();
   csRender();
 }
 
@@ -8525,6 +8623,7 @@ function csRender(){
         <div class="cs-bar${cheio?" full":""}"><i style="width:${pct}%"></i></div>
       </div>
       ${csVereditoHtml(f.source_jid)}
+      ${csLojasHtml(f)}
       <div class="cs-meta" style="margin-top:2px">🕐 captura o dia inteiro · até ${teto} por dia</div>
       <div class="cs-acoes">
         <button class="btn btn-ghost btn-sm" onclick="csAlternar('${f.id}',${f.active?"false":"true"})">${f.active?"Pausar":"Ativar"}</button>
@@ -8613,6 +8712,15 @@ async function csAbrirForm(){
           <input id="csMax" type="number" min="1" max="50" value="10" style="width:100%">
         </div>
         <div class="field" style="grid-column:1/-1;margin-top:14px;border-top:1px solid var(--bd2);padding-top:12px">
+          <label>Lojas que essa fonte pode clonar <small style="font-weight:400;color:var(--tx2)">\u2014 opcional</small></label>
+          <div class="cs-loja-chips" id="csLojasNova" style="margin-top:8px">
+            <label class="cs-loja-check"><input type="checkbox" value="mercadolivre"> Mercado Livre</label>
+            <label class="cs-loja-check"><input type="checkbox" value="shopee"> Shopee</label>
+            <label class="cs-loja-check"><input type="checkbox" value="amazon"> Amazon</label>
+          </div>
+          <small style="display:block;margin-top:8px;color:var(--tx2);line-height:1.6">Deixe <strong>tudo desmarcado</strong> para clonar qualquer loja \u2014 \u00e9 o padr\u00e3o. Marcar serve para grupo que presta para uma loja e n\u00e3o para outra: o link das lojas de fora \u00e9 recusado <strong>antes</strong> de consultar o pre\u00e7o, ent\u00e3o n\u00e3o gasta cr\u00e9dito. D\u00e1 pra mudar depois, no card da fonte.</small>
+        </div>
+        <div class="field" style="grid-column:1/-1;margin-top:14px;border-top:1px solid var(--bd2);padding-top:12px">
           <label>Testar se esse grupo \u00e9 clon\u00e1vel <small style="font-weight:400;color:var(--tx2)">\u2014 opcional, mas evita perder um dia</small></label>
           <textarea id="csTeste" rows="4" placeholder="Cole aqui uma mensagem de oferta desse grupo, inteira, do jeito que ela chegou \u2014 com o link." style="width:100%;font-family:var(--mono);font-size:12.5px;resize:vertical"></textarea>
           <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap">
@@ -8686,7 +8794,7 @@ async function csTestarClonabilidade(){
     }catch(e){dp={success:false,error:e.message||String(e)};}
     const nome=String(dp.name||dp.title||"").slice(0,120).replace(/</g,"&lt;");
     if(dp.success&&nome){
-      cx.innerHTML='<div class="alert g" style="margin:0"><span><strong>\u2705 Esse grupo \u00e9 clon\u00e1vel.</strong><br>'+loja+' \u00b7 '+nome+'<br><small style="opacity:.8">A captura pega t\u00edtulo, pre\u00e7o e imagem direto da loja. Testado em <strong>uma</strong> mensagem \u2014 se o grupo misturar formatos, alguns links ainda podem falhar.</small></span></div>';
+      cx.innerHTML='<div class="alert g" style="margin:0"><span><strong>\u2705 Esse grupo \u00e9 clon\u00e1vel.</strong><br>'+loja+' \u00b7 '+nome+'<br><small style="opacity:.8">A captura pega t\u00edtulo, pre\u00e7o e imagem direto da loja. Testado em <strong>uma</strong> mensagem \u2014 se o grupo misturar formatos, alguns links ainda podem falhar.</small>'+csSugestaoLoja(d.store)+'</span></div>';
       return;
     }
     const erroLoja=String(dp.error||"sem detalhe").slice(0,180).replace(/</g,"&lt;");
@@ -8699,10 +8807,25 @@ async function csTestarClonabilidade(){
   }
 }
 
+// P31 - o teste SUGERE a loja, e nao marca nada sozinho. Um teste valida UMA
+// loja: marcar a caixa por conta propria transformaria "este link de Shopee
+// funcionou" em "este grupo so serve pra Shopee", que e conclusao que o teste
+// nao autoriza — e o efeito colateral seria silenciosamente descartar todo link
+// de ML desse grupo. Sugerir mostra a informacao; marcar decide pelo dono.
+function csSugestaoLoja(slug){
+  const l=CS_LOJAS_FILTRO.find(x=>x[0]===slug);
+  if(!l)return "";
+  return '<br><small style="opacity:.8">Esse link era de <strong>'+l[1]+'</strong>. Se esse grupo s\u00f3 presta pra essa loja, d\u00e1 pra marcar <strong>'+l[1]+'</strong> ali em cima \u2014 mas um teste vale por uma loja s\u00f3, ent\u00e3o marque s\u00f3 se voc\u00ea j\u00e1 conhece o grupo.</small>';
+}
+
 async function csSalvar(){
   const jid=document.getElementById("csJid")?.value||"";
   const destino=document.getElementById("csDestino")?.value||"";
   const max=parseInt(document.getElementById("csMax")?.value||"10",10)||10;
+  // Array vazio = todas as lojas, que e o default da coluna. Nenhuma marcada e
+  // um estado valido e comum, nao um erro de preenchimento.
+  const lojas=Array.from(document.querySelectorAll("#csLojasNova input[type=checkbox]"))
+    .filter(c=>c.checked).map(c=>c.value);
   if(!jid||!destino){toast("Escolha o grupo de origem e o de destino.","⚠️");return;}
   // Segunda checagem de proposito: o formulario pode ter ficado aberto enquanto
   // outra aba cadastrava. Aviso educado, nao trava de seguranca.
@@ -8715,6 +8838,7 @@ async function csSalvar(){
     source_label:(g?.subject||g?.name||jid).slice(0,120),
     session_phone:(S.waNumber||"").replace(/\D/g,"")||null,
     max_per_day:Math.min(Math.max(max,1),50),
+    lojas_permitidas:lojas,
   });
   if(error){toast("Não consegui salvar: "+error.message,"⚠️");return;}
   toast("Fonte cadastrada. O monitoramento começa em até 5 minutos.","🤖");
