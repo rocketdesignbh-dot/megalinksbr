@@ -104,6 +104,21 @@
 //    clone_sources.smart_schedule e smart_weekend ficam na tabela sem leitor.
 //    niche_groups.smart_schedule, que e o do send-post, continua valendo.
 
+//  * v16 — P31: filtro de loja por fonte (clone_sources.lojas_permitidas).
+//    Grupo-fonte que presta para uma loja e nao para outra e o caso comum, nao a
+//    excecao. MEDIDO em 01/08 na "Melhores Ofertas da Internet", com o campo de
+//    teste de clonabilidade: link de Shopee clona, link de Mercado Livre nao —
+//    aquele grupo posta vitrine de afiliado, que nao leva a produto nenhum. Sem
+//    filtro, a plataforma gasta uma resolve-link por mensagem, 24h por dia, para
+//    sempre recusar; com filtro, o dono desliga a metade que nao presta e fica
+//    com a que presta, em vez de ter que largar o grupo inteiro.
+//    ONDE o filtro mora importa: DEPOIS da resolve-link (que e quem sabe qual e
+//    a loja — o link chega encurtado e o dominio cru nao responde isso) e ANTES
+//    da product-search, que e onde o Scrape.do custa 10 creditos no ML.
+//    ARRAY VAZIO = TODAS. E o default, entao nenhuma fonte existente muda de
+//    comportamento. "Nenhuma loja permitida" nao e estado alcancavel: fonte que
+//    recusa tudo e fonte desativada, e para isso ja existe o `active`.
+//
 //  * v15 — P21: a Amazon passa a ser LIDA DA PAGINA, nao do texto da mensagem.
 //    MEDIDO em 01/08: as 14 capturas que o Clone Post ja produziu na vida tem
 //    data_source='message', todas Amazon. O preco publicado no grupo da cliente
@@ -1066,6 +1081,28 @@ Deno.serve(async (req: Request) => {
       // falha em lista longa e sempre o item que alguem esqueceu de acrescentar.
       const doLink = partesDoLink(cleanUrl);
       Object.assign(marca, { store, link_host: doLink.host, link_path: doLink.path });
+
+      // ── v16 · P31 · filtro de loja por fonte ─────────────────────────
+      // Vem DEPOIS da resolve-link porque so ela sabe qual e a loja: o grupo
+      // posta encurtador (meli.la, amzlink.to, s.shopee.com.br) e o dominio cru
+      // nao responde a pergunta. Um filtro anterior, por dominio do link cru,
+      // economizaria ate a resolve-link — mas nao cobre encurtador generico, e
+      // recusar por engano uma loja permitida e pior que gastar a resolve.
+      // Vem ANTES da product-search de proposito: e la que o Scrape.do custa.
+      // Vem antes tambem do dedupe, que e uma consulta ao banco — nao ha por que
+      // perguntar se um link repetido ja foi clonado quando ele nem seria.
+      // Array vazio = todas as lojas. Ver o comentario do cabecalho.
+      const permitidas: string[] = Array.isArray(fonte.lojas_permitidas)
+        ? fonte.lojas_permitidas.map((s: unknown) => String(s ?? "").trim()).filter(Boolean)
+        : [];
+      if (permitidas.length && !permitidas.includes(store)) {
+        const nomes = permitidas.map((s) => STORE_LABEL[s] || s).join(", ");
+        resultados.push({
+          ...marca, status: "loja_filtrada",
+          motivo: `${STORE_LABEL[store] || store} nao esta nas lojas escolhidas para esta fonte (${nomes})`,
+        });
+        continue;
+      }
 
       // Dedupe por link com janela: o mesmo produto reaparece em grupo de oferta
       // o tempo todo e nao pode entupir o Grupo de Oferta de repetido.
