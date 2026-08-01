@@ -104,6 +104,13 @@
 //    clone_sources.smart_schedule e smart_weekend ficam na tabela sem leitor.
 //    niche_groups.smart_schedule, que e o do send-post, continua valendo.
 
+//  * v13/v14 — foto virou requisito da captura. Quando a loja nao devolve imagem,
+//    tenta o og:image da pagina (Microlink); se ainda assim nao vier, a captura
+//    e RECUSADA com status 'sem_imagem' em vez de virar oferta muda no grupo.
+//    O que motivou: 14 capturas seguidas sem foto nenhuma, porque a
+//    product-search pendura para a Amazon e o fallback de texto nao tem de onde
+//    tirar foto. Ver o comentario do buscarFotoOg para o que foi medido.
+
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")!;
@@ -485,6 +492,54 @@ async function buscarMlDireto(url: string, cred: { token: string; token2: string
   } finally { clearTimeout(t); }
 }
 
+// ── v13/v14 · foto do produto quando a loja nao responde ──────────────────
+// MEDIDO em 31/07: a product-search **pendura** para a Amazon (>90s sem
+// resposta, testado no navegador do dono). O chamarFuncao aborta em 30s, entao
+// toda captura da Amazon cai no fallback de texto — e texto de WhatsApp nao tem
+// foto. Resultado: 14 capturas automaticas seguidas, TODAS sem imagem.
+//
+// Buscar a pagina direto daqui NAO funciona: medido tambem, a Amazon responde
+// HTTP 200 com 3 bytes de corpo para requisicao de datacenter. E bloqueio
+// silencioso — 200 nao quer dizer que veio conteudo.
+//
+// O Microlink renderiza a pagina e devolve o og:image. Medido no mesmo produto:
+// status "success" e a foto em m.media-amazon.com, mesma familia das fotos que
+// ja existem nos produtos do grupo.
+//
+// So e chamado quando NAO ha imagem — nao substitui a foto da loja, so cobre o
+// buraco. E falha aqui nao explode a ingestao: devolve "" e quem chama decide.
+// O Microlink responde status "success" para PAGINA DE ERRO tambem, e a og:image
+// dela e o logo do erro. MEDIDO em 31/07 com um ASIN inexistente: veio
+// {status:"success", title:"Nao foi possivel encontrar esta pagina",
+//  image:".../images/G/32/error/logo._TTD_.png"}. Sem esta checagem o grupo
+// receberia o logo de erro da Amazon como foto do produto — pior que nao postar.
+// "success" do Microlink significa "consegui ler a pagina", nao "a pagina e um
+// produto": mais um caso de resposta positiva que nao responde a pergunta feita.
+function fotoPlausivel(img: string, paginaUrl: string): boolean {
+  if (!/^https?:\/\//i.test(img)) return false;
+  if (/\/error\//i.test(img)) return false;
+  if (/(^|[\/._-])(logo|sprite|placeholder|no[-_]?image|default)[._-]/i.test(img)) return false;
+  // Na Amazon foto de item vive em /images/I/; /images/G/ e asset de interface.
+  if (/(^|\.)amazon\./i.test(paginaUrl) && !/\/images\/I\//i.test(img)) return false;
+  return true;
+}
+
+async function buscarFotoOg(url: string): Promise<string> {
+  if (!url) return "";
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), 20000);
+  try {
+    const r = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`, { signal: c.signal });
+    const d = await r.json().catch(() => null);
+    if (!d || d.status !== "success") return "";
+    // De proposito NAO cai para d.data.logo: logo da loja nao e foto do produto.
+    const img = String(d?.data?.image?.url ?? "").trim();
+    return fotoPlausivel(img, url) ? img : "";
+  } catch {
+    return "";
+  } finally { clearTimeout(t); }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (req.method !== "POST") return json({ ok: false, error: "method not allowed" }, 405);
@@ -841,7 +896,7 @@ Deno.serve(async (req: Request) => {
       let titulo = String(busca?.name ?? busca?.title ?? "").slice(0, 120);
       let preco = parseFloat(String(busca?.price_to ?? busca?.price ?? "").replace(",", ".")) || null;
       let precoDe = parseFloat(String(busca?.price_from ?? "").replace(",", ".")) || null;
-      const imagem = String(busca?.image ?? busca?.thumbnail ?? "");
+      let imagem = String(busca?.image ?? busca?.thumbnail ?? "");
       let desconto: number | null = busca?.discount_pct ?? null;
       if (!desconto && precoDe && preco && preco < precoDe) desconto = Math.round((1 - preco / precoDe) * 100);
 
@@ -871,6 +926,23 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      // ── v13/v14 · a foto e requisito, nao enfeite ───────────────────────
+      // Decisao do dono, 31/07: "oferta sem foto e descartavel, nao e o objetivo
+      // do projeto". Um post de grupo de oferta sem imagem nao para o dedo de
+      // ninguem — publicar assim gasta a atencao do grupo sem retorno.
+      // Ordem importa: so paga o Microlink quando a loja nao deu foto, e so
+      // recusa depois de ter tentado. Recusar antes de tentar perderia oferta
+      // boa por falha tecnica da loja, que e justamente o que esta acontecendo.
+      if (!imagem) imagem = await buscarFotoOg(cleanUrl);
+      if (!imagem) {
+        resultados.push({
+          ...marca, status: "sem_imagem", store,
+          title: titulo || null,
+          motivo: "sem foto do produto (a loja nao respondeu e o og:image tambem nao veio) — oferta sem imagem nao vai pro grupo",
+        });
+        continue;
+      }
+
       // Sem titulo ou sem preco nao ha post publicavel: a fila so tem Aprovar e
       // Descartar, nao tem campo pra digitar o que falta. Registrar como 'failed'
       // com o motivo e melhor que sumir — e o reparse recupera depois.
@@ -891,7 +963,7 @@ Deno.serve(async (req: Request) => {
           ...marca, status: semDados ? "salvaria_failed" : "salvaria", store,
           title: titulo || null, price: preco, price_original: precoDe, discount_pct: desconto,
           coupon_code: cupom, price_installment: parcelamento, data_source: dataSource,
-          affiliate_url: linkAfiliado, sem_credencial: semCredencial,
+          image_url: imagem, affiliate_url: linkAfiliado, sem_credencial: semCredencial,
           motivo: semDados
             ? `${erroLoja} — e o texto da mensagem nao trazia titulo e preco`
             : (dataSource === "message" ? `lido do texto da mensagem (a loja respondeu: ${erroLoja})` : "ok"),
@@ -997,6 +1069,7 @@ Deno.serve(async (req: Request) => {
   const salvos = resultados.filter((r) => r.status === "salvo" || r.status === "salvo_incompleto" || r.status === "publicado").length;
   const publicados = resultados.filter((r) => r.status === "publicado").length;
   const doTexto = resultados.filter((r) => r.data_source === "message").length;
+  const semFoto = resultados.filter((r) => r.status === "sem_imagem").length;
 
   // ── v7 · registro das tentativas ──────────────────────────────────
   // Uma linha por veredito, inclusive (e principalmente) os de recusa: sao eles
@@ -1019,6 +1092,6 @@ Deno.serve(async (req: Request) => {
     if (eLog) console.warn(`[clone-ingest] log nao gravado: ${eLog.message}`);
   }
 
-  console.log(`[clone-ingest] recebidas=${entradas.length} salvos=${salvos} publicados=${publicados} lidos_do_texto=${doTexto} dryRun=${dryRun}`);
-  return json({ ok: true, dryRun, recebidas: entradas.length, salvos, publicados, resultados });
+  console.log(`[clone-ingest] recebidas=${entradas.length} salvos=${salvos} publicados=${publicados} lidos_do_texto=${doTexto} sem_foto=${semFoto} dryRun=${dryRun}`);
+  return json({ ok: true, dryRun, recebidas: entradas.length, salvos, publicados, sem_foto: semFoto, resultados });
 });

@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 12 — 31/07/2026 (tarde).** Se o número aqui não for o mais alto que você
+> **REVISÃO 13 — 31/07/2026 (fim de tarde).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -40,9 +40,9 @@
 
 ---
 
-> ✅ **REPO E PRODUÇÃO VOLTARAM A BATER.** A `clone-ingest` **v12** foi deployada
-> em 31/07 às 11:40 e **PROVADA** — ver "Captura 24h" abaixo. P22 fechada. O
-> frontend que diz "captura o dia inteiro" agora fala a verdade.
+> ✅ **REPO E PRODUÇÃO BATEM.** A `clone-ingest` está em **v14** (foto obrigatória)
+> e o frontend traz o teste de clonabilidade e a seleção múltipla de produtos.
+> Tudo deployado e provado — ver "Foto obrigatória" e "Captura 24h" abaixo.
 >
 > ✅ A `clone-ingest` **v11** foi deployada em 31/07 às 10:32 e **PROVADA** (ver "Auto-publicação" abaixo). P17 fechada.
 >
@@ -51,6 +51,74 @@
 > ler do texto (`data_source='message'`), e a auto-publicação da v11 exige
 > `data_source='store'`. Na prática, hoje **só Mercado Livre auto-publica.**
 > Ver "Clone Post — o que está medido" e as pendências P20/P21.
+
+## Foto obrigatória (`clone-ingest` v13/v14) — ENTREGUE E PROVADA (31/07, fim de tarde)
+
+**Decisão do Érico:** *"ofertas sem fotos são descartáveis, não são o objetivo do
+projeto."* Captura sem imagem agora é **recusada** com status `sem_imagem`, e
+antes de recusar o sistema tenta buscar a foto de verdade.
+
+### O que estava acontecendo — e as duas leituras erradas antes da certa
+
+**Medido:** as **14** capturas automáticas existentes, de 30/07 até 31/07,
+**todas** com `clone_posts.image_url` vazio. Sem exceção.
+
+As 4 fotos que aparecem nos produtos de 30/07 (Calvin Klein, Kärcher, Kit
+Rapunzel, La Roche) **não vieram da captura**: o `cloneCriarProduto()` só copia
+`row.image_url` do clone, e o clone estava vazio. Entraram no `products` depois,
+por outro caminho. Não se sabe qual — e isso não bloqueou o conserto.
+
+**Duas hipóteses foram levantadas e as duas caíram**, o que vale registrar
+porque as duas eram plausíveis: (1) "é por construção, texto não tem foto" —
+incompleta, porque não explicava as 4 com foto; (2) "é regressão, parou de
+funcionar entre 10:20 e 13:38 de 30/07" — falsa, o `clone_posts` desses 4 nunca
+teve imagem. Só a terceira medição fechou.
+
+### A causa raiz, medida
+
+| O que foi testado | Resultado |
+|---|---|
+| `product-search` com link da Amazon, pelo navegador logado | **pendura — mais de 90s sem responder** |
+| `chamarFuncao` no `clone-ingest` | aborta em 30s → loja "falha" → fallback de texto |
+| Fallback de texto | preenche título/preço/cupom, **mas não tem de onde tirar foto** |
+| `fetch` direto da página da Amazon, do Postgres | **HTTP 200 com 3 bytes de corpo** — bloqueio anti-bot silencioso |
+| Microlink (og:image) na mesma página | ✅ `success`, título real e foto em `m.media-amazon.com/images/I/…` |
+
+O `fetch` direto merece atenção: **200 não quer dizer que veio conteúdo.** Mais
+um caso da regra de ouro do projeto, agora do lado da rede.
+
+### A armadilha que quase foi para produção
+
+A **v13** aceitava qualquer `og:image`. Testando um ASIN inexistente, o Microlink
+respondeu `status:"success"` com
+`images-na.ssl-images-amazon.com/images/G/32/error/logo._TTD_.png` — **o logo de
+erro da Amazon**. O grupo teria recebido isso como foto de produto.
+
+`"success"` do Microlink significa *"consegui ler a página"*, **não** *"a página
+é um produto"*. Resposta positiva que não responde a pergunta feita.
+
+A **v14** acrescenta `fotoPlausivel()`: rejeita `/error/`, logo, sprite,
+placeholder e default, e na Amazon exige `/images/I/` (foto de item) em vez de
+`/images/G/` (asset de interface). O fallback para `data.logo` foi **removido** —
+logo da loja não é foto de produto. **10 casos testados**, incluindo os 4 medidos
+de verdade.
+
+### Prova em produção (dryRun, mesmo lote)
+
+| Mensagem | Veredito | Foto |
+|---|---|---|
+| AirPods Pro (ASIN real) | `salvaria` | `m.media-amazon.com/images/I/61f1YfTkTDL._AC_SL1500_.jpg` |
+| ASIN inexistente | **`sem_imagem`** | recusada — o logo de erro foi barrado |
+
+**Ordem que importa e não deve ser invertida:** só chama o Microlink quando a
+loja não deu foto, e só recusa **depois** de ter tentado. Recusar antes de tentar
+perderia oferta boa por falha técnica da loja — que é exatamente o que estava
+acontecendo.
+
+**Risco conhecido, não medido:** o Microlink gratuito tem limite de requisições.
+Com `max_per_day` de 10 por fonte não deve encostar, mas ninguém verificou o teto.
+
+---
 
 ## Captura 24h (`clone-ingest` v12) — ENTREGUE E PROVADA (31/07, 11:40)
 
@@ -223,16 +291,39 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
-**Sessão de 31/07/2026 (tarde)** — deploya e prova a v12 (P22), fecha o P24,
-encerra o caso da vitrine do Mercado Livre e entrega a **parte (a) do P23**:
-teste de clonabilidade no formulário da fonte.
+**Sessão de 31/07/2026 (tarde e fim de tarde)** — deploya e prova a v12 (P22),
+fecha o P24, encerra o caso da vitrine do ML, entrega a **parte (a) do P23**
+(teste de clonabilidade), a **foto obrigatória** (v13/v14) e a **seleção
+múltipla de produtos**.
 
 | | |
 |---|---|
-| Commits | 1 · frontend (as duas cópias) + este doc |
-| Edge Functions | 37 · `clone-ingest` em **v12** em produção, **provada** |
-| Migrations | nenhuma nova. **Nenhuma coluna nova** — o P23 (a) não precisou de banco |
-| Repo × produção | ✅ Edge Functions batem. **Frontend commitado, aguardando Deploy no EasyPanel** |
+| Commits | 2 · frontend (as duas cópias), `clone-ingest` e este doc |
+| Edge Functions | 37 · `clone-ingest` em **v14** em produção, **provada** |
+| Migrations | nenhuma nova. **Nenhuma coluna nova** em nada desta sessão |
+| Repo × produção | ✅ **BATEM** |
+
+**Provado em navegador logado (fecha o buraco do P15 para esta entrega):** o
+P23(a) foi exercitado na sessão do Érico — colada a mensagem do `meli.la`, saiu
+a tarja vermelha *"Não dá pra clonar essa mensagem"* com o motivo da vitrine.
+`classe alert r`, `display block`. **Console limpo no load completo e depois do
+clique: zero `Uncaught`.** Os cards confirmaram na tela o que o banco dizia:
+"Melhores Ofertas" **pausada** (14 avaliadas · 11 não resolveram · 3
+`fora_da_janela`), TáNaMão **ativa** (36 avaliadas · 9 capturadas).
+
+**Cuidado registrado:** no meio desse teste um clique errou o botão por ~20px e
+caiu no texto abaixo. A tela não mudou e pareceu que a função não existia — só o
+DOM (`csTesteRes` vazio, `display:none`) desmentiu. **Screenshot também não é
+prova**; o que provou foi ler o estado do elemento.
+
+**Seleção múltipla na lista de produtos (`wireProdLista`):** checkbox por
+produto, checkbox mestre "Selecionar todos" com estado *indeterminate* quando a
+seleção é parcial, contador ("3 de 12 marcados") e botão que **diz o número**
+("Apagar 7 selecionados"). O botão nasce desabilitado. O `confirm` também mostra
+o número — quem vai apagar 23 itens sem querer precisa ver o 23. O delete é
+**um só, com `.in(ids)`**: apagar em loop deixaria a lista pela metade se caísse
+no meio, sem dizer onde parou. Motivo da mudança: antes eram 2 cliques e 1
+diálogo por produto, e diálogo repetido deixa de ser confirmação e vira reflexo.
 
 **O que foi medido nesta sessão:**
 
@@ -563,7 +654,8 @@ código não relacionado.
 | **P23** | **Parte (a) ENTREGUE 31/07 tarde** (campo de teste no formulário, commitado, aguardando Deploy). **Parte (b) ABERTA:** alerta no card da fonte depois de N mensagens avaliadas sem nenhuma captura — query em `clone_ingest_log`, dado já existe. A (a) protege quem está cadastrando; a (b) protege quem já cadastrou e não sabe que o grupo mudou de comportamento. **Confirmado em campo 31/07:** Érico abriu o `meli.la/1GQ52Vn` no navegador e parou na vitrine do afiliado, exatamente como a `resolve-link` previa | 31/07 |
 | ~~P24~~ | ✅ **FECHADA 31/07 tarde.** O `+ Nova fonte` **funciona** — Érico clicou e o formulário abriu. A hipótese do `S.waNumber` não se confirmou. Nenhuma linha de código foi alterada. Lição: pendência aberta a partir de relato sem reprodução custou uma sessão de suspeita sobre código sadio | 31/07 |
 | **P20** | `clone_ingest_log` não guarda a URL que falhou. Nas 24 recusas de `resolve_falhou` de hoje dá para contar mas não para saber *quais* links, nem reproduzir. Guardar host+path do link escolhido (não o texto da mensagem — conteúdo de terceiro) nas recusas de resolve | 31/07 manhã |
-| **P21** | Auto-publicação só alcança Mercado Livre na prática, porque exige `data_source='store'` e nem Amazon nem Shopee chegam lá. Decidir: (a) `product-search` ganha caminho Amazon, (b) a UI do toggle avisa que só vale para ML hoje, ou (c) afrouxar o critério — **(c) contraria a razão de existir do guarda, cuidado** | 31/07 manhã |
+| **P21** | **Causa medida em 31/07: a `product-search` PENDURA para a Amazon** — mais de 90s sem responder, testado no navegador logado; o `chamarFuncao` aborta em 30s e a loja sempre "falha". Não é só "falta caminho Amazon": há um travamento. A v14 contornou o sintoma da foto (og:image via Microlink), **mas título e preço da Amazon continuam vindo do texto da mensagem** (`data_source='message'`), então a auto-publicação segue alcançando só o Mercado Livre. Decidir: (a) achar o travamento da `product-search`, (b) usar o título/preço do Microlink — ele devolve o título real, medido —, ou (c) a UI avisar que auto-publicar só vale para ML | 31/07 |
+| **P25** | **Postar Agora com link da Shopee não traz os dados** — relatado pelo Érico em 31/07, só gera o link de afiliado. Hipótese conhecida e não confirmada neste caso: `productOfferV2` só conhece item do catálogo de ofertas da Shopee, então produto avulso volta "não encontrado". **Falta medir com o link exato que ele usou.** Agora existe saída que não existia: o Microlink lê a página e devolve título/foto (provado na Amazon; **não testado na Shopee**) | 31/07 |
 | **P15** | **Parcialmente endereçada 31/07 tarde.** Existe agora um smoke test executável: extrair os blocos `<script>`, rodar os quatro **no mesmo contexto** `vm` do Node com um DOM falso permissivo, e comparar contra o baseline **antes** do patch. Foi rodado neste push e pegaria o TDZ do `f94e2f0`. **Duas limitações medidas:** (1) dá falso positivo em `id` de elemento usado como global — `themeT.onclick` na linha 2496 acusa `ReferenceError` no sandbox e funciona no browser; por isso a comparação com o baseline é obrigatória, o veredito é "piorou?", não "tem erro?"; (2) não executa handler nenhum, só o top-level. **Continua aberta:** carregar a página num navegador de verdade e ler o console segue sendo a única prova real | 31/07 |
 | **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
 

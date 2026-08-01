@@ -5770,8 +5770,17 @@ async function wireProdLista(){
   S.grupoAtual.produtos=data.length;renderGrupos();
   loadTabProdCounts().then(()=>{const grupo=TAB_GROUPS.find(g=>g.id===_currentTabL1)||TAB_GROUPS[0];tabsBar.innerHTML=grupo.tabs.map((t,i)=>{const count=_tabProdCounts[t.id]||0;const countBadge=count>0?`<span style="margin-left:4px;font-size:10px;background:var(--volt);color:#0c0c0e;padding:1px 5px;border-radius:6px;font-weight:700">${count}</span>`:"";return `<button class="tab${tabsBar.querySelector('.tab.active')?.dataset.tab===t.id?" active":""}" data-tab="${t.id}">${t.label}${t.novo?'<span class="tag-new">NEW</span>':""}${countBadge}</button>`;}).join(""); tabsBar.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{tabsBar.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".tp").forEach(p=>p.classList.toggle("on",p.id==="pane-"+b.dataset.tab));if(b.dataset.tab==="wagrupos")wireWaGrupos();if(b.dataset.tab==="prod-meus")wireProdLista();if(MARKET_STORES.some(s=>s.id===b.dataset.tab))impRenderAlert(b.dataset.tab);if(b.dataset.tab==="prod-add"){wireProdAdd();prodIdeaisCalc();prodCupomTipoChange();}});});
   if(!data.length){el.innerHTML='<p style="color:var(--mut);text-align:center;padding:28px">Nenhum produto cadastrado ainda.<br>Use a aba <strong>➕ Adicionar</strong> para começar.</p>';return;}
-  el.innerHTML=data.map((p,i)=>`
+  el.innerHTML=`
+    <div id="prodSelBarra" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 2px 12px;border-bottom:1px solid var(--bd);margin-bottom:6px">
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:var(--tx2);user-select:none">
+        <input type="checkbox" id="prodSelTodos" onchange="prodSelMarcarTodos(this.checked)" style="width:auto;margin:0;cursor:pointer">
+        Selecionar todos
+      </label>
+      <span id="prodSelInfo" style="font-size:12px;color:var(--mut)">nenhum selecionado</span>
+      <button class="btn btn-red btn-sm" id="prodSelBtn" onclick="prodRemoverSelecionados()" disabled style="margin-left:auto;opacity:.5">🗑 Apagar selecionados</button>
+    </div>`+data.map((p,i)=>`
     <div class="prod" style="align-items:center">
+      <input type="checkbox" class="prod-chk" value="${p.id}" onchange="prodSelAtualizar()" title="Selecionar para apagar" style="width:auto;margin:0 2px 0 0;flex:none;cursor:pointer">
       <div class="pimg">${p.image_url?`<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:"📦"}</div>
       <div style="flex:1">
         <strong>${p.title||"Sem título"}</strong><br>
@@ -5780,6 +5789,7 @@ async function wireProdLista(){
       <span style="color:var(--mut);font-size:11px;margin-right:8px">#${i+1}</span>
       <button class="btn btn-red btn-sm" onclick="prodRemover('${p.id}')">✕</button>
     </div>`).join("");
+  prodSelAtualizar();
 }
 
 function wireProdAdd(){
@@ -6027,6 +6037,59 @@ async function prodAdicionarManual(postarAgora=false){
     wireProdLista();
   }
 }
+// ── Seleção múltipla na lista de produtos ──────────────────────────
+// Antes só dava pra apagar um por vez, cada um com seu confirm(). Limpar 10
+// produtos eram 20 cliques e 10 diálogos idênticos — e diálogo repetido deixa
+// de ser confirmação e vira reflexo, que é pior que não ter confirmação.
+//
+// O botão nasce desabilitado e só acorda com algo marcado: o estado da tela diz
+// o que vai acontecer antes de acontecer. E ele DIZ QUANTOS — "Apagar 7" é uma
+// frase que dá pra conferir contra o que se acha que marcou.
+function prodSelMarcados(){
+  return [...document.querySelectorAll(".prod-chk:checked")].map(c=>c.value);
+}
+
+function prodSelAtualizar(){
+  const todas=document.querySelectorAll(".prod-chk");
+  const n=prodSelMarcados().length;
+  const btn=document.getElementById("prodSelBtn");
+  const info=document.getElementById("prodSelInfo");
+  const mestre=document.getElementById("prodSelTodos");
+  if(btn){
+    btn.disabled=!n;
+    btn.style.opacity=n?"1":".5";
+    btn.textContent=n?`🗑 Apagar ${n} selecionado${n>1?"s":""}`:"🗑 Apagar selecionados";
+  }
+  if(info)info.textContent=n?`${n} de ${todas.length} marcado${n>1?"s":""}`:"nenhum selecionado";
+  // Indeterminado quando a seleção é parcial: o quadradinho meio-marcado é a
+  // única forma honesta de mostrar "alguns, não todos".
+  if(mestre){
+    mestre.checked = todas.length>0 && n===todas.length;
+    mestre.indeterminate = n>0 && n<todas.length;
+  }
+}
+
+function prodSelMarcarTodos(marcar){
+  document.querySelectorAll(".prod-chk").forEach(c=>{c.checked=!!marcar;});
+  prodSelAtualizar();
+}
+
+async function prodRemoverSelecionados(){
+  const ids=prodSelMarcados();
+  if(!ids.length){toast("Marque pelo menos um produto.","⚠️");return;}
+  // O confirm diz o número, não "os produtos selecionados": quem vai apagar 23
+  // itens sem querer precisa ver o 23.
+  if(!confirm(`Apagar ${ids.length} produto${ids.length>1?"s":""} do grupo? Isso não tem desfazer.`))return;
+  const btn=document.getElementById("prodSelBtn");
+  if(btn){btn.disabled=true;btn.textContent="apagando…";}
+  // Um delete só com .in() — e não um por linha. Apagar em loop deixaria a
+  // lista meio apagada se caísse no meio, sem dizer onde parou.
+  const{error}=await SB.from("products").delete().in("id",ids);
+  if(error){toast("Erro: "+error.message,"⚠️");prodSelAtualizar();return;}
+  toast(`${ids.length} produto${ids.length>1?"s":""} removido${ids.length>1?"s":""}.`,"🗑");
+  wireProdLista();
+}
+
 async function prodRemover(id){
   if(!confirm("Remover este produto do grupo?"))return;
   const{error}=await SB.from("products").delete().eq("id",id);
