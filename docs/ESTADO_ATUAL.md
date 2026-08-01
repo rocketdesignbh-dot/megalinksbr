@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 13 — 31/07/2026 (fim de tarde).** Se o número aqui não for o mais alto que você
+> **REVISÃO 14 — 31/07/2026 (noite).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -199,7 +199,7 @@ não se sustenta no log: em 31/07 as duas fontes avaliaram ~32 mensagens,
 | Loja | O que acontece | Onde morre |
 |---|---|---|
 | Mercado Livre | 13 recusas com *"leva a VITRINE do afiliado"* | `resolve-link`. O grupo-fonte posta `meli.la` que cai em `/social/<afiliado>` — vitrine, não produto. **Não é bug nosso: não há produto para clonar.** |
-| Shopee | 10 recusas *"não aponta pra um produto"* | `resolve-link`. **Os dois formatos de URL funcionam** — medido: `/product/LOJA/ITEM` e `-i.LOJA.ITEM` normalizam para a mesma coisa. As recusas são links que terminam noutro lugar (campanha, coleção, SPA de encurtador). |
+| Shopee | 10 recusas *"não aponta pra um produto"* | `resolve-link`. ⚠️ **DIAGNÓSTICO CORRIGIDO EM 31/07 À NOITE — ver P26.** A conclusão anterior ("são links que terminam em campanha ou coleção") estava **errada**: existe um **terceiro** formato de URL de produto, `/{slug}/LOJA/ITEM`, que a `resolve-link` não reconhece. Pelo menos parte dessas recusas era página de produto legítima. |
 | Shopee (quando resolve) | `productOfferV2` devolve *"Produto não encontrado"* | `product-search`. A API de afiliado da Shopee **só conhece itens do catálogo de ofertas**, não item arbitrário. Cai no fallback de texto. |
 | Amazon | Sempre cai no fallback de texto | `product-search` **não tem caminho Amazon nenhum** — o `if` cobre só `mercadolivre` e `shopee`. |
 | Mercado Livre (link bom) | ✅ `data_source='store'` | via `/ml-product` com o Scrape.do pessoal do Érico. |
@@ -302,6 +302,21 @@ múltipla de produtos**.
 | Edge Functions | 37 · `clone-ingest` em **v14** em produção, **provada** |
 | Migrations | nenhuma nova. **Nenhuma coluna nova** em nada desta sessão |
 | Repo × produção | ✅ **BATEM** |
+
+**Sessão da noite (31/07) — só medição, nenhuma alteração de código:**
+
+- **Seleção múltipla provada no navegador logado**, no grupo "Teste Geral 001"
+  com 5 produtos: 2 marcados → *"2 de 5 marcados"* e botão *"Apagar 2
+  selecionados"* com o mestre em `indeterminate`; Selecionar todos → *"5 de 5"*;
+  desmarcar → botão desabilitado. Console limpo. **Nada foi apagado** — a tela
+  ficou como estava.
+- **Shopee diagnosticada com o link real do Érico** (P25) e **P26 descoberta no
+  mesmo teste**: o formato `/{slug}/LOJA/ITEM` do Radar não é reconhecido. O que
+  levou até lá foi testar os **dois** casos lado a lado — o link avulso dele e um
+  link de oferta do Radar. Um só teria escondido metade do problema.
+- **Correção de registro:** o diagnóstico das 10 recusas de Shopee nesta mesma
+  página estava errado desde a manhã. Ver a tabela "Clone Post — o que está
+  medido" e a P26.
 
 **Provado em navegador logado (fecha o buraco do P15 para esta entrega):** o
 P23(a) foi exercitado na sessão do Érico — colada a mensagem do `meli.la`, saiu
@@ -655,7 +670,8 @@ código não relacionado.
 | ~~P24~~ | ✅ **FECHADA 31/07 tarde.** O `+ Nova fonte` **funciona** — Érico clicou e o formulário abriu. A hipótese do `S.waNumber` não se confirmou. Nenhuma linha de código foi alterada. Lição: pendência aberta a partir de relato sem reprodução custou uma sessão de suspeita sobre código sadio | 31/07 |
 | **P20** | `clone_ingest_log` não guarda a URL que falhou. Nas 24 recusas de `resolve_falhou` de hoje dá para contar mas não para saber *quais* links, nem reproduzir. Guardar host+path do link escolhido (não o texto da mensagem — conteúdo de terceiro) nas recusas de resolve | 31/07 manhã |
 | **P21** | **Causa medida em 31/07: a `product-search` PENDURA para a Amazon** — mais de 90s sem responder, testado no navegador logado; o `chamarFuncao` aborta em 30s e a loja sempre "falha". Não é só "falta caminho Amazon": há um travamento. A v14 contornou o sintoma da foto (og:image via Microlink), **mas título e preço da Amazon continuam vindo do texto da mensagem** (`data_source='message'`), então a auto-publicação segue alcançando só o Mercado Livre. Decidir: (a) achar o travamento da `product-search`, (b) usar o título/preço do Microlink — ele devolve o título real, medido —, ou (c) a UI avisar que auto-publicar só vale para ML | 31/07 |
-| **P25** | **Postar Agora com link da Shopee não traz os dados** — relatado pelo Érico em 31/07, só gera o link de afiliado. Hipótese conhecida e não confirmada neste caso: `productOfferV2` só conhece item do catálogo de ofertas da Shopee, então produto avulso volta "não encontrado". **Falta medir com o link exato que ele usou.** Agora existe saída que não existia: o Microlink lê a página e devolve título/foto (provado na Amazon; **não testado na Shopee**) | 31/07 |
+| **P25** | ✅ **MEDIDO 31/07 à noite, com o link real do Érico.** `resolve-link` **funciona** (270 ms, limpa para `/product/1397105725/58213461759`); quem recusa é a `product-search` com *"Produto não encontrado"* em 1,1 s — a API de afiliado da Shopee só conhece item do **catálogo de ofertas** dela, e produto avulso não está lá. **É um "não" da Shopee, não falha nossa.** O Microlink **não** cobre este caso: devolveu título `"58213461759"` (só o ID) e imagem nula, porque a Shopee monta a página por JavaScript. Restam: (a) Scrape.do na página (queima crédito, decisão de orçamento), (b) preencher à mão, (c) **mínimo valioso e barato: a tela avisar em português** que a Shopee não reconhece o produto, em vez de só gerar o link em silêncio | 31/07 |
+| **P26** | 🔴 **A `resolve-link` não reconhece o formato de URL de produto que o próprio Radar da plataforma gera.** MEDIDO 31/07 à noite: `https://s.shopee.com.br/4AykYR6yxu` (link de oferta do Radar) redireciona para `https://shopee.com.br/**opaanlp**/1006215031/24442629738` — mesma estrutura de `/product/LOJA/ITEM`, **primeiro segmento variável**. A `resolve-link` só casa `/product/LOJA/ITEM` e `-i.LOJA.ITEM`, então recusa com *"não tem o código -i.LOJA.ITEM"* uma página de produto legítima, com loja e item visíveis na própria URL. **Conserto é uma regra a mais no reconhecimento de URL — pequeno em tamanho, grande em efeito.** Duplamente relevante: (1) reabre as 10 recusas de Shopee do log, cujo diagnóstico anterior estava errado; (2) esse produto **está** no catálogo de ofertas, então, resolvido o formato, a `product-search` deve responder com nome, preço e foto — diferente do caso da P25. **Exige reemitir a `resolve-link` inteira num deploy só: fazer em sessão limpa, primeira ação.** | 31/07 |
 | **P15** | **Parcialmente endereçada 31/07 tarde.** Existe agora um smoke test executável: extrair os blocos `<script>`, rodar os quatro **no mesmo contexto** `vm` do Node com um DOM falso permissivo, e comparar contra o baseline **antes** do patch. Foi rodado neste push e pegaria o TDZ do `f94e2f0`. **Duas limitações medidas:** (1) dá falso positivo em `id` de elemento usado como global — `themeT.onclick` na linha 2496 acusa `ReferenceError` no sandbox e funciona no browser; por isso a comparação com o baseline é obrigatória, o veredito é "piorou?", não "tem erro?"; (2) não executa handler nenhum, só o top-level. **Continua aberta:** carregar a página num navegador de verdade e ler o console segue sendo a única prova real | 31/07 |
 | **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
 
