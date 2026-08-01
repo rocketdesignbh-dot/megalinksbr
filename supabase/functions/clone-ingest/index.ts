@@ -104,6 +104,26 @@
 //    clone_sources.smart_schedule e smart_weekend ficam na tabela sem leitor.
 //    niche_groups.smart_schedule, que e o do send-post, continua valendo.
 
+//  * v15 — P21: a Amazon passa a ser LIDA DA PAGINA, nao do texto da mensagem.
+//    MEDIDO em 01/08: as 14 capturas que o Clone Post ja produziu na vida tem
+//    data_source='message', todas Amazon. O preco publicado no grupo da cliente
+//    era o que o grupo-fonte digitou, nunca conferido no anuncio. O contraste
+//    esta na propria base: os mesmos produtos, depois de passarem pelo
+//    product-refresh, mudaram de 251,91 -> 279,90 (Karcher), 285,30 -> 379,99
+//    (Calvin Klein), 52,67 -> 58,52 (Kit Rapunzel). Tres de quatro errados.
+//    O enriquecimento de loja nao e qualidade de dado: e a unica protecao
+//    contra um grupo-fonte que erra. Sem ele a plataforma republica o erro de
+//    terceiro com a marca do cliente.
+//    O conserto nao foi escrever leitor novo — ele ja existia e funcionava. Ver
+//    consultarAmazonDireto.
+//
+//  * v15 — P20: o clone_ingest_log passa a guardar host e caminho do link que
+//    falhou, e a loja detectada. Ate a v14 dava para contar "10 recusas de
+//    Shopee" e nao dava para saber QUAIS, nem reproduzir uma — foi exatamente
+//    isso que atrasou o diagnostico da Shopee por dois dias. Nunca o texto da
+//    mensagem: conteudo de terceiro so mora em clone_posts.source_text, e so
+//    quando a captura vinga.
+//
 //  * v13/v14 — foto virou requisito da captura. Quando a loja nao devolve imagem,
 //    tenta o og:image da pagina (Microlink); se ainda assim nao vier, a captura
 //    e RECUSADA com status 'sem_imagem' em vez de virar oferta muda no grupo.
@@ -492,6 +512,175 @@ async function buscarMlDireto(url: string, cred: { token: string; token2: string
   } finally { clearTimeout(t); }
 }
 
+// ── v15 · P21 · a Amazon lida DA PAGINA ──────────────────────────────────
+// O conserto aqui NAO e um leitor novo: ele ja existe no projeto, funciona, e a
+// clone-ingest simplesmente nao o usava. O product-refresh le a Amazon por
+// fetch direto, sem Scrape.do e sem custo de credito, exigindo duas testemunhas
+// independentes do buybox — 12/12 de acerto medido em 30/07. Medido de novo em
+// 01/08 14:24 UTC, com o product-refresh v17 em producao: leu a pagina do
+// Karcher em 1,9 s e devolveu R$ 360,91 (o clone tinha publicado R$ 251,91).
+//
+// A clone-ingest chamava a product-search, que NAO TEM ramo de Amazon nenhum (o
+// if cobre mercadolivre e shopee) e pendura mais de 90 s. O chamarFuncao
+// abortava em 30 s, a loja "falhava", e a oferta caia no fallback de texto. Ou
+// seja: o caminho certo estava a duas funcoes de distancia o tempo todo.
+//
+// As funcoes abaixo sao a porta desse leitor para ca, com um acrescimo: o
+// titulo. O product-refresh so precisava saber que o productTitle EXISTE (e a
+// prova de que a pagina e confiavel); aqui ele e o titulo que vai para o post,
+// e e ele que substitui as linhas de texto que ja viraram "10% OFF" e uma URL
+// crua na fila de revisao.
+const AMZ_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
+const AMZ_TIMEOUT_MS = 15000;
+
+// Numero vindo do HTML pt-BR da loja: aqui o ponto e SEMPRE separador de
+// milhar. Nao confundir com numeroBr() la em cima, que trata texto DIGITADO por
+// gente e por isso precisa decidir pelo tamanho do ultimo grupo. A ambiguidade
+// existe la e nao existe aqui — por isso sao duas funcoes e nao uma.
+function numeroDaLoja(s: string): number | null {
+  const n = Number(String(s ?? "").replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function precoAmazon(html: string): { por: number | null; de: number | null } {
+  const vazio = { por: null, de: null };
+
+  // 1. Ancora. Sem o div do buybox nao ha preco a afirmar.
+  const p = html.indexOf('<div id="corePriceDisplay_desktop_feature_div"');
+  if (p < 0) return vazio;
+  const bloco = html.slice(p, p + 4000);
+
+  // 2. Duas testemunhas independentes do MESMO numero: o rotulo de
+  // acessibilidade e o preco visivel. Discordancia entre elas nao vira palpite,
+  // vira recusa — a pagina da Amazon tem preco de parcela, de assinatura e de
+  // vendedor alternativo no mesmo HTML, e pegar o errado publica o errado.
+  const mRotulo = bloco.match(/id="apex-pricetopay-accessibility-label"[\s\S]{0,300}?>[^0-9<]*([\d.]+,\d{2})/);
+  const mInteiro = bloco.match(/a-price-whole">([\d.]+)/);
+  const mCentavos = bloco.match(/a-price-fraction">(\d{2})/);
+  if (!mRotulo || !mInteiro || !mCentavos) return vazio;
+
+  const viaRotulo = numeroDaLoja(mRotulo[1]);
+  const viaVisivel = numeroDaLoja(`${mInteiro[1]},${mCentavos[1]}`);
+  if (viaRotulo === null || viaVisivel === null || viaRotulo !== viaVisivel) return vazio;
+
+  // 3. O "de" e opcional e so vale se for maior que o "por".
+  const mBase = bloco.match(/basisPrice[\s\S]{0,250}?([\d.]+,\d{2})/);
+  const de = mBase ? numeroDaLoja(mBase[1]) : null;
+  return { por: viaRotulo, de: de !== null && de > viaRotulo ? de : null };
+}
+
+function imagemAmazon(html: string): string {
+  const p = html.indexOf('id="landingImage"');
+  if (p < 0) return "";
+  // A tag do landingImage passa de 1,3 KB por causa do data-a-dynamic-image, e o
+  // src pode vir ANTES do id — por isso a janela abre para tras tambem.
+  const janela = html.slice(Math.max(p - 4000, 0), p + 8000);
+  const tag = janela.match(/<img[^>]*id="landingImage"[^>]*>/);
+  if (!tag) return "";
+  const m = tag[0].match(/images\/I\/([A-Za-z0-9+_-]+)\./);
+  if (!m) return "";
+  return `https://m.media-amazon.com/images/I/${m[1]}._AC_SL1500_.jpg`;
+}
+
+// Lista curta de proposito. Decodificar de menos deixa "&amp;" aparecendo no
+// post; um unescape generico decodificaria tambem o que nao devia. O "&amp;"
+// vai por ULTIMO: antes dele, "&amp;lt;" viraria "<".
+function textoDeHtml(s: string): string {
+  return s
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#0?39;/g, "'")
+    .replace(/&#(\d{2,5});/g, (_m, d) => String.fromCharCode(Number(d)))
+    .replace(/&amp;/g, "&");
+}
+
+function tituloAmazon(html: string): string {
+  const m = html.match(/<span[^>]*id="productTitle"[^>]*>([\s\S]{1,600}?)<\/span>/);
+  if (!m) return "";
+  return textoDeHtml(m[1].replace(/<[^>]*>/g, "")).replace(/\s+/g, " ").trim().slice(0, 120);
+}
+
+// Devolve no formato da product-search, que e o que o resto do fluxo le — mesma
+// traducao que o buscarMlDireto faz. Assim o unico ponto do arquivo que sabe da
+// Amazon e este; nada mais muda de forma.
+async function consultarAmazonDireto(url: string): Promise<any> {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), AMZ_TIMEOUT_MS);
+  try {
+    const r = await fetch(url, {
+      headers: {
+        "User-Agent": AMZ_UA,
+        "Accept-Language": "pt-BR,pt;q=0.9",
+        "Accept": "text/html,application/xhtml+xml",
+      },
+      redirect: "follow",
+      signal: c.signal,
+    });
+    if (!r.ok) return { success: false, source: "amazon-pagina", error: `a Amazon respondeu HTTP ${r.status}` };
+
+    const html = await r.text();
+
+    // PROVA DE QUE A PAGINA E CONFIAVEL, antes de ler qualquer coisa. Status 200
+    // nao basta e ja mordeu este projeto duas vezes: captcha da Amazon volta 200
+    // com ~4 KB, e o fetch a partir do Postgres devolveu 200 com 3 bytes de
+    // corpo. Sem productTitle nada e afirmado — nem preco, nem foto, nem titulo.
+    if (!html.includes('id="productTitle"')) {
+      return {
+        success: false, source: "amazon-pagina",
+        error: html.length < 8000 ? "a Amazon devolveu bloqueio/captcha" : "pagina da Amazon sem productTitle",
+      };
+    }
+    if (html.includes('id="outOfStock"')) {
+      return { success: false, source: "amazon-pagina", error: "produto fora de estoque na Amazon" };
+    }
+
+    const titulo = tituloAmazon(html);
+    if (!titulo) return { success: false, source: "amazon-pagina", error: "productTitle presente mas vazio" };
+
+    const { por, de } = precoAmazon(html);
+    // Preco sem as duas testemunhas e preco nao confirmado — e nao publicar
+    // preco nao confirmado e o motivo desta funcao existir. Devolver o titulo da
+    // loja com o preco do texto tambem nao serve: data_source e um campo so, nao
+    // ha como gravar "titulo da loja, preco da mensagem". Entao recusa inteiro e
+    // o fallback de texto assume, marcado como sempre foi.
+    if (por === null) {
+      return { success: false, source: "amazon-pagina", error: "o buybox da Amazon nao confirmou o preco (duas testemunhas)" };
+    }
+
+    const img = imagemAmazon(html);
+    return {
+      success: true, source: "amazon-pagina",
+      name: titulo, title: titulo,
+      image: img, thumbnail: img,
+      price_to: por, price: por, price_from: de,
+      availability: "disponivel",
+    };
+  } catch (e) {
+    return { success: false, source: "amazon-pagina", error: `a Amazon nao respondeu: ${(e as Error).message}` };
+  } finally { clearTimeout(t); }
+}
+
+// ── v15 · P20 · o log passa a dizer QUAL link falhou ─────────────────────
+// Guarda host e caminho, nunca o texto da mensagem — conteudo de terceiro so
+// mora em clone_posts.source_text, e so quando a captura vinga. A query string
+// fica de fora de proposito: e onde vive o id do afiliado alheio e ela nao
+// acrescenta nada ao diagnostico. Link que nem parseia nao vira campo: se nao
+// da para dizer o que e, nao da para guardar como se soubesse.
+function partesDoLink(url: unknown): { host: string | null; path: string | null } {
+  const s = String(url ?? "").trim();
+  if (!s) return { host: null, path: null };
+  try {
+    const u = new URL(s);
+    return {
+      host: u.hostname.replace(/^www\./, "").slice(0, 120),
+      path: (u.pathname || "/").slice(0, 300),
+    };
+  } catch {
+    return { host: null, path: null };
+  }
+}
+
 // ── v13/v14 · foto do produto quando a loja nao responde ──────────────────
 // MEDIDO em 31/07: a product-search **pendura** para a Amazon (>90s sem
 // resposta, testado no navegador do dono). O chamarFuncao aborta em 30s, entao
@@ -799,7 +988,7 @@ Deno.serve(async (req: Request) => {
     if (!fontes?.length) { resultados.push({ ...rotulo, status: "sem_fonte", motivo: "nenhuma fonte ativa para esse grupo" }); continue; }
 
     for (const fonte of fontes) {
-      const marca = { ...rotulo, source_id: fonte.id, user_id: fonte.user_id, niche_group_id: fonte.niche_group_id };
+      const marca: Record<string, unknown> = { ...rotulo, source_id: fonte.id, user_id: fonte.user_id, niche_group_id: fonte.niche_group_id };
 
       // ── Isolamento entre contas ─────────────────────────────
       // A fonte e procurada SO pelo JID, e JID igual entre contas diferentes e o
@@ -855,12 +1044,28 @@ Deno.serve(async (req: Request) => {
 
       const resolve = await chamarFuncao("resolve-link", { text: texto });
       if (!resolve?.ok) {
-        resultados.push({ ...marca, status: "resolve_falhou", etapa: resolve?.stage ?? "?", motivo: resolve?.error ?? "resolve-link nao explicou" });
+        // v15/P20: a resolve-link devolve `original` e, quando chegou a abrir o
+        // link, `resolved` e `store` — inclusive no erro. Preferir o resolvido:
+        // encurtador nao diz nada sobre a loja, e "amzlink.to" repetido 40 vezes
+        // no log e o mesmo que nao ter log.
+        const alvo = partesDoLink(resolve?.resolved || resolve?.original);
+        resultados.push({
+          ...marca, status: "resolve_falhou", etapa: resolve?.stage ?? "?",
+          store: resolve?.store ?? null, link_host: alvo.host, link_path: alvo.path,
+          motivo: resolve?.error ?? "resolve-link nao explicou",
+        });
         continue;
       }
 
       const store: string = String(resolve.store ?? "outras");
       const cleanUrl: string = String(resolve.url ?? "");
+
+      // v15/P20: daqui para baixo TODO veredito desta mensagem — recusa ou
+      // captura — carrega o link e a loja. Mutar `marca` em vez de repetir os
+      // campos em cada push e de proposito: sao oito pontos de saida, e o que
+      // falha em lista longa e sempre o item que alguem esqueceu de acrescentar.
+      const doLink = partesDoLink(cleanUrl);
+      Object.assign(marca, { store, link_host: doLink.host, link_path: doLink.path });
 
       // Dedupe por link com janela: o mesmo produto reaparece em grupo de oferta
       // o tempo todo e nao pode entupir o Grupo de Oferta de repetido.
@@ -879,12 +1084,18 @@ Deno.serve(async (req: Request) => {
       const credPorLoja = await credenciaisDe(fonte.user_id);
       const credLoja = credPorLoja[STORE_ENUM[store] ?? store] ?? {};
 
-      // ML com credencial pessoal do dono vai direto ao /ml-product; o resto
-      // (e o ML sem credencial pessoal) segue pela product-search.
+      // ML com credencial pessoal do dono vai direto ao /ml-product; Amazon vai
+      // pelo leitor de pagina (v15/P21); o resto (e o ML sem credencial pessoal)
+      // segue pela product-search.
       let busca: any = null;
       if (store === "mercadolivre") {
         const pessoal = await credenciaisMlDe(fonte.user_id);
         if (pessoal.token || pessoal.cookie) busca = await buscarMlDireto(cleanUrl, pessoal);
+      } else if (store === "amazon") {
+        // Sem "se falhar tenta a product-search": ela nao tem ramo de Amazon,
+        // entao acrescentaria 30 s de espera antes do mesmo "nao". Falha aqui cai
+        // no fallback de texto com data_source='message', como caia antes.
+        busca = await consultarAmazonDireto(cleanUrl);
       }
       if (!busca) {
         busca = await chamarFuncao("product-search", {
@@ -1085,6 +1296,8 @@ Deno.serve(async (req: Request) => {
       status: r.status,
       motivo: typeof r.motivo === "string" ? r.motivo.slice(0, 500) : null,
       store: r.store ?? null,
+      link_host: r.link_host ?? null,
+      link_path: r.link_path ?? null,
       clone_post_id: r.clone_id ?? null,
     }));
     const { error: eLog } = await sb.from("clone_ingest_log").insert(linhas);

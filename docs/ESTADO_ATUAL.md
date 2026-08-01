@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 19 — 01/08/2026 (tarde).** Se o número aqui não for o mais alto que você
+> **REVISÃO 20 — 01/08/2026 (fim de tarde).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -40,9 +40,14 @@
 
 ---
 
-> ✅ **REPO E PRODUÇÃO BATEM.** A `clone-ingest` está em **v14** (foto obrigatória)
-> e o frontend traz o teste de clonabilidade e a seleção múltipla de produtos.
-> Tudo deployado e provado — ver "Foto obrigatória" e "Captura 24h" abaixo.
+> ✅ **P21 FECHADA (REVISÃO 20).** A `clone-ingest` está em **v15** e a captura de
+> Amazon passa a publicar **preço lido da página**, não o que o grupo-fonte
+> digitou. Provado com baseline, controle e conferência do Érico no navegador —
+> ver "P21 — a Amazon lida da página" abaixo. **P20 fechada junto:** o
+> `clone_ingest_log` agora guarda host, caminho e loja das recusas.
+>
+> ✅ **REPO E PRODUÇÃO BATEM.** O frontend traz o teste de clonabilidade e a
+> seleção múltipla de produtos. Ver "Foto obrigatória" e "Captura 24h" abaixo.
 >
 > ✅ A `clone-ingest` **v11** foi deployada em 31/07 às 10:32 e **PROVADA** (ver "Auto-publicação" abaixo). P17 fechada.
 >
@@ -52,25 +57,24 @@
 > Radar que ontem era recusado hoje devolve nome, R$ 12,51, −65% e foto.
 > Ver "Shopee — as duas falhas" abaixo. **P26 e P25 fechadas.**
 >
-> ⚠️ **O que importa saber antes de mexer no Clone Post:** a captura funciona;
-> o enriquecimento de loja funciona agora para **Mercado Livre e Shopee**.
-> **Amazon continua caindo no fallback de texto** (`data_source='message'`), e a
-> auto-publicação da v11 exige `data_source='store'`. Ver "Clone Post — o que
-> está medido" e as pendências P20/P21.
+> ⚠️ **O que importa saber antes de mexer no Clone Post:** a captura funciona e o
+> enriquecimento de loja funciona agora para **as três lojas** — Mercado Livre,
+> Shopee e, desde a v15, Amazon. A auto-publicação da v11 exige
+> `data_source='store'`, e agora as três podem alcançá-lo. **`auto_publish`
+> segue desligado por decisão do Érico** (P18), não por falta de mecanismo.
 >
-> 📌 **PAUTA DA PRÓXIMA SESSÃO — repriorizada com o Érico em 01/08 à tarde.**
+> 📌 **PAUTA DA PRÓXIMA SESSÃO — atualizada no fim da tarde de 01/08.**
 >
-> A ordem mudou no fim do dia. A P30 tinha sido marcada como primeira ação de
-> manhã; à tarde a medição das capturas do Clone Post mostrou coisa pior, e a
-> P30 caiu para quarta. A ordem é:
+> A P21 e a P20 saíram nesta sessão. Sobra:
 >
-> **1ª — P21 (Amazon publica preço não verificado).** É a única pendência que
-> está gerando dado errado em grupo de cliente **agora**. Ver "Clone Post: o
-> preço publicado nunca foi conferido" abaixo.
-> **2ª — P20** (o log não guarda URL nem loja nas recusas). Pequena, e destrava
-> a P27 e o filtro de loja.
-> **3ª — filtro de loja por fonte** (ideia do Érico). Ver P31.
-> **4ª — P30** (o "de" truncado no ML). Erra para o lado conservador.
+> **1ª — filtro de loja por fonte (P31).** Agora com a P20 pronta: o card pode
+> mostrar "12 Shopee capturadas, 30 ML recusadas" e o filtro vira clique
+> informado em vez de palpite no cadastro.
+> **2ª — P30** (o "de" truncado no ML). **Decisão tomada pelo Érico em 01/08:
+> saída (a), com a trava do `undefined`/`null`** — ver a P30 abaixo. Falta codar.
+> **3ª — P27** (reprocessar as capturas de Shopee recusadas antes de 01/08).
+> Estava bloqueada pela P20; deixou de estar para as recusas novas, mas as
+> antigas continuam sem URL no log e seguem irrecuperáveis.
 >
 > **P29 tem janela de 24h e ela fecha sozinha.** O cron
 > `product-refresh-daily` roda **09:00 UTC (06:00 BRT)**. Os logs do Supabase só
@@ -83,6 +87,97 @@
 > `clone_sources` tem **uma única linha** — "TáNaMão", com `active=false`. A
 > "Melhores Ofertas da Internet" não está mais na tabela (foi apagada, não só
 > desativada). Enquanto isso a captura automática não roda para ninguém.
+
+## P21 — a Amazon lida da página (`clone-ingest` v15, 01/08 fim de tarde)
+
+**ENTREGUE E PROVADA.** A captura de Amazon deixou de publicar o preço que o
+grupo-fonte digitou e passou a publicar o preço lido do anúncio.
+
+### O conserto não foi escrever um leitor — foi usar o que já existia
+
+O `product-refresh` lê a Amazon **por fetch direto, sem Scrape.do e sem custo de
+crédito**, exigindo duas testemunhas independentes do buybox (12/12 de acerto
+medido em 30/07). A `clone-ingest` não usava esse caminho: chamava a
+`product-search`, que **não tem ramo de Amazon nenhum** e pendura mais de 90 s.
+O `chamarFuncao` abortava em 30 s, a loja "falhava", e a oferta caía no fallback
+de texto. **O código certo estava a duas funções de distância o tempo todo.**
+
+**Baseline do leitor, medido antes de tocar em qualquer coisa** (01/08 14:24 UTC,
+`product-refresh` v17 em produção, `dryRun`, produto do Kärcher): leu a página em
+**1,9 s** e devolveu **R$ 360,91**. O clone tinha publicado R$ 251,91. Foi essa
+medição que autorizou a portabilidade — não a lembrança de que "funcionava".
+
+### Prova, com baseline e controle
+
+Mesma mensagem sintética, mesma fonte (TáNaMão), mesmo link real
+(`amazon.com.br/dp/B0F3ZYSQH7`), `dryRun`. O texto dizia de propósito
+"De R$ 399,00 por R$ 149,90" — números que não existem na loja.
+
+| | v14 (baseline) | **v15** |
+|---|---|---|
+| `data_source` | `message` | **`store`** |
+| preço | R$ 149,90 — o do texto | **R$ 151,27 — o da página** |
+| "de" | R$ 399,00, desconto de 62% | **null** — a página não mostra "de" |
+| título | "Liquidificador Philco 1050W PLQ11A 220V" (do texto) | **"Liquidificador Philco 2,7L 4 Velocidades 1050W PLQ11A 220V"** (da loja) |
+| foto | Microlink (og:image) | da própria página |
+
+**O Érico abriu a página no navegador e confirmou R$ 151,27.** É a terceira
+testemunha, e é a que fecha: as duas de dentro do buybox concordarem entre si
+provaria só que o parser é consistente, não que ele está certo.
+
+**O que o "de" virar `null` significa** — e por que é acerto e não perda: a
+página não exibe preço riscado, então não há desconto a afirmar. A v14 teria
+publicado 62% de desconto que não existe em lugar nenhum.
+
+**Controle negativo:** ASIN inexistente (`/dp/B0ZZZZZZZZ`) → `sem_imagem`, sem
+preço de loja nenhum. O leitor não afirma o que não leu, e o `fotoPlausivel` da
+v14 continuou barrando o logo de erro da Amazon.
+
+### Decisão que está no código e não deve ser redecidida
+
+**Quando a leitura da Amazon falha, NÃO cai para a `product-search`.** Ela não
+tem o que responder sobre a Amazon; acrescentaria 30 s de espera antes do mesmo
+"não". Falha de leitura cai no fallback de texto com `data_source='message'`,
+exatamente como caía antes — a v15 melhora o caso bom sem piorar o ruim.
+
+**Preço sem as duas testemunhas recusa a captura inteira**, em vez de devolver o
+título da loja com o preço do texto. Não é preciosismo: `data_source` é um campo
+só, não existe "título da loja, preço da mensagem". Misturar as duas origens
+numa linha só tornaria o campo mentiroso.
+
+---
+
+## P20 — o log passa a dizer QUAL link falhou (01/08 fim de tarde)
+
+Migration `clone_ingest_log_guarda_link`: colunas `link_host` e `link_path`, mais
+índice `(clone_source_id, store, created_at desc)`.
+
+**Guarda host e caminho, nunca o texto da mensagem** (conteúdo de terceiro só
+mora em `clone_posts.source_text`, e só quando a captura vinga) e **nunca a query
+string**, que é onde vive o id do afiliado alheio e não ajuda no diagnóstico.
+
+**Provado em produção, sem `dryRun`** — porque `dryRun` não grava log, e o log era
+o alvo. Mensagem com `meli.la/1GQ52Vn`:
+
+| campo | valor gravado |
+|---|---|
+| `status` | `resolve_falhou` |
+| `store` | `mercadolivre` |
+| `link_host` | `mercadolivre.com.br` |
+| `link_path` | **`/social/thiagorabay`** |
+
+O `/social/<afiliado>` é literalmente a vitrine que explicava 18 recusas sem que
+ninguém pudesse apontar qual link era. Agora dá para reproduzir uma recusa.
+
+Estado restaurado depois do teste: linha sintética apagada do log,
+`captured_today` da TáNaMão intacto em 9, nenhum `clone_posts` criado.
+
+**Detalhe de implementação que vale registrar:** os campos são pendurados em
+`marca` logo depois da `resolve-link`, e não repetidos em cada `resultados.push`.
+São oito pontos de saída — o que falha em lista longa é sempre o item que alguém
+esqueceu de acrescentar.
+
+---
 
 ## Clone Post: o preço publicado nunca foi conferido na loja (01/08, tarde)
 
@@ -107,7 +202,11 @@ marca do cliente.
 R$ 58,52, R$ 279,90, R$ 379,99. Esses são confiáveis. Os que vieram do clone,
 não.
 
-**A pista que torna a P21 tratável:** o leitor de Amazon do `product-refresh`
+> ✅ **FECHADO NA MESMA TARDE.** A `clone-ingest` v15 usa o leitor abaixo. Ver
+> "P21 — a Amazon lida da página" no topo. O texto seguinte fica como o
+> diagnóstico que levou até lá.
+
+**A pista que tornou a P21 tratável:** o leitor de Amazon do `product-refresh`
 (`consultarAmazon`, duas testemunhas do buybox, 12/12 de acerto medido em 30/07)
 **funciona, por fetch direto, sem Scrape.do** — e lê preço, "de" e imagem. A
 `clone-ingest` não usa esse caminho: chama a `product-search`, que pendura >90s
@@ -584,6 +683,37 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**Sessão do fim da tarde de 01/08/2026 — P21 e P20 entregues e provadas.**
+
+| | |
+|---|---|
+| Commits | 1 · `clone-ingest` e este doc |
+| Edge Functions | `clone-ingest` **v15**, provada com baseline e controle |
+| Migrations | 1 · `clone_ingest_log_guarda_link` (`link_host`, `link_path`, índice) |
+| Frontend | **não tocado** nesta sessão |
+| Repo × produção | ✅ **BATEM** |
+
+**O que foi medido nesta sessão:**
+
+- **Baseline do leitor de Amazon do `product-refresh`, hoje**, antes de portar
+  nada: leu a página do Kärcher em 1,9 s e devolveu R$ 360,91 contra os R$ 251,91
+  publicados pelo clone. A afirmação "o leitor funciona" não foi herdada de
+  30/07, foi remedida.
+- **`clone-ingest` v15 provada com baseline (v14, `data_source='message'`,
+  R$ 149,90 do texto) e controle (ASIN inexistente → `sem_imagem`).** O valor
+  lido, R$ 151,27, foi **conferido pelo Érico no navegador**.
+- **P20 provada em produção sem `dryRun`:** `link_host=mercadolivre.com.br`,
+  `link_path=/social/thiagorabay` gravados na recusa. Estado restaurado.
+- **P30 decidida pelo Érico:** saída **(a)** — repassar o `price_from` e aceitar
+  que o "de" seja apagado quando a loja não mostra — **com a trava do
+  `undefined`/`null`**, que nenhuma das duas saídas originais tinha. Ver P30.
+- **Erro de tipo pré-existente confirmado como pré-existente:** o `tsc` acusa um
+  `unknown[]` não atribuível a `string[]` na action `jids`. Está no `main` desde
+  antes desta sessão — conferido rodando o mesmo `tsc` contra o arquivo do
+  `HEAD`. Não foi introduzido aqui e não foi consertado aqui (escopo estrito).
+
+---
+
 **Sessão da tarde de 01/08/2026 — só medição, nenhuma alteração de código.**
 
 - **14 de 14 capturas do Clone Post são `data_source='message'`** — o preço
@@ -1019,15 +1149,15 @@ código não relacionado.
 | ~~P22~~ | ✅ **FECHADA 31/07 tarde.** `clone-ingest` v12 deployada às 11:40 e provada com baseline e controle. Ver "Captura 24h" acima | 31/07 |
 | **P23** | **Parte (a) ENTREGUE 31/07 tarde** (campo de teste no formulário, commitado, aguardando Deploy). **Parte (b) ABERTA:** alerta no card da fonte depois de N mensagens avaliadas sem nenhuma captura — query em `clone_ingest_log`, dado já existe. A (a) protege quem está cadastrando; a (b) protege quem já cadastrou e não sabe que o grupo mudou de comportamento. **Confirmado em campo 31/07:** Érico abriu o `meli.la/1GQ52Vn` no navegador e parou na vitrine do afiliado, exatamente como a `resolve-link` previa | 31/07 |
 | ~~P24~~ | ✅ **FECHADA 31/07 tarde.** O `+ Nova fonte` **funciona** — Érico clicou e o formulário abriu. A hipótese do `S.waNumber` não se confirmou. Nenhuma linha de código foi alterada. Lição: pendência aberta a partir de relato sem reprodução custou uma sessão de suspeita sobre código sadio | 31/07 |
-| **P20** | `clone_ingest_log` não guarda a URL que falhou. Nas 24 recusas de `resolve_falhou` de hoje dá para contar mas não para saber *quais* links, nem reproduzir. Guardar host+path do link escolhido (não o texto da mensagem — conteúdo de terceiro) nas recusas de resolve | 31/07 manhã |
-| **P21** | **Causa medida em 31/07: a `product-search` PENDURA para a Amazon** — mais de 90s sem responder, testado no navegador logado; o `chamarFuncao` aborta em 30s e a loja sempre "falha". Não é só "falta caminho Amazon": há um travamento. A v14 contornou o sintoma da foto (og:image via Microlink), **mas título e preço da Amazon continuam vindo do texto da mensagem** (`data_source='message'`), então a auto-publicação segue alcançando só o Mercado Livre. Decidir: (a) achar o travamento da `product-search`, (b) usar o título/preço do Microlink — ele devolve o título real, medido —, ou (c) a UI avisar que auto-publicar só vale para ML | 31/07 |
+| ~~P20~~ | ✅ **FECHADA 01/08 fim de tarde.** Colunas `link_host`/`link_path` criadas e a v15 as grava. Provado em produção com `meli.la` → `/social/thiagorabay`. Registro original abaixo. ~~`clone_ingest_log` não guarda a URL que falhou.~~ Nas 24 recusas de `resolve_falhou` de hoje dá para contar mas não para saber *quais* links, nem reproduzir. Guardar host+path do link escolhido (não o texto da mensagem — conteúdo de terceiro) nas recusas de resolve | 31/07 manhã |
+| ~~P21~~ | ✅ **FECHADA 01/08 fim de tarde.** `clone-ingest` **v15**: a Amazon é lida da página pelo leitor portado do `product-refresh`. Baseline, controle e conferência no navegador — R$ 151,27, `data_source='store'`. Ver a seção no topo. Registro original abaixo. ~~**Causa medida em 31/07: a `product-search` PENDURA para a Amazon**~~ — mais de 90s sem responder, testado no navegador logado; o `chamarFuncao` aborta em 30s e a loja sempre "falha". Não é só "falta caminho Amazon": há um travamento. A v14 contornou o sintoma da foto (og:image via Microlink), **mas título e preço da Amazon continuam vindo do texto da mensagem** (`data_source='message'`), então a auto-publicação segue alcançando só o Mercado Livre. Decidir: (a) achar o travamento da `product-search`, (b) usar o título/preço do Microlink — ele devolve o título real, medido —, ou (c) a UI avisar que auto-publicar só vale para ML | 31/07 |
 | ~~P25~~ | ✅ **FECHADA 01/08 — e a conclusão anterior estava ERRADA.** O link avulso devolve *"Vestido Corset Feminino Longo…"*, R$ 200, com foto, pela `product-search` v24. Não era "não" da Shopee: era a assinatura HMAC. O registro abaixo ficou como exemplo de diagnóstico tirado de mensagem de erro não verificada. ~~**MEDIDO 31/07 à noite, com o link real do Érico.**~~ `resolve-link` **funciona** (270 ms, limpa para `/product/1397105725/58213461759`); quem recusa é a `product-search` com *"Produto não encontrado"* em 1,1 s — a API de afiliado da Shopee só conhece item do **catálogo de ofertas** dela, e produto avulso não está lá. **É um "não" da Shopee, não falha nossa.** O Microlink **não** cobre este caso: devolveu título `"58213461759"` (só o ID) e imagem nula, porque a Shopee monta a página por JavaScript. Restam: (a) Scrape.do na página (queima crédito, decisão de orçamento), (b) preencher à mão, (c) **mínimo valioso e barato: a tela avisar em português** que a Shopee não reconhece o produto, em vez de só gerar o link em silêncio | 31/07 |
 | ~~P26~~ | ✅ **FECHADA 01/08.** `resolve-link` v5 deployada e provada com baseline (v4 recusando) e controle negativo (`/collections/…` segue recusado). Registro original abaixo. 🔴 **A `resolve-link` não reconhecia o formato de URL de produto que o próprio Radar da plataforma gera.** MEDIDO 31/07 à noite: `https://s.shopee.com.br/4AykYR6yxu` (link de oferta do Radar) redireciona para `https://shopee.com.br/**opaanlp**/1006215031/24442629738` — mesma estrutura de `/product/LOJA/ITEM`, **primeiro segmento variável**. A `resolve-link` só casa `/product/LOJA/ITEM` e `-i.LOJA.ITEM`, então recusa com *"não tem o código -i.LOJA.ITEM"* uma página de produto legítima, com loja e item visíveis na própria URL. **Conserto é uma regra a mais no reconhecimento de URL — pequeno em tamanho, grande em efeito.** Duplamente relevante: (1) reabre as 10 recusas de Shopee do log, cujo diagnóstico anterior estava errado; (2) esse produto **está** no catálogo de ofertas, então, resolvido o formato, a `product-search` deve responder com nome, preço e foto — diferente do caso da P25. **Exige reemitir a `resolve-link` inteira num deploy só: fazer em sessão limpa, primeira ação.** | 31/07 |
-| **P27** | **Reprocessar as capturas de Shopee recusadas antes de 01/08.** As recusas de `resolve_falhou` e as capturas que caíram em `data_source='message'` por causa das duas falhas da Shopee eram, em boa parte, ofertas boas. A action `reparse` da `clone-ingest` reaplica o fallback de texto, mas **não** refaz `resolve-link` + `product-search` — não serve. Decidir: (a) estender o `reparse` para reprocessar de verdade, (b) deixar passar e olhar só daqui pra frente. Bloqueado de fato pela P20: o log **não guarda a URL**, então nem dá pra reprocessar as recusas de resolve | 01/08 |
+| **P27** | **Reprocessar as capturas de Shopee recusadas antes de 01/08.** As recusas de `resolve_falhou` e as capturas que caíram em `data_source='message'` por causa das duas falhas da Shopee eram, em boa parte, ofertas boas. A action `reparse` da `clone-ingest` reaplica o fallback de texto, mas **não** refaz `resolve-link` + `product-search` — não serve. Decidir: (a) estender o `reparse` para reprocessar de verdade, (b) deixar passar e olhar só daqui pra frente. ~~Bloqueado de fato pela P20~~ — **atualizado 01/08 fim de tarde:** a P20 saiu, então as recusas **novas** trazem host e caminho e são reproduzíveis. As **antigas** continuam sem URL no log e seguem irrecuperáveis por esse caminho; para elas resta o `clone_posts.clean_url` das que viraram captura | 01/08 |
 | **P28** | **Não existe fonte de clone ativa.** `clone_sources` tem uma linha ("TáNaMão", `active=false`) e a "Melhores Ofertas" foi apagada da tabela. Com a Shopee destravada, nada disso aparece em produção enquanto não houver fonte ligada. Ação do Érico, não de código: religar a TáNaMão ou cadastrar um grupo-fonte novo, e então observar uma captura de Shopee real chegar com `data_source='store'` | 01/08 |
-| **P31** | **Filtro de loja por fonte** (ideia do Érico, 01/08). Fonte que presta para uma loja e não para outra — medido na "Melhores Ofertas": Shopee clona, ML não. Desenho: coluna nova `lojas_permitidas text[]` em `clone_sources` (vazio = todas, não altera fontes existentes); filtro **depois** da `resolve-link` e **antes** da `product-search`, que é onde o Scrape.do custa; checkboxes nas **duas** cópias do `index.html`. Um filtro anterior, por domínio do link cru (`meli.la`, `s.shopee.com.br`, `amzn.to`), economiza até a chamada da `resolve-link`, mas não cobre encurtador genérico. **NÃO marcar checkbox automaticamente a partir do teste de clonabilidade:** um teste valida uma loja só; no máximo sugerir. **Depende da P20** para o card poder mostrar "12 Shopee capturadas, 30 ML recusadas" e o filtro virar clique informado em vez de palpite no cadastro | 01/08 |
+| **P31** | **Filtro de loja por fonte** (ideia do Érico, 01/08). Fonte que presta para uma loja e não para outra — medido na "Melhores Ofertas": Shopee clona, ML não. Desenho: coluna nova `lojas_permitidas text[]` em `clone_sources` (vazio = todas, não altera fontes existentes); filtro **depois** da `resolve-link` e **antes** da `product-search`, que é onde o Scrape.do custa; checkboxes nas **duas** cópias do `index.html`. Um filtro anterior, por domínio do link cru (`meli.la`, `s.shopee.com.br`, `amzn.to`), economiza até a chamada da `resolve-link`, mas não cobre encurtador genérico. **NÃO marcar checkbox automaticamente a partir do teste de clonabilidade:** um teste valida uma loja só; no máximo sugerir. ~~Depende da P20~~ — **a P20 saiu em 01/08**, então o card já pode mostrar "12 Shopee capturadas, 30 ML recusadas" e o filtro vira clique informado em vez de palpite no cadastro. **É a primeira ação da próxima sessão** | 01/08 |
 | **P29** | **Por que 3 rodadas do cron de `product-refresh` conferiram 1 produto só?** Medido: o único carimbo de cron na base é `2026-07-30 09:00:08`, com `BATCH = 12` e ~1,7s por produto. A hipótese do `ORDER BY` foi levantada e **descartada**. Não há explicação testada. ⏰ **Os logs de 29–31/07 EXPIRARAM** — o Supabase só devolve 24h, e a tentativa de 01/08 chegou tarde. **Próxima medição possível: a rodada de 02/08 às 09:00 UTC**, que já roda a v17. Ler no mesmo dia. O que conferir: `candidatos`, `conferidos`, `pulados`, `desconhecidos`, `interrompido_por_tempo` e `duracao_ms` no corpo da resposta, e quantas linhas de `products` ganharam `price_checked_at` naquele horário. Se vier 12 candidatos e ~7 conferidos, o problema era algo que a v17 pegou de raspão e a pendência fecha; se vier 1 de novo, é bug novo com log fresco na mão | 01/08 |
-| **P30** | 🔜 **PRÓXIMA SESSÃO, PRIMEIRA AÇÃO** (combinado com o Érico em 01/08). **`price_original` ("de") continua truncado nos produtos de Mercado Livre.** O `consultarML` não devolve `precoDe`, então a reconciliação da v16 nunca roda para o ML e o "de" mantém o valor inteiro antigo (96 em vez de 96,79). O wa-engine **já devolve** `price_from` com centavos — é só repassar. **Decisão pendente e não trivial:** repassar significa que, quando a loja não mostrar "de", o `precoDe` vira `null` e a v16 **apaga** o "de" existente. Isso remove o desconto de posts que hoje exibem um. Efeito atual do bug é conservador (desconto aparece menor do que é), então não é urgente — mas é o próximo item combinado. **As duas saídas, para decidir antes de codar:** (a) repassar direto e aceitar que o "de" seja apagado quando a loja não mostrar, que é o que a v16 escolheu de propósito para não publicar desconto que não existe; (b) repassar só quando a loja mostrar "de" e nunca apagar, que preserva o desconto atual mas reabre a porta para o "de" de terceiro que o caso La Roche fechou. **Escolher (a) ou (b) é decisão do Érico, não do código.** Depois disso o patch é pequeno: `consultarML` devolver `precoDe` a partir de `d.price_from` | 01/08 |
+| **P30** | 🔜 **PRÓXIMA SESSÃO, PRIMEIRA AÇÃO** (combinado com o Érico em 01/08). **`price_original` ("de") continua truncado nos produtos de Mercado Livre.** O `consultarML` não devolve `precoDe`, então a reconciliação da v16 nunca roda para o ML e o "de" mantém o valor inteiro antigo (96 em vez de 96,79). O wa-engine **já devolve** `price_from` com centavos — é só repassar. **Decisão pendente e não trivial:** repassar significa que, quando a loja não mostrar "de", o `precoDe` vira `null` e a v16 **apaga** o "de" existente. Isso remove o desconto de posts que hoje exibem um. Efeito atual do bug é conservador (desconto aparece menor do que é), então não é urgente — mas é o próximo item combinado. **As duas saídas, para decidir antes de codar:** (a) repassar direto e aceitar que o "de" seja apagado quando a loja não mostrar, que é o que a v16 escolheu de propósito para não publicar desconto que não existe; (b) repassar só quando a loja mostrar "de" e nunca apagar, que preserva o desconto atual mas reabre a porta para o "de" de terceiro que o caso La Roche fechou. **DECIDIDO PELO ÉRICO EM 01/08: saída (a), com uma trava que nenhuma das duas tinha.** O que fazia a (b) parecer necessária era o risco de apagar um "de" bom por causa de uma leitura que falhou — e isso não é escolher entre (a) e (b), é distinguir dois casos que a P30 tratava como um só. O `product-refresh` já faz essa distinção e ela está escrita no tipo `Consulta`: **`undefined` = não olhei; `null` = olhei e a loja não mostra.** Só o segundo pode apagar. Patch: `consultarML` devolve `precoDe: null` quando a leitura deu certo e não havia "de", e `undefined` quando a leitura falhou; a reconciliação da v16 só apaga no primeiro caso. **Falta codar** | 01/08 |
 | **P15** | **Parcialmente endereçada 31/07 tarde.** Existe agora um smoke test executável: extrair os blocos `<script>`, rodar os quatro **no mesmo contexto** `vm` do Node com um DOM falso permissivo, e comparar contra o baseline **antes** do patch. Foi rodado neste push e pegaria o TDZ do `f94e2f0`. **Duas limitações medidas:** (1) dá falso positivo em `id` de elemento usado como global — `themeT.onclick` na linha 2496 acusa `ReferenceError` no sandbox e funciona no browser; por isso a comparação com o baseline é obrigatória, o veredito é "piorou?", não "tem erro?"; (2) não executa handler nenhum, só o top-level. **Continua aberta:** carregar a página num navegador de verdade e ler o console segue sendo a única prova real | 31/07 |
 | **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
 
@@ -1122,6 +1252,29 @@ código não relacionado.
   Uma regra `/{qualquer}/DIGITOS/DIGITOS` aceitaria caminho de sistema como
   produto, e o erro só apareceria etapas depois, com mensagem que não aponta para
   a regra. Por isso a v5 exige 3 segmentos exatos, 6+ dígitos e lista de exclusão.
+
+- **Antes de escrever a peça nova, procurar a peça que já faz isso no mesmo
+  repo.** A P21 ficou dois dias catalogada como "falta caminho Amazon na
+  `product-search`" — trabalho a fazer. Era trabalho já feito: o
+  `product-refresh` lia a Amazon direito desde 30/07, por fetch direto e de
+  graça, e a `clone-ingest` só não o chamava. É o mesmo formato da falha da
+  assinatura da Shopee (uma implementação certa e uma errada convivendo no
+  repo), agora na forma "uma implementação certa e nenhuma". **A pergunta que
+  economiza dias: alguém aqui dentro já resolveu isto?**
+- **Portar código funcionando não dispensa remedir.** O leitor tinha 12/12 de
+  acerto em 30/07; isso é evidência sobre 30/07, não sobre hoje. A página da
+  Amazon muda, o bloqueio anti-bot muda. Rodar o `product-refresh` num produto
+  real antes de copiar uma linha custou 2 minutos e transformou "deve
+  funcionar" em "leu R$ 360,91 às 14:24".
+- **Duas testemunhas que concordam provam consistência, não verdade.** As duas
+  leituras do buybox baterem entre si só diz que o parser é estável. Quem fechou
+  a P21 foi a terceira testemunha, de fora do sistema: o navegador do Érico
+  mostrando o mesmo R$ 151,27.
+- **Campo único não comporta duas origens.** A tentação de devolver o título da
+  loja com o preço do texto quando só o preço falha é forte e está errada:
+  `data_source` é um campo só. Ou a linha inteira veio da loja, ou ela é
+  `message`. Registro que descreve mal a própria procedência é pior que registro
+  incompleto.
 
 **Sobre UX**
 
