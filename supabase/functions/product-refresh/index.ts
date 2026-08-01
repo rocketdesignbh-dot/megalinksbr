@@ -1,4 +1,21 @@
-// Mega Links BR · Edge Function "product-refresh" v16
+// Mega Links BR · Edge Function "product-refresh" v17
+// v17 (01/08): tres mudancas, todas por causa do caso "preco do post menor que o
+//      do site" relatado pela Patricia Cella.
+//      (a) ORDER BY explicito por price_checked_at, nulos primeiro. A selecao era
+//          arbitraria. ATENCAO ao registro honesto: a hipotese de que a falta de
+//          ORDER BY causava "rotacao nenhuma" foi levantada e esta ERRADA — quem
+//          e conferido ganha price_checked_at e sai do filtro por 24h. A ordem
+//          explicita entra por previsibilidade, nao por consertar fome.
+//          Por que 3 rodadas do cron conferiram 1 produto so: NAO medido, aberto.
+//      (b) os pulos por CONDICAO (sem URL, loja sem verificador, plano sem
+//          monitoramento) passam a carimbar price_checked_at. Sem isso, o
+//          nullsFirst da (a) poria esses produtos na frente de TODA rodada para
+//          sempre — a ordenacao sozinha teria piorado o problema que ela parecia
+//          resolver. Pulo por teto de pool e falha de leitura seguem sem carimbo.
+//      (c) forcarPreco: grava o preco lido mesmo dentro da tolerancia de 5%.
+//          Existe para a correcao pontual do truncamento de centavos do
+//          wa-engine (R$ 74,90 gravado como 74 — diferenca de ~1%, que a
+//          tolerancia jamais corrigiria). Desligado por padrao; o cron nao usa.
 // v16: o preco "de" passa a ser reconciliado em toda leitura bem-sucedida da
 //      loja, e nao apenas quando o "por" varia mais que a tolerancia. Ver o
 //      comentario no laco principal: o La Roche ficou com "de R$116,99" sobre um
@@ -360,6 +377,12 @@ Deno.serve(async (req: Request) => {
   const dryRun = body.dryRun === true || url0.searchParams.get('dryRun') === '1';
   const semAviso = body.semAviso === true || url0.searchParams.get('semAviso') === '1';
   const soProduto = String(body.productId ?? url0.searchParams.get('productId') ?? '').trim();
+  // Correcao pontual: grava o preco lido mesmo quando a diferenca fica DENTRO da
+  // tolerancia de 5%. Existe por causa do truncamento de centavos consertado em
+  // 01/08 (R$ 74,90 gravado como 74): a diferenca e de ~1%, entao a tolerancia
+  // normal nunca corrigiria — ela preservaria o erro para sempre. Desligada por
+  // padrao; o cron diario NAO usa.
+  const forcarPreco = body.forcarPreco === true || url0.searchParams.get('forcarPreco') === '1';
 
   if (!WA_ENGINE_TOKEN) {
     return json({ ok: false, motivo: 'WA_ENGINE_TOKEN nao configurado', nota: 'Nenhum produto foi alterado.' });
@@ -376,11 +399,16 @@ Deno.serve(async (req: Request) => {
     const q = await SB.from('products').select(campos).eq('id', soProduto).limit(1);
     produtos = q.data; error = q.error;
   } else {
-    // MEDIDO 01/08: sem ORDER BY, o PostgREST devolve as MESMAS 12 linhas toda
-    // rodada enquanto a tabela nao muda. Nao era rotacao lenta — era rotacao
-    // NENHUMA: 69 dos 74 produtos ativos nunca tinham sido conferidos, mesmo com
-    // o cron rodando. Ordenar por price_checked_at com os nulos primeiro faz o
-    // mais desatualizado ser sempre o proximo, e garante que ninguem morre de fome.
+    // Ordem explicita: o mais desatualizado e sempre o proximo. Sem ORDER BY a
+    // selecao era arbitraria — nao impedia rotacao (quem e conferido ganha
+    // price_checked_at e sai do filtro por 24h), mas tornava imprevisivel QUEM
+    // entrava, e isso e impossivel de depurar quando um produto some da fila.
+    //
+    // nullsFirst so e seguro POR CAUSA do carimbo nos pulos permanentes abaixo.
+    // Sem ele, produto que e sempre pulado (plano sem monitoramento, loja sem
+    // verificador, link nao consultavel) ficaria com price_checked_at nulo para
+    // sempre e ocuparia as primeiras posicoes de TODA rodada — a ordenacao
+    // transformaria uma fome ocasional em fome garantida.
     const q = await SB.from('products').select(campos)
       .or(`price_checked_at.is.null,price_checked_at.lt.${corte}`)
       .eq('expired', false)
@@ -409,6 +437,7 @@ Deno.serve(async (req: Request) => {
   }
 
   let conferidos = 0, precoMudou = 0, desconhecidos = 0, pulados = 0, usosDoPool = 0;
+  let precosCorrigidos = 0;
   let expirados = 0, suspeitos = 0, reabilitados = 0, conferidosAmazon = 0;
   let imagensPreenchidas = 0, precoSemLeitura = 0;
   let interrompidoPorTempo = false;
@@ -423,17 +452,28 @@ Deno.serve(async (req: Request) => {
     const nome = String(p.title ?? '').slice(0, 38);
     const loja = String(p.source ?? '');
 
+    // Os tres pulos abaixo sao de CONDICAO, nao de falha: consultar a loja nao
+    // ia acontecer mesmo. Carimbar price_checked_at aqui nao mente ("foi
+    // avaliado", e foi) e tira o produto da fila por 24h, em vez de deixa-lo
+    // voltar em toda rodada empurrando os outros para tras. O pulo por teto de
+    // pool e a falha de leitura NAO sao carimbados: aqueles precisam voltar ja.
     if (!url || ehLinkCurtoProprio(url)) {
-      pulados++; detalhes.push(`- ${nome} — sem URL original consultavel`); continue;
+      pulados++; detalhes.push(`- ${nome} — sem URL original consultavel`);
+      if (!dryRun) await SB.from('products').update({ price_checked_at: agora }).eq('id', p.id);
+      continue;
     }
     if (!LOJAS_COM_VERIFICADOR.has(loja)) {
-      pulados++; detalhes.push(`- ${nome} — ${loja || 'sem loja'}: ainda sem verificador`); continue;
+      pulados++; detalhes.push(`- ${nome} — ${loja || 'sem loja'}: ainda sem verificador`);
+      if (!dryRun) await SB.from('products').update({ price_checked_at: agora }).eq('id', p.id);
+      continue;
     }
 
     const perfil = perfilPorDono[p.user_id];
     const planoDono = perfil?.is_vip ? 'elite' : String(perfil?.plan ?? 'starter');
     if (!PLANOS_COM_MONITORAMENTO.has(planoDono)) {
-      pulados++; detalhes.push(`- ${nome} — plano ${planoDono}: sem monitoramento de estoque`); continue;
+      pulados++; detalhes.push(`- ${nome} — plano ${planoDono}: sem monitoramento de estoque`);
+      if (!dryRun) await SB.from('products').update({ price_checked_at: agora }).eq('id', p.id);
+      continue;
     }
 
     let res: Consulta;
@@ -525,6 +565,12 @@ Deno.serve(async (req: Request) => {
         patch.price = precoNovo;
         patch.price_changed = true;
         detalhes.push(`$ ${nome} — ${precoAntigo} -> ${precoNovo}`);
+      } else if (forcarPreco && precoNovo !== precoAntigo) {
+        // De proposito NAO marca price_changed: acertar centavo nao e "a oferta
+        // mudou", e marcar assim poluiria o sinal que a tela usa.
+        patch.price = precoNovo;
+        precosCorrigidos++;
+        detalhes.push(`= ${nome} — ${precoAntigo} -> ${precoNovo} (centavos, dentro da tolerancia)`);
       }
     }
 
@@ -561,6 +607,7 @@ Deno.serve(async (req: Request) => {
     voltaram_a_ficar_disponiveis: reabilitados,
     desconhecidos,
     pulados,
+    precos_corrigidos_por_centavos: precosCorrigidos,
     usos_do_pool_compartilhado: usosDoPool,
     teto_do_pool: MAX_POOL_POR_RODADA,
     strikes_para_expirar: STRIKES_PARA_EXPIRAR,
