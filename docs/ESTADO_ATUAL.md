@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 17 — 01/08/2026 (manhã).** Se o número aqui não for o mais alto que você
+> **REVISÃO 18 — 01/08/2026 (manhã).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -57,6 +57,21 @@
 > **Amazon continua caindo no fallback de texto** (`data_source='message'`), e a
 > auto-publicação da v11 exige `data_source='store'`. Ver "Clone Post — o que
 > está medido" e as pendências P20/P21.
+>
+> 📌 **PAUTA DA PRÓXIMA SESSÃO — decidida com o Érico em 01/08.**
+>
+> **1. P30 é a primeira ação.** Repassar o `price_from` do wa-engine no
+> `consultarML` da `product-refresh`, para o `price_original` ("de") do Mercado
+> Livre parar de sair truncado. **Não comece codando:** a decisão de projeto vem
+> antes — ver a P30, o ponto é o que fazer quando a loja NÃO mostra "de".
+> Exige reemitir a `product-refresh` inteira (~29 KB) num deploy só: fazer em
+> sessão com contexto livre.
+>
+> **2. P29 tem janela de 24h e ela fecha sozinha.** O cron
+> `product-refresh-daily` roda **09:00 UTC (06:00 BRT)**. Os logs do Supabase só
+> voltam 24 horas — foi exatamente isso que impediu o diagnóstico em 01/08, com
+> as rodadas de 29–31/07 já expiradas. **Ler o log da rodada no mesmo dia**, ou
+> a pendência recomeça do zero. Ver P29.
 >
 > ⚠️ **Não há nenhuma fonte de clone ativa hoje.** Medido em 01/08: a tabela
 > `clone_sources` tem **uma única linha** — "TáNaMão", com `active=false`. A
@@ -920,8 +935,8 @@ código não relacionado.
 | ~~P26~~ | ✅ **FECHADA 01/08.** `resolve-link` v5 deployada e provada com baseline (v4 recusando) e controle negativo (`/collections/…` segue recusado). Registro original abaixo. 🔴 **A `resolve-link` não reconhecia o formato de URL de produto que o próprio Radar da plataforma gera.** MEDIDO 31/07 à noite: `https://s.shopee.com.br/4AykYR6yxu` (link de oferta do Radar) redireciona para `https://shopee.com.br/**opaanlp**/1006215031/24442629738` — mesma estrutura de `/product/LOJA/ITEM`, **primeiro segmento variável**. A `resolve-link` só casa `/product/LOJA/ITEM` e `-i.LOJA.ITEM`, então recusa com *"não tem o código -i.LOJA.ITEM"* uma página de produto legítima, com loja e item visíveis na própria URL. **Conserto é uma regra a mais no reconhecimento de URL — pequeno em tamanho, grande em efeito.** Duplamente relevante: (1) reabre as 10 recusas de Shopee do log, cujo diagnóstico anterior estava errado; (2) esse produto **está** no catálogo de ofertas, então, resolvido o formato, a `product-search` deve responder com nome, preço e foto — diferente do caso da P25. **Exige reemitir a `resolve-link` inteira num deploy só: fazer em sessão limpa, primeira ação.** | 31/07 |
 | **P27** | **Reprocessar as capturas de Shopee recusadas antes de 01/08.** As recusas de `resolve_falhou` e as capturas que caíram em `data_source='message'` por causa das duas falhas da Shopee eram, em boa parte, ofertas boas. A action `reparse` da `clone-ingest` reaplica o fallback de texto, mas **não** refaz `resolve-link` + `product-search` — não serve. Decidir: (a) estender o `reparse` para reprocessar de verdade, (b) deixar passar e olhar só daqui pra frente. Bloqueado de fato pela P20: o log **não guarda a URL**, então nem dá pra reprocessar as recusas de resolve | 01/08 |
 | **P28** | **Não existe fonte de clone ativa.** `clone_sources` tem uma linha ("TáNaMão", `active=false`) e a "Melhores Ofertas" foi apagada da tabela. Com a Shopee destravada, nada disso aparece em produção enquanto não houver fonte ligada. Ação do Érico, não de código: religar a TáNaMão ou cadastrar um grupo-fonte novo, e então observar uma captura de Shopee real chegar com `data_source='store'` | 01/08 |
-| **P29** | **Por que 3 rodadas do cron de `product-refresh` conferiram 1 produto só?** Medido: o único carimbo de cron na base é `2026-07-30 09:00:08`, com `BATCH = 12` e ~1,7s por produto. A hipótese do `ORDER BY` foi levantada e **descartada**. Não há explicação testada. Olhar os logs da função nas execuções de 09:00 UTC de 29, 30 e 31/07 | 01/08 |
-| **P30** | **`price_original` ("de") continua truncado nos produtos de Mercado Livre.** O `consultarML` não devolve `precoDe`, então a reconciliação da v16 nunca roda para o ML e o "de" mantém o valor inteiro antigo (96 em vez de 96,79). O wa-engine **já devolve** `price_from` com centavos — é só repassar. **Decisão pendente e não trivial:** repassar significa que, quando a loja não mostrar "de", o `precoDe` vira `null` e a v16 **apaga** o "de" existente. Isso remove o desconto de posts que hoje exibem um. Efeito atual do bug é conservador (desconto aparece menor do que é), então não é urgente | 01/08 |
+| **P29** | **Por que 3 rodadas do cron de `product-refresh` conferiram 1 produto só?** Medido: o único carimbo de cron na base é `2026-07-30 09:00:08`, com `BATCH = 12` e ~1,7s por produto. A hipótese do `ORDER BY` foi levantada e **descartada**. Não há explicação testada. ⏰ **Os logs de 29–31/07 EXPIRARAM** — o Supabase só devolve 24h, e a tentativa de 01/08 chegou tarde. **Próxima medição possível: a rodada de 02/08 às 09:00 UTC**, que já roda a v17. Ler no mesmo dia. O que conferir: `candidatos`, `conferidos`, `pulados`, `desconhecidos`, `interrompido_por_tempo` e `duracao_ms` no corpo da resposta, e quantas linhas de `products` ganharam `price_checked_at` naquele horário. Se vier 12 candidatos e ~7 conferidos, o problema era algo que a v17 pegou de raspão e a pendência fecha; se vier 1 de novo, é bug novo com log fresco na mão | 01/08 |
+| **P30** | 🔜 **PRÓXIMA SESSÃO, PRIMEIRA AÇÃO** (combinado com o Érico em 01/08). **`price_original` ("de") continua truncado nos produtos de Mercado Livre.** O `consultarML` não devolve `precoDe`, então a reconciliação da v16 nunca roda para o ML e o "de" mantém o valor inteiro antigo (96 em vez de 96,79). O wa-engine **já devolve** `price_from` com centavos — é só repassar. **Decisão pendente e não trivial:** repassar significa que, quando a loja não mostrar "de", o `precoDe` vira `null` e a v16 **apaga** o "de" existente. Isso remove o desconto de posts que hoje exibem um. Efeito atual do bug é conservador (desconto aparece menor do que é), então não é urgente — mas é o próximo item combinado. **As duas saídas, para decidir antes de codar:** (a) repassar direto e aceitar que o "de" seja apagado quando a loja não mostrar, que é o que a v16 escolheu de propósito para não publicar desconto que não existe; (b) repassar só quando a loja mostrar "de" e nunca apagar, que preserva o desconto atual mas reabre a porta para o "de" de terceiro que o caso La Roche fechou. **Escolher (a) ou (b) é decisão do Érico, não do código.** Depois disso o patch é pequeno: `consultarML` devolver `precoDe` a partir de `d.price_from` | 01/08 |
 | **P15** | **Parcialmente endereçada 31/07 tarde.** Existe agora um smoke test executável: extrair os blocos `<script>`, rodar os quatro **no mesmo contexto** `vm` do Node com um DOM falso permissivo, e comparar contra o baseline **antes** do patch. Foi rodado neste push e pegaria o TDZ do `f94e2f0`. **Duas limitações medidas:** (1) dá falso positivo em `id` de elemento usado como global — `themeT.onclick` na linha 2496 acusa `ReferenceError` no sandbox e funciona no browser; por isso a comparação com o baseline é obrigatória, o veredito é "piorou?", não "tem erro?"; (2) não executa handler nenhum, só o top-level. **Continua aberta:** carregar a página num navegador de verdade e ler o console segue sendo a única prova real | 31/07 |
 | **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
 
