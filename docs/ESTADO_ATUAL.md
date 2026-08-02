@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 24 — 01/08/2026 (noite).** Se o número aqui não for o mais alto que você
+> **REVISÃO 25 — 02/08/2026 (noite).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -39,6 +39,38 @@
 > atual e não devem ser usados para decidir nada.
 
 ---
+
+> ✅ **P29 FECHADA (REVISÃO 25) — e nunca foi bug de lote.** A rodada de 02/08
+> 09:00 UTC carimbou **11 linhas de `products`**, não 1. Dos 12 candidatos, **8
+> são estruturalmente inconferíveis** (3 Shopee, que não tem verificador; 5 de ML
+> de dono `starter`, que não tem monitoramento). Antes da v17 esses 8 faziam
+> `continue` **sem carimbar**, ficavam com `price_checked_at` nulo para sempre e
+> reenchiam o lote em toda rodada — por isso o único carimbo de cron da base era
+> 1 linha em 30/07. O carimbo nos pulos da v17 é o que destravou. Ver "P29".
+>
+> ✅ **P30 — O RAMO QUE APAGA DISPAROU, E FOI MEDIDO (REVISÃO 25).** Varredura de
+> `dryRun` nos 64 produtos de ML de dono com credencial: **43 "de" corrigidos, 5
+> APAGADOS, 1 criado, 15 sem leitura**. Aplicada de verdade em seguida, com o
+> mesmo resultado. **Não é leitura degradada:** na mesma varredura, com o mesmo
+> leitor, 43 produtos leram "de" normalmente. Ver "P30 — o ramo que apaga".
+>
+> ⚠️ **E o apagamento expôs um defeito, consertado na v19:** os 5 ficaram com
+> `price_original` nulo e o `discount_pct` de pé (37, 46, 44, 15, 10) —
+> porcentagem órfã. O `send-post` **não** usa esse campo (o post sai limpo), mas
+> a lista de produtos do painel usa. Ver "P33".
+>
+> ✅ **P27 FECHADA POR CONJUNTO VAZIO (REVISÃO 25).** Não havia o que reprocessar:
+> `clone_ingest_log` tem **0** recusas de Shopee antes de 01/08 (as 56 recusas
+> antigas estão com `store` nulo — a coluna só passou a ser preenchida em 01/08)
+> e **0** `clone_posts` antigos com `clean_url` de Shopee. As "10 recusas de
+> Shopee" nunca estiveram identificadas como Shopee: foi inferência.
+>
+> 🕐 **A TAREFA AGENDADA DAS 07:00 NÃO DISPAROU ÀS 07:00.** `fireAt` era 10:00
+> UTC; o `lastRunAt` foi **19:29 UTC** — 9h30 atrasada, quando o app abriu.
+> **Tarefa agendada do desktop não vence janela de log.** O corpo da rodada já
+> tinha expirado (`net._http_response` guarda ~6h, o `get_logs` do MCP devolveu
+> só a última hora); o que salvou a medição foi o `products.price_checked_at`,
+> que é durável. Daí a `product_refresh_runs` da v19.
 
 > 🎉 **O CLONE POST PASSOU A FAZER O QUE PROMETIA (REVISÃO 24).** Nas 24h de
 > 01/08 chegaram **7 capturas de mensagem de grupo REAL**, e **7 de 7 têm
@@ -112,6 +144,171 @@
 > `clone_sources` tem **uma única linha** — "TáNaMão", com `active=false`. A
 > "Melhores Ofertas da Internet" não está mais na tabela (foi apagada, não só
 > desativada). Enquanto isso a captura automática não roda para ninguém.
+
+## P29 — por que as rodadas do cron conferiam 1 produto só (FECHADA, 02/08)
+
+**A pergunta tinha resposta na composição da base, não no código de lote.**
+
+### Medido em 02/08, na rodada das 09:00 UTC
+
+`cron.job_run_details` jobid 13: `succeeded` às 09:00:00.11. **11 linhas de
+`products` ganharam `price_checked_at`** entre 09:00:04 e 09:00:13.
+
+| candidatos (BATCH=12, 18 elegíveis) | ramo |
+|---|---|
+| 3 Shopee | pulado — `LOJAS_COM_VERIFICADOR` não tem Shopee · **carimba** |
+| 5 ML de dono `starter` | pulado — `PLANOS_COM_MONITORAMENTO` não tem starter · **carimba** |
+| 2 Amazon (MONDIAL, Havit) | lido da loja |
+| 1 ML de dono com credencial (Daoyee) | lido da loja |
+| 1 | **não carimbado** — `desconhecido`, volta na rodada seguinte |
+
+Duração ~13 s contra `DEADLINE_MS` de 70 s: **tempo nunca foi o limite**.
+
+### A explicação, e por que ela não é palpite
+
+**8 dos 12 candidatos não podem ser conferidos por construção.** Antes da v17 os
+pulos por condição faziam `continue` **sem carimbar** — esses 8 ficavam com
+`price_checked_at` nulo para sempre e reenchiam o lote em **toda** rodada. Por
+isso o único carimbo de cron de toda a base era `2026-07-30 09:00:08`, 1 linha: o
+lote estava cheio de produtos que nunca saíam da fila. O carimbo nos pulos, que a
+v17 pôs por outro motivo (para o `nullsFirst` não criar fome garantida), é
+exatamente o que destravou isto. **Não havia bug de lote nenhum.**
+
+### ⚠️ O que NÃO foi lido, e por quê
+
+`candidatos`, `conferidos`, `pulados`, `desconhecidos`, `interrompido_por_tempo`
+e `duracao_ms` **não foram lidos do corpo da resposta** — ele já não existia.
+`net._http_response` guarda ~6h (linha mais antiga às 13:31 UTC) e o `get_logs`
+do MCP devolveu só a última hora. A tabela acima é **reconstruída** do
+`products` + do código, e está marcada como tal de propósito.
+
+**A tarefa agendada existia para evitar isso e falhou:** `fireAt` 10:00 UTC,
+`lastRunAt` **19:29 UTC**. Ela roda quando o app abre, não na hora marcada.
+**Não usar tarefa agendada do desktop para vencer janela de log.** A saída é a
+`product_refresh_runs` da v19, que não depende de ninguém estar com o app aberto.
+
+---
+
+## P30 — o ramo que apaga o "de" DISPAROU (02/08)
+
+**A ressalva da revisão 21 fechou.** O caminho que apaga foi observado, medido e
+distinguido de leitura degradada.
+
+### A varredura — 64 produtos de ML, dryRun, um por produto
+
+Só donos com credencial própria (`scrape_do_token`, `_2` ou `ml_session_cookie`),
+então **`usos_do_pool_compartilhado: 0` em todas as chamadas** — custo zero de
+crédito compartilhado.
+
+| resultado | produtos |
+|---|---|
+| `de: X -> Y (loja)` — corrigido | **43** |
+| **`de: X -> sem (loja)` — APAGADO** | **5** |
+| `de: sem -> X (loja)` — criado | 1 |
+| nenhuma linha `de:` | 15 |
+
+### O teste que separa "loja tirou o desconto" de "leitura degradada"
+
+Era a pergunta escrita na ressalva da revisão 21: *"se aparecer em massa num dia
+só, é leitura degradada"*. **Não apareceu em massa.** Na mesma varredura, no
+mesmo minuto, com o mesmo leitor, **43 produtos leram "de" normalmente**. Leitura
+degradada degradaria os 43 junto. 5 em 64 espalhados é promoção que acabou.
+
+### Os 5 — e três deles eram a P32 no Mercado Livre
+
+| produto | de | por |
+|---|---|---|
+| Gel De Limpeza Facial Effaclar | 127 | **127,90** — "de" MENOR que o "por" |
+| Máscara Labial Kissing Jelly | 179 | **179,00** — iguais |
+| Sérum Capilar Noturno Kérastase | 199 | **199,00** — iguais |
+| Óleo corporal de amêndoa e cereja | 116 | 71,91 — desconto real perdido |
+| Perfume Deo Parfum Essencial | 229 | 184,99 → **163** — desconto real perdido |
+
+**O primeiro disparo real do ramo que apaga limpou lixo, não valor.** Três dos
+cinco tinham "de" igual ou menor que o "por" — exatamente o defeito da P32,
+aparecendo no ML. Só 2 produtos perderam desconto de verdade. O custo temido da
+saída (a) segue menor do que o medo dela.
+
+### Aplicada de verdade, com baseline
+
+O estado anterior dos 64 foi registrado antes do UPDATE. Resultado bateu com o
+`dryRun` linha por linha:
+
+| `price_original` nos 64 | antes | depois |
+|---|---|---|
+| com centavos | 0 | **43** |
+| inteiro redondo | 62 | 15 |
+| nulo | 2 | 6 |
+
+⚠️ **Correção de registro sobre a revisão 21.** A prova "13 de 13 corrigidos" de
+01/08 foi em **`dryRun`** — o prefixo `[dry] gravaria:` nas evidências denuncia.
+**Nada tinha sido gravado.** Em 02/08, antes desta varredura, **64 de 70 produtos
+de ML ainda tinham o "de" inteiro no banco** (998, 2999, 169, 5717…). A v18
+funcionava e estava no ar; ela só nunca tinha alcançado a base, porque o cron
+confere ~1 produto de ML por rodada. **Prova em dryRun não é dado corrigido.**
+
+### Os 15 sem linha `de:` — causa medida
+
+Não era `precoDe` `undefined`: **o `consultarML` nunca devolve `undefined`** (o
+`return` sempre traz `precoDe: deOk`, que é `number|null`). É a guarda
+`if (precoNovo && res.precoDe !== undefined)`: com `precoNovo` nulo ela pula a
+reconciliação **inteira**, e o produto ainda assim entra em `conferidos`. O
+wa-engine respondeu `ok` sem `price_to`. **Leitura vazia contada como sucesso.**
+A v19 põe contador nisso — ver abaixo.
+
+---
+
+## P33 — o desconto órfão (v19, 02/08)
+
+**Encontrado no primeiro disparo real do ramo da P30**, e é o mesmo formato da
+P32: campo com nome certo e valor sem lastro.
+
+Os 5 produtos ficaram com `price_original = null` e `discount_pct` intacto —
+**37, 46, 44, 15 e 10%**. Porcentagem calculada contra um "de" que a própria
+plataforma acabou de declarar inexistente.
+
+**Onde chega e onde não chega, conferido no código e não suposto:**
+
+| consumidor | usa `discount_pct`? |
+|---|---|
+| `send-post` (o post no grupo) | **não** — monta o texto só com `price_original` (linha 223) e nem seleciona a coluna. **O post sai limpo** |
+| `frontend/index.html` linha 5799, lista de produtos | **sim** — imprime `X% OFF` |
+| `frontend/index.html` linha 8271, formulário de edição | **sim** — regrava o valor velho num salvamento |
+
+**Por que não é o caso da Shopee, e por que a decisão da P32 não corre risco:**
+na Shopee a API de afiliado **afirma a taxa** e o selo fica sem "de" de propósito.
+No ML e na Amazon o desconto é **derivado** do "de". E a Shopee **nunca chega a
+este laço** — `LOJAS_COM_VERIFICADOR` só tem `mercado_livre` e `amazon`, então a
+separação é por construção, não por `if`.
+
+**v19:** quando o "de" é apagado por leitura boa e havia `discount_pct > 0`, o
+`discount_pct` vai junto. Estado atual da base: **11 produtos** com
+`price_original` nulo e `discount_pct` preenchido — 5 de ML e 3 de Amazon
+(órfãos, alcançados pela v19 na próxima leitura) e 3 de Shopee (**intencional**).
+
+---
+
+## P27 — FECHADA por conjunto vazio (02/08)
+
+Não era escolher entre estender o `reparse` e deixar passar: **não há o que
+reprocessar.**
+
+| medido | |
+|---|---|
+| Recusas de Shopee no `clone_ingest_log` antes de 01/08 | **0** |
+| Recusas antigas com `store` preenchido | **0** — as 56 estão com `store` nulo |
+| `clone_posts` antes de 01/08 com `clean_url` de Shopee | **0** (as 14 antigas são todas Amazon) |
+
+A coluna `store` só passou a ser preenchida em 01/08. **As "10 recusas de Shopee"
+nunca estiveram identificadas como Shopee no log — foi inferência**, do mesmo
+formato da P25 e do `ORDER BY`.
+
+**E as recusas de Shopee de hoje, já com host e caminho da P20, estão certas:**
+`shopee.com.br/user/voucher-wallet` e `shopee.com.br/m/mercado` — carteira de
+cupom e página de campanha. Nenhuma é produto. A lista de exclusão da v5 está
+fazendo o trabalho dela, e isto fica escrito para ninguém reabrir investigação.
+
+---
 
 ## P32 — a Shopee devolvia um "de" que não existe (`product-search` v25)
 
@@ -960,6 +1157,40 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**Sessão da noite de 02/08/2026 — P29, P27 e a ressalva da P30 fechadas; P33 aberta e consertada.**
+
+| | |
+|---|---|
+| Commits | 1 · `product-refresh` e este doc |
+| Edge Functions | `product-refresh` **v19** — ⚠️ **codada e validada, AGUARDANDO DEPLOY** |
+| Migrations | 1 · `product_refresh_runs` (tabela, RLS sem policy, `purgar_product_refresh_runs`) **aplicada** |
+| Cron novo | `purgar-product-refresh-runs`, jobid 31, 04:23 |
+| Correção de dados | 64 produtos de ML reconferidos: 43 "de" corrigidos, 5 apagados, 1 criado |
+| Frontend | **não tocado** |
+| Repo × produção | ⚠️ **NÃO batem** enquanto a v19 não for deployada |
+
+- **P29 fechada, e a causa não era a que a pendência sugeria.** 11 carimbos na
+  rodada de 02/08, não 1. 8 dos 12 candidatos são inconferíveis por construção e,
+  antes da v17, não carimbavam — reenchiam o lote para sempre.
+- **O ramo que apaga o "de" foi observado**: 5 apagamentos em 64, contra 43
+  leituras normais na mesma varredura. Não é leitura degradada.
+- **Correção de registro:** a prova "13 de 13" da revisão 21 foi `dryRun`. A base
+  seguia com 64 de 70 "de" truncados até hoje. **Prova em dryRun não é dado
+  corrigido** — está nos Aprendizados.
+- **P33 aberta e consertada na mesma sessão:** apagar o "de" deixava o
+  `discount_pct` órfão. O post sai limpo (`send-post` não usa o campo), o painel
+  não.
+- **P27 fechada por conjunto vazio**, medido, não por decisão de custo.
+- **A tarefa agendada das 07:00 disparou às 19:29.** Não serve para vencer janela
+  de log. Substituída pela `product_refresh_runs`.
+- **Custo em crédito compartilhado da sessão inteira: 0** — todos os alvos têm
+  credencial própria, conferido em `usos_do_pool_compartilhado` a cada chamada.
+- ⚠️ **Deploy da v19 não feito de propósito.** São 38 KB reemitidos numa chamada
+  só, e este repo já registrou duas vezes (P26, P19) que isso é primeira ação de
+  sessão limpa. Fazer assim.
+
+---
+
 **Sessão da noite de 01/08/2026 (3) — P31 conferida em campo e P32 fechada.**
 
 | | |
@@ -1502,12 +1733,13 @@ código não relacionado.
 | ~~P21~~ | ✅ **FECHADA 01/08 fim de tarde.** `clone-ingest` **v15**: a Amazon é lida da página pelo leitor portado do `product-refresh`. Baseline, controle e conferência no navegador — R$ 151,27, `data_source='store'`. Ver a seção no topo. Registro original abaixo. ~~**Causa medida em 31/07: a `product-search` PENDURA para a Amazon**~~ — mais de 90s sem responder, testado no navegador logado; o `chamarFuncao` aborta em 30s e a loja sempre "falha". Não é só "falta caminho Amazon": há um travamento. A v14 contornou o sintoma da foto (og:image via Microlink), **mas título e preço da Amazon continuam vindo do texto da mensagem** (`data_source='message'`), então a auto-publicação segue alcançando só o Mercado Livre. Decidir: (a) achar o travamento da `product-search`, (b) usar o título/preço do Microlink — ele devolve o título real, medido —, ou (c) a UI avisar que auto-publicar só vale para ML | 31/07 |
 | ~~P25~~ | ✅ **FECHADA 01/08 — e a conclusão anterior estava ERRADA.** O link avulso devolve *"Vestido Corset Feminino Longo…"*, R$ 200, com foto, pela `product-search` v24. Não era "não" da Shopee: era a assinatura HMAC. O registro abaixo ficou como exemplo de diagnóstico tirado de mensagem de erro não verificada. ~~**MEDIDO 31/07 à noite, com o link real do Érico.**~~ `resolve-link` **funciona** (270 ms, limpa para `/product/1397105725/58213461759`); quem recusa é a `product-search` com *"Produto não encontrado"* em 1,1 s — a API de afiliado da Shopee só conhece item do **catálogo de ofertas** dela, e produto avulso não está lá. **É um "não" da Shopee, não falha nossa.** O Microlink **não** cobre este caso: devolveu título `"58213461759"` (só o ID) e imagem nula, porque a Shopee monta a página por JavaScript. Restam: (a) Scrape.do na página (queima crédito, decisão de orçamento), (b) preencher à mão, (c) **mínimo valioso e barato: a tela avisar em português** que a Shopee não reconhece o produto, em vez de só gerar o link em silêncio | 31/07 |
 | ~~P26~~ | ✅ **FECHADA 01/08.** `resolve-link` v5 deployada e provada com baseline (v4 recusando) e controle negativo (`/collections/…` segue recusado). Registro original abaixo. 🔴 **A `resolve-link` não reconhecia o formato de URL de produto que o próprio Radar da plataforma gera.** MEDIDO 31/07 à noite: `https://s.shopee.com.br/4AykYR6yxu` (link de oferta do Radar) redireciona para `https://shopee.com.br/**opaanlp**/1006215031/24442629738` — mesma estrutura de `/product/LOJA/ITEM`, **primeiro segmento variável**. A `resolve-link` só casa `/product/LOJA/ITEM` e `-i.LOJA.ITEM`, então recusa com *"não tem o código -i.LOJA.ITEM"* uma página de produto legítima, com loja e item visíveis na própria URL. **Conserto é uma regra a mais no reconhecimento de URL — pequeno em tamanho, grande em efeito.** Duplamente relevante: (1) reabre as 10 recusas de Shopee do log, cujo diagnóstico anterior estava errado; (2) esse produto **está** no catálogo de ofertas, então, resolvido o formato, a `product-search` deve responder com nome, preço e foto — diferente do caso da P25. **Exige reemitir a `resolve-link` inteira num deploy só: fazer em sessão limpa, primeira ação.** | 31/07 |
-| **P27** | **Reprocessar as capturas de Shopee recusadas antes de 01/08.** As recusas de `resolve_falhou` e as capturas que caíram em `data_source='message'` por causa das duas falhas da Shopee eram, em boa parte, ofertas boas. A action `reparse` da `clone-ingest` reaplica o fallback de texto, mas **não** refaz `resolve-link` + `product-search` — não serve. Decidir: (a) estender o `reparse` para reprocessar de verdade, (b) deixar passar e olhar só daqui pra frente. ~~Bloqueado de fato pela P20~~ — **atualizado 01/08 fim de tarde:** a P20 saiu, então as recusas **novas** trazem host e caminho e são reproduzíveis. As **antigas** continuam sem URL no log e seguem irrecuperáveis por esse caminho; para elas resta o `clone_posts.clean_url` das que viraram captura | 01/08 |
+| ~~P27~~ | ✅ **FECHADA 02/08 por conjunto vazio.** Não havia o que reprocessar: **0** recusas de Shopee no `clone_ingest_log` antes de 01/08 (as 56 antigas têm `store` nulo — a coluna só passou a ser preenchida em 01/08) e **0** `clone_posts` antigos com `clean_url` de Shopee. As "10 recusas de Shopee" eram inferência, nunca medição. Ver "P27" acima | 01/08 |
 | **P28** | **Não existe fonte de clone ativa.** `clone_sources` tem uma linha ("TáNaMão", `active=false`) e a "Melhores Ofertas" foi apagada da tabela. Com a Shopee destravada, nada disso aparece em produção enquanto não houver fonte ligada. Ação do Érico, não de código: religar a TáNaMão ou cadastrar um grupo-fonte novo, e então observar uma captura de Shopee real chegar com `data_source='store'` | 01/08 |
 | ~~P31~~ | ✅ **FECHADA 01/08 noite.** Deployada e conferida no navegador: funções novas presentes no código servido, console limpo, três estados do card exercitados. Falta só ver um clique real gravar. Registro abaixo. ~~🟡 **BACKEND FECHADO, FRONTEND AGUARDANDO DEPLOY.**~~ `clone-ingest` **v16** + coluna `lojas_permitidas`, provado com baseline e 2 controles. A tela (chips no card, checkboxes no formulário, contagem por loja de 7 dias) está **no ar e conferida**. Registro original abaixo. ~~**Filtro de loja por fonte** (ideia do Érico, 01/08).~~ Fonte que presta para uma loja e não para outra — medido na "Melhores Ofertas": Shopee clona, ML não. Desenho: coluna nova `lojas_permitidas text[]` em `clone_sources` (vazio = todas, não altera fontes existentes); filtro **depois** da `resolve-link` e **antes** da `product-search`, que é onde o Scrape.do custa; checkboxes nas **duas** cópias do `index.html`. Um filtro anterior, por domínio do link cru (`meli.la`, `s.shopee.com.br`, `amzn.to`), economiza até a chamada da `resolve-link`, mas não cobre encurtador genérico. **NÃO marcar checkbox automaticamente a partir do teste de clonabilidade:** um teste valida uma loja só; no máximo sugerir. ~~Depende da P20~~ — **a P20 saiu em 01/08**, então o card já pode mostrar "12 Shopee capturadas, 30 ML recusadas" e o filtro vira clique informado em vez de palpite no cadastro. **É a primeira ação da próxima sessão** | 01/08 |
-| **P29** | **Por que 3 rodadas do cron de `product-refresh` conferiram 1 produto só?** Medido: o único carimbo de cron na base é `2026-07-30 09:00:08`, com `BATCH = 12` e ~1,7s por produto. A hipótese do `ORDER BY` foi levantada e **descartada**. Não há explicação testada. ⏰ **Os logs de 29–31/07 EXPIRARAM** — o Supabase só devolve 24h, e a tentativa de 01/08 chegou tarde. **Próxima medição possível: a rodada de 02/08 às 09:00 UTC**, que já roda a v17. Ler no mesmo dia. O que conferir: `candidatos`, `conferidos`, `pulados`, `desconhecidos`, `interrompido_por_tempo` e `duracao_ms` no corpo da resposta, e quantas linhas de `products` ganharam `price_checked_at` naquele horário. Se vier 12 candidatos e ~7 conferidos, o problema era algo que a v17 pegou de raspão e a pendência fecha; se vier 1 de novo, é bug novo com log fresco na mão | 01/08 |
+| ~~P29~~ | ✅ **FECHADA 02/08.** Não era bug de lote: **8 dos 12 candidatos são inconferíveis por construção** (Shopee sem verificador, ML de plano starter sem monitoramento) e, antes da v17, não carimbavam `price_checked_at` — reenchiam o lote em toda rodada, deixando 1 único conferido. A rodada de 02/08 carimbou **11 linhas**. Ver "P29" acima. ⚠️ Os contadores do corpo **não foram lidos** (a janela já tinha fechado); a reconstrução é do `products` + do código, e a `product_refresh_runs` da v19 existe para isso não repetir | 01/08 |
 | ~~P30~~ | ✅ **FECHADA 01/08 noite.** `product-refresh` **v18**: `consultarML` devolve `precoDe`, saída (a) com a trava `undefined`/`null`. 13 de 13 corrigidos (169 → 169,90). ⚠️ **O ramo que APAGA não foi observado — não medido.** Ver a ressalva na seção da P30. Registro original abaixo. ~~🔜 **PRÓXIMA SESSÃO, PRIMEIRA AÇÃO** (combinado com o Érico em 01/08).~~ **`price_original` ("de") continua truncado nos produtos de Mercado Livre.** O `consultarML` não devolve `precoDe`, então a reconciliação da v16 nunca roda para o ML e o "de" mantém o valor inteiro antigo (96 em vez de 96,79). O wa-engine **já devolve** `price_from` com centavos — é só repassar. **Decisão pendente e não trivial:** repassar significa que, quando a loja não mostrar "de", o `precoDe` vira `null` e a v16 **apaga** o "de" existente. Isso remove o desconto de posts que hoje exibem um. Efeito atual do bug é conservador (desconto aparece menor do que é), então não é urgente — mas é o próximo item combinado. **As duas saídas, para decidir antes de codar:** (a) repassar direto e aceitar que o "de" seja apagado quando a loja não mostrar, que é o que a v16 escolheu de propósito para não publicar desconto que não existe; (b) repassar só quando a loja mostrar "de" e nunca apagar, que preserva o desconto atual mas reabre a porta para o "de" de terceiro que o caso La Roche fechou. **DECIDIDO PELO ÉRICO EM 01/08: saída (a), com uma trava que nenhuma das duas tinha.** O que fazia a (b) parecer necessária era o risco de apagar um "de" bom por causa de uma leitura que falhou — e isso não é escolher entre (a) e (b), é distinguir dois casos que a P30 tratava como um só. O `product-refresh` já faz essa distinção e ela está escrita no tipo `Consulta`: **`undefined` = não olhei; `null` = olhei e a loja não mostra.** Só o segundo pode apagar. Patch: `consultarML` devolve `precoDe: null` quando a leitura deu certo e não havia "de", e `undefined` quando a leitura falhou; a reconciliação da v16 só apaga no primeiro caso. **Falta codar** | 01/08 |
 | **P15** | **Parcialmente endereçada 31/07 tarde.** Existe agora um smoke test executável: extrair os blocos `<script>`, rodar os quatro **no mesmo contexto** `vm` do Node com um DOM falso permissivo, e comparar contra o baseline **antes** do patch. Foi rodado neste push e pegaria o TDZ do `f94e2f0`. **Duas limitações medidas:** (1) dá falso positivo em `id` de elemento usado como global — `themeT.onclick` na linha 2496 acusa `ReferenceError` no sandbox e funciona no browser; por isso a comparação com o baseline é obrigatória, o veredito é "piorou?", não "tem erro?"; (2) não executa handler nenhum, só o top-level. **Continua aberta:** carregar a página num navegador de verdade e ler o console segue sendo a única prova real | 31/07 |
+| **P33** | 🟡 **CONSERTADA NA v19, AGUARDANDO DEPLOY.** Apagar o "de" deixava o `discount_pct` de pé — 5 produtos com porcentagem órfã em 02/08. O `send-post` **não** usa o campo (o post sai limpo); a lista de produtos do painel usa (linha 5799) e o formulário regrava (linha 8271). v19 zera junto, só no ML e na Amazon, onde o desconto é derivado do "de" — a Shopee fica de fora por construção (decisão da P32). **11 produtos hoje nesse estado:** 5 ML + 3 Amazon (órfãos, a v19 alcança na próxima leitura) e 3 Shopee (intencional) | 02/08 |
 | **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
 
 | ~~P32~~ | ✅ **FECHADA 01/08 noite.** A Shopee devolvia `price_from = node.price`, que é o preço ATUAL e não o anterior; 3 de 3 capturas reais saíram com "de" == "por" e desconto de 53%/42%/35%, já no rodízio do grupo. `product-search` **v25** para de enviar `price_from` para a Shopee. Os 3 produtos foram limpos. O Radar, que tem leitura própria, **não** tinha o defeito — terceira vez que duas implementações da mesma coisa divergem neste repo | 01/08 |
@@ -1631,6 +1863,38 @@ código não relacionado.
   distinção **já estava escrita no tipo `Consulta` desde a v15** — usada por um
   ramo e ignorada pelo outro. **Antes de escolher entre duas saídas ruins,
   perguntar se elas não estão colapsando dois casos diferentes.**
+- **Prova em `dryRun` não é dado corrigido.** A revisão 21 escreveu "13 de 13
+  produtos tiveram o 'de' corrigido" e o dado seguiu errado por 24h: a medição
+  era `dryRun`, e o prefixo `[dry] gravaria:` estava ali, na própria evidência
+  colada. Em 02/08 a base ainda tinha **64 de 70** produtos de ML com o "de"
+  truncado. É o "status 200 não é prova" de novo, agora do lado de dentro: a
+  função respondeu certo, o banco não mudou. **Depois de provar, conferir no
+  banco que mudou** — a pergunta é "qual linha eu leria diferente agora?".
+- **Conserto que não alcança a base é conserto que não aconteceu.** A v18 estava
+  no ar, correta, desde 01/08. Só que o cron confere ~1 produto de ML por rodada,
+  então ela levaria meses para tocar os 70. Deployar não é aplicar: quando o
+  conserto depende de uma rotação lenta para chegar aos dados, **aplicar em
+  massa é uma etapa separada e tem que ser decidida como tal.**
+- **Consertar um campo derivado sem consertar o derivado deixa o pior dos dois
+  estados.** Apagar `price_original` e deixar `discount_pct` publica "46% OFF"
+  sem número que o sustente — pior que o "de" errado que estava lá antes, porque
+  agora não há sequer o que conferir. **Ao anular um campo, procurar quem foi
+  calculado a partir dele.**
+- **Contador que só existe para uma loja esconde o defeito nas outras.**
+  `preco_sem_leitura_confirmada` era só da Amazon, e por isso 15 produtos de ML
+  passaram por `conferidos` sem que nada tivesse sido lido. O caminho vazio não
+  aparecia em métrica nenhuma. **Quando um contador nasce para diagnosticar um
+  ramo, perguntar por que os outros ramos não precisam dele.**
+- **Tarefa agendada do desktop não vence janela de log.** A tarefa das 07:00,
+  criada justamente para ler a rodada dentro das 24h, disparou às 19:29 — ela roda
+  quando o app abre. O que salvou a medição foi um campo durável no banco
+  (`price_checked_at`), não o agendamento. **Se o dado expira, guardar o dado, não
+  agendar a leitura dele.**
+- **Contar "irrecuperável" antes de decidir se vale recuperar.** A P27 passou dois
+  dias como decisão de custo — estender o `reparse` ou deixar passar. As duas
+  saídas eram sobre um conjunto **vazio**: zero recusas de Shopee identificáveis
+  antes de 01/08. Uma consulta de 10 segundos teria fechado a pendência no dia em
+  que ela foi aberta. **Antes de desenhar a solução, medir o tamanho do problema.**
 - **Prova que não disparou não é prova.** A v18 corrigiu 13 de 13 e o ramo que
   apaga não rodou nenhuma vez. É tentador contar isso como "13/13 de sucesso" e
   encerrar; o caminho perigoso da mudança continua sem uma única observação.

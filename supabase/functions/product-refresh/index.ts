@@ -1,4 +1,37 @@
-// Mega Links BR · Edge Function "product-refresh" v18
+// Mega Links BR · Edge Function "product-refresh" v19
+// v19 (02/08): tres mudancas, todas nascidas de uma medicao do mesmo dia.
+//      (a) A RODADA PASSA A DEIXAR RASTRO. `product_refresh_runs` guarda uma
+//          linha por rodada com os contadores e o `detalhes`. O corpo da
+//          resposta so vivia no log do Supabase (24h) e em net._http_response
+//          (~6h); em 01/08 e de novo em 02/08 o diagnostico da P29 chegou
+//          depois da janela. Nao e enfeite: sem isto, toda pergunta sobre uma
+//          rodada tem prazo de validade. Rodada com `productId` NAO grava --
+//          e chamada de diagnostico, nao rodada.
+//      (b) `preco_sem_leitura_confirmada` deixa de ser so da Amazon. MEDIDO em
+//          02/08: 15 de 64 produtos de ML sairam com patch de
+//          `{price_checked_at, price_changed:false}` e mais nada -- nem preco,
+//          nem "de" -- e mesmo assim entraram em `conferidos`. A causa nao era
+//          `precoDe` undefined (consultarML nunca devolve undefined): era
+//          `precoNovo` nulo, ou seja, o wa-engine respondeu `ok` sem
+//          `price_to`, e a guarda `if (precoNovo && ...)` pulou a
+//          reconciliacao inteira em silencio. Leitura vazia contada como
+//          sucesso e o defeito que este projeto ja pagou caro ("mecanismo que
+//          parece existir e nao executa nada").
+//      (c) Quando o "de" e APAGADO por leitura boa, o `discount_pct` vai
+//          junto. MEDIDO em 02/08, no primeiro disparo real do ramo da P30: os
+//          5 produtos ficaram com `price_original` nulo e `discount_pct` de
+//          37, 46, 44, 15 e 10 -- porcentagem orfa, calculada contra um "de"
+//          que a propria plataforma acabou de declarar inexistente. O
+//          `send-post` nao usa esse campo (o post sai limpo), mas a lista de
+//          produtos do painel usa, e o formulario de edicao o regrava.
+//          So vale aqui: esta funcao so processa ML e Amazon, onde o desconto
+//          e DERIVADO do "de". Na Shopee a API afirma a taxa direto e o selo
+//          fica sem "de" de proposito (decisao da P32) -- e a Shopee nunca
+//          chega neste laco, entao a decisao nao corre risco por construcao.
+//      Contadores novos `de_corrigidos` e `de_apagados`: existem para a
+//      pergunta da P30 -- apagamento em massa num dia so e leitura degradada,
+//      apagamento pingado e loja tirando desconto. Sem contar os dois, nao ha
+//      como distinguir sem reler a base inteira.
 // v18 (01/08, P30): consultarML passa a devolver `precoDe` a partir do
 //      `price_from` do wa-engine. Ate aqui esta funcao nao devolvia o campo, e
 //      como a reconciliacao da v16 exige `!== undefined`, ela NUNCA rodava para o
@@ -436,7 +469,10 @@ Deno.serve(async (req: Request) => {
   const SB = createClient(SUPA_URL, SUPA_KEY);
   const corte = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const campos = 'id, title, source, price, price_original, image_url, original_url, affiliate_url, user_id, unavailable_strikes';
+  // discount_pct entra na v19: sem ele no select, `p.discount_pct` e undefined e a
+  // guarda que zera o desconto orfao nunca dispararia -- defeito silencioso, do
+  // tipo que so aparece quando alguem for conferir por que nao aconteceu nada.
+  const campos = 'id, title, source, price, price_original, discount_pct, image_url, original_url, affiliate_url, user_id, unavailable_strikes';
   let produtos: any[] | null = null;
   let error: { message: string } | null = null;
 
@@ -485,6 +521,7 @@ Deno.serve(async (req: Request) => {
   let precosCorrigidos = 0;
   let expirados = 0, suspeitos = 0, reabilitados = 0, conferidosAmazon = 0;
   let imagensPreenchidas = 0, precoSemLeitura = 0;
+  let deCorrigidos = 0, deApagados = 0;
   let interrompidoPorTempo = false;
   const detalhes: string[] = [];
   const avisos: string[] = [];
@@ -598,9 +635,16 @@ Deno.serve(async (req: Request) => {
 
     // Loja respondeu, pagina confiavel, mas o preco nao passou nas duas testemunhas.
     // Vale contar: se isto subir, o layout mudou e a regra precisa ser remedida.
-    if (loja === 'amazon' && precoNovo === null) {
+    // Ate a v18 este contador era so da Amazon, e por isso a leitura vazia do ML
+    // era invisivel: o produto entrava em `conferidos` sem que nada tivesse sido
+    // lido. Os motivos diferem por loja -- na Amazon e desacordo entre as duas
+    // testemunhas do buybox, no ML e resposta `ok` sem `price_to` -- mas o efeito
+    // e o mesmo e precisa aparecer nos dois.
+    if (precoNovo === null) {
       precoSemLeitura++;
-      detalhes.push(`~ ${nome} — disponivel, mas preco nao confirmado pelas duas leituras`);
+      detalhes.push(loja === 'amazon'
+        ? `~ ${nome} — disponivel, mas preco nao confirmado pelas duas leituras`
+        : `~ ${nome} — loja respondeu sem preco; nada foi reconciliado`);
     }
 
     if (precoNovo && precoAntigo > 0) {
@@ -633,6 +677,19 @@ Deno.serve(async (req: Request) => {
       if (antes !== res.precoDe) {
         patch.price_original = res.precoDe;
         detalhes.push(`  de: ${antes ?? 'sem'} -> ${res.precoDe ?? 'sem'} (loja)`);
+        if (res.precoDe === null) {
+          deApagados++;
+          // O desconto destas lojas e DERIVADO do "de". Apagar um e deixar o outro
+          // publica porcentagem sem numero que a sustente -- foi o que aconteceu
+          // com os 5 primeiros apagamentos reais em 02/08. Zerar junto, e so
+          // quando o "de" existia: produto que ja estava sem "de" nao e tocado.
+          if (Number(p.discount_pct) > 0) {
+            patch.discount_pct = null;
+            detalhes.push(`  desconto: ${p.discount_pct}% -> sem (o "de" que o sustentava sumiu)`);
+          }
+        } else {
+          deCorrigidos++;
+        }
       }
     }
 
@@ -641,14 +698,23 @@ Deno.serve(async (req: Request) => {
     else detalhes.push(`  [dry] gravaria: ${JSON.stringify(patch)}`);
   }
 
-  return json({
+  // `conferidos` conta so quem NAO mudou de preco (`if (!patch.price_changed)`),
+  // que e contra-intuitivo e ja atrapalhou a leitura de uma rodada: quem mudou de
+  // preco foi lido da loja tambem. `lidos_da_loja` responde a pergunta que a gente
+  // sempre faz de verdade. O nome antigo fica de pe para nao quebrar leitura velha.
+  const lidosDaLoja = conferidos + precoMudou;
+
+  const resposta = {
     ok: true,
     dry_run: dryRun,
     candidatos: produtos.length,
+    lidos_da_loja: lidosDaLoja,
     conferidos,
     conferidos_amazon: conferidosAmazon,
     preco_mudou: precoMudou,
     preco_sem_leitura_confirmada: precoSemLeitura,
+    de_corrigidos: deCorrigidos,
+    de_apagados: deApagados,
     imagens_preenchidas: imagensPreenchidas,
     fora_do_ar_confirmado: expirados,
     fora_do_ar_suspeito: suspeitos,
@@ -664,5 +730,32 @@ Deno.serve(async (req: Request) => {
     detalhes: detalhes.slice(0, 40),
     avisos,
     nota: dryRun ? 'DRY RUN — nada foi gravado.' : undefined,
-  });
+  };
+
+  // Rodada com `productId` e diagnostico de um produto so, nao rodada -- gravar
+  // isso encheria a tabela de ruido e esconderia justamente o que ela existe para
+  // mostrar. Fail-open de proposito, pelo mesmo motivo do clone_ingest_log: falhar
+  // ao registrar a rodada nao pode derrubar a rodada.
+  if (!soProduto) {
+    try {
+      await SB.from('product_refresh_runs').insert({
+        dry_run: dryRun,
+        candidatos: produtos.length,
+        lidos_da_loja: lidosDaLoja,
+        conferidos,
+        preco_mudou: precoMudou,
+        preco_sem_leitura_confirmada: precoSemLeitura,
+        de_corrigidos: deCorrigidos,
+        de_apagados: deApagados,
+        pulados,
+        desconhecidos,
+        interrompido_por_tempo: interrompidoPorTempo,
+        duracao_ms: Date.now() - inicio,
+        resumo: resposta,
+        detalhes,
+      });
+    } catch (_e) { /* registrar a rodada nunca derruba a rodada */ }
+  }
+
+  return json(resposta);
 });
