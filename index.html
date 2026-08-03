@@ -8823,6 +8823,9 @@ async function csAbrirForm(){
     el.innerHTML='<div class="alert y" style="margin:0"><span>Conecte seu WhatsApp primeiro. Só dá pra monitorar grupos da <strong>sua</strong> conexão.</span></div>';
     return;
   }
+  // A lista do engine pode vir incompleta ou nem vir. Isso deixou de ser motivo
+  // para abortar o formulario: o cadastro por link de convite funciona sem ela.
+  let avisoLista="";
   try{
     // Sempre com o numero: e ele que amarra a resposta a SUA sessao.
     const r=await fetch(`${WA_ENGINE_URL}/groups?phone=${waPhone}`,{headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}});
@@ -8833,12 +8836,11 @@ async function csAbrirForm(){
     const d=await r.json();
     CS_GRUPOS_WA=Array.isArray(d)?d:d.groups||[];
   }catch(e){
-    el.innerHTML=`<div class="alert r" style="margin:0"><span>Não consegui listar os grupos do seu WhatsApp: ${e.message}</span></div>`;
-    return;
+    CS_GRUPOS_WA=[];
+    avisoLista=`<div class="alert r" style="margin:0 0 12px"><span>Não consegui listar os grupos do seu WhatsApp: ${e.message}<br><small style="opacity:.85">Dá pra cadastrar assim mesmo, pelo link de convite, ali embaixo.</small></span></div>`;
   }
-  if(!CS_GRUPOS_WA.length){
-    el.innerHTML='<div class="alert y" style="margin:0"><span>Nenhum grupo encontrado nessa sessão de WhatsApp.</span></div>';
-    return;
+  if(!CS_GRUPOS_WA.length&&!avisoLista){
+    avisoLista='<div class="alert y" style="margin:0 0 12px"><span>O WhatsApp não devolveu nenhum grupo nessa sessão.<br><small style="opacity:.85">Use o link de convite, ali embaixo.</small></span></div>';
   }
   const jaTem=new Set(CS_FONTES.map(f=>f.source_jid));
   const opts=CS_GRUPOS_WA.map(g=>{
@@ -8849,6 +8851,7 @@ async function csAbrirForm(){
   el.innerHTML=`
     <div class="card" style="margin:0">
       <div class="cb">
+        ${avisoLista}
         <div class="g2">
           <div>
             <label>Grupo que você quer monitorar</label>
@@ -8858,6 +8861,15 @@ async function csAbrirForm(){
             <label>Mandar as ofertas para</label>
             <select id="csDestino" style="width:100%">${S.grupos.map(g=>`<option value="${g.db_id||g.id}">${g.nome}</option>`).join("")}</select>
           </div>
+        </div>
+        <div class="field" style="grid-column:1/-1;margin-top:14px;border-top:1px solid var(--bd2);padding-top:12px">
+          <label>Não achou o grupo na lista? Cole o link de convite dele</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+            <input id="csConvite" class="mono" placeholder="https://chat.whatsapp.com/XXXXXXXXXXXX" style="flex:1;min-width:220px;font-size:12.5px">
+            <button class="btn btn-ghost btn-sm" id="csConviteBtn" onclick="csResolverConvite()">Resolver link</button>
+          </div>
+          <div id="csConviteMsg" style="display:none;margin-top:8px"></div>
+          <small style="display:block;margin-top:8px;color:var(--tx2);line-height:1.6">A lista acima vem do WhatsApp e <strong>não devolve todos os seus grupos</strong> — grupo grande de promoção costuma ficar de fora. No WhatsApp, abra o grupo → <strong>Convidar via link</strong> → copiar, e cole aqui. <strong>Só funciona para grupo em que você está:</strong> o WhatsApp entrega os dados do convite de qualquer grupo, e fonte de grupo onde você não está nunca captura nada.</small>
         </div>
         <div style="margin-top:10px;max-width:220px">
           <label>Máximo por dia</label>
@@ -8968,6 +8980,49 @@ function csSugestaoLoja(slug){
   const l=CS_LOJAS_FILTRO.find(x=>x[0]===slug);
   if(!l)return "";
   return '<br><small style="opacity:.8">Esse link era de <strong>'+l[1]+'</strong>. Se esse grupo s\u00f3 presta pra essa loja, d\u00e1 pra marcar <strong>'+l[1]+'</strong> ali em cima \u2014 mas um teste vale por uma loja s\u00f3, ent\u00e3o marque s\u00f3 se voc\u00ea j\u00e1 conhece o grupo.</small>';
+}
+
+// Resolve um grupo pelo link de convite e injeta como opcao no proprio select,
+// para que csSalvar() continue sendo o unico caminho de gravacao. Nao valida
+// participacao — o WhatsApp nao permite validar, e o aviso esta na tela.
+async function csResolverConvite(){
+  const campo=document.getElementById("csConvite");
+  const cx=document.getElementById("csConviteMsg");
+  const btn=document.getElementById("csConviteBtn");
+  const sel=document.getElementById("csJid");
+  if(!campo||!cx||!sel)return;
+  const valor=(campo.value||"").trim();
+  if(!valor){toast("Cole o link de convite do grupo.","⚠️");return;}
+  const waPhone=(S.waNumber||"").replace(/\D/g,"");
+  if(!waPhone){toast("Conecte seu WhatsApp primeiro.","⚠️");return;}
+  cx.style.display="block";
+  cx.innerHTML='<div class="alert b" style="margin:0">🔗 Lendo o convite…</div>';
+  if(btn)btn.disabled=true;
+  try{
+    const r=await fetch(`${WA_ENGINE_URL}/group-invite-info?phone=${waPhone}&code=${encodeURIComponent(valor)}`,{headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.ok)throw new Error(d.error||("HTTP "+r.status));
+    const jid=String(d.id||"");
+    const nome=String(d.subject||jid);
+    if(CS_FONTES.some(f=>f.source_jid===jid)){
+      cx.innerHTML='<div class="alert y" style="margin:0"><span><strong>'+nome.replace(/</g,"&lt;")+'</strong> já é uma fonte sua.</span></div>';
+      return;
+    }
+    if(!CS_GRUPOS_WA.some(g=>(g.id||g.jid)===jid))CS_GRUPOS_WA.push({id:jid,name:nome,participants:d.size||0});
+    let opt=Array.from(sel.options).find(o=>o.value===jid);
+    if(!opt){
+      opt=document.createElement("option");
+      opt.value=jid;
+      opt.textContent=nome+" (via convite)";
+      sel.appendChild(opt);
+    }
+    sel.value=jid;
+    cx.innerHTML='<div class="alert g" style="margin:0"><span><strong>✅ '+nome.replace(/</g,"&lt;")+'</strong> — '+(d.size||0)+' participante(s). Já está selecionado ali em cima.<br><small style="opacity:.85">Confira que é esse grupo mesmo e que você está nele. Salvando, o monitoramento começa em até 5 minutos.</small></span></div>';
+  }catch(e){
+    cx.innerHTML='<div class="alert r" style="margin:0"><span><strong>Não deu:</strong> '+String(e&&e.message?e.message:e).replace(/</g,"&lt;")+'</span></div>';
+  }finally{
+    if(btn)btn.disabled=false;
+  }
 }
 
 async function csSalvar(){

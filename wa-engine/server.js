@@ -1433,6 +1433,67 @@ app.get('/groups', verifyToken, async (req, res) => {
     }
 });
 
+// -- Convite: resolver JID e nome de um grupo pelo link de convite --
+//
+// Existe porque o groupFetchAllParticipating() do /groups NAO devolve todos os
+// grupos da sessao. MEDIDO em 03/08: a sessao 553198911521 recebia mensagem do
+// grupo 120363426927737879@g.us (170 linhas em clone_ingest_log, ultima 13:51
+// UTC, 4 capturas no dia) e mesmo assim esse jid ficava de fora da lista de 19
+// que o /groups devolvia. Sem este caminho, grupo assim e incadastravel pelo
+// painel, por mais que o usuario role o dropdown.
+//
+// ATENCAO, e o frontend precisa dizer isso na tela: a resposta NAO prova que a
+// sessao participa do grupo. O WhatsApp responde invite info para qualquer
+// codigo valido. Quem colar o link de um grupo em que nao esta cadastra uma
+// fonte que nunca vai capturar nada — falha silenciosa, nao erro.
+function extrairCodigoConvite(v) {
+    const s = String(v || '').trim();
+    const m = s.match(/chat\.whatsapp\.com\/(?:invite\/)?([A-Za-z0-9_-]{6,})/i);
+    if (m) return m[1];
+    if (/^[A-Za-z0-9_-]{6,}$/.test(s)) return s;
+    return '';
+}
+
+app.get('/group-invite-info', verifyToken, async (req, res) => {
+    const phoneParam = String(req.query.phone || '').replace(/\D/g, '');
+    const code = extrairCodigoConvite(req.query.code);
+
+    // Mesmo criterio do /groups: sem o numero nao ha resposta correta possivel.
+    if (!phoneParam) {
+        return res.status(400).json({ error: 'Informe o número da sessão em ?phone=.' });
+    }
+    if (!code) {
+        return res.status(400).json({ error: 'Isso não parece um link de convite. Esperado: https://chat.whatsapp.com/XXXXXXXX' });
+    }
+
+    let session = null;
+    for (const [, s] of SESSIONS) {
+        if (s.status !== 'paired') continue;
+        const sp = String(s.phoneNumber || '').replace(/\D/g, '');
+        if (!sp) continue;
+        if (sp.slice(-8) === phoneParam.slice(-8)) { session = s; break; }
+    }
+    if (!session) {
+        return res.status(404).json({ error: 'Nenhuma sessão conectada para esse número.' });
+    }
+
+    try {
+        const info = await session.socket.groupGetInviteInfo(code);
+        const id = String(info?.id || '');
+        if (!id.endsWith('@g.us')) throw new Error('a resposta veio sem JID de grupo');
+        console.log(`[INVITE] ${code.slice(0, 6)}… -> ${id} (${info?.subject || 'sem nome'})`);
+        res.json({
+            ok: true,
+            id,
+            subject: info?.subject || id,
+            size: info?.size || info?.participants?.length || 0,
+        });
+    } catch (e) {
+        console.error('[INVITE] Erro:', e.message);
+        res.status(502).json({ error: `Não consegui ler esse convite: ${e.message}` });
+    }
+});
+
 // -- Health --
 app.get('/health', (req, res) => {
     const connected = [...SESSIONS.values()].filter(s => s.status === 'paired').length;
@@ -1472,6 +1533,7 @@ Endpoints:
   POST   /disconnect/:id       → Desconectar sessão
   POST   /reconnect/:phone     → Forçar reconexão
   GET    /groups               → Listar grupos WA
+  GET    /group-invite-info    → Resolver grupo pelo link de convite
   GET    /health               → Status
 
 Autenticação: Bearer token (WA_ENGINE_TOKEN)
