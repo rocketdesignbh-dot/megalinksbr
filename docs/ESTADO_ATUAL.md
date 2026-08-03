@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 25 — 02/08/2026 (noite).** Se o número aqui não for o mais alto que você
+> **REVISÃO 26 — 03/08/2026 (tarde).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -145,6 +145,50 @@
 > "Melhores Ofertas da Internet" não está mais na tabela (foi apagada, não só
 > desativada). Enquanto isso a captura automática não roda para ninguém.
 
+## Deploy da v20 — feito, e o que ainda NÃO está provado (03/08, tarde)
+
+**Sessão limpa, primeira ação, uma chamada só.** 42 KB reemitidos de uma vez, como
+a regra do repo exige depois do que aconteceu em P26 e P19.
+
+| medida | antes | depois |
+|---|---|---|
+| `get_edge_function` · `version` | **18** | **19** |
+| cabeçalho da fonte publicada | `v18` | **`v20`** |
+| `verify_jwt` | `false` | `false` (inalterado) |
+
+⚠️ **O contador do Supabase e a versão do código DESENCONTRARAM, e isto precisa
+ficar escrito.** O Supabase numera deploys, não o nosso código: como a v19 nunca
+subiu, o deploy 19 do Supabase carrega o código **v20**. Quem ler `version: 19` no
+`get_edge_function` daqui em diante e concluir "está na v19" vai errar. **A partir
+de agora, a versão de verdade é a do cabeçalho da fonte publicada, não o número.**
+
+**A fonte publicada foi lida e conferida** (número de versão não é prova): cabeçalho
+`v20`, `RESERVA_ANTIGOS = 4`, as duas consultas com cota no lugar do `nullsFirst`,
+`candidatos_novos`/`candidatos_antigos` na resposta e no insert da
+`product_refresh_runs`, `discount_pct` no `select` e no ramo que apaga o "de",
+`preco_sem_leitura_confirmada` valendo para as duas lojas.
+
+### ⚠️ Isto NÃO é prova de que funciona
+
+Fonte publicada é prova de que o **código certo está no ar** — não de comportamento.
+A prova é a **rodada do cron de 04/08 09:00 UTC** e ela tem três exigências, todas
+combinadas com o Érico antes do deploy:
+
+1. **`product_refresh_runs` deixa de estar vazia.** A tabela está vazia hoje porque
+   a v19 nunca subiu. A primeira linha nela já é sinal de que o deploy pegou.
+2. **`candidatos_antigos > 0`.** É o número que prova a cota. Se vier `0` com
+   produto antigo represado, a cota **não** funcionou — e aí a v20 está errada,
+   não pendente.
+3. **Os 4 produtos da Amazon saem do carimbo `30/07 14:16`** — La Roche, Kit
+   Rapunzel, Kärcher e Calvin Klein. São a fome medida em 03/08 tomando forma de
+   linha no banco.
+
+**Nada foi rodado à mão para antecipar isso**, de propósito: um `dryRun` avulso leria
+até 12 produtos nas lojas e gastaria crédito para responder o que a rodada do cron
+responde de graça amanhã. A P34 e a P33 seguem **🟡 até essa leitura**.
+
+---
+
 ## Rodada de 03/08 — os contadores lidos do corpo, e a fome atrás deles
 
 **A ressalva da P29 fechou: os contadores foram LIDOS, não reconstruídos.** E,
@@ -159,6 +203,7 @@ seguiu inútil (devolveu só a última hora).
 
 ⚠️ **A rodada medida foi a v18.** A `product_refresh_runs` está **vazia** porque
 a v19 continua sem deploy — conferido em `get_edge_function`: `version: 18`.
+*(Registro da manhã de 03/08. O deploy saiu à tarde — ver "Deploy da v20" no topo.)*
 
 ### Os contadores, medidos
 
@@ -248,10 +293,10 @@ Existem para a cota ser conferível: sem eles não há como provar que ela dispa
 Invariantes conferidas em 8 casos: **o lote nunca encolhe** (`total =
 min(BATCH, novos+antigos)`) e **antigo represado sempre entra**.
 
-⚠️ **NÃO DEPLOYADA.** A v20 contém a v19 inteira (que também nunca subiu), então
-**um único deploy entrega as duas**. Pela regra do próprio repo — 38 KB reemitidos
-numa chamada só já falhou em P26 e P19 — isso é **primeira ação de sessão limpa**.
-Enquanto não subir, produção segue na **v18** e a fome continua.
+✅ **DEPLOYADA em 03/08 à tarde**, primeira ação de sessão limpa, numa chamada só
+(42 KB). A v20 contém a v19 inteira, então o mesmo deploy entregou as duas. **Ainda
+NÃO provada:** a prova é a rodada do cron de 04/08 09:00 UTC — ver "Deploy da v20"
+no topo.
 
 **Prova a exigir na primeira rodada depois do deploy:** `candidatos_antigos > 0`
 e os 4 da Amazon saindo de `30/07 14:16`. Se vier `candidatos_antigos: 0` com
@@ -1271,6 +1316,43 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**Sessão da tarde de 03/08/2026 — sessão limpa de DEPLOY. Nenhuma linha de código nova.**
+
+| | |
+|---|---|
+| Commits | 1 · só este doc |
+| Edge Functions | `product-refresh` **v20 DEPLOYADA** (contém a v19; um deploy entregou as duas). Contador do Supabase: 18 → **19** — ver o aviso do desencontro de numeração |
+| Migrations | nenhuma |
+| Correção de dados | nenhuma |
+| Frontend | `index.html` e `frontend/index.html` — md5 **idêntico** nas duas cópias (`9695b73f…`), smoke test nas duas: **4 blocos, 1 erro pré-existente** em cada. **Deployado no EasyPanel às 12:13 UTC** e **conferido no código servido** |
+| Repo × produção | ✅ **BATEM**, backend e frontend, pela primeira vez desde 02/08 |
+
+- **A fila de deploy que estava represada desde 02/08 saiu.** A v19 nunca tinha
+  subido; a v20 a contém, então o deploy de hoje entregou as duas de uma vez.
+- **Fonte publicada lida e conferida**, não só o status: cabeçalho `v20`,
+  `RESERVA_ANTIGOS = 4`, as duas filas com cota, os contadores novos na resposta e
+  no insert da `product_refresh_runs`. Ver "Deploy da v20" no topo.
+- ⚠️ **O número de versão do Supabase deixou de bater com o do código.** Deploy 19
+  do Supabase = código **v20**. Está escrito no topo para ninguém ler errado depois.
+- ⚠️ **P34 e P33 seguem 🟡, não fechadas.** Deployado não é provado. A prova é a
+  rodada de 04/08 09:00 UTC: `product_refresh_runs` com linha, `candidatos_antigos
+  > 0`, e os 4 da Amazon saindo de `30/07 14:16`.
+- **Nenhuma rodada manual foi disparada de propósito** — gastaria leitura de loja
+  para antecipar o que o cron mede de graça amanhã.
+- **P3 deployada e presente no código SERVIDO**, não só no build: os três consertos
+  foram encontrados no `index.html` baixado de `megalinksbr.com.br` — a guarda
+  `if(WA_ENGINE_TOKEN)renderInstancias();` no top-level, o
+  `fetchWAEngineTokenComRetry`, e o `renderInstCard` dentro da re-renderização
+  pós-token. Console **limpo** num load completo. ⚠️ **Mas isso não fecha a P3:**
+  a medição foi feita **deslogado** (o navegador não tinha sessão salva), e o card
+  "Sessões ativas" mora atrás do login. `WA_ENGINE_TOKEN` estava vazio, como se
+  espera antes do login — e é justamente por isso que o 401 não teve como aparecer.
+  **O sintoma segue sem reprodução.**
+- **Nada além da fila foi tocado.** P29, P2/P5/P7/P16/P35, P19 e P6/P9/P10/P28/P4
+  ficaram fora da sessão por decisão do Érico.
+
+---
+
 **Sessão da manhã de 03/08/2026 — medição da rodada do cron. Nenhuma alteração de código.**
 
 | | |
@@ -1862,7 +1944,7 @@ código não relacionado.
 | # | Pendência | Origem |
 |---|---|---|
 | **P2** | Decidir o rate limit: `GRANT EXECUTE` a `anon` (abre superfície de ataque) **ou** trocar a credencial do engine para service role. ⚠️ **03/08: a suposição de raiz comum com a P3 caiu** — o 401 da P3 era `Bearer ` vazio no frontend, sem relação com `anon` nem com service role. Esta pendência é isolada | 30/07 |
-| **P3** | 🟡 **DIAGNOSTICADA E CONSERTADA 03/08, AGUARDANDO DEPLOY — e a hipótese da raiz comum com a P2 está ERRADA.** O engine valida certo (`token !== WA_ENGINE_TOKEN` → 401) e o `get-wa-engine-token` está protegido (`verify_jwt: true`, **medido**). O 401 vem de `Bearer ` **vazio**: o painel declara `WA_ENGINE_TOKEN=""` e (a) a linha top-level `renderAdminVisao();...renderInstancias();...` rodava na carga do script, antes de `enterApp` buscar o token; (b) `fetchWAEngineToken` devolve `false` em três caminhos e **ninguém lia o retorno** — o `.catch` só pega exceção —, então uma falha deixava o token vazio pela sessão inteira, sem retry e sem aviso; (c) a re-renderização pós-token cobria `renderInstancias` mas **não** `renderInstCard`, que é o card "Sessões ativas", exatamente a tela cega. Consertados os três. ⚠️ **Sintoma NÃO reproduzido** — o mecanismo está lido no código, mas ninguém carregou a página e leu o console (ver P15). O smoke test dá "não piorou", não "funciona". **Consequência para a P2: ela perde o argumento de "resolve duas de uma vez" e volta a ser decisão isolada de rate limit** | 30/07 |
+| **P3** | 🟡 **DIAGNOSTICADA, CONSERTADA E DEPLOYADA 03/08 — AGUARDANDO REPRODUÇÃO LOGADA — e a hipótese da raiz comum com a P2 está ERRADA.** O engine valida certo (`token !== WA_ENGINE_TOKEN` → 401) e o `get-wa-engine-token` está protegido (`verify_jwt: true`, **medido**). O 401 vem de `Bearer ` **vazio**: o painel declara `WA_ENGINE_TOKEN=""` e (a) a linha top-level `renderAdminVisao();...renderInstancias();...` rodava na carga do script, antes de `enterApp` buscar o token; (b) `fetchWAEngineToken` devolve `false` em três caminhos e **ninguém lia o retorno** — o `.catch` só pega exceção —, então uma falha deixava o token vazio pela sessão inteira, sem retry e sem aviso; (c) a re-renderização pós-token cobria `renderInstancias` mas **não** `renderInstCard`, que é o card "Sessões ativas", exatamente a tela cega. Consertados os três, **deployados em 03/08 às 12:13 UTC e conferidos no código servido** (os três marcadores estão no `index.html` que o nginx entrega; console limpo num load completo, porém **deslogado**). ⚠️ **Sintoma NÃO reproduzido** — o mecanismo está lido no código, mas ninguém carregou a página e leu o console (ver P15). O smoke test dá "não piorou", não "funciona". **Consequência para a P2: ela perde o argumento de "resolve duas de uma vez" e volta a ser decisão isolada de rate limit** | 30/07 |
 | **P4** | Descobrir por que o wa-engine reiniciou sozinho às 12:45 de 30/07 (uptime 819s às 12:58, sem deploy). `CLONE_FILA` e o cache de vistas moram só em memória → todo restart descarta a fila. Olhar Deployments/Events do EasyPanel: OOM ou healthcheck | 30/07 |
 | **P5** | Enforcement server-side dos limites de plano: canais WhatsApp/Telegram e grupos WhatsApp ainda são só client-side | 03/07 |
 | **P6** | **Revogar os PATs do GitHub** — o clássico `ghp_vkOR…` acumulou 14 pushes | 30/07 |
@@ -1891,8 +1973,8 @@ código não relacionado.
 | ~~P29~~ | ✅ **FECHADA 02/08.** Não era bug de lote: **8 dos 12 candidatos são inconferíveis por construção** (Shopee sem verificador, ML de plano starter sem monitoramento) e, antes da v17, não carimbavam `price_checked_at` — reenchiam o lote em toda rodada, deixando 1 único conferido. A rodada de 02/08 carimbou **11 linhas**. Ver "P29" acima. ⚠️ Os contadores do corpo **não foram lidos** (a janela já tinha fechado); a reconstrução é do `products` + do código, e a `product_refresh_runs` da v19 existe para isso não repetir. ✅ **Ressalva fechada em 03/08:** os contadores **foram lidos** do `net._http_response` 2h48 depois da rodada — `candidatos` 12, `conferidos` 4, `preco_mudou` 2, `pulados` 5, `desconhecidos` 1, `duracao_ms` 11115, pool 0 — e confirmam a explicação. Ver "Rodada de 03/08" acima | 01/08 |
 | ~~P30~~ | ✅ **FECHADA 01/08 noite.** `product-refresh` **v18**: `consultarML` devolve `precoDe`, saída (a) com a trava `undefined`/`null`. 13 de 13 corrigidos (169 → 169,90). ⚠️ **O ramo que APAGA não foi observado — não medido.** Ver a ressalva na seção da P30. Registro original abaixo. ~~🔜 **PRÓXIMA SESSÃO, PRIMEIRA AÇÃO** (combinado com o Érico em 01/08).~~ **`price_original` ("de") continua truncado nos produtos de Mercado Livre.** O `consultarML` não devolve `precoDe`, então a reconciliação da v16 nunca roda para o ML e o "de" mantém o valor inteiro antigo (96 em vez de 96,79). O wa-engine **já devolve** `price_from` com centavos — é só repassar. **Decisão pendente e não trivial:** repassar significa que, quando a loja não mostrar "de", o `precoDe` vira `null` e a v16 **apaga** o "de" existente. Isso remove o desconto de posts que hoje exibem um. Efeito atual do bug é conservador (desconto aparece menor do que é), então não é urgente — mas é o próximo item combinado. **As duas saídas, para decidir antes de codar:** (a) repassar direto e aceitar que o "de" seja apagado quando a loja não mostrar, que é o que a v16 escolheu de propósito para não publicar desconto que não existe; (b) repassar só quando a loja mostrar "de" e nunca apagar, que preserva o desconto atual mas reabre a porta para o "de" de terceiro que o caso La Roche fechou. **DECIDIDO PELO ÉRICO EM 01/08: saída (a), com uma trava que nenhuma das duas tinha.** O que fazia a (b) parecer necessária era o risco de apagar um "de" bom por causa de uma leitura que falhou — e isso não é escolher entre (a) e (b), é distinguir dois casos que a P30 tratava como um só. O `product-refresh` já faz essa distinção e ela está escrita no tipo `Consulta`: **`undefined` = não olhei; `null` = olhei e a loja não mostra.** Só o segundo pode apagar. Patch: `consultarML` devolve `precoDe: null` quando a leitura deu certo e não havia "de", e `undefined` quando a leitura falhou; a reconciliação da v16 só apaga no primeiro caso. **Falta codar** | 01/08 |
 | **P15** | **Parcialmente endereçada 31/07 tarde.** Existe agora um smoke test executável: extrair os blocos `<script>`, rodar os quatro **no mesmo contexto** `vm` do Node com um DOM falso permissivo, e comparar contra o baseline **antes** do patch. Foi rodado neste push e pegaria o TDZ do `f94e2f0`. **Duas limitações medidas:** (1) dá falso positivo em `id` de elemento usado como global — `themeT.onclick` na linha 2496 acusa `ReferenceError` no sandbox e funciona no browser; por isso a comparação com o baseline é obrigatória, o veredito é "piorou?", não "tem erro?"; (2) não executa handler nenhum, só o top-level. **Continua aberta:** carregar a página num navegador de verdade e ler o console segue sendo a única prova real | 31/07 |
-| **P33** | 🟡 **CONSERTADA NA v19, AGUARDANDO DEPLOY.** Apagar o "de" deixava o `discount_pct` de pé — 5 produtos com porcentagem órfã em 02/08. O `send-post` **não** usa o campo (o post sai limpo); a lista de produtos do painel usa (linha 5799) e o formulário regrava (linha 8271). v19 zera junto, só no ML e na Amazon, onde o desconto é derivado do "de" — a Shopee fica de fora por construção (decisão da P32). **11 produtos hoje nesse estado:** 5 ML + 3 Amazon (órfãos, a v19 alcança na próxima leitura) e 3 Shopee (intencional) | 02/08 |
-| **P34** | 🟡 **CONSERTADA NA v20, AGUARDANDO DEPLOY.** ~~A rodada diária só alcança produto recém-criado.~~ Medido em 03/08: os 11 carimbos da rodada foram **todos** de produtos criados no mesmo dia às 03:25. 27 produtos criados em 24h contra `BATCH = 12`; 19 ainda com `price_checked_at` nulo; **4 Amazon parados desde 30/07 14:16** (La Roche, Kit Rapunzel, Kärcher, Calvin Klein). `nullsFirst` + ingestão maior que o lote = produto que já tem carimbo nunca volta à fila. **Não é bug do `nullsFirst`** — é o lote ser menor que a entrada diária. Saídas não decididas: subir o `BATCH`, rodar o cron mais de uma vez por dia, ou reservar parte do lote para os carimbados mais antigos. **Consertada em 03/08.** Saída escolhida: **reserva de cota** (`RESERVA_ANTIGOS = 4`, piso e não teto), a única sem aumento de consumo de leitura — `BATCH` segue 12. Duas filas (`novos` por `created_at`, `antigos` por `price_checked_at`) no lugar da ordenação global com `nullsFirst`. Contadores `candidatos_novos`/`candidatos_antigos` entram na resposta e no `resumo` jsonb, sem migration. Lógica testada em 8 cenários com os números reais do banco. ⚠️ **A v20 contém a v19**: um deploy entrega as duas, e é primeira ação de sessão limpa. Até lá produção segue na v18 e a fome continua | 03/08 |
+| **P33** | 🟡 **DEPLOYADA EM 03/08 (dentro da v20), AGUARDANDO PROVA.** Apagar o "de" deixava o `discount_pct` de pé — 5 produtos com porcentagem órfã em 02/08. O `send-post` **não** usa o campo (o post sai limpo); a lista de produtos do painel usa (linha 5799) e o formulário regrava (linha 8271). v19 zera junto, só no ML e na Amazon, onde o desconto é derivado do "de" — a Shopee fica de fora por construção (decisão da P32). **11 produtos hoje nesse estado:** 5 ML + 3 Amazon (órfãos, a v19 alcança na próxima leitura) e 3 Shopee (intencional) | 02/08 |
+| **P34** | 🟡 **DEPLOYADA EM 03/08, AGUARDANDO PROVA.** ~~A rodada diária só alcança produto recém-criado.~~ Medido em 03/08: os 11 carimbos da rodada foram **todos** de produtos criados no mesmo dia às 03:25. 27 produtos criados em 24h contra `BATCH = 12`; 19 ainda com `price_checked_at` nulo; **4 Amazon parados desde 30/07 14:16** (La Roche, Kit Rapunzel, Kärcher, Calvin Klein). `nullsFirst` + ingestão maior que o lote = produto que já tem carimbo nunca volta à fila. **Não é bug do `nullsFirst`** — é o lote ser menor que a entrada diária. Saídas não decididas: subir o `BATCH`, rodar o cron mais de uma vez por dia, ou reservar parte do lote para os carimbados mais antigos. **Consertada em 03/08.** Saída escolhida: **reserva de cota** (`RESERVA_ANTIGOS = 4`, piso e não teto), a única sem aumento de consumo de leitura — `BATCH` segue 12. Duas filas (`novos` por `created_at`, `antigos` por `price_checked_at`) no lugar da ordenação global com `nullsFirst`. Contadores `candidatos_novos`/`candidatos_antigos` entram na resposta e no `resumo` jsonb, sem migration. Lógica testada em 8 cenários com os números reais do banco. ⚠️ **A v20 contém a v19**: o deploy de 03/08 à tarde entregou as duas. **Deployado não é provado** — a prova é a rodada de 04/08 09:00 UTC, com `candidatos_antigos > 0` e os 4 da Amazon saindo de `30/07 14:16`. Enquanto isso não for lido, esta pendência fica 🟡 | 03/08 |
 | **P35** | 🟠 **Qualquer usuário autenticado obtém o `WA_ENGINE_TOKEN` da plataforma inteira.** Achado de lado ao investigar a P3, em 03/08. O `get-wa-engine-token` **não checa nada em código** — sem leitura de header, sem plano, sem papel; o comentário diz "JWT verification is automatic with `verify_jwt: true`". Medido: `verify_jwt: true` está ligado, então **não** há exposição pública — mas basta uma conta grátis ou o modo demonstração para receber a credencial que dá controle do `wa-engine` de **todos** os usuários (`/sessions`, desconectar, enviar). Duas frágeis de uma vez: a proteção mora só na configuração (um deploy com `verify_jwt: false` abre tudo, sem nada no código para segurar), e não há autorização por plano. Parente da P5 e da P7. Não consertada | 03/08 |
 | **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
 
