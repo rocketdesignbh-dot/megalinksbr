@@ -648,6 +648,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <nav class="nav-grp show" id="navAfiliado">
     <div class="nav active" data-page="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Dashboard</div>
     <div class="nav-cta" data-page="post-relampago"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M13 2L4.5 13.5H11L10 22L19.5 10H13L13 2Z"/></svg>🚀 Postar Agora<span class="tag orange">NEW</span></div>
+    <div class="nav" data-page="link-rapido"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Link Rápido<span class="tag orange">NEW</span></div>
     <div class="nav" data-page="clone-post"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Clone Post<span class="tag dot" id="cloneBadge" style="display:none">0</span></div>
     <div class="nav" data-page="radar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 3v4.5M12 12l6-4"/></svg>Radar de Ofertas<span class="tag dot" id="radarBadge">0</span></div>
     <div class="nav" data-page="analitico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 20V8M10 20V4M16 20v-9M21 20H3"/></svg>Analítico</div>
@@ -964,6 +965,33 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="heat-wrap"><div class="heat" id="heat"></div></div>
       <div class="heat-leg"><span>Menos</span><span class="sq" style="background:var(--surf2)"></span><span class="sq" style="background:rgba(245,197,24,.32)"></span><span class="sq" style="background:rgba(245,197,24,.6)"></span><span class="sq" style="background:var(--volt)"></span><span>Mais</span></div>
     </div></div>
+  </section>
+
+  <!-- ===== LINK RÁPIDO ===== -->
+  <section class="page" id="page-link-rapido">
+    <div class="phead">
+      <div>
+        <h1 class="pt">🔗 Link Rápido</h1>
+        <div class="psub">Achou uma oferta na internet? Cole o link aqui. O afiliado de quem postou sai, o seu entra, e você leva o link pronto pra divulgar.</div>
+        <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="ch">📋 Cole o link do produto</div>
+      <div class="cb">
+        <label>Link ou mensagem com o link</label>
+        <textarea id="lrInput" rows="3" placeholder="Cole o link do produto — encurtado ou completo.&#10;Ex.: https://s.shopee.com.br/9pxKq2Lm3" style="width:100%;font-family:var(--mono);font-size:12.5px;resize:vertical" onkeydown="if(event.key==='Enter'&amp;&amp;(event.ctrlKey||event.metaKey))lrGerar()"></textarea>
+        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+          <button class="btn btn-gold" id="lrBtn" onclick="lrGerar()">🔗 Gerar meu link</button>
+          <button class="btn btn-ghost" onclick="lrLimpar()">Limpar</button>
+        </div>
+        <div id="lrStatus" style="display:none;margin-top:14px"></div>
+        <div style="margin-top:12px;font-size:11.5px;color:var(--tx2);line-height:1.6">
+          Funciona com Shopee, Mercado Livre, Amazon, AliExpress, Magalu, Shein, Natura e TerabyteShop — desde que a credencial da loja esteja em <a href="#" onclick="go('config-afiliados');return false" style="color:var(--volt)">Config Afiliados</a>.
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- ===== RADAR ===== -->
@@ -2584,6 +2612,7 @@ function go(page){
   // Hook: ao entrar em Assinatura, re-renderiza com dados frescos do plano
   if(page==="assinatura")setTimeout(()=>renderPlans(),80);
   if(page==="adm-seo")setTimeout(()=>renderSeoMarketing(),50);
+  if(page==="link-rapido")setTimeout(()=>{const i=document.getElementById("lrInput");if(i)i.focus();},80);
 }
 document.querySelectorAll(".nav").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
 document.querySelectorAll(".nav-cta").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
@@ -8071,6 +8100,109 @@ async function encurtarLinkFinal(longUrl,postRef){
   if(!longUrl)return longUrl;
   try{ if(new URL(longUrl,window.location.origin).pathname.startsWith("/r/"))return longUrl; }catch(e){}
   try{ const s=await mlEncurtarLink(longUrl,postRef); return s||longUrl; }catch(e){ return longUrl; }
+}
+
+/* ================= LINK RAPIDO ================= */
+// Cola um link de marketplace (encurtado ou completo), resolve ate a pagina do
+// produto, descarta o afiliado de origem, injeta o do usuario logado e devolve
+// o link encurtado. Nao grava produto, nao posta em grupo, nao gasta Scrape.do:
+// so a resolve-link e o encurtador. Liberado em todos os planos.
+let LR_LINK="";
+
+function lrLimpar(){
+  LR_LINK="";
+  const i=document.getElementById("lrInput"); if(i)i.value="";
+  const s=document.getElementById("lrStatus"); if(s){s.style.display="none";s.innerHTML="";}
+}
+
+function lrMsg(cls,html){
+  const s=document.getElementById("lrStatus");
+  if(!s)return;
+  s.style.display="block";
+  s.innerHTML='<div class="alert '+cls+'" style="margin:0">'+html+'</div>';
+}
+
+function lrEsc(x){return String(x==null?"":x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");}
+
+async function lrGerar(){
+  const texto=(document.getElementById("lrInput")?.value||"").trim();
+  if(!texto){toast("Cole o link do produto primeiro.","⚠️");return;}
+  const btn=document.getElementById("lrBtn");
+  if(btn)btn.disabled=true;
+  LR_LINK="";
+  lrMsg("b","🔗 Resolvendo o link e removendo o afiliado de origem…");
+  try{
+    const session=await SB.auth.getSession();
+    const jwt=session?.data?.session?.access_token;
+    if(!jwt)throw new Error("Sessão expirada — entre de novo.");
+    const r=await fetch(`${SUPA_URL}/functions/v1/resolve-link`,{
+      method:"POST",
+      headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"},
+      body:JSON.stringify({text:texto})
+    });
+    const d=await r.json();
+    if(!d.ok){
+      const motivo=lrEsc(d.error||"a resolve-link não explicou o motivo");
+      const etapa=d.stage?' <small style="opacity:.7">(etapa: '+lrEsc(d.stage)+')</small>':'';
+      lrMsg("r",'<span><strong>❌ Não deu pra refazer esse link.</strong><br>'+motivo+etapa+'<br><small style="opacity:.8">Cole o link da <strong>página do produto</strong> — link de convite de grupo, de busca ou de campanha não serve.</small></span>');
+      return;
+    }
+    const loja=d.store_label||detectLojaLabel(d.url)||"";
+    const lojaSafe=lrEsc(loja||"a loja");
+    if(!temCredencialLoja(loja)){
+      lrMsg("y",'<span><strong>⚠️ Link resolvido ('+lojaSafe+'), mas falta a sua credencial dessa loja.</strong><br>Sem o seu ID de afiliado o link sairia <strong>sem comissão nenhuma</strong>. <a href="#" onclick="go(\'config-afiliados\');return false" style="color:var(--volt);font-weight:700">Configurar '+lojaSafe+' agora</a></span>');
+      return;
+    }
+    const afil=prGerarLinkAfil(d.url,loja)||d.url;
+    if(afil===d.url){
+      lrMsg("y",'<span><strong>⚠️ Não consegui injetar o seu ID nesse link de '+lojaSafe+'.</strong><br>Confira em <a href="#" onclick="go(\'config-afiliados\');return false" style="color:var(--volt);font-weight:700">Config Afiliados</a> se o campo do ID de afiliado dessa loja está preenchido.</span>');
+      return;
+    }
+    lrMsg("b","✅ Seu ID entrou. Encurtando…");
+    const curto=await encurtarLinkFinal(afil,null);
+    LR_LINK=curto||afil;
+    lrRender(d,loja,!!(curto&&curto!==afil));
+  }catch(e){
+    lrMsg("r",'<span><strong>Falhou:</strong> '+lrEsc(e&&e.message?e.message:e)+'</span>');
+  }finally{
+    if(btn)btn.disabled=false;
+  }
+}
+
+function lrRender(d,loja,encurtou){
+  const s=document.getElementById("lrStatus");
+  if(!s)return;
+  const rastreado=(typeof planTemRastreamento==="function")&&planTemRastreamento();
+  const nota=!encurtou
+    ? "a encurtadora não respondeu — este é o link de afiliado direto, funciona igual"
+    : (rastreado
+        ? "encurtado no seu domínio, com <strong>rastreio de cliques</strong> no Analítico"
+        : "encurtado — o rastreio de cliques no seu domínio entra a partir do plano Elite");
+  const removidos=(d.stripped||[]).length
+    ? "afiliado de origem removido: "+lrEsc((d.stripped||[]).join(", "))
+    : "o link original não tinha parâmetro de afiliado";
+  s.style.display="block";
+  s.innerHTML=
+    '<div class="alert g" style="margin:0"><span><strong>✅ Tudo certo — link pronto pra divulgar.</strong><br>'
+    +lrEsc(loja||"loja")+' · seu ID de afiliado aplicado · '+removidos+'</span></div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center">'
+    +'<input id="lrOut" class="mono" readonly value="'+lrEsc(LR_LINK)+'" onclick="this.select()" style="flex:1;min-width:220px;font-size:12.5px">'
+    +'<button class="btn btn-volt" id="lrCopyBtn" onclick="lrCopiar()">📋 Copiar link</button>'
+    +'</div>'
+    +'<div style="margin-top:8px;font-size:11.5px;color:var(--tx2)">'+nota+'</div>';
+}
+
+function lrCopiar(){
+  const v=LR_LINK||document.getElementById("lrOut")?.value||"";
+  if(!v)return;
+  const ok=()=>{
+    toast("Link copiado!","📋");
+    const b=document.getElementById("lrCopyBtn");
+    if(b){const t=b.innerHTML;b.innerHTML="✅ Copiado!";setTimeout(()=>{if(document.getElementById("lrCopyBtn")===b)b.innerHTML=t;},1800);}
+  };
+  const fallback=()=>{const i=document.getElementById("lrOut");if(i){i.select();try{document.execCommand("copy");ok();}catch(e){toast("Selecione e copie manualmente.","ℹ️");}}};
+  if(navigator.clipboard)navigator.clipboard.writeText(v).then(ok).catch(fallback);
+  else fallback();
 }
 
 /* ================= CLONE POST ================= */
