@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 32 — 03/08/2026 (fim de tarde).** Se o número aqui não for o mais alto que você
+> **REVISÃO 33 — 03/08/2026 (noite).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1643,6 +1643,47 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**Sessão de 03/08/2026 (noite, REVISÃO 33) — o `/group-invite-info` está no ar e
+provado; dois defeitos meus, achados na primeira tentativa de uso.**
+
+| | |
+|---|---|
+| Commits | 1 · `wa-engine/server.js` + este doc |
+| Deploy anterior | auto-deploy pegou os **dois** serviços; engine bootou às **17:16:26 UTC** (uptime 403 s às 17:23:09) |
+| Frontend | não tocado nesta correção |
+| Repo × produção | 🔴 até o deploy. **Este push reinicia o `wa-engine`** (P16) |
+
+✅ **O endpoint está publicado — provado por comportamento, não por versão.** Com
+`https://linktr.ee/gruposdisponiveis` colado no campo da tela, a resposta foi
+exatamente a mensagem de erro **do código novo** (`Isso não parece um link de
+convite…`), com `400` e CORS. Código velho não teria essa rota.
+
+🔴 **Defeito 1 — `extrairCodigoConvite` frouxo demais.** A regra do código solto era
+`[A-Za-z0-9_-]{6,}`, que casa com **`COLE_AQUI_O_LINK_DO_ACHADINHOS`** — o
+placeholder do snippet de teste foi aceito como se fosse convite e despachado pro
+WhatsApp. Corrigido: com `chat.whatsapp.com` na frente a intenção está provada e o
+código passa como vier; **sem domínio**, exige o formato real (alfanumérico puro,
+15–30 caracteres — o do WhatsApp tem 22). 8/8 casos conferidos com `node`, incluindo
+os dois que motivaram a correção.
+
+🔴 **Defeito 2 — consulta sem prazo pendurava e quem respondia era o proxy.** O
+`makeWASocket` não define `defaultQueryTimeoutMs`, então a chamada herdava o default
+do Baileys e o EasyPanel desistia antes: **502 sem cabeçalho CORS**. Corrigido com
+`comPrazo(..., 12 s)` só nesta chamada — não mexi na config do socket, que vale para
+o engine inteiro.
+
+🔎 **E é assim que dá pra separar as duas coisas: o CORS é middleware global,
+registrado na linha 48, antes de todas as rotas.** Toda resposta que sai do express
+carrega o cabeçalho — o `400` carregou. Uma resposta **sem** o cabeçalho, portanto,
+**não saiu do express**. O navegador só sabe dizer "blocked by CORS policy", que
+manda procurar no lugar errado; o cabeçalho ausente é que aponta pro proxy. Virou
+aprendizado lá embaixo.
+
+🔴 **A P38 continua aberta.** Nada disso prova que o convite de um grupo real
+resolve — o único caminho exercitado até agora foi o de **recusa**.
+
+---
+
 **Sessão de 03/08/2026 (fim de tarde, REVISÃO 32) — o `/groups` mente por omissão.
 Cadastro de fonte por link de convite.**
 
@@ -2775,6 +2816,16 @@ código não relacionado.
   sucesso** — fecha a janela de corrida em chamadas concorrentes.
 - **Nunca commitar token em texto puro no frontend.** Qualquer variável visível no
   HTML/JS público é pública, sem exceção. (`WA_ENGINE_TOKEN` já vazou assim.)
+- **Resposta sem cabeçalho CORS, em app com CORS global, não veio do app.** O
+  `wa-engine` registra o middleware de CORS antes de todas as rotas, então qualquer
+  resposta do express — inclusive `400`, `404` e `502` — sai com o cabeçalho. Quando
+  o navegador reclama de CORS num erro **e o cabeçalho está ausente**, quem respondeu
+  foi o proxy, e a causa real é a requisição ter ficado pendurada. A mensagem do
+  navegador ("blocked by CORS policy") manda procurar em configuração de CORS, que é
+  exatamente onde o problema não está. Medido em 03/08 com o `/group-invite-info`.
+- **Toda ida a serviço externo dentro de um handler HTTP precisa de prazo próprio.**
+  Sem isso, quem decide o timeout é o proxy, e a resposta que chega ao usuário não
+  passa pelo nosso tratamento de erro — perde a mensagem, perde o CORS, perde o log.
 - **Env do wa-engine (EasyPanel) e Secrets do Supabase são espaços separados.**
   Confirmar sempre em qual dos dois a credencial precisa estar — quem faz a chamada é
   quem precisa do segredo. (`SCRAPE_DO_TOKEN` já foi parar no lugar errado.)
