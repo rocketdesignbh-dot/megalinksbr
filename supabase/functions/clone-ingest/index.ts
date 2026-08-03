@@ -104,6 +104,15 @@
 //    clone_sources.smart_schedule e smart_weekend ficam na tabela sem leitor.
 //    niche_groups.smart_schedule, que e o do send-post, continua valendo.
 
+//  * v17 — P36: pre-filtro por dominio do link cru, ANTES da resolve-link.
+//    Complementa a v16 sem substituir: quando o dominio cru ja responde qual e
+//    a loja e ela nao esta em lojas_permitidas, a mensagem morre aqui e a
+//    resolve-link nao e chamada. Quando o dominio nao responde (encurtador
+//    generico), nada muda — segue para a resolve-link como na v16.
+//    As duas recusas ficam distinguiveis no log pelo prefixo do motivo,
+//    [pre-filtro] e [pos-filtro]. E de proposito: sem isso nao ha como medir se
+//    o pre-filtro pega alguma coisa. Ver DOMINIOS_LOJA.
+
 //  * v16 — P31: filtro de loja por fonte (clone_sources.lojas_permitidas).
 //    Grupo-fonte que presta para uma loja e nao para outra e o caso comum, nao a
 //    excecao. MEDIDO em 01/08 na "Melhores Ofertas da Internet", com o campo de
@@ -197,6 +206,62 @@ const STORE_LABEL: Record<string, string> = {
   natura: "Natura",
   terabyte: "TerabyteShop",
 };
+
+// ── v17 · P36 · pre-filtro por dominio do link cru ────────────────────────
+// A v16 filtra por loja DEPOIS da resolve-link, que e quem sabe qual e a loja.
+// Isso custa uma resolve-link por mensagem que a fonte ja tinha dito que nao
+// queria. MEDIDO em 03/08: 104 recusas em 7 dias de vitrine de afiliado do
+// Mercado Livre nas duas fontes, onde o ML nem esta em lojas_permitidas — e 94
+// delas sao o MESMO link, /social/vw20240830181031.
+//
+// ⚠️ O QUE ISTO AINDA NAO SABE, e precisa ser dito antes de alguem comemorar:
+// o clone_ingest_log guarda o host DEPOIS do redirecionamento
+// (`resolved || original`), entao nao ha como saber se aquelas 104 chegaram
+// escritas como mercadolivre.com.br ou como um encurtador. As capturas que
+// vingaram no mesmo grupo vem de s.shopee.com.br, amzlink.to e link.amazon —
+// todas encurtadas. Se as recusas tambem vierem, este filtro pega ZERO.
+// Por isso a recusa de pre-filtro carrega o prefixo [pre-filtro] no motivo e o
+// host CRU em link_host: a leitura de 04/08 separa uma coisa da outra sem
+// depender de inferencia.
+//
+// Regra conservadora de proposito: so recusa quando TODOS os links do texto
+// tem dominio reconhecido E nenhum deles esta nas lojas permitidas. Um unico
+// link desconhecido (encurtador generico, boaoferta.me) faz a mensagem seguir
+// para a resolve-link exatamente como antes. Recusar por engano uma loja
+// permitida e pior que gastar a resolve.
+const DOMINIOS_LOJA: Array<[string, string]> = [
+  ["mercadolivre.com.br", "mercadolivre"],
+  ["mercadolivre.com", "mercadolivre"],
+  ["mercadolibre.com", "mercadolivre"],
+  ["meli.la", "mercadolivre"],
+  ["shopee.com.br", "shopee"],
+  ["shp.ee", "shopee"],
+  ["amazon.com.br", "amazon"],
+  ["amazon.com", "amazon"],
+  ["amzn.to", "amazon"],
+  ["amzlink.to", "amazon"],
+  ["link.amazon", "amazon"],
+  ["a.co", "amazon"],
+];
+
+// Casa por sufixo: s.shopee.com.br e produto.mercadolivre.com.br precisam cair
+// no mesmo balde que o dominio raiz. Devolve null para tudo que nao reconhece —
+// null aqui quer dizer "nao sei", nunca "nao e loja".
+function lojaDoDominio(host: unknown): string | null {
+  const h = String(host ?? "").trim().toLowerCase().replace(/^www\./, "");
+  if (!h) return null;
+  for (const [dom, loja] of DOMINIOS_LOJA) {
+    if (h === dom || h.endsWith("." + dom)) return loja;
+  }
+  return null;
+}
+
+// Todos os links http(s) do texto, na ordem. A pontuacao final e aparada porque
+// grupo de oferta escreve "confira: https://x.com/y." e o ponto entra na URL.
+function linksDoTexto(texto: unknown): string[] {
+  const achados = String(texto ?? "").match(/https?:\/\/[^\s<>"'\)\]]+/gi) || [];
+  return achados.map((u) => u.replace(/[.,;:!?]+$/, "")).filter(Boolean);
+}
 
 // Planos com captura automatica, caso plan_features esteja indisponivel.
 // Piso, nao fonte da verdade: a tabela sobrescreve (licao do PLAN_FALLBACK).
@@ -1057,6 +1122,35 @@ Deno.serve(async (req: Request) => {
         if (jaVisto?.length) { resultados.push({ ...marca, status: "duplicado", motivo: "mensagem ja processada" }); continue; }
       }
 
+      // ── v17 · P36 · pre-filtro por dominio do link cru ────────────────
+      // Vem ANTES da resolve-link: e o unico ponto do fluxo onde da pra
+      // economizar a propria resolve-link. O filtro da v16 continua logo abaixo
+      // e continua sendo o que decide de verdade — este aqui so adianta os
+      // casos obvios. Ver o comentario de DOMINIOS_LOJA.
+      // Array vazio = todas as lojas, entao fonte sem filtro nao muda de
+      // comportamento em nada.
+      const permitidas: string[] = Array.isArray(fonte.lojas_permitidas)
+        ? fonte.lojas_permitidas.map((s: unknown) => String(s ?? "").trim()).filter(Boolean)
+        : [];
+
+      if (permitidas.length) {
+        const crus = linksDoTexto(texto);
+        const lojasCruas = crus.map((u) => lojaDoDominio(partesDoLink(u).host));
+        const todosConhecidos = lojasCruas.length > 0 && lojasCruas.every((l) => l !== null);
+        const nenhumPermitido = lojasCruas.every((l) => l !== null && !permitidas.includes(l));
+        if (todosConhecidos && nenhumPermitido) {
+          const loja = String(lojasCruas[0]);
+          const alvo = partesDoLink(crus[0]);
+          const nomes = permitidas.map((x) => STORE_LABEL[x] || x).join(", ");
+          resultados.push({
+            ...marca, status: "loja_filtrada", store: loja,
+            link_host: alvo.host, link_path: alvo.path,
+            motivo: `[pre-filtro] ${STORE_LABEL[loja] || loja} reconhecida pelo dominio cru ${alvo.host} e nao esta nas lojas escolhidas para esta fonte (${nomes}) — a resolve-link nao chegou a ser chamada`,
+          });
+          continue;
+        }
+      }
+
       const resolve = await chamarFuncao("resolve-link", { text: texto });
       if (!resolve?.ok) {
         // v15/P20: a resolve-link devolve `original` e, quando chegou a abrir o
@@ -1092,14 +1186,14 @@ Deno.serve(async (req: Request) => {
       // Vem antes tambem do dedupe, que e uma consulta ao banco — nao ha por que
       // perguntar se um link repetido ja foi clonado quando ele nem seria.
       // Array vazio = todas as lojas. Ver o comentario do cabecalho.
-      const permitidas: string[] = Array.isArray(fonte.lojas_permitidas)
-        ? fonte.lojas_permitidas.map((s: unknown) => String(s ?? "").trim()).filter(Boolean)
-        : [];
+      // v17: `permitidas` ja foi calculada acima, no pre-filtro. Uma leitura so
+      // do campo, dois pontos de uso — declarar de novo aqui seria erro de
+      // compilacao, e recalcular seria convite a divergir.
       if (permitidas.length && !permitidas.includes(store)) {
-        const nomes = permitidas.map((s) => STORE_LABEL[s] || s).join(", ");
+        const nomes = permitidas.map((x) => STORE_LABEL[x] || x).join(", ");
         resultados.push({
           ...marca, status: "loja_filtrada",
-          motivo: `${STORE_LABEL[store] || store} nao esta nas lojas escolhidas para esta fonte (${nomes})`,
+          motivo: `[pos-filtro] ${STORE_LABEL[store] || store} nao esta nas lojas escolhidas para esta fonte (${nomes})`,
         });
         continue;
       }
