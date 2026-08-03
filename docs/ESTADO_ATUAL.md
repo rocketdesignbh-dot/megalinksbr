@@ -205,11 +205,57 @@ ser conferido**. Os 4 Amazon estão parados há 4 dias.
 **O `nullsFirst` não está errado** — produto novo, sem preço conferido, é mesmo o
 mais urgente. O que falta é a rodada não ser monopolizada por ele.
 
-**Saídas, não decididas e não codadas:** subir o `BATCH`; rodar o cron mais de uma
-vez por dia; ou reservar parte do lote para os carimbados mais antigos (ex.: 8
-nulos + 4 antigos). **Custo a pesar antes:** cada leitura a mais é uma chamada de
-loja. Hoje deu `usos_do_pool_compartilhado: 0` porque os donos têm credencial
-própria — isso **não** vale para dono novo, e é o que o teto de pool protege.
+**Saída escolhida pelo Érico em 03/08: reserva de cota no lote** — a única que
+**não aumenta o consumo de leitura**. Subir o `BATCH` ou rodar o cron mais vezes
+dobraria as chamadas de loja, e o `usos_do_pool_compartilhado: 0` de hoje só
+aconteceu porque os donos têm credencial própria; para dono novo isso vira
+consumo do crédito compartilhado, que é o que o teto de pool existe para proteger.
+
+### O conserto — `product-refresh` v20
+
+`BATCH` continua **12**. O que muda é de onde vêm os 12: duas consultas com cota
+em vez de uma ordenação global.
+
+```
+RESERVA_ANTIGOS = 4   // piso, não teto
+novos   = price_checked_at IS NULL      ordenado por created_at ASC  (FIFO)
+antigos = price_checked_at < corte      ordenado por price_checked_at ASC
+```
+
+A cota é **piso, não teto**: vaga que um lado não usa passa para o outro, então o
+lote nunca encolhe. Sem antigo represado, a rodada inteira vai para os novos —
+comportamento idêntico ao da v19.
+
+A ordenação dos novos por `created_at` é ganho de lado: entre nulos a v19
+empatava e quem escolhia era o banco.
+
+**Contadores novos `candidatos_novos` e `candidatos_antigos`** na resposta — e,
+por tabela, dentro do `resumo` jsonb da `product_refresh_runs`, **sem migration**.
+Existem para a cota ser conferível: sem eles não há como provar que ela disparou.
+
+**Testado antes do deploy**, com a lógica isolada e os números reais do banco
+(19 na fila de novos, 78 na de antigos, medidos em 03/08):
+
+| cenário | fila | lote |
+|---|---|---|
+| **real de 04/08** | 19 novos, 78 antigos | **8 novos + 4 antigos** |
+| *(a v19 faria)* | *19 novos, 78 antigos* | *12 novos + **0** antigos* |
+| sem antigo represado | 30, 0 | 12 + 0 |
+| sem produto novo | 0, 50 | 0 + 12 |
+| fila curta dos dois lados | 3, 2 | 3 + 2 (lote 5) |
+| novos abaixo da cota | 3, 40 | 3 + 9 |
+
+Invariantes conferidas em 8 casos: **o lote nunca encolhe** (`total =
+min(BATCH, novos+antigos)`) e **antigo represado sempre entra**.
+
+⚠️ **NÃO DEPLOYADA.** A v20 contém a v19 inteira (que também nunca subiu), então
+**um único deploy entrega as duas**. Pela regra do próprio repo — 38 KB reemitidos
+numa chamada só já falhou em P26 e P19 — isso é **primeira ação de sessão limpa**.
+Enquanto não subir, produção segue na **v18** e a fome continua.
+
+**Prova a exigir na primeira rodada depois do deploy:** `candidatos_antigos > 0`
+e os 4 da Amazon saindo de `30/07 14:16`. Se vier `candidatos_antigos: 0` com
+produto antigo represado, a cota não funcionou — e esse é o número que prova.
 
 ---
 
@@ -1229,8 +1275,8 @@ desmarcado = não posta, não posta de outro jeito.
 
 | | |
 |---|---|
-| Commits | 1 · só este doc |
-| Edge Functions | **nenhuma tocada** — a rodada medida foi a **v18** |
+| Commits | 2 · este doc e o `product-refresh` |
+| Edge Functions | `product-refresh` **v20** — ⚠️ **codada e testada, AGUARDANDO DEPLOY** (contém a v19, que também nunca subiu). A rodada medida foi a **v18** |
 | Migrations | nenhuma |
 | Correção de dados | nenhuma |
 | Frontend | não tocado |
@@ -1245,7 +1291,11 @@ desmarcado = não posta, não posta de outro jeito.
 - **`net._http_response` vence a janela de log**, se lido no mesmo dia. É o que
   resta enquanto a v19 não sobe — e foi lido com 2h48 de folga.
 - **Custo em crédito compartilhado: 0**, lido no campo, não presumido.
-- Nada foi deployado, alterado ou executado. **Só leitura.**
+- **P34 consertada na v20** na mesma sessão, com a saída que o Érico escolheu:
+  reserva de cota (`RESERVA_ANTIGOS = 4`), custo de leitura **igual** ao de hoje.
+  Lógica testada em 8 cenários com os números reais do banco antes de qualquer deploy.
+- **Nada foi deployado.** A medição foi só leitura; o conserto está no repo e
+  aguarda o deploy de sessão limpa que já era devido pela v19.
 
 ---
 
@@ -1832,7 +1882,7 @@ código não relacionado.
 | ~~P30~~ | ✅ **FECHADA 01/08 noite.** `product-refresh` **v18**: `consultarML` devolve `precoDe`, saída (a) com a trava `undefined`/`null`. 13 de 13 corrigidos (169 → 169,90). ⚠️ **O ramo que APAGA não foi observado — não medido.** Ver a ressalva na seção da P30. Registro original abaixo. ~~🔜 **PRÓXIMA SESSÃO, PRIMEIRA AÇÃO** (combinado com o Érico em 01/08).~~ **`price_original` ("de") continua truncado nos produtos de Mercado Livre.** O `consultarML` não devolve `precoDe`, então a reconciliação da v16 nunca roda para o ML e o "de" mantém o valor inteiro antigo (96 em vez de 96,79). O wa-engine **já devolve** `price_from` com centavos — é só repassar. **Decisão pendente e não trivial:** repassar significa que, quando a loja não mostrar "de", o `precoDe` vira `null` e a v16 **apaga** o "de" existente. Isso remove o desconto de posts que hoje exibem um. Efeito atual do bug é conservador (desconto aparece menor do que é), então não é urgente — mas é o próximo item combinado. **As duas saídas, para decidir antes de codar:** (a) repassar direto e aceitar que o "de" seja apagado quando a loja não mostrar, que é o que a v16 escolheu de propósito para não publicar desconto que não existe; (b) repassar só quando a loja mostrar "de" e nunca apagar, que preserva o desconto atual mas reabre a porta para o "de" de terceiro que o caso La Roche fechou. **DECIDIDO PELO ÉRICO EM 01/08: saída (a), com uma trava que nenhuma das duas tinha.** O que fazia a (b) parecer necessária era o risco de apagar um "de" bom por causa de uma leitura que falhou — e isso não é escolher entre (a) e (b), é distinguir dois casos que a P30 tratava como um só. O `product-refresh` já faz essa distinção e ela está escrita no tipo `Consulta`: **`undefined` = não olhei; `null` = olhei e a loja não mostra.** Só o segundo pode apagar. Patch: `consultarML` devolve `precoDe: null` quando a leitura deu certo e não havia "de", e `undefined` quando a leitura falhou; a reconciliação da v16 só apaga no primeiro caso. **Falta codar** | 01/08 |
 | **P15** | **Parcialmente endereçada 31/07 tarde.** Existe agora um smoke test executável: extrair os blocos `<script>`, rodar os quatro **no mesmo contexto** `vm` do Node com um DOM falso permissivo, e comparar contra o baseline **antes** do patch. Foi rodado neste push e pegaria o TDZ do `f94e2f0`. **Duas limitações medidas:** (1) dá falso positivo em `id` de elemento usado como global — `themeT.onclick` na linha 2496 acusa `ReferenceError` no sandbox e funciona no browser; por isso a comparação com o baseline é obrigatória, o veredito é "piorou?", não "tem erro?"; (2) não executa handler nenhum, só o top-level. **Continua aberta:** carregar a página num navegador de verdade e ler o console segue sendo a única prova real | 31/07 |
 | **P33** | 🟡 **CONSERTADA NA v19, AGUARDANDO DEPLOY.** Apagar o "de" deixava o `discount_pct` de pé — 5 produtos com porcentagem órfã em 02/08. O `send-post` **não** usa o campo (o post sai limpo); a lista de produtos do painel usa (linha 5799) e o formulário regrava (linha 8271). v19 zera junto, só no ML e na Amazon, onde o desconto é derivado do "de" — a Shopee fica de fora por construção (decisão da P32). **11 produtos hoje nesse estado:** 5 ML + 3 Amazon (órfãos, a v19 alcança na próxima leitura) e 3 Shopee (intencional) | 02/08 |
-| **P34** | 🔴 **A rodada diária só alcança produto recém-criado.** Medido em 03/08: os 11 carimbos da rodada foram **todos** de produtos criados no mesmo dia às 03:25. 27 produtos criados em 24h contra `BATCH = 12`; 19 ainda com `price_checked_at` nulo; **4 Amazon parados desde 30/07 14:16** (La Roche, Kit Rapunzel, Kärcher, Calvin Klein). `nullsFirst` + ingestão maior que o lote = produto que já tem carimbo nunca volta à fila. **Não é bug do `nullsFirst`** — é o lote ser menor que a entrada diária. Saídas não decididas: subir o `BATCH`, rodar o cron mais de uma vez por dia, ou reservar parte do lote para os carimbados mais antigos. Pesar o custo de leitura antes: hoje o pool ficou em 0 só porque os donos têm credencial própria | 03/08 |
+| **P34** | 🔴 **A rodada diária só alcança produto recém-criado.** Medido em 03/08: os 11 carimbos da rodada foram **todos** de produtos criados no mesmo dia às 03:25. 27 produtos criados em 24h contra `BATCH = 12`; 19 ainda com `price_checked_at` nulo; **4 Amazon parados desde 30/07 14:16** (La Roche, Kit Rapunzel, Kärcher, Calvin Klein). `nullsFirst` + ingestão maior que o lote = produto que já tem carimbo nunca volta à fila. **Não é bug do `nullsFirst`** — é o lote ser menor que a entrada diária. Saídas não decididas: subir o `BATCH`, rodar o cron mais de uma vez por dia, ou reservar parte do lote para os carimbados mais antigos. 🟡 **CONSERTADA NA v20 (03/08), AGUARDANDO DEPLOY.** Saída escolhida: **reserva de cota** (`RESERVA_ANTIGOS = 4`, piso e não teto), a única sem aumento de consumo de leitura — `BATCH` segue 12. Duas filas (`novos` por `created_at`, `antigos` por `price_checked_at`) no lugar da ordenação global com `nullsFirst`. Contadores `candidatos_novos`/`candidatos_antigos` entram na resposta e no `resumo` jsonb, sem migration. Lógica testada em 8 cenários com os números reais do banco. ⚠️ **A v20 contém a v19**: um deploy entrega as duas, e é primeira ação de sessão limpa. Até lá produção segue na v18 e a fome continua | 03/08 |
 | **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
 
 | ~~P32~~ | ✅ **FECHADA 01/08 noite.** A Shopee devolvia `price_from = node.price`, que é o preço ATUAL e não o anterior; 3 de 3 capturas reais saíram com "de" == "por" e desconto de 53%/42%/35%, já no rodízio do grupo. `product-search` **v25** para de enviar `price_from` para a Shopee. Os 3 produtos foram limpos. O Radar, que tem leitura própria, **não** tinha o defeito — terceira vez que duas implementações da mesma coisa divergem neste repo | 01/08 |

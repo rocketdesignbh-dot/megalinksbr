@@ -1,4 +1,34 @@
-// Mega Links BR · Edge Function "product-refresh" v19
+// Mega Links BR · Edge Function "product-refresh" v20
+// v20 (03/08, P34): RESERVA DE COTA NO LOTE. A rodada diaria so alcancava
+//      produto recem-criado, e isso foi MEDIDO na rodada de 03/08 09:00 UTC:
+//      os 11 carimbos daquela rodada eram TODOS de produtos criados no mesmo
+//      dia as 03:25. Nenhum produto antigo entrou.
+//
+//      A causa nao e bug -- e aritmetica. A ingestao cria produto com
+//      `price_checked_at` nulo; o `nullsFirst` da v17 poe TODOS eles na frente
+//      da fila; e `BATCH = 12` e menor que a entrada diaria (27 em 03/08, 66
+//      em 30/07). A fila de nulos nunca esvazia, entao produto que JA TEM
+//      carimbo nunca mais volta a ser conferido. Em 03/08 havia 4 produtos da
+//      Amazon parados desde 30/07 14:16 -- quatro dias sem reconferir preco,
+//      que e exatamente o defeito que gerou o caso da Patricia (post com preco
+//      menor que o da loja).
+//
+//      O `nullsFirst` NAO estava errado: produto novo, sem preco conferido, e
+//      mesmo o mais urgente. O que faltava era a rodada nao ser monopolizada
+//      por ele. Duas consultas com cota em vez de uma com ordenacao global:
+//      `RESERVA_ANTIGOS` vagas ficam GARANTIDAS para quem ja tem carimbo, e a
+//      vaga que um lado nao usar passa para o outro -- o lote nunca encolhe.
+//
+//      ESCOLHIDO POR ISTO, e nao por ser o mais simples: e a unica saida que
+//      NAO aumenta o consumo de leitura. Subir o BATCH ou rodar o cron mais
+//      vezes dobraria as chamadas de loja. Em 03/08 o pool ficou em 0 so
+//      porque os donos tinham credencial propria -- para dono novo isso vira
+//      consumo do credito compartilhado, que e o que o teto de pool protege.
+//      `BATCH` continua 12: mesmo custo de hoje, fila que anda.
+//
+//      Efeito conferivel na proxima rodada: `candidatos_antigos` > 0 e os 4 da
+//      Amazon saindo de 30/07. Se `candidatos_antigos` vier 0 com produto
+//      antigo represado, a cota nao esta funcionando -- e o numero que prova.
 // v19 (02/08): tres mudancas, todas nascidas de uma medicao do mesmo dia.
 //      (a) A RODADA PASSA A DEIXAR RASTRO. `product_refresh_runs` guarda uma
 //          linha por rodada com os contadores e o `detalhes`. O corpo da
@@ -150,6 +180,8 @@ const WA_ENGINE_URL = Deno.env.get('WA_ENGINE_URL') || 'https://megalinksbr-wa-e
 const WA_ENGINE_TOKEN = Deno.env.get('WA_ENGINE_TOKEN') ?? '';
 
 const BATCH = 12;                 // candidatos carregados por rodada
+const RESERVA_ANTIGOS = 4;        // vagas GARANTIDAS para quem ja tem carimbo (P34).
+                                  // Piso, nao teto: vaga nao usada passa para o outro lado.
 const MAX_POOL_POR_RODADA = 5;    // teto de chamadas que caem no token da plataforma
 const TOLERANCIA_PRECO = 0.05;    // 5%
 const DEADLINE_MS = 70000;        // orcamento de relogio da rodada
@@ -475,27 +507,65 @@ Deno.serve(async (req: Request) => {
   const campos = 'id, title, source, price, price_original, discount_pct, image_url, original_url, affiliate_url, user_id, unavailable_strikes';
   let produtos: any[] | null = null;
   let error: { message: string } | null = null;
+  // Contam de que fila cada candidato veio. Sem isto nao ha como provar que a
+  // cota da P34 disparou -- e "status 200 nao e prova" vale aqui tambem.
+  let candidatosNovos = 0;
+  let candidatosAntigos = 0;
 
   if (soProduto) {
     const q = await SB.from('products').select(campos).eq('id', soProduto).limit(1);
     produtos = q.data; error = q.error;
   } else {
-    // Ordem explicita: o mais desatualizado e sempre o proximo. Sem ORDER BY a
-    // selecao era arbitraria — nao impedia rotacao (quem e conferido ganha
-    // price_checked_at e sai do filtro por 24h), mas tornava imprevisivel QUEM
-    // entrava, e isso e impossivel de depurar quando um produto some da fila.
+    // HISTORICO, porque a razao continua valendo mesmo com o codigo trocado:
+    // ate a v19 isto era UMA consulta com `nullsFirst`. A ordem explicita
+    // entrou na v17 por previsibilidade (sem ORDER BY nao da para depurar por
+    // que um produto sumiu da fila), e o `nullsFirst` so era seguro POR CAUSA
+    // do carimbo nos pulos por condicao la embaixo -- sem ele, produto sempre
+    // pulado ficaria com carimbo nulo para sempre e ocuparia a frente de TODA
+    // rodada. Esse carimbo continua sendo obrigatorio na v20: a fila `novos`
+    // abaixo e exatamente a fila dos nulos, e ela precisa esvaziar.
+    // P34 · DUAS FILAS COM COTA, em vez de uma ordenacao global.
     //
-    // nullsFirst so e seguro POR CAUSA do carimbo nos pulos permanentes abaixo.
-    // Sem ele, produto que e sempre pulado (plano sem monitoramento, loja sem
-    // verificador, link nao consultavel) ficaria com price_checked_at nulo para
-    // sempre e ocuparia as primeiras posicoes de TODA rodada — a ordenacao
-    // transformaria uma fome ocasional em fome garantida.
-    const q = await SB.from('products').select(campos)
-      .or(`price_checked_at.is.null,price_checked_at.lt.${corte}`)
-      .eq('expired', false)
-      .order('price_checked_at', { ascending: true, nullsFirst: true })
-      .limit(BATCH);
-    produtos = q.data; error = q.error;
+    // A consulta unica com `nullsFirst` era correta e mesmo assim causava fome:
+    // com a ingestao criando mais produtos por dia do que BATCH, a fila de
+    // nulos nunca esvaziava e quem ja tinha carimbo nunca voltava. Medido em
+    // 03/08 -- ver o cabecalho da v20.
+    //
+    // `novos`  : carimbo nulo, os mais ANTIGOS DE CRIACAO primeiro (FIFO). A
+    //            ordenacao por created_at entra no lugar do desempate
+    //            arbitrario que havia entre nulos: dois produtos criados na
+    //            mesma rodada de ingestao empatavam e a escolha era do banco.
+    // `antigos`: ja carimbados e vencidos, o mais desatualizado primeiro.
+    //
+    // As duas pedem BATCH linhas de proposito: assim um lado curto e coberto
+    // pelo outro sem uma terceira consulta. Sao leituras de banco, nao de loja
+    // -- nao custam credito.
+    const [qNovos, qAntigos] = await Promise.all([
+      SB.from('products').select(campos)
+        .is('price_checked_at', null)
+        .eq('expired', false)
+        .order('created_at', { ascending: true })
+        .limit(BATCH),
+      SB.from('products').select(campos)
+        .lt('price_checked_at', corte)
+        .eq('expired', false)
+        .order('price_checked_at', { ascending: true })
+        .limit(BATCH),
+    ]);
+
+    error = qNovos.error ?? qAntigos.error;
+    const novos = qNovos.data ?? [];
+    const antigos = qAntigos.data ?? [];
+
+    // A cota e PISO para os antigos, nao teto: se nao houver antigo represado,
+    // a rodada inteira vai para os novos, exatamente como antes da v20.
+    const vagasAntigos = Math.min(RESERVA_ANTIGOS, antigos.length);
+    const doNovos = novos.slice(0, BATCH - vagasAntigos);
+    const doAntigos = antigos.slice(0, BATCH - doNovos.length);
+
+    candidatosNovos = doNovos.length;
+    candidatosAntigos = doAntigos.length;
+    produtos = [...doNovos, ...doAntigos];
   }
 
   if (error) return json({ ok: false, error: error.message }, 500);
@@ -708,6 +778,8 @@ Deno.serve(async (req: Request) => {
     ok: true,
     dry_run: dryRun,
     candidatos: produtos.length,
+    candidatos_novos: candidatosNovos,
+    candidatos_antigos: candidatosAntigos,
     lidos_da_loja: lidosDaLoja,
     conferidos,
     conferidos_amazon: conferidosAmazon,
