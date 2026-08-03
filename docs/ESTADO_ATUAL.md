@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 30 — 03/08/2026 (manhã).** Se o número aqui não for o mais alto que você
+> **REVISÃO 31 — 03/08/2026 (tarde).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1643,6 +1643,38 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**Sessão de 03/08/2026 (tarde, REVISÃO 31) — nova aba `Link Rápido` no painel do
+afiliado. Só frontend.**
+
+| | |
+|---|---|
+| Commits | 1 · `index.html` + `frontend/index.html` (as duas cópias, idênticas — `md5sum` conferido) + este doc |
+| Edge Functions | **nenhuma tocada.** A aba consome `resolve-link` **v5** e `ml-short-link`, já publicadas |
+| Migrations · dados | **nenhuma.** A aba não grava nada em lugar nenhum |
+| `clone-ingest` | segue **v17 no repo, v16 em produção** — a P36 não foi tocada nesta sessão |
+| Repo × produção | 🔴 **não batem até o Deploy do serviço `app` no EasyPanel** |
+
+- **O que a aba faz:** o usuário cola um link de produto pego em qualquer lugar da
+  internet — encurtado ou completo — e recebe o mesmo produto com o **ID de afiliado
+  dele**, encurtado, com botão de copiar. Nada é salvo, nada é postado.
+- **Nenhuma função de negócio nova.** O fluxo encadeia o que já existia:
+  `resolve-link` → `temCredencialLoja` → `prGerarLinkAfil` → `encurtarLinkFinal`.
+- **Liberado em todos os planos**, inclusive Starter e trial, por decisão do Érico.
+- **Não gasta crédito de Scrape.do:** ao contrário do Clone Post, não chama
+  `product-search`. Só resolve o link e encurta.
+- 🔴 **NADA DISSO ESTÁ MEDIDO EM PRODUÇÃO.** `node --check` passou nos 4 blocos
+  inline e as duas cópias do HTML batem por hash — isso prova que o arquivo é válido,
+  **não** que o ID de afiliado sai no link entregue. Ver **P37**.
+- 🔴 **O `raw.githubusercontent.com` errou de novo, terceira vez registrada.** A
+  primeira leitura desta sessão por lá devolveu a versão de **30/07** (REVISÃO
+  inexistente, `clone-ingest` v8, pendências até P12) e por causa dela a primeira
+  tentativa de atualizar este arquivo **apagou 515 linhas** — a REVISÃO 30 inteira,
+  P29 a P36. Pego no `git diff` antes do commit e revertido com `git checkout`. O
+  aviso do topo está certo e o modo de falha é pior do que ele descreve: não é só ler
+  velho, é **sobrescrever com o velho**.
+
+---
+
 **Sessão de 03/08/2026 (manhã, REVISÃO 30) — a pauta da REVISÃO 29 tinha data furada;
 P36 codada e validada, não deployada.**
 
@@ -2326,6 +2358,37 @@ pública queimar cota alheia**. Decisão pendente (P2).
 
 ---
 
+### Link Rápido (aba nova, 03/08 — NÃO MEDIDA EM PRODUÇÃO)
+
+Aba do menu do afiliado, logo abaixo de "Postar Agora" (`data-page="link-rapido"`,
+`<section id="page-link-rapido">`). Refaz um link de marketplace de terceiro com o ID
+de afiliado do usuário logado.
+
+Fluxo de `lrGerar()`: `resolve-link` v5 (segue redirects, desembrulha `an_redir` e
+`?go=`, **tira o afiliado de origem** e devolve `stripped[]`) → `temCredencialLoja` →
+`prGerarLinkAfil` com o `CREDS_STATE` do usuário logado → `encurtarLinkFinal`.
+
+- **Verde (`alert g`) só quando as três coisas fecharam:** loja reconhecida,
+  credencial presente e link **efetivamente diferente** do original. Sem credencial e
+  link que voltou igual saem em **amarelo**, com atalho para Config Afiliados;
+  `resolve-link` recusando sai em **vermelho** com o motivo e a `stage` que ela
+  devolve. O verde é uma afirmação sobre o link entregue, não sobre a chamada ter
+  respondido.
+- Botão **📋 Copiar link** troca para `✅ Copiado!` por 1,8 s — mesma razão do carimbo
+  de hora do botão atualizar: ação sem confirmação visível é ação que o usuário
+  assume que falhou.
+- Encurtamento herda `mlEncurtarLink`: Elite/Premium recebem `/r/{code}` com rastreio
+  de cliques, Starter/Pro caem no fallback is.gd. A legenda embaixo do link diz qual
+  dos dois saiu. Se o encurtador não responder, entrega o link de afiliado direto e
+  avisa — não trava.
+- **Lojas cobertas** = interseção do `STORE_LABEL` da `resolve-link` com o
+  `CREDS_STATE`: Shopee, Mercado Livre, Amazon, AliExpress, Magalu, Shein, Natura,
+  TerabyteShop.
+- Sem gate de plano, sem tabela nova, sem Edge Function nova, sem consumo de
+  Scrape.do.
+
+---
+
 ## Protocolo de trabalho
 
 **Ações internas** (código, banco, Edge Functions, deploys): executar direto, sem
@@ -2435,6 +2498,7 @@ código não relacionado.
 | **P16** | 🔴 **DEIXOU DE SER TEÓRICA EM 03/08 — ela é a causa da P4.** ~~O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B".~~ Medido: **todo push para o `main` reinicia o `wa-engine` em produção**, inclusive push só de documentação. 4 boots em 35 minutos em 03/08, 3 deles casados com eventos conhecidos, e 53 minutos sem push = sem restart. **Custo por push:** a `CLONE_FILA` (memória) é descartada, as 3 sessões levam `conflict/replaced` 440 do WhatsApp e o container antigo e o novo disputam a sessão por alguns segundos. O engine trata certo (`Não reconectar`), então não há laço — mas há janela. Decidir: gate técnico ou **desligar o auto-deploy do serviço `app`** | 31/07 |
 
 | ~~P32~~ | ✅ **FECHADA 01/08 noite.** A Shopee devolvia `price_from = node.price`, que é o preço ATUAL e não o anterior; 3 de 3 capturas reais saíram com "de" == "por" e desconto de 53%/42%/35%, já no rodízio do grupo. `product-search` **v25** para de enviar `price_from` para a Shopee. Os 3 produtos foram limpos. O Radar, que tem leitura própria, **não** tinha o defeito — terceira vez que duas implementações da mesma coisa divergem neste repo | 01/08 |
+| **P37** | 🔴 **Provar o `Link Rápido` por comportamento.** A aba foi codada e validada só no arquivo (`node --check` nos 4 blocos inline, `md5sum` idêntico entre as duas cópias). **Não foi aberta em produção nem uma vez.** Medir, depois do Deploy, com um link real de cada caminho: **Shopee encurtada** (`s.shopee.com.br/…`), **ML `/sec/`**, **Amazon `amzn.to`** e **um link completo, sem encurtador**. Em cada um, conferir na tela: (1) o alerta ficou verde, (2) o link entregue contém o ID de afiliado da conta logada — abrir o link e olhar a URL final, não confiar no que a tela escreveu. Testar também o caminho amarelo: loja **sem** credencial cadastrada tem que recusar o verde | 03/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
