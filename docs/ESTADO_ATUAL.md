@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 28 — 03/08/2026 (tarde/noite).** Se o número aqui não for o mais alto que você
+> **REVISÃO 29 — 03/08/2026 (noite).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -189,6 +189,67 @@ responde de graça amanhã. A P34 e a P33 seguem **🟡 até essa leitura**.
 
 ---
 
+## 📌 PAUTA DA PRÓXIMA SESSÃO — escrita em 03/08 à noite
+
+Lida nesta ordem. As duas primeiras são de graça e têm data.
+
+**1ª — LER A PROVA DA P34 E DA P33. Não custa nada e já aconteceu.**
+O cron `product-refresh-daily` (jobid 13, `0 9 * * *`, **ativo, conferido**) rodou às
+09:00 UTC de 04/08 com a **v20 já no ar**. A `product_refresh_runs` é **durável** —
+não há mais janela de log para perder, pode ler a qualquer hora. Três leituras:
+
+```sql
+select * from product_refresh_runs order by created_at desc limit 1;
+-- candidatos_antigos > 0 ?  candidatos_novos + candidatos_antigos = candidatos ?
+
+select title, price_checked_at from products
+where title ilike any (array['%La Roche%','%Rapunzel%','%rcher%','%Calvin Klein%'])
+order by price_checked_at;
+-- os 4 saíram de 30/07 14:16 ?
+```
+
+- `candidatos_antigos > 0` **e** os 4 da Amazon andando ⇒ **P34 FECHA**.
+- `candidatos_antigos = 0` com antigo represado ⇒ a cota **não funciona**: a v20 está
+  errada, vira bug, não pendência.
+- Se um dos 4 da Amazon foi lido e **continuou órfão** (`price_original` nulo com
+  `discount_pct > 0`), está **confirmado** que a v19 não limpa órfão velho.
+
+**2ª — P33: o UPDATE dos órfãos, DEPOIS de ler o acima.** Baseline antes e depois.
+Só ML e Amazon; a Shopee fica de fora por construção (P32).
+
+```sql
+update products set discount_pct = null
+where price_original is null and discount_pct > 0
+  and source in ('mercado_livre','amazon');
+-- eram 9 em 03/08 (5 ML + 4 Amazon). Reconferir o número antes de rodar.
+```
+
+**3ª — P36, e é ela que exige a sessão limpa.** Pré-filtro de domínio antes da
+`resolve-link`. A `clone-ingest` tem **67 KB / 1347 linhas** e se reemite **numa
+chamada só, primeira ação**. Levar junto qualquer outra mudança de `clone-ingest`
+para não gastar dois deploys.
+
+**Depois disso, por ordem de valor:**
+
+| | o quê | natureza |
+|---|---|---|
+| **P16** | decidir o gate ou desligar o auto-deploy do `app`. **Antes:** conferir no Dashboard se `app` e `wa-engine` compartilham build ou são dois auto-deploys | Dashboard + decisão |
+| **P2** | confirmar a terceira saída (rate limit como Edge Function, autenticada por `WA_ENGINE_TOKEN`, no padrão do `wa-heartbeat`) e codar | decisão + código |
+| **P35** | decidir entre token por usuário no engine e registrar o risco. **O gate por plano caiu na medição** | decisão |
+| **P7** | conferir no `index.html` quais colunas de `profiles` as telas de admin leem, e só então escrever a migration | leitura + migration |
+| **P19** | preview clicável — reemitir o `send-post` inteiro (571 linhas). **Sessão limpa própria** | código |
+| **P12 · P23(b) · P11 · 301 do `www`** | frontend. **Agrupar num deploy só** — cada deploy do `app` reinicia o `wa-engine` (P16) | código |
+
+⚠️ **Regra nova que a P16 impôs a esta pauta:** todo push reinicia o WhatsApp de
+produção e descarta a `CLONE_FILA`. **Agrupar commits.** Um push de fim de sessão em
+vez de um por item — foi o que esta sessão passou a fazer depois de medir.
+
+⚠️ **Não reabrir:** P29, P27, P30, P31, P32, P3, P4, P6, P28 — todas fechadas **com
+medição**. P18 e o teto de `max_per_day` estão parados por **decisão do Érico**, não
+por falta de mecanismo.
+
+---
+
 ## P4/P16 — o wa-engine não reinicia sozinho: quem reinicia é o nosso push (03/08)
 
 **A P4 estava aberta desde 30/07 procurando OOM ou healthcheck. Não é nenhum dos
@@ -231,6 +292,20 @@ restart do engine por sessão, no mínimo.
 **A P4 vira caso fechado e a P16 vira urgente.** O registro antigo da P4 dizia
 *"reiniciou sozinho … sem deploy"* — era inferência, ninguém tinha cruzado o horário
 com os pushes.
+
+### A prova controlada — push às 13:34:38, boot às 13:34:45
+
+Feita de propósito no push do fecho da sessão, com baseline e controle:
+
+| | |
+|---|---|
+| antes do push | `uptime` **3298 s** — no ar desde 12:39:33, **55 minutos estável** |
+| push do commit `d9b6eeb` | **13:34:38Z** |
+| depois | `uptime` **49 s** — subiu **13:34:45Z** |
+
+**7 segundos entre o push e o boot.** Quinto ponto, e o único com baseline e controle
+na mesma janela. **Um commit só de documentação derrubou e subiu o WhatsApp de
+produção.** Não é mais correlação de horário: é causa medida.
 
 ⚠️ **Ainda NÃO conferido na configuração do EasyPanel:** se `app` e `wa-engine` estão
 no mesmo build/deploy por configuração, ou se são dois auto-deploys disparados pelo
@@ -1522,6 +1597,33 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**Sessão da noite de 03/08/2026 (4ª parte) — três decisões, duas derrubadas pela
+medição na hora de codar. Nenhuma alteração de código.**
+
+| | |
+|---|---|
+| Commits | 1 · só este doc · Edge Functions, migrations e dados: nenhum |
+| Decidido e codável | **P7** (restringir colunas), **P36** (pré-filtro) |
+| Decidido e **derrubado ao medir** | **P2**, **P35** |
+
+- 🔴 **A P16 foi PROVADA com experimento controlado.** Push às `13:34:38Z`, boot do
+  `wa-engine` às `13:34:45Z` — **7 segundos**, contra 55 minutos de uptime estável
+  antes. Um commit só de documentação derrubou o WhatsApp de produção.
+- 🔴 **P2: a saída escolhida reverteria uma decisão deliberada já escrita no código**
+  (`wa-engine/server.js` linha 1516 recusa a SERVICE_ROLE_KEY de propósito). Terceira
+  saída, no padrão do `wa-heartbeat`: rate limit como Edge Function autenticada por
+  `WA_ENGINE_TOKEN`. **Não codada — falta o Érico confirmar.**
+- 🔴 **P35: "autorizar por plano" caiu na medição.** Não existe plano sem WhatsApp —
+  `starter` tem `wa_groups ≥ 1` e 1 dos 5 starters tem instância. O gate excluiria
+  ninguém. Sobram token por usuário ou registrar o risco. **Não decidida.**
+- 🔵 **P7 decidida** (restringir colunas sensíveis), com pré-requisito escrito: conferir
+  antes quais colunas as telas de admin leem.
+- **Nada foi codado nesta parte de propósito.** A sessão já emitiu 42 KB duas vezes; o
+  que sobrou é trabalho de sessão limpa, pela regra que a P26 e a P19 deixaram.
+- **Pauta da próxima sessão escrita no topo**, com as consultas prontas.
+
+---
+
 **Sessão da tarde de 03/08/2026 (3ª parte) — varredura de pendências. Quatro fechadas,
 duas por medição que contradisse o registro. Nenhuma alteração de código.**
 
@@ -2216,12 +2318,12 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
-| **P2** | Decidir o rate limit: `GRANT EXECUTE` a `anon` (abre superfície de ataque) **ou** trocar a credencial do engine para service role. ⚠️ **03/08: a suposição de raiz comum com a P3 caiu** — o 401 da P3 era `Bearer ` vazio no frontend, sem relação com `anon` nem com service role. Esta pendência é isolada | 30/07 |
+| **P2** | 🔵 **REDESENHADA 03/08 — as duas saídas originais estavam mal postas.** ~~Decidir entre `GRANT EXECUTE` a `anon` ou trocar a credencial do engine para service role.~~ O Érico escolheu service role em 03/08, e ao ir codar apareceu que **isso reverte uma decisão deliberada que já está escrita no código**: `wa-engine/server.js` linha 1516 — *"Não usamos a SERVICE_ROLE_KEY aqui de propósito: ela daria a este container acesso irrestrito ao banco. Autenticamos na Edge Function `wa-heartbeat` com o `WA_ENGINE_TOKEN`"*. Pior ainda depois da P16: esse container é reiniciado por qualquer push. **Terceira saída, que nenhum dos dois tinha listado e que segue o desenho que já existe: o rate limit vira Edge Function**, chamada pelo engine com `WA_ENGINE_TOKEN`, exatamente como o `wa-heartbeat`. Sem `GRANT` para `anon`, sem service role no container. **Falta o Érico confirmar essa saída e alguém codar** | 30/07 |
 | ~~P3~~ | ✅ **FECHADA 03/08 à tarde, MEDIDA NO PAINEL LOGADO.** Token de 43 chars preenchido num load limpo, `/sessions` **200** (não 401), card "Sessões ativas" **visível e populado** com a instância do dono, console limpo. ⚠️ **O que isto prova e o que não prova:** prova que **funciona hoje**; não prova que o conserto foi a causa, porque o sintoma nunca foi reproduzido ANTES do patch. Ver "P3 — medida" acima. Registro original abaixo. ~~🟡 DIAGNOSTICADA, CONSERTADA E DEPLOYADA 03/08 — AGUARDANDO REPRODUÇÃO LOGADA — e a hipótese da raiz comum com a P2 está ERRADA.** O engine valida certo (`token !== WA_ENGINE_TOKEN` → 401) e o `get-wa-engine-token` está protegido (`verify_jwt: true`, **medido**). O 401 vem de `Bearer ` **vazio**: o painel declara `WA_ENGINE_TOKEN=""` e (a) a linha top-level `renderAdminVisao();...renderInstancias();...` rodava na carga do script, antes de `enterApp` buscar o token; (b) `fetchWAEngineToken` devolve `false` em três caminhos e **ninguém lia o retorno** — o `.catch` só pega exceção —, então uma falha deixava o token vazio pela sessão inteira, sem retry e sem aviso; (c) a re-renderização pós-token cobria `renderInstancias` mas **não** `renderInstCard`, que é o card "Sessões ativas", exatamente a tela cega. Consertados os três, **deployados em 03/08 às 12:13 UTC e conferidos no código servido** (os três marcadores estão no `index.html` que o nginx entrega; console limpo num load completo, porém **deslogado**). ⚠️ **Sintoma NÃO reproduzido** — o mecanismo está lido no código, mas ninguém carregou a página e leu o console (ver P15). O smoke test dá "não piorou", não "funciona". **Consequência para a P2: ela perde o argumento de "resolve duas de uma vez" e volta a ser decisão isolada de rate limit** | 30/07 |
 | ~~P4~~ | ✅ **RESOLVIDA 03/08 — não era OOM nem healthcheck. É o auto-deploy da P16.** O log do EasyPanel de 03/08 mostra **quatro** boots do `wa-engine` em 35 minutos, cada um com hostname de container novo: **12:04**, **12:13:26**, **12:29:32**, **12:39:34**. O de 12:13:26 casa **ao segundo** com o `### Success ###` do build do serviço `app` (o frontend); os de 12:29 e 12:39 casam com os **dois pushes deste chat** para o `main`. Depois das 12:39, **53 minutos sem push e sem restart** — controle negativo. **Deployar o `app` derruba e sobe o `wa-engine` junto**, e como o auto-deploy dispara a cada push, **todo commit — inclusive commit só de documentação — reinicia o WhatsApp em produção.** O `CLONE_FILA` mora em memória e vai junto. Ver "P4/P16" acima. A frase do registro antigo, *"sem deploy"*, era inferência: ninguém tinha cruzado o horário com os pushes | 30/07 |
 | **P5** | Enforcement server-side dos limites de plano: canais WhatsApp/Telegram e grupos WhatsApp ainda são só client-side | 03/07 |
 | ~~P6~~ | ✅ **FECHADA 03/08 à tarde.** O clássico `ghp_vkOR…` foi **revogado** pelo Érico depois de 16 pushes, e um PAT novo foi gerado. Regra que continua valendo: PAT não fica salvo, é fornecido por sessão, e fine-grained (`github_pat_`) é rejeitado no push | 30/07 |
-| **P7** | RLS de admin em `profiles` permite qualquer admin ler e-mails de todos os usuários — conhecido, não remediado | 03/07 |
+| **P7** | 🔵 **DECIDIDA 03/08, NÃO CODADA.** RLS de admin em `profiles` permite qualquer admin ler e-mail de todos os usuários. **Saída escolhida pelo Érico: restringir as colunas sensíveis** (view ou policy que exponha ao admin só o que o painel usa). É migration, não mexe em Edge Function. ⚠️ **Pré-requisito antes de escrever a migration: conferir no `index.html` quais colunas as telas de admin leem direto** — o CRM, a lista de usuários e o modal de detalhe. Restringir sem conferir quebra tela de admin. **Risco real hoje é baixo:** o único admin é o Érico; a dívida vence quando existir o segundo | 03/07 |
 | **P9** | Créditos OpenAI para destravar o RevOps / IA Insights | — |
 | **P10** | Avaliar upgrade do Scrape.do para o plano Hobby quando a receita permitir | 03/07 |
 | **P11** | Substituir filtros checkbox por chips clicáveis no filtro de loja dos grupos (UX) | fila de julho |
@@ -2248,8 +2350,7 @@ código não relacionado.
 | **P15** | **Parcialmente endereçada 31/07 tarde.** Existe agora um smoke test executável: extrair os blocos `<script>`, rodar os quatro **no mesmo contexto** `vm` do Node com um DOM falso permissivo, e comparar contra o baseline **antes** do patch. Foi rodado neste push e pegaria o TDZ do `f94e2f0`. **Duas limitações medidas:** (1) dá falso positivo em `id` de elemento usado como global — `themeT.onclick` na linha 2496 acusa `ReferenceError` no sandbox e funciona no browser; por isso a comparação com o baseline é obrigatória, o veredito é "piorou?", não "tem erro?"; (2) não executa handler nenhum, só o top-level. **Continua aberta:** carregar a página num navegador de verdade e ler o console segue sendo a única prova real | 31/07 |
 | **P33** | 🟡 **DEPLOYADA EM 03/08 (dentro da v20), AGUARDANDO PROVA.** Apagar o "de" deixava o `discount_pct` de pé — 5 produtos com porcentagem órfã em 02/08. O `send-post` **não** usa o campo (o post sai limpo); a lista de produtos do painel usa (linha 5799) e o formulário regrava (linha 8271). v19 zera junto, só no ML e na Amazon, onde o desconto é derivado do "de" — a Shopee fica de fora por construção (decisão da P32). 🔴 **CORREÇÃO 03/08: a v19 NÃO alcança os órfãos que já existem** — a guarda `antes !== res.precoDe` compara `null` com `null` e pula o bloco. Ela impede órfão novo, só isso. **Medidos hoje: 24 órfãos** — 15 Shopee (intencional), 5 ML e 4 Amazon. Os 9 de ML e Amazon exigem UPDATE à mão, **combinado para depois da rodada de 04/08**, que pode restaurar o "de" de alguns sozinha | 02/08 |
 | **P34** | 🟡 **DEPLOYADA EM 03/08, AGUARDANDO PROVA.** ~~A rodada diária só alcança produto recém-criado.~~ Medido em 03/08: os 11 carimbos da rodada foram **todos** de produtos criados no mesmo dia às 03:25. 27 produtos criados em 24h contra `BATCH = 12`; 19 ainda com `price_checked_at` nulo; **4 Amazon parados desde 30/07 14:16** (La Roche, Kit Rapunzel, Kärcher, Calvin Klein). `nullsFirst` + ingestão maior que o lote = produto que já tem carimbo nunca volta à fila. **Não é bug do `nullsFirst`** — é o lote ser menor que a entrada diária. Saídas não decididas: subir o `BATCH`, rodar o cron mais de uma vez por dia, ou reservar parte do lote para os carimbados mais antigos. **Consertada em 03/08.** Saída escolhida: **reserva de cota** (`RESERVA_ANTIGOS = 4`, piso e não teto), a única sem aumento de consumo de leitura — `BATCH` segue 12. Duas filas (`novos` por `created_at`, `antigos` por `price_checked_at`) no lugar da ordenação global com `nullsFirst`. Contadores `candidatos_novos`/`candidatos_antigos` entram na resposta e no `resumo` jsonb, sem migration. Lógica testada em 8 cenários com os números reais do banco. ⚠️ **A v20 contém a v19**: o deploy de 03/08 à tarde entregou as duas. **Deployado não é provado** — a prova é a rodada de 04/08 09:00 UTC, com `candidatos_antigos > 0` e os 4 da Amazon saindo de `30/07 14:16`. Enquanto isso não for lido, esta pendência fica 🟡 | 03/08 |
-| **P35** | 🟠 **Qualquer usuário autenticado obtém o `WA_ENGINE_TOKEN` da plataforma inteira.** Achado de lado ao investigar a P3, em 03/08. O `get-wa-engine-token` **não checa nada em código** — sem leitura de header, sem plano, sem papel; o comentário diz "JWT verification is automatic with `verify_jwt: true`". Medido: `verify_jwt: true` está ligado, então **não** há exposição pública — mas basta uma conta grátis ou o modo demonstração para receber a credencial que dá controle do `wa-engine` de **todos** os usuários (`/sessions`, desconectar, enviar). Duas frágeis de uma vez: a proteção mora só na configuração (um deploy com `verify_jwt: false` abre tudo, sem nada no código para segurar), e não há autorização por plano. Parente da P5 e da P7. Não consertada | 03/08 |
-| **P36** | 🔵 **DECIDIDA E NÃO CODADA — sessão limpa, primeira ação.** Filtro por domínio do link cru **antes** da `resolve-link`, quando `lojas_permitidas` não inclui a loja daquele domínio. **Justificativa medida em 03/08: 44 recusas/dia** de "vitrine do afiliado no Mercado Livre" nas duas fontes, e **nenhuma das duas tem `mercado_livre` em `lojas_permitidas`** — a plataforma paga uma `resolve-link` por mensagem para descobrir o que o cadastro já dizia. **Decidido pelo Érico em 03/08.** ⚠️ **Não foi feito na sessão de 03/08 de propósito:** a `clone-ingest` tem **67 KB / 1347 linhas**, e reemitir isso numa sessão que já emitiu 42 KB duas vezes é exatamente o modo de falha que a P26 e a P19 documentam. A função está entregando **17 de 17 com loja e foto** — arriscar uma transcrição ruim nela para economizar 44 chamadas internas é troca ruim. **Levar junto com qualquer outra mudança de `clone-ingest`, um deploy só.** O comentário na linha 1086 já explica por que o filtro atual mora depois da `resolve-link`, e a ressalva dele continua valendo: filtro por domínio **não cobre encurtador genérico**, então ele soma ao filtro atual em vez de substituí-lo | 03/08 |
+| **P35** | 🟠 **Qualquer usuário autenticado obtém o `WA_ENGINE_TOKEN` da plataforma inteira.** Achado de lado ao investigar a P3, em 03/08. O `get-wa-engine-token` **não checa nada em código** (1391 bytes, devolve o token e a URL); a proteção mora só em `verify_jwt: true`, que está **medido** como ligado — não há exposição pública, mas basta uma conta cadastrada para receber a credencial que controla o `wa-engine` de **todos**. 🔴 **CORREÇÃO 03/08: "autorizar por plano" foi decidido e depois DERRUBADO pela medição.** Não existe plano sem WhatsApp: `starter` tem `wa_groups ≥ 1` e **1 dos 5 starters tem instância conectada**. Um gate por plano excluiria ninguém — toda conta cadastrada continuaria recebendo o token mestre. **Sobram duas saídas de verdade:** (a) **token por usuário no engine**, escopando `/sessions`, `/disconnect` e `/send` ao dono — resolve a raiz, mexe no `wa-engine` inteiro e em todo chamador; (b) **registrar o risco** com a ressalva de que um deploy com `verify_jwt: false` abre tudo, sem nada no código para segurar. **Não decidida** | 03/08 |
 | **P16** | 🔴 **DEIXOU DE SER TEÓRICA EM 03/08 — ela é a causa da P4.** ~~O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B".~~ Medido: **todo push para o `main` reinicia o `wa-engine` em produção**, inclusive push só de documentação. 4 boots em 35 minutos em 03/08, 3 deles casados com eventos conhecidos, e 53 minutos sem push = sem restart. **Custo por push:** a `CLONE_FILA` (memória) é descartada, as 3 sessões levam `conflict/replaced` 440 do WhatsApp e o container antigo e o novo disputam a sessão por alguns segundos. O engine trata certo (`Não reconectar`), então não há laço — mas há janela. Decidir: gate técnico ou **desligar o auto-deploy do serviço `app`** | 31/07 |
 
 | ~~P32~~ | ✅ **FECHADA 01/08 noite.** A Shopee devolvia `price_from = node.price`, que é o preço ATUAL e não o anterior; 3 de 3 capturas reais saíram com "de" == "por" e desconto de 53%/42%/35%, já no rodízio do grupo. `product-search` **v25** para de enviar `price_from` para a Shopee. Os 3 produtos foram limpos. O Radar, que tem leitura própria, **não** tinha o defeito — terceira vez que duas implementações da mesma coisa divergem neste repo | 01/08 |
