@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 29 — 03/08/2026 (noite).** Se o número aqui não for o mais alto que você
+> **REVISÃO 30 — 03/08/2026 (manhã).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -189,14 +189,27 @@ responde de graça amanhã. A P34 e a P33 seguem **🟡 até essa leitura**.
 
 ---
 
-## 📌 PAUTA DA PRÓXIMA SESSÃO — escrita em 03/08 à noite
+## 📌 PAUTA DA PRÓXIMA SESSÃO — escrita em 03/08 de manhã, corrigida na REVISÃO 30
 
-Lida nesta ordem. As duas primeiras são de graça e têm data.
+Lida nesta ordem.
 
-**1ª — LER A PROVA DA P34 E DA P33. Não custa nada e já aconteceu.**
-O cron `product-refresh-daily` (jobid 13, `0 9 * * *`, **ativo, conferido**) rodou às
-09:00 UTC de 04/08 com a **v20 já no ar**. A `product_refresh_runs` é **durável** —
-não há mais janela de log para perder, pode ler a qualquer hora. Três leituras:
+> 🔴 **CORREÇÃO DA REVISÃO 30 — a REVISÃO 29 datou a si mesma errado e datou a
+> pauta errado.** Dizia "03/08 à noite"; o commit `0de73f4` é de **03/08 às 10:41
+> BRT**, de manhã. E o item 1º dizia que o cron "rodou às 09:00 UTC de 04/08" —
+> **não rodou.** Em 03/08 às 13:45 UTC a `product_refresh_runs` tinha **0 linhas**
+> e `max(created_at)` nulo, medido. A rodada é de **04/08**, no futuro. As duas
+> primeiras tarefas da pauta continuam de graça, mas **não estavam disponíveis** na
+> sessão que a pauta chamou de "próxima" — a de 03/08 de manhã.
+>
+> A lição é a mesma do "sem deploy" da P4: **a pauta escreveu no passado uma coisa
+> que ainda não tinha acontecido.** Prova prevista não é prova lida.
+
+**1ª — LER A PROVA DA P34 E DA P33. Não custa nada, e acontece às 09:00 UTC de 04/08.**
+O cron `product-refresh-daily` (jobid 13, `0 9 * * *`, **ativo, reconferido em
+03/08**) roda às 09:00 UTC de 04/08. **Conferir antes que a `product_refresh_runs`
+deixou de estar vazia** — se ainda estiver com 0 linhas, a rodada não aconteceu e não
+há o que ler. A tabela é **durável**, então depois de existir pode ser lida a qualquer
+hora. Três leituras:
 
 ```sql
 select * from product_refresh_runs order by created_at desc limit 1;
@@ -207,6 +220,14 @@ where title ilike any (array['%La Roche%','%Rapunzel%','%rcher%','%Calvin Klein%
 order by price_checked_at;
 -- os 4 saíram de 30/07 14:16 ?
 ```
+
+> ⚠️ **ANTES de ler, conferir que a v20 está mesmo publicada.** Em 03/08 o
+> `list_edge_functions` mostrava `product-refresh` na **versão 19** (atualizada às
+> ~12:23 UTC de 03/08), enquanto o doc fala em v20. É provável que o contador do
+> Supabase e o número no cabeçalho do código andem defasados de um — a `clone-ingest`
+> tem os dois iguais, então não dá pra assumir. **Se a v20 não estiver no ar, a
+> leitura de 04/08 não prova nada** e a P34 continua onde estava. Conferir procurando
+> `RESERVA_ANTIGOS` e `candidatos_antigos` na fonte publicada.
 
 - `candidatos_antigos > 0` **e** os 4 da Amazon andando ⇒ **P34 FECHA**.
 - `candidatos_antigos = 0` com antigo represado ⇒ a cota **não funciona**: a v20 está
@@ -224,10 +245,20 @@ where price_original is null and discount_pct > 0
 -- eram 9 em 03/08 (5 ML + 4 Amazon). Reconferir o número antes de rodar.
 ```
 
-**3ª — P36, e é ela que exige a sessão limpa.** Pré-filtro de domínio antes da
-`resolve-link`. A `clone-ingest` tem **67 KB / 1347 linhas** e se reemite **numa
-chamada só, primeira ação**. Levar junto qualquer outra mudança de `clone-ingest`
-para não gastar dois deploys.
+**3ª — P36: DEPLOYAR a v17, que já está codada e validada.** Não é mais "codar" — o
+código está pronto no repo desde 03/08 de manhã e **não está em produção**. A
+`clone-ingest` tem agora **72 KB / 1441 linhas** e se reemite **numa chamada só,
+primeira ação**, com `verify_jwt: false` e só o `index.ts` (esta função não usa
+`deno.json`). Levar junto qualquer outra mudança de `clone-ingest` para não gastar
+dois deploys.
+
+⚠️ **REPO À FRENTE DA PRODUÇÃO — o único ponto onde os dois não batem hoje.** O repo
+tem `clone-ingest` **v17**; a produção está em **v16**. É de propósito e está
+registrado aqui para que ninguém leia o repo e conclua que o pré-filtro está no ar.
+**A prova, depois do deploy:** mensagem sintética em `dryRun` com link de Mercado
+Livre numa fonte cujo `lojas_permitidas` é `{shopee, amazon}` tem que gravar motivo
+começando em `[pre-filtro]` **sem** chamar a `resolve-link` (confirmar pela ausência
+da chamada no `get_logs`), e o controle com link de Shopee tem que seguir normal.
 
 **Depois disso, por ordem de valor:**
 
@@ -364,8 +395,23 @@ entregando 17 de 17 com loja e foto; o teto é o que limita o volume, não a qua
 quem revisa a fila é ele — subir o teto aumenta leitura de loja e o tamanho da fila
 antes de existir gente para revisar. Reabrir quando houver quem revise.
 
-**O filtro por domínio virou a P36**, decidido e não codado: a `clone-ingest` tem
-67 KB e não se reemite isso de qualquer jeito. Ver a pendência.
+**O filtro por domínio virou a P36** — **codado e validado em 03/08 (REVISÃO 30),
+ainda não deployado.** Ver a pendência.
+
+🔴 **E a medição de 03/08 mostrou que a premissa da P36 estava incompleta.** As 44
+recusas/dia não são `loja_filtrada`: são **`resolve_falhou`**. Em 24h o
+`clone_ingest_log` tem **`loja_filtrada` = 0**. O filtro de loja da v16/P31 **nunca
+disparou** para o caso que domina — o link de vitrine morre antes, na `resolve-link`,
+com "vitrine do afiliado no Mercado Livre, não um produto", e nunca chega ao filtro.
+O pré-filtro não é uma economia em cima do filtro existente: **para este caso ele é o
+único que roda.**
+
+⚠️ **O que ainda NÃO se sabe, e é o que a v17 vai medir:** o `link_host` do log guarda
+`resolved || original`, ou seja o host **depois** do redirecionamento. Não há como
+saber se as 104 chegaram escritas como `mercadolivre.com.br` ou como encurtador. As
+capturas que vingaram no mesmo grupo vêm de `s.shopee.com.br`, `amzlink.to` e
+`link.amazon` — todas encurtadas. `meli.la` está no mapa da v17, então o encurtador
+próprio do ML é alcançado; encurtador genérico (`boaoferta.me`) não é, por decisão.
 
 ---
 
@@ -1597,6 +1643,40 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**Sessão de 03/08/2026 (manhã, REVISÃO 30) — a pauta da REVISÃO 29 tinha data furada;
+P36 codada e validada, não deployada.**
+
+| | |
+|---|---|
+| Commits | 1 · `clone-ingest` v17 + este doc |
+| Edge Functions | **nenhum deploy** — `clone-ingest` segue em **v16** em produção |
+| Repo × produção | 🔴 **NÃO batem:** repo tem `clone-ingest` v17, produção v16. De propósito, ver P36 |
+| Banco | nada alterado. O UPDATE da P33 **não** foi rodado |
+
+- 🔴 **A pauta da REVISÃO 29 afirmava no passado uma coisa que não tinha acontecido.**
+  Dizia que o cron das 09:00 UTC de **04/08** "rodou" e que a prova da P34 "já
+  aconteceu". Medido em 03/08 às 13:45 UTC: `product_refresh_runs` com **0 linhas**,
+  `max(created_at)` nulo. A REVISÃO 29 também se datou como "03/08 à noite" quando o
+  commit `0de73f4` é de **03/08 às 10:41 BRT**. Corrigido no topo.
+- 🔴 **O `raw.githubusercontent.com` errou de novo, exatamente como o próprio doc
+  avisa.** A primeira leitura desta sessão por lá devolveu a versão de **30/07**
+  (`clone-ingest` v8, pendências até P12). O `git clone --depth=1` devolveu a
+  REVISÃO 29, com hash batendo no `git ls-remote`. O aviso do topo está certo e
+  continua necessário.
+- 🔵 **P36 codada, validada e NÃO deployada.** Ver a pendência. O deploy dos 72 KB
+  ficou para sessão limpa por decisão do Érico — reemitir o arquivo inteiro com o
+  contexto já gasto é onde erro de transcrição entra em produção.
+- 🔴 **A premissa da P36 estava incompleta e a medição corrigiu:** `loja_filtrada` em
+  24h é **0**. O filtro de loja da v16/P31 nunca disparou para o caso que domina.
+- ⚠️ **`product-refresh` aparece na versão 19 no `list_edge_functions`**, não 20.
+  Atualizada às ~12:23 UTC de 03/08, então houve deploy. Provavelmente o contador do
+  Supabase está defasado do número no cabeçalho do código — mas **não conferido**, e a
+  leitura de 04/08 depende disso. Ressalva escrita na 1ª tarefa da pauta.
+- **Nada além disso foi tocado.** P29, P27, P30, P31, P32, P3, P4, P6, P28 seguem
+  fechadas; P2, P5, P7, P16, P35, P19, P9, P10 seguem como estavam.
+
+---
+
 **Sessão da noite de 03/08/2026 (4ª parte) — três decisões, duas derrubadas pela
 medição na hora de codar. Nenhuma alteração de código.**
 
@@ -2351,6 +2431,7 @@ código não relacionado.
 | **P33** | 🟡 **DEPLOYADA EM 03/08 (dentro da v20), AGUARDANDO PROVA.** Apagar o "de" deixava o `discount_pct` de pé — 5 produtos com porcentagem órfã em 02/08. O `send-post` **não** usa o campo (o post sai limpo); a lista de produtos do painel usa (linha 5799) e o formulário regrava (linha 8271). v19 zera junto, só no ML e na Amazon, onde o desconto é derivado do "de" — a Shopee fica de fora por construção (decisão da P32). 🔴 **CORREÇÃO 03/08: a v19 NÃO alcança os órfãos que já existem** — a guarda `antes !== res.precoDe` compara `null` com `null` e pula o bloco. Ela impede órfão novo, só isso. **Medidos hoje: 24 órfãos** — 15 Shopee (intencional), 5 ML e 4 Amazon. Os 9 de ML e Amazon exigem UPDATE à mão, **combinado para depois da rodada de 04/08**, que pode restaurar o "de" de alguns sozinha | 02/08 |
 | **P34** | 🟡 **DEPLOYADA EM 03/08, AGUARDANDO PROVA.** ~~A rodada diária só alcança produto recém-criado.~~ Medido em 03/08: os 11 carimbos da rodada foram **todos** de produtos criados no mesmo dia às 03:25. 27 produtos criados em 24h contra `BATCH = 12`; 19 ainda com `price_checked_at` nulo; **4 Amazon parados desde 30/07 14:16** (La Roche, Kit Rapunzel, Kärcher, Calvin Klein). `nullsFirst` + ingestão maior que o lote = produto que já tem carimbo nunca volta à fila. **Não é bug do `nullsFirst`** — é o lote ser menor que a entrada diária. Saídas não decididas: subir o `BATCH`, rodar o cron mais de uma vez por dia, ou reservar parte do lote para os carimbados mais antigos. **Consertada em 03/08.** Saída escolhida: **reserva de cota** (`RESERVA_ANTIGOS = 4`, piso e não teto), a única sem aumento de consumo de leitura — `BATCH` segue 12. Duas filas (`novos` por `created_at`, `antigos` por `price_checked_at`) no lugar da ordenação global com `nullsFirst`. Contadores `candidatos_novos`/`candidatos_antigos` entram na resposta e no `resumo` jsonb, sem migration. Lógica testada em 8 cenários com os números reais do banco. ⚠️ **A v20 contém a v19**: o deploy de 03/08 à tarde entregou as duas. **Deployado não é provado** — a prova é a rodada de 04/08 09:00 UTC, com `candidatos_antigos > 0` e os 4 da Amazon saindo de `30/07 14:16`. Enquanto isso não for lido, esta pendência fica 🟡 | 03/08 |
 | **P35** | 🟠 **Qualquer usuário autenticado obtém o `WA_ENGINE_TOKEN` da plataforma inteira.** Achado de lado ao investigar a P3, em 03/08. O `get-wa-engine-token` **não checa nada em código** (1391 bytes, devolve o token e a URL); a proteção mora só em `verify_jwt: true`, que está **medido** como ligado — não há exposição pública, mas basta uma conta cadastrada para receber a credencial que controla o `wa-engine` de **todos**. 🔴 **CORREÇÃO 03/08: "autorizar por plano" foi decidido e depois DERRUBADO pela medição.** Não existe plano sem WhatsApp: `starter` tem `wa_groups ≥ 1` e **1 dos 5 starters tem instância conectada**. Um gate por plano excluiria ninguém — toda conta cadastrada continuaria recebendo o token mestre. **Sobram duas saídas de verdade:** (a) **token por usuário no engine**, escopando `/sessions`, `/disconnect` e `/send` ao dono — resolve a raiz, mexe no `wa-engine` inteiro e em todo chamador; (b) **registrar o risco** com a ressalva de que um deploy com `verify_jwt: false` abre tudo, sem nada no código para segurar. **Não decidida** | 03/08 |
+| **P36** | 🟡 **CODADA E VALIDADA EM 03/08 (REVISÃO 30) — NÃO DEPLOYADA.** ~~Pré-filtro de domínio antes da `resolve-link`, decidido e não codado.~~ `clone-ingest` **v17** no repo, produção em **v16**. Mapa `DOMINIOS_LOJA` (host → loja, casando por sufixo, cobrindo `meli.la`, `s.shopee.com.br`, `amzlink.to`, `link.amazon`, `shp.ee`, `a.co`) + `lojaDoDominio()` + `linksDoTexto()`. **Regra conservadora:** só recusa quando **todos** os links do texto têm domínio reconhecido **e** nenhum está em `lojas_permitidas`; um único link desconhecido faz a mensagem seguir para a `resolve-link` como na v16. Array vazio = todas, então fonte sem filtro não muda. As duas recusas ficam separáveis no log pelos prefixos **`[pre-filtro]`** e **`[pos-filtro]`** — é isso que vai medir se o pré-filtro pega 44/dia ou zero. Validação de 03/08: `esbuild` parse limpo do arquivo inteiro, `node --check` no bundle, `const permitidas` declarada 1 vez só, **12/12 cenários** conforme o esperado. 🔴 **Premissa corrigida na medição:** as 44/dia são `resolve_falhou`, não `loja_filtrada` — `loja_filtrada` em 24h é **0**, o filtro da v16 nunca disparou para este caso. **Baseline gravada 03/08 13:53:12 UTC:** `resolve_falhou`+`mercadolivre.com.br` = **44**, `loja_filtrada` = **0**, `salvo` = 17, total = 100. **Falta só o deploy e a prova por comportamento** | 03/08 |
 | **P16** | 🔴 **DEIXOU DE SER TEÓRICA EM 03/08 — ela é a causa da P4.** ~~O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B".~~ Medido: **todo push para o `main` reinicia o `wa-engine` em produção**, inclusive push só de documentação. 4 boots em 35 minutos em 03/08, 3 deles casados com eventos conhecidos, e 53 minutos sem push = sem restart. **Custo por push:** a `CLONE_FILA` (memória) é descartada, as 3 sessões levam `conflict/replaced` 440 do WhatsApp e o container antigo e o novo disputam a sessão por alguns segundos. O engine trata certo (`Não reconectar`), então não há laço — mas há janela. Decidir: gate técnico ou **desligar o auto-deploy do serviço `app`** | 31/07 |
 
 | ~~P32~~ | ✅ **FECHADA 01/08 noite.** A Shopee devolvia `price_from = node.price`, que é o preço ATUAL e não o anterior; 3 de 3 capturas reais saíram com "de" == "por" e desconto de 53%/42%/35%, já no rodízio do grupo. `product-search` **v25** para de enviar `price_from` para a Shopee. Os 3 produtos foram limpos. O Radar, que tem leitura própria, **não** tinha o defeito — terceira vez que duas implementações da mesma coisa divergem neste repo | 01/08 |
