@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 26 — 03/08/2026 (tarde).** Se o número aqui não for o mais alto que você
+> **REVISÃO 27 — 03/08/2026 (tarde).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -156,11 +156,11 @@ a regra do repo exige depois do que aconteceu em P26 e P19.
 | cabeçalho da fonte publicada | `v18` | **`v20`** |
 | `verify_jwt` | `false` | `false` (inalterado) |
 
-⚠️ **O contador do Supabase e a versão do código DESENCONTRARAM, e isto precisa
-ficar escrito.** O Supabase numera deploys, não o nosso código: como a v19 nunca
-subiu, o deploy 19 do Supabase carrega o código **v20**. Quem ler `version: 19` no
-`get_edge_function` daqui em diante e concluir "está na v19" vai errar. **A partir
-de agora, a versão de verdade é a do cabeçalho da fonte publicada, não o número.**
+⚠️ **O contador do Supabase e a versão do código DESENCONTRARAM.** O Supabase numera
+deploys, não o nosso código: como a v19 nunca subiu, o deploy 19 do Supabase carrega
+o código **v20**. Quem ler `version: 19` e concluir "está na v19" vai errar.
+**Isto não é caso isolado** — ver "Numeração" logo abaixo, que mediu o desencontro
+em todas as Edge Functions e achou um bem maior, antigo e nunca notado.
 
 **A fonte publicada foi lida e conferida** (número de versão não é prova): cabeçalho
 `v20`, `RESERVA_ANTIGOS = 4`, as duas consultas com cota no lugar do `nullsFirst`,
@@ -186,6 +186,44 @@ combinadas com o Érico antes do deploy:
 **Nada foi rodado à mão para antecipar isso**, de propósito: um `dryRun` avulso leria
 até 12 produtos nas lojas e gastaria crédito para responder o que a rodada do cron
 responde de graça amanhã. A P34 e a P33 seguem **🟡 até essa leitura**.
+
+---
+
+## Numeração — o contador do Supabase NÃO é a versão do código (03/08)
+
+**Decisão do Érico em 03/08: registrar o par, não realinhar.** Um redeploy no-op
+faria o número voltar a bater, mas gastaria uma segunda transcrição de 42 KB que não
+precisa existir — e o alinhamento quebraria de novo no próximo código-sem-deploy.
+O que resolve de verdade é parar de tratar o número como identidade.
+
+**Regra:** a versão de verdade é o **cabeçalho da fonte publicada**
+(`get_edge_function` → primeira linha do `index.ts`). O campo `version` é um
+contador de deploys do Supabase e não significa nada sobre o nosso código.
+
+### Inventário medido em 03/08 (`list_edge_functions`)
+
+| função | `version` do Supabase | versão do código | batem? |
+|---|---|---|---|
+| `product-refresh` | 19 | **v20** | ❌ — a v19 nunca foi deployada |
+| `product-search` | **44** | **v25** | ❌ — **19 deploys de diferença** |
+| `send-post` | 45 | v45 | ✅ |
+| `clone-ingest` | 16 | v16 | ✅ |
+| `resolve-link` | 5 | v5 | ✅ |
+| `radar` | 47 | não conferida | ? |
+
+🔴 **O achado: a `product-search` está desencontrada há muito tempo e ninguém tinha
+notado.** 44 contra v25 são **19 deploys** de diferença. Quem cruzar
+"`product-search` v25" do doc com `version: 44` do Supabase pode concluir que o
+deploy não pegou, ou que está lendo cache, e sair investigando o que não existe.
+Nenhuma decisão passada dependeu disso, mas a próxima podia.
+
+⚠️ **A coluna "versão do código" das linhas que batem NÃO foi lida da fonte
+publicada** — veio do que este doc já afirmava. Só a `product-refresh` teve o
+cabeçalho lido em produção nesta sessão. As demais são **registro, não medição**, e
+estão marcadas assim de propósito.
+
+**Ao deployar qualquer Edge Function daqui em diante:** anotar o par nesta tabela,
+junto com o resto do fecho de sessão.
 
 ---
 
@@ -441,9 +479,35 @@ este laço** — `LOJAS_COM_VERIFICADOR` só tem `mercado_livre` e `amazon`, ent
 separação é por construção, não por `if`.
 
 **v19:** quando o "de" é apagado por leitura boa e havia `discount_pct > 0`, o
-`discount_pct` vai junto. Estado atual da base: **11 produtos** com
-`price_original` nulo e `discount_pct` preenchido — 5 de ML e 3 de Amazon
-(órfãos, alcançados pela v19 na próxima leitura) e 3 de Shopee (**intencional**).
+`discount_pct` vai junto.
+
+🔴 **CORREÇÃO DE REGISTRO (03/08, tarde) — "alcançados pela v19 na próxima leitura"
+está ERRADO, e era a única coisa que fazia esta pendência parecer resolvida.**
+O ramo que zera o desconto mora dentro de `if (antes !== res.precoDe)`. Num produto
+que **já é órfão**, `antes` é `null` (o "de" já foi apagado) e a loja segue sem "de",
+então `res.precoDe` também é `null` — `null !== null` é **falso**, o bloco inteiro é
+pulado e o `discount_pct` fica de pé. **A v19 impede órfão NOVO; ela não limpa órfão
+VELHO.** Lido no código, ainda não medido — a rodada de 04/08 mede de graça: se um
+dos 4 da Amazon for lido e continuar órfão, está confirmado.
+
+**Estado medido em 03/08 à tarde — 24 produtos, não 11:**
+
+| loja | órfãos | |
+|---|---|---|
+| Shopee | **15** | **intencional** (P32: a API afirma a taxa, o "de" não existe) |
+| Mercado Livre | **5** | a limpar |
+| Amazon | **4** | a limpar |
+
+**Saída escolhida pelo Érico em 03/08: correção pontual de dados nos 9 de ML e
+Amazon, DEPOIS da rodada de 04/08.** A rodada pode restaurar o "de" de alguns deles
+sozinha, e aí não há órfão a limpar — corrigir antes seria gravar por cima de uma
+medição que ainda não aconteceu. Baseline antes e depois, como na P30.
+
+⚠️ **Observação de lado, não virou pendência:** quando o "de" VOLTA (a loja passa a
+mostrar preço riscado), o código grava `price_original` mas **não recalcula** o
+`discount_pct`. Um produto limpo hoje que recuperar o "de" amanhã fica com "de" e
+sem selo. Efeito conservador — mostra menos desconto do que tem —, do mesmo formato
+do bug do "de" truncado da P30 antes da v18.
 
 ---
 
@@ -1316,6 +1380,38 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**Sessão da tarde de 03/08/2026 (2ª parte) — como P34, P33 e a numeração se resolvem.
+Nenhuma alteração de código nem de dados.**
+
+| | |
+|---|---|
+| Commits | 1 · só este doc |
+| Edge Functions | nenhuma tocada |
+| Migrations | nenhuma |
+| Correção de dados | **nenhuma — adiada de propósito para depois da rodada de 04/08** |
+| Frontend | não tocado |
+
+- 🔴 **A P33 estava registrada como mais resolvida do que é.** O doc dizia que os
+  órfãos seriam "alcançados pela v19 na próxima leitura". **Não serão:** o ramo que
+  zera o desconto está dentro de `if (antes !== res.precoDe)`, e num órfão os dois
+  lados já são `null`. A v19 impede órfão novo e não limpa órfão velho.
+- **Órfãos medidos, não estimados: 24, não 11** — 15 Shopee (intencional), 5 ML,
+  4 Amazon. Os 9 de ML e Amazon precisam de UPDATE à mão, **depois** da rodada de
+  04/08, porque ela pode restaurar o "de" de alguns sozinha.
+- 🔴 **A `product-search` está com 19 deploys de diferença entre o contador do
+  Supabase (44) e a versão do código (v25), e ninguém tinha notado.** Apareceu ao
+  montar a tabela de equivalência. Nenhuma decisão passada dependeu disso; a próxima
+  podia. Ver "Numeração" no topo.
+- **Numeração: decidido registrar o par, não realinhar.** Redeploy no-op faria o
+  número bater ao custo de uma segunda transcrição de 42 KB desnecessária, e
+  quebraria de novo no próximo código-sem-deploy.
+- **Cron conferido:** `product-refresh-daily`, jobid 13, `0 9 * * *`, **ativo**. A
+  prova da P34 chega sozinha, e a `product_refresh_runs` é durável — não há mais
+  janela de log para perder.
+- **Nada foi rodado nem corrigido nesta parte da sessão**, de propósito.
+
+---
+
 **Sessão da tarde de 03/08/2026 — sessão limpa de DEPLOY. Nenhuma linha de código nova.**
 
 | | |
@@ -1973,7 +2069,7 @@ código não relacionado.
 | ~~P29~~ | ✅ **FECHADA 02/08.** Não era bug de lote: **8 dos 12 candidatos são inconferíveis por construção** (Shopee sem verificador, ML de plano starter sem monitoramento) e, antes da v17, não carimbavam `price_checked_at` — reenchiam o lote em toda rodada, deixando 1 único conferido. A rodada de 02/08 carimbou **11 linhas**. Ver "P29" acima. ⚠️ Os contadores do corpo **não foram lidos** (a janela já tinha fechado); a reconstrução é do `products` + do código, e a `product_refresh_runs` da v19 existe para isso não repetir. ✅ **Ressalva fechada em 03/08:** os contadores **foram lidos** do `net._http_response` 2h48 depois da rodada — `candidatos` 12, `conferidos` 4, `preco_mudou` 2, `pulados` 5, `desconhecidos` 1, `duracao_ms` 11115, pool 0 — e confirmam a explicação. Ver "Rodada de 03/08" acima | 01/08 |
 | ~~P30~~ | ✅ **FECHADA 01/08 noite.** `product-refresh` **v18**: `consultarML` devolve `precoDe`, saída (a) com a trava `undefined`/`null`. 13 de 13 corrigidos (169 → 169,90). ⚠️ **O ramo que APAGA não foi observado — não medido.** Ver a ressalva na seção da P30. Registro original abaixo. ~~🔜 **PRÓXIMA SESSÃO, PRIMEIRA AÇÃO** (combinado com o Érico em 01/08).~~ **`price_original` ("de") continua truncado nos produtos de Mercado Livre.** O `consultarML` não devolve `precoDe`, então a reconciliação da v16 nunca roda para o ML e o "de" mantém o valor inteiro antigo (96 em vez de 96,79). O wa-engine **já devolve** `price_from` com centavos — é só repassar. **Decisão pendente e não trivial:** repassar significa que, quando a loja não mostrar "de", o `precoDe` vira `null` e a v16 **apaga** o "de" existente. Isso remove o desconto de posts que hoje exibem um. Efeito atual do bug é conservador (desconto aparece menor do que é), então não é urgente — mas é o próximo item combinado. **As duas saídas, para decidir antes de codar:** (a) repassar direto e aceitar que o "de" seja apagado quando a loja não mostrar, que é o que a v16 escolheu de propósito para não publicar desconto que não existe; (b) repassar só quando a loja mostrar "de" e nunca apagar, que preserva o desconto atual mas reabre a porta para o "de" de terceiro que o caso La Roche fechou. **DECIDIDO PELO ÉRICO EM 01/08: saída (a), com uma trava que nenhuma das duas tinha.** O que fazia a (b) parecer necessária era o risco de apagar um "de" bom por causa de uma leitura que falhou — e isso não é escolher entre (a) e (b), é distinguir dois casos que a P30 tratava como um só. O `product-refresh` já faz essa distinção e ela está escrita no tipo `Consulta`: **`undefined` = não olhei; `null` = olhei e a loja não mostra.** Só o segundo pode apagar. Patch: `consultarML` devolve `precoDe: null` quando a leitura deu certo e não havia "de", e `undefined` quando a leitura falhou; a reconciliação da v16 só apaga no primeiro caso. **Falta codar** | 01/08 |
 | **P15** | **Parcialmente endereçada 31/07 tarde.** Existe agora um smoke test executável: extrair os blocos `<script>`, rodar os quatro **no mesmo contexto** `vm` do Node com um DOM falso permissivo, e comparar contra o baseline **antes** do patch. Foi rodado neste push e pegaria o TDZ do `f94e2f0`. **Duas limitações medidas:** (1) dá falso positivo em `id` de elemento usado como global — `themeT.onclick` na linha 2496 acusa `ReferenceError` no sandbox e funciona no browser; por isso a comparação com o baseline é obrigatória, o veredito é "piorou?", não "tem erro?"; (2) não executa handler nenhum, só o top-level. **Continua aberta:** carregar a página num navegador de verdade e ler o console segue sendo a única prova real | 31/07 |
-| **P33** | 🟡 **DEPLOYADA EM 03/08 (dentro da v20), AGUARDANDO PROVA.** Apagar o "de" deixava o `discount_pct` de pé — 5 produtos com porcentagem órfã em 02/08. O `send-post` **não** usa o campo (o post sai limpo); a lista de produtos do painel usa (linha 5799) e o formulário regrava (linha 8271). v19 zera junto, só no ML e na Amazon, onde o desconto é derivado do "de" — a Shopee fica de fora por construção (decisão da P32). **11 produtos hoje nesse estado:** 5 ML + 3 Amazon (órfãos, a v19 alcança na próxima leitura) e 3 Shopee (intencional) | 02/08 |
+| **P33** | 🟡 **DEPLOYADA EM 03/08 (dentro da v20), AGUARDANDO PROVA.** Apagar o "de" deixava o `discount_pct` de pé — 5 produtos com porcentagem órfã em 02/08. O `send-post` **não** usa o campo (o post sai limpo); a lista de produtos do painel usa (linha 5799) e o formulário regrava (linha 8271). v19 zera junto, só no ML e na Amazon, onde o desconto é derivado do "de" — a Shopee fica de fora por construção (decisão da P32). 🔴 **CORREÇÃO 03/08: a v19 NÃO alcança os órfãos que já existem** — a guarda `antes !== res.precoDe` compara `null` com `null` e pula o bloco. Ela impede órfão novo, só isso. **Medidos hoje: 24 órfãos** — 15 Shopee (intencional), 5 ML e 4 Amazon. Os 9 de ML e Amazon exigem UPDATE à mão, **combinado para depois da rodada de 04/08**, que pode restaurar o "de" de alguns sozinha | 02/08 |
 | **P34** | 🟡 **DEPLOYADA EM 03/08, AGUARDANDO PROVA.** ~~A rodada diária só alcança produto recém-criado.~~ Medido em 03/08: os 11 carimbos da rodada foram **todos** de produtos criados no mesmo dia às 03:25. 27 produtos criados em 24h contra `BATCH = 12`; 19 ainda com `price_checked_at` nulo; **4 Amazon parados desde 30/07 14:16** (La Roche, Kit Rapunzel, Kärcher, Calvin Klein). `nullsFirst` + ingestão maior que o lote = produto que já tem carimbo nunca volta à fila. **Não é bug do `nullsFirst`** — é o lote ser menor que a entrada diária. Saídas não decididas: subir o `BATCH`, rodar o cron mais de uma vez por dia, ou reservar parte do lote para os carimbados mais antigos. **Consertada em 03/08.** Saída escolhida: **reserva de cota** (`RESERVA_ANTIGOS = 4`, piso e não teto), a única sem aumento de consumo de leitura — `BATCH` segue 12. Duas filas (`novos` por `created_at`, `antigos` por `price_checked_at`) no lugar da ordenação global com `nullsFirst`. Contadores `candidatos_novos`/`candidatos_antigos` entram na resposta e no `resumo` jsonb, sem migration. Lógica testada em 8 cenários com os números reais do banco. ⚠️ **A v20 contém a v19**: o deploy de 03/08 à tarde entregou as duas. **Deployado não é provado** — a prova é a rodada de 04/08 09:00 UTC, com `candidatos_antigos > 0` e os 4 da Amazon saindo de `30/07 14:16`. Enquanto isso não for lido, esta pendência fica 🟡 | 03/08 |
 | **P35** | 🟠 **Qualquer usuário autenticado obtém o `WA_ENGINE_TOKEN` da plataforma inteira.** Achado de lado ao investigar a P3, em 03/08. O `get-wa-engine-token` **não checa nada em código** — sem leitura de header, sem plano, sem papel; o comentário diz "JWT verification is automatic with `verify_jwt: true`". Medido: `verify_jwt: true` está ligado, então **não** há exposição pública — mas basta uma conta grátis ou o modo demonstração para receber a credencial que dá controle do `wa-engine` de **todos** os usuários (`/sessions`, desconectar, enviar). Duas frágeis de uma vez: a proteção mora só na configuração (um deploy com `verify_jwt: false` abre tudo, sem nada no código para segurar), e não há autorização por plano. Parente da P5 e da P7. Não consertada | 03/08 |
 | **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
