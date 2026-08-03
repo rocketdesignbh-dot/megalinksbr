@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 27 — 03/08/2026 (tarde).** Se o número aqui não for o mais alto que você
+> **REVISÃO 28 — 03/08/2026 (tarde/noite).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -186,6 +186,148 @@ combinadas com o Érico antes do deploy:
 **Nada foi rodado à mão para antecipar isso**, de propósito: um `dryRun` avulso leria
 até 12 produtos nas lojas e gastaria crédito para responder o que a rodada do cron
 responde de graça amanhã. A P34 e a P33 seguem **🟡 até essa leitura**.
+
+---
+
+## P4/P16 — o wa-engine não reinicia sozinho: quem reinicia é o nosso push (03/08)
+
+**A P4 estava aberta desde 30/07 procurando OOM ou healthcheck. Não é nenhum dos
+dois.** O log do EasyPanel de 03/08 tem **quatro boots do `wa-engine` em 35 minutos**,
+cada um com hostname de container diferente — container novo, não processo reiniciado.
+
+| boot | hostname | evento conhecido no mesmo instante |
+|---|---|---|
+| 12:04 | `ad919688a8ea` | — (anterior à sessão) |
+| **12:13:26** | `38bbcd8613ec` | **`### Success ###` do build do serviço `app`**, ao segundo |
+| **12:29:32** | `e4a5114fc716` | **push do commit `210767f`** |
+| **12:39:34** | `41c43dc86668` | **push do commit `a0bb73a`** |
+| — | — | **12:39 → 13:32: nenhum push, nenhum restart** |
+
+**Três coincidências e um controle negativo de 53 minutos.** O deploy da Edge Function
+`product-refresh`, às ~12:23, **não** derrubou o engine — como esperado, Supabase é
+outro lado. Só push/deploy do repositório derruba.
+
+### O que acontece a cada push, lido no log
+
+O container novo sobe e faz `[RESTORE]`; enquanto ele loga, **o container antigo ainda
+está vivo** e leva o tapa do WhatsApp:
+
+```
+[DISCONNECTED] Sessão …: código 440 — Stream Errored (conflict)
+[CONFLICT] Sessão … substituída por outra sessão. Não reconectar.
+```
+
+**O engine trata isso corretamente** — `Não reconectar` impede o laço de dois
+containers se expulsando em looping. Mas por alguns segundos duas instâncias disputam
+a mesma sessão do WhatsApp, e a `CLONE_FILA`, que mora só em memória, é descartada.
+
+### Por que isso importa mais do que parecia
+
+**Commit de documentação reinicia o WhatsApp de produção.** Os dois pushes que
+derrubaram o engine hoje não tinham uma linha de código — eram revisões deste arquivo.
+O protocolo do repo manda commitar o `ESTADO_ATUAL.md` toda sessão; hoje isso custa um
+restart do engine por sessão, no mínimo.
+
+**A P4 vira caso fechado e a P16 vira urgente.** O registro antigo da P4 dizia
+*"reiniciou sozinho … sem deploy"* — era inferência, ninguém tinha cruzado o horário
+com os pushes.
+
+⚠️ **Ainda NÃO conferido na configuração do EasyPanel:** se `app` e `wa-engine` estão
+no mesmo build/deploy por configuração, ou se são dois auto-deploys disparados pelo
+mesmo push. A distinção muda o conserto — desligar o auto-deploy de um serviço só, ou
+separar os dois. **Isto é o que falta medir**, e é no Dashboard, não no código.
+
+---
+
+## P28 — a captura está viva, e o registro dela estava errado (03/08)
+
+**A pendência dizia "não existe fonte de clone ativa". Existem duas, ligadas, e as
+duas capturaram hoje.** A afirmação de que a "Melhores Ofertas da Internet" tinha
+sido *apagada* da tabela também é falsa — ela está lá, `active = true`.
+
+| fonte | `active` | `auto_publish` | `lojas_permitidas` | capturas hoje |
+|---|---|---|---|---|
+| TáNaMão – Promoções #02 | **true** | false | `{shopee, amazon}` | 3 |
+| Melhores Ofertas da Internet | **true** | false | `{shopee, amazon}` | 5 |
+
+### A cadeia inteira funcionando, em 24h
+
+| `clone_posts` (24h) | |
+|---|---|
+| total | **17** |
+| com `data_source='store'` | **17 de 17** |
+| com foto | **17 de 17** |
+
+**É o melhor número que este projeto já mediu nessa cadeia.** Em 31/07 eram 14 de 14
+lidas do texto e 14 de 14 sem foto; em 01/08, 7 de 7 com loja e foto. Hoje, 17 de 17.
+O `auto_publish` segue `false` nas duas por decisão do Érico (P18), então tudo cai na
+fila de revisão — que é onde ele quer.
+
+### O veredito das mensagens avaliadas — e dois números que pedem decisão
+
+| status | motivo | n |
+|---|---|---|
+| `resolve_falhou` | **"vitrine do afiliado no Mercado Livre, não um produto"** | **44** |
+| `teto` | **teto diário da fonte atingido (10/10)** | **28** |
+| `salvo` | aguardando revisão · Shopee | 9 |
+| `salvo` | aguardando revisão · Amazon | 8 |
+| `duplicado` | mesmo link em 7 dias | 6 |
+| `resolve_falhou` | Shopee/Amazon sem par LOJA/ITEM ou sem ASIN | 3 |
+| `resolve_falhou` | encurtador HTTP 403 · só link de convite | 2 |
+
+🔴 **44 recusas/dia de vitrine de afiliado do Mercado Livre, em fontes onde o ML nem
+está em `lojas_permitidas`.** Cada uma gasta uma chamada de `resolve-link` para
+descobrir algo que o cadastro da fonte já dizia. O desenho da P31 previu isto e
+deixou escrito: *"um filtro anterior, por domínio do link cru (`meli.la`,
+`s.shopee.com.br`, `amzn.to`), economiza até a chamada da `resolve-link`"*. **Agora
+existe o número que justifica: 44/dia.** Não cobre encurtador genérico, mas cobre o
+caso que domina.
+
+⚠️ **28 mensagens/dia recusadas por teto (`max_per_day = 10`).** A cadeia está
+entregando 17 de 17 com loja e foto; o teto é o que limita o volume, não a qualidade.
+**Decidido pelo Érico em 03/08: manter em 10.** O `auto_publish` está desligado, então
+quem revisa a fila é ele — subir o teto aumenta leitura de loja e o tamanho da fila
+antes de existir gente para revisar. Reabrir quando houver quem revise.
+
+**O filtro por domínio virou a P36**, decidido e não codado: a `clone-ingest` tem
+67 KB e não se reemite isso de qualquer jeito. Ver a pendência.
+
+---
+
+## P3 — medida no painel logado, e fecha (03/08, tarde)
+
+**A ressalva mais antiga desta pendência caiu.** Não por releitura de código: o painel
+foi carregado logado, no Chrome do Érico, e os números foram lidos da página.
+
+| medida (03/08, painel logado) | resultado |
+|---|---|
+| `WA_ENGINE_TOKEN` num load limpo | **preenchido, 43 chars** |
+| `GET /sessions` com esse token | **200** — não 401 |
+| Card "Sessões ativas" (`#instCard`) | **visível** (`display: block`) |
+| Conteúdo do card | **1 instância, a do dono** (`+55319891…`), "Sessão ativa · pronto para postar", ONLINE |
+| Console, load completo, filtrando 401/token/erro | **limpo** |
+
+O engine tinha **3 sessões** no momento da leitura; a tela mostrou **1**, que é a do
+dono. As outras duas são a sessão admin (`…73545214`) e a de outro usuário — **a
+tela está certa**, não é card faltando.
+
+### ⚠️ O que isto prova, e o que NÃO prova
+
+Prova que **hoje funciona**. **Não** prova que o conserto foi a causa: o sintoma
+nunca foi reproduzido ANTES do patch — a P3 nasceu de diagnóstico no código, e isso
+está registrado desde 03/08 de manhã. Se o 401 aparecer de novo, o mecanismo dos três
+defeitos continua descrito na pendência e serve de ponto de partida.
+
+### 🔎 Achado de lado: o painel vive em DOIS origins, e o login não é compartilhado
+
+A primeira tentativa de medição não achou sessão nenhuma e quase virou "o Érico não
+logou". Não era: **`https://megalinksbr.com.br` e `https://www.megalinksbr.com.br`
+são origins diferentes**, cada um com o seu `localStorage`. A chave
+`sb-nxlfezpagporealqqbfj-auth-token` existe **só no `www`**.
+
+Consequência prática: quem logar no `www` e depois cair no domínio sem `www`
+**aparece deslogado**, sem erro nenhum na tela — e o contrário também. O nginx serve
+os dois. **Ao medir qualquer coisa de sessão, usar o `www`.**
 
 ---
 
@@ -1380,6 +1522,41 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**Sessão da tarde de 03/08/2026 (3ª parte) — varredura de pendências. Quatro fechadas,
+duas por medição que contradisse o registro. Nenhuma alteração de código.**
+
+| | |
+|---|---|
+| Commits | 1 · só este doc |
+| Edge Functions | nenhuma tocada |
+| Migrations | nenhuma · Correção de dados: nenhuma |
+| Fechadas | **P3, P6, P28, P4** |
+| Abertas | **P36** (pré-filtro de domínio, decidido e não codado) |
+
+- ✅ **P3 fechada com medição no painel logado:** token de 43 chars, `/sessions` **200**,
+  card "Sessões ativas" visível e populado, console limpo. Prova que **funciona hoje**;
+  não prova que o conserto foi a causa, porque o sintoma nunca foi reproduzido antes.
+- 🔎 **Achado de lado:** o painel vive em **dois origins** (`megalinksbr.com.br` e
+  `www.megalinksbr.com.br`) e o `localStorage` não é compartilhado — quem loga num e
+  cai no outro aparece deslogado, sem erro na tela. Ao medir sessão, usar o `www`.
+- ✅ **P6 fechada:** PAT clássico revogado depois de 16 pushes, novo gerado.
+- ✅ **P28 fechada por medição, e o registro dela estava ERRADO.** Não há "nenhuma fonte
+  ativa": há **duas, as duas `active=true`**, e a "Melhores Ofertas" **não** tinha sido
+  apagada da tabela. Em 24h: **17 `clone_posts`, 17 de 17 com `data_source='store'` e
+  17 de 17 com foto** — o melhor número já medido nessa cadeia.
+- ✅ **P4 fechada, e não era OOM.** É a P16: **todo push para o `main` reinicia o
+  `wa-engine`**, inclusive push só de documentação. 4 boots em 35 minutos, 3 casados
+  com eventos conhecidos, 53 minutos sem push = sem restart.
+- 🔴 **P16 deixou de ser teórica.** Custo por push: `CLONE_FILA` descartada e as 3
+  sessões levando `conflict/replaced` 440. Falta conferir no Dashboard se é um build
+  compartilhado ou dois auto-deploys.
+- 🔵 **P36 aberta:** pré-filtro de domínio antes da `resolve-link`, decidido pelo Érico
+  com base em **44 recusas/dia** de vitrine de ML. **Não codado de propósito** — a
+  `clone-ingest` tem 67 KB e a sessão já emitiu 42 KB duas vezes.
+- **Teto das fontes mantido em 10** por decisão do Érico: o gargalo é quem revisa.
+
+---
+
 **Sessão da tarde de 03/08/2026 (2ª parte) — como P34, P33 e a numeração se resolvem.
 Nenhuma alteração de código nem de dados.**
 
@@ -2040,10 +2217,10 @@ código não relacionado.
 | # | Pendência | Origem |
 |---|---|---|
 | **P2** | Decidir o rate limit: `GRANT EXECUTE` a `anon` (abre superfície de ataque) **ou** trocar a credencial do engine para service role. ⚠️ **03/08: a suposição de raiz comum com a P3 caiu** — o 401 da P3 era `Bearer ` vazio no frontend, sem relação com `anon` nem com service role. Esta pendência é isolada | 30/07 |
-| **P3** | 🟡 **DIAGNOSTICADA, CONSERTADA E DEPLOYADA 03/08 — AGUARDANDO REPRODUÇÃO LOGADA — e a hipótese da raiz comum com a P2 está ERRADA.** O engine valida certo (`token !== WA_ENGINE_TOKEN` → 401) e o `get-wa-engine-token` está protegido (`verify_jwt: true`, **medido**). O 401 vem de `Bearer ` **vazio**: o painel declara `WA_ENGINE_TOKEN=""` e (a) a linha top-level `renderAdminVisao();...renderInstancias();...` rodava na carga do script, antes de `enterApp` buscar o token; (b) `fetchWAEngineToken` devolve `false` em três caminhos e **ninguém lia o retorno** — o `.catch` só pega exceção —, então uma falha deixava o token vazio pela sessão inteira, sem retry e sem aviso; (c) a re-renderização pós-token cobria `renderInstancias` mas **não** `renderInstCard`, que é o card "Sessões ativas", exatamente a tela cega. Consertados os três, **deployados em 03/08 às 12:13 UTC e conferidos no código servido** (os três marcadores estão no `index.html` que o nginx entrega; console limpo num load completo, porém **deslogado**). ⚠️ **Sintoma NÃO reproduzido** — o mecanismo está lido no código, mas ninguém carregou a página e leu o console (ver P15). O smoke test dá "não piorou", não "funciona". **Consequência para a P2: ela perde o argumento de "resolve duas de uma vez" e volta a ser decisão isolada de rate limit** | 30/07 |
-| **P4** | Descobrir por que o wa-engine reiniciou sozinho às 12:45 de 30/07 (uptime 819s às 12:58, sem deploy). `CLONE_FILA` e o cache de vistas moram só em memória → todo restart descarta a fila. Olhar Deployments/Events do EasyPanel: OOM ou healthcheck | 30/07 |
+| ~~P3~~ | ✅ **FECHADA 03/08 à tarde, MEDIDA NO PAINEL LOGADO.** Token de 43 chars preenchido num load limpo, `/sessions` **200** (não 401), card "Sessões ativas" **visível e populado** com a instância do dono, console limpo. ⚠️ **O que isto prova e o que não prova:** prova que **funciona hoje**; não prova que o conserto foi a causa, porque o sintoma nunca foi reproduzido ANTES do patch. Ver "P3 — medida" acima. Registro original abaixo. ~~🟡 DIAGNOSTICADA, CONSERTADA E DEPLOYADA 03/08 — AGUARDANDO REPRODUÇÃO LOGADA — e a hipótese da raiz comum com a P2 está ERRADA.** O engine valida certo (`token !== WA_ENGINE_TOKEN` → 401) e o `get-wa-engine-token` está protegido (`verify_jwt: true`, **medido**). O 401 vem de `Bearer ` **vazio**: o painel declara `WA_ENGINE_TOKEN=""` e (a) a linha top-level `renderAdminVisao();...renderInstancias();...` rodava na carga do script, antes de `enterApp` buscar o token; (b) `fetchWAEngineToken` devolve `false` em três caminhos e **ninguém lia o retorno** — o `.catch` só pega exceção —, então uma falha deixava o token vazio pela sessão inteira, sem retry e sem aviso; (c) a re-renderização pós-token cobria `renderInstancias` mas **não** `renderInstCard`, que é o card "Sessões ativas", exatamente a tela cega. Consertados os três, **deployados em 03/08 às 12:13 UTC e conferidos no código servido** (os três marcadores estão no `index.html` que o nginx entrega; console limpo num load completo, porém **deslogado**). ⚠️ **Sintoma NÃO reproduzido** — o mecanismo está lido no código, mas ninguém carregou a página e leu o console (ver P15). O smoke test dá "não piorou", não "funciona". **Consequência para a P2: ela perde o argumento de "resolve duas de uma vez" e volta a ser decisão isolada de rate limit** | 30/07 |
+| ~~P4~~ | ✅ **RESOLVIDA 03/08 — não era OOM nem healthcheck. É o auto-deploy da P16.** O log do EasyPanel de 03/08 mostra **quatro** boots do `wa-engine` em 35 minutos, cada um com hostname de container novo: **12:04**, **12:13:26**, **12:29:32**, **12:39:34**. O de 12:13:26 casa **ao segundo** com o `### Success ###` do build do serviço `app` (o frontend); os de 12:29 e 12:39 casam com os **dois pushes deste chat** para o `main`. Depois das 12:39, **53 minutos sem push e sem restart** — controle negativo. **Deployar o `app` derruba e sobe o `wa-engine` junto**, e como o auto-deploy dispara a cada push, **todo commit — inclusive commit só de documentação — reinicia o WhatsApp em produção.** O `CLONE_FILA` mora em memória e vai junto. Ver "P4/P16" acima. A frase do registro antigo, *"sem deploy"*, era inferência: ninguém tinha cruzado o horário com os pushes | 30/07 |
 | **P5** | Enforcement server-side dos limites de plano: canais WhatsApp/Telegram e grupos WhatsApp ainda são só client-side | 03/07 |
-| **P6** | **Revogar os PATs do GitHub** — o clássico `ghp_vkOR…` acumulou 14 pushes | 30/07 |
+| ~~P6~~ | ✅ **FECHADA 03/08 à tarde.** O clássico `ghp_vkOR…` foi **revogado** pelo Érico depois de 16 pushes, e um PAT novo foi gerado. Regra que continua valendo: PAT não fica salvo, é fornecido por sessão, e fine-grained (`github_pat_`) é rejeitado no push | 30/07 |
 | **P7** | RLS de admin em `profiles` permite qualquer admin ler e-mails de todos os usuários — conhecido, não remediado | 03/07 |
 | **P9** | Créditos OpenAI para destravar o RevOps / IA Insights | — |
 | **P10** | Avaliar upgrade do Scrape.do para o plano Hobby quando a receita permitir | 03/07 |
@@ -2064,7 +2241,7 @@ código não relacionado.
 | ~~P25~~ | ✅ **FECHADA 01/08 — e a conclusão anterior estava ERRADA.** O link avulso devolve *"Vestido Corset Feminino Longo…"*, R$ 200, com foto, pela `product-search` v24. Não era "não" da Shopee: era a assinatura HMAC. O registro abaixo ficou como exemplo de diagnóstico tirado de mensagem de erro não verificada. ~~**MEDIDO 31/07 à noite, com o link real do Érico.**~~ `resolve-link` **funciona** (270 ms, limpa para `/product/1397105725/58213461759`); quem recusa é a `product-search` com *"Produto não encontrado"* em 1,1 s — a API de afiliado da Shopee só conhece item do **catálogo de ofertas** dela, e produto avulso não está lá. **É um "não" da Shopee, não falha nossa.** O Microlink **não** cobre este caso: devolveu título `"58213461759"` (só o ID) e imagem nula, porque a Shopee monta a página por JavaScript. Restam: (a) Scrape.do na página (queima crédito, decisão de orçamento), (b) preencher à mão, (c) **mínimo valioso e barato: a tela avisar em português** que a Shopee não reconhece o produto, em vez de só gerar o link em silêncio | 31/07 |
 | ~~P26~~ | ✅ **FECHADA 01/08.** `resolve-link` v5 deployada e provada com baseline (v4 recusando) e controle negativo (`/collections/…` segue recusado). Registro original abaixo. 🔴 **A `resolve-link` não reconhecia o formato de URL de produto que o próprio Radar da plataforma gera.** MEDIDO 31/07 à noite: `https://s.shopee.com.br/4AykYR6yxu` (link de oferta do Radar) redireciona para `https://shopee.com.br/**opaanlp**/1006215031/24442629738` — mesma estrutura de `/product/LOJA/ITEM`, **primeiro segmento variável**. A `resolve-link` só casa `/product/LOJA/ITEM` e `-i.LOJA.ITEM`, então recusa com *"não tem o código -i.LOJA.ITEM"* uma página de produto legítima, com loja e item visíveis na própria URL. **Conserto é uma regra a mais no reconhecimento de URL — pequeno em tamanho, grande em efeito.** Duplamente relevante: (1) reabre as 10 recusas de Shopee do log, cujo diagnóstico anterior estava errado; (2) esse produto **está** no catálogo de ofertas, então, resolvido o formato, a `product-search` deve responder com nome, preço e foto — diferente do caso da P25. **Exige reemitir a `resolve-link` inteira num deploy só: fazer em sessão limpa, primeira ação.** | 31/07 |
 | ~~P27~~ | ✅ **FECHADA 02/08 por conjunto vazio.** Não havia o que reprocessar: **0** recusas de Shopee no `clone_ingest_log` antes de 01/08 (as 56 antigas têm `store` nulo — a coluna só passou a ser preenchida em 01/08) e **0** `clone_posts` antigos com `clean_url` de Shopee. As "10 recusas de Shopee" eram inferência, nunca medição. Ver "P27" acima | 01/08 |
-| **P28** | **Não existe fonte de clone ativa.** `clone_sources` tem uma linha ("TáNaMão", `active=false`) e a "Melhores Ofertas" foi apagada da tabela. Com a Shopee destravada, nada disso aparece em produção enquanto não houver fonte ligada. Ação do Érico, não de código: religar a TáNaMão ou cadastrar um grupo-fonte novo, e então observar uma captura de Shopee real chegar com `data_source='store'` | 01/08 |
+| ~~P28~~ | ✅ **FECHADA 03/08 por medição — e o registro dela estava ERRADO.** `clone_sources` tem **duas** linhas, as **duas `active = true`**, as duas capturando hoje: TáNaMão (`…737879`) e **"Melhores Ofertas da Internet" (`…941813`), que NÃO foi apagada da tabela**. Em 24h: **17 `clone_posts`, 17 de 17 com `data_source='store'` e 17 de 17 com foto.** A pendência pedia "observar uma captura de Shopee real chegar com `data_source='store'`" — chegaram 9. Ver "P28 — a captura está viva" acima | 01/08 |
 | ~~P31~~ | ✅ **FECHADA 01/08 noite.** Deployada e conferida no navegador: funções novas presentes no código servido, console limpo, três estados do card exercitados. Falta só ver um clique real gravar. Registro abaixo. ~~🟡 **BACKEND FECHADO, FRONTEND AGUARDANDO DEPLOY.**~~ `clone-ingest` **v16** + coluna `lojas_permitidas`, provado com baseline e 2 controles. A tela (chips no card, checkboxes no formulário, contagem por loja de 7 dias) está **no ar e conferida**. Registro original abaixo. ~~**Filtro de loja por fonte** (ideia do Érico, 01/08).~~ Fonte que presta para uma loja e não para outra — medido na "Melhores Ofertas": Shopee clona, ML não. Desenho: coluna nova `lojas_permitidas text[]` em `clone_sources` (vazio = todas, não altera fontes existentes); filtro **depois** da `resolve-link` e **antes** da `product-search`, que é onde o Scrape.do custa; checkboxes nas **duas** cópias do `index.html`. Um filtro anterior, por domínio do link cru (`meli.la`, `s.shopee.com.br`, `amzn.to`), economiza até a chamada da `resolve-link`, mas não cobre encurtador genérico. **NÃO marcar checkbox automaticamente a partir do teste de clonabilidade:** um teste valida uma loja só; no máximo sugerir. ~~Depende da P20~~ — **a P20 saiu em 01/08**, então o card já pode mostrar "12 Shopee capturadas, 30 ML recusadas" e o filtro vira clique informado em vez de palpite no cadastro. **É a primeira ação da próxima sessão** | 01/08 |
 | ~~P29~~ | ✅ **FECHADA 02/08.** Não era bug de lote: **8 dos 12 candidatos são inconferíveis por construção** (Shopee sem verificador, ML de plano starter sem monitoramento) e, antes da v17, não carimbavam `price_checked_at` — reenchiam o lote em toda rodada, deixando 1 único conferido. A rodada de 02/08 carimbou **11 linhas**. Ver "P29" acima. ⚠️ Os contadores do corpo **não foram lidos** (a janela já tinha fechado); a reconstrução é do `products` + do código, e a `product_refresh_runs` da v19 existe para isso não repetir. ✅ **Ressalva fechada em 03/08:** os contadores **foram lidos** do `net._http_response` 2h48 depois da rodada — `candidatos` 12, `conferidos` 4, `preco_mudou` 2, `pulados` 5, `desconhecidos` 1, `duracao_ms` 11115, pool 0 — e confirmam a explicação. Ver "Rodada de 03/08" acima | 01/08 |
 | ~~P30~~ | ✅ **FECHADA 01/08 noite.** `product-refresh` **v18**: `consultarML` devolve `precoDe`, saída (a) com a trava `undefined`/`null`. 13 de 13 corrigidos (169 → 169,90). ⚠️ **O ramo que APAGA não foi observado — não medido.** Ver a ressalva na seção da P30. Registro original abaixo. ~~🔜 **PRÓXIMA SESSÃO, PRIMEIRA AÇÃO** (combinado com o Érico em 01/08).~~ **`price_original` ("de") continua truncado nos produtos de Mercado Livre.** O `consultarML` não devolve `precoDe`, então a reconciliação da v16 nunca roda para o ML e o "de" mantém o valor inteiro antigo (96 em vez de 96,79). O wa-engine **já devolve** `price_from` com centavos — é só repassar. **Decisão pendente e não trivial:** repassar significa que, quando a loja não mostrar "de", o `precoDe` vira `null` e a v16 **apaga** o "de" existente. Isso remove o desconto de posts que hoje exibem um. Efeito atual do bug é conservador (desconto aparece menor do que é), então não é urgente — mas é o próximo item combinado. **As duas saídas, para decidir antes de codar:** (a) repassar direto e aceitar que o "de" seja apagado quando a loja não mostrar, que é o que a v16 escolheu de propósito para não publicar desconto que não existe; (b) repassar só quando a loja mostrar "de" e nunca apagar, que preserva o desconto atual mas reabre a porta para o "de" de terceiro que o caso La Roche fechou. **DECIDIDO PELO ÉRICO EM 01/08: saída (a), com uma trava que nenhuma das duas tinha.** O que fazia a (b) parecer necessária era o risco de apagar um "de" bom por causa de uma leitura que falhou — e isso não é escolher entre (a) e (b), é distinguir dois casos que a P30 tratava como um só. O `product-refresh` já faz essa distinção e ela está escrita no tipo `Consulta`: **`undefined` = não olhei; `null` = olhei e a loja não mostra.** Só o segundo pode apagar. Patch: `consultarML` devolve `precoDe: null` quando a leitura deu certo e não havia "de", e `undefined` quando a leitura falhou; a reconciliação da v16 só apaga no primeiro caso. **Falta codar** | 01/08 |
@@ -2072,7 +2249,8 @@ código não relacionado.
 | **P33** | 🟡 **DEPLOYADA EM 03/08 (dentro da v20), AGUARDANDO PROVA.** Apagar o "de" deixava o `discount_pct` de pé — 5 produtos com porcentagem órfã em 02/08. O `send-post` **não** usa o campo (o post sai limpo); a lista de produtos do painel usa (linha 5799) e o formulário regrava (linha 8271). v19 zera junto, só no ML e na Amazon, onde o desconto é derivado do "de" — a Shopee fica de fora por construção (decisão da P32). 🔴 **CORREÇÃO 03/08: a v19 NÃO alcança os órfãos que já existem** — a guarda `antes !== res.precoDe` compara `null` com `null` e pula o bloco. Ela impede órfão novo, só isso. **Medidos hoje: 24 órfãos** — 15 Shopee (intencional), 5 ML e 4 Amazon. Os 9 de ML e Amazon exigem UPDATE à mão, **combinado para depois da rodada de 04/08**, que pode restaurar o "de" de alguns sozinha | 02/08 |
 | **P34** | 🟡 **DEPLOYADA EM 03/08, AGUARDANDO PROVA.** ~~A rodada diária só alcança produto recém-criado.~~ Medido em 03/08: os 11 carimbos da rodada foram **todos** de produtos criados no mesmo dia às 03:25. 27 produtos criados em 24h contra `BATCH = 12`; 19 ainda com `price_checked_at` nulo; **4 Amazon parados desde 30/07 14:16** (La Roche, Kit Rapunzel, Kärcher, Calvin Klein). `nullsFirst` + ingestão maior que o lote = produto que já tem carimbo nunca volta à fila. **Não é bug do `nullsFirst`** — é o lote ser menor que a entrada diária. Saídas não decididas: subir o `BATCH`, rodar o cron mais de uma vez por dia, ou reservar parte do lote para os carimbados mais antigos. **Consertada em 03/08.** Saída escolhida: **reserva de cota** (`RESERVA_ANTIGOS = 4`, piso e não teto), a única sem aumento de consumo de leitura — `BATCH` segue 12. Duas filas (`novos` por `created_at`, `antigos` por `price_checked_at`) no lugar da ordenação global com `nullsFirst`. Contadores `candidatos_novos`/`candidatos_antigos` entram na resposta e no `resumo` jsonb, sem migration. Lógica testada em 8 cenários com os números reais do banco. ⚠️ **A v20 contém a v19**: o deploy de 03/08 à tarde entregou as duas. **Deployado não é provado** — a prova é a rodada de 04/08 09:00 UTC, com `candidatos_antigos > 0` e os 4 da Amazon saindo de `30/07 14:16`. Enquanto isso não for lido, esta pendência fica 🟡 | 03/08 |
 | **P35** | 🟠 **Qualquer usuário autenticado obtém o `WA_ENGINE_TOKEN` da plataforma inteira.** Achado de lado ao investigar a P3, em 03/08. O `get-wa-engine-token` **não checa nada em código** — sem leitura de header, sem plano, sem papel; o comentário diz "JWT verification is automatic with `verify_jwt: true`". Medido: `verify_jwt: true` está ligado, então **não** há exposição pública — mas basta uma conta grátis ou o modo demonstração para receber a credencial que dá controle do `wa-engine` de **todos** os usuários (`/sessions`, desconectar, enviar). Duas frágeis de uma vez: a proteção mora só na configuração (um deploy com `verify_jwt: false` abre tudo, sem nada no código para segurar), e não há autorização por plano. Parente da P5 e da P7. Não consertada | 03/08 |
-| **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
+| **P36** | 🔵 **DECIDIDA E NÃO CODADA — sessão limpa, primeira ação.** Filtro por domínio do link cru **antes** da `resolve-link`, quando `lojas_permitidas` não inclui a loja daquele domínio. **Justificativa medida em 03/08: 44 recusas/dia** de "vitrine do afiliado no Mercado Livre" nas duas fontes, e **nenhuma das duas tem `mercado_livre` em `lojas_permitidas`** — a plataforma paga uma `resolve-link` por mensagem para descobrir o que o cadastro já dizia. **Decidido pelo Érico em 03/08.** ⚠️ **Não foi feito na sessão de 03/08 de propósito:** a `clone-ingest` tem **67 KB / 1347 linhas**, e reemitir isso numa sessão que já emitiu 42 KB duas vezes é exatamente o modo de falha que a P26 e a P19 documentam. A função está entregando **17 de 17 com loja e foto** — arriscar uma transcrição ruim nela para economizar 44 chamadas internas é troca ruim. **Levar junto com qualquer outra mudança de `clone-ingest`, um deploy só.** O comentário na linha 1086 já explica por que o filtro atual mora depois da `resolve-link`, e a ressalva dele continua valendo: filtro por domínio **não cobre encurtador genérico**, então ele soma ao filtro atual em vez de substituí-lo | 03/08 |
+| **P16** | 🔴 **DEIXOU DE SER TEÓRICA EM 03/08 — ela é a causa da P4.** ~~O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B".~~ Medido: **todo push para o `main` reinicia o `wa-engine` em produção**, inclusive push só de documentação. 4 boots em 35 minutos em 03/08, 3 deles casados com eventos conhecidos, e 53 minutos sem push = sem restart. **Custo por push:** a `CLONE_FILA` (memória) é descartada, as 3 sessões levam `conflict/replaced` 440 do WhatsApp e o container antigo e o novo disputam a sessão por alguns segundos. O engine trata certo (`Não reconectar`), então não há laço — mas há janela. Decidir: gate técnico ou **desligar o auto-deploy do serviço `app`** | 31/07 |
 
 | ~~P32~~ | ✅ **FECHADA 01/08 noite.** A Shopee devolvia `price_from = node.price`, que é o preço ATUAL e não o anterior; 3 de 3 capturas reais saíram com "de" == "por" e desconto de 53%/42%/35%, já no rodízio do grupo. `product-search` **v25** para de enviar `price_from` para a Shopee. Os 3 produtos foram limpos. O Radar, que tem leitura própria, **não** tinha o defeito — terceira vez que duas implementações da mesma coisa divergem neste repo | 01/08 |
 
