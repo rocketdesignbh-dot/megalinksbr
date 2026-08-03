@@ -1448,10 +1448,27 @@ app.get('/groups', verifyToken, async (req, res) => {
 // fonte que nunca vai capturar nada — falha silenciosa, nao erro.
 function extrairCodigoConvite(v) {
     const s = String(v || '').trim();
-    const m = s.match(/chat\.whatsapp\.com\/(?:invite\/)?([A-Za-z0-9_-]{6,})/i);
+    // Com o dominio na frente, a intencao esta provada: aceita o codigo como vier.
+    const m = s.match(/chat\.whatsapp\.com\/(?:invite\/)?([A-Za-z0-9]{6,})/i);
     if (m) return m[1];
-    if (/^[A-Za-z0-9_-]{6,}$/.test(s)) return s;
+    // Codigo solto e outra historia: sem dominio, qualquer palavra parece codigo.
+    // O formato real do WhatsApp e alfanumerico puro, 22 caracteres. A regra
+    // frouxa de antes ([A-Za-z0-9_-]{6,}) aceitou "COLE_AQUI_O_LINK_DO_ACHADINHOS"
+    // e mandou isso pro WhatsApp como se fosse convite.
+    if (/^[A-Za-z0-9]{15,30}$/.test(s)) return s;
     return '';
+}
+
+// Prazo maximo para qualquer ida ao WhatsApp neste endpoint. Sem isto a consulta
+// herda o default do Baileys, o proxy do EasyPanel desiste antes e responde 502
+// SEM cabecalho CORS — o navegador so mostra "blocked by CORS policy" e a causa
+// real (a consulta pendurada) fica invisivel.
+function comPrazo(promessa, ms, oQue) {
+    let t;
+    const limite = new Promise((_, rej) => {
+        t = setTimeout(() => rej(new Error(`${oQue} nao respondeu em ${Math.round(ms / 1000)}s`)), ms);
+    });
+    return Promise.race([promessa, limite]).finally(() => clearTimeout(t));
 }
 
 app.get('/group-invite-info', verifyToken, async (req, res) => {
@@ -1463,7 +1480,7 @@ app.get('/group-invite-info', verifyToken, async (req, res) => {
         return res.status(400).json({ error: 'Informe o número da sessão em ?phone=.' });
     }
     if (!code) {
-        return res.status(400).json({ error: 'Isso não parece um link de convite. Esperado: https://chat.whatsapp.com/XXXXXXXX' });
+        return res.status(400).json({ error: 'Isso não parece um link de convite. Esperado: https://chat.whatsapp.com/XXXXXXXX — se você colou uma página de links (linktr.ee e parecidas), abra o grupo no WhatsApp e use "Convidar via link".' });
     }
 
     let session = null;
@@ -1478,7 +1495,7 @@ app.get('/group-invite-info', verifyToken, async (req, res) => {
     }
 
     try {
-        const info = await session.socket.groupGetInviteInfo(code);
+        const info = await comPrazo(session.socket.groupGetInviteInfo(code), 12000, 'o WhatsApp');
         const id = String(info?.id || '');
         if (!id.endsWith('@g.us')) throw new Error('a resposta veio sem JID de grupo');
         console.log(`[INVITE] ${code.slice(0, 6)}… -> ${id} (${info?.subject || 'sem nome'})`);
