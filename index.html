@@ -4125,12 +4125,32 @@ async function fetchWAEngineToken(){
         WA_ENGINE_TOKEN=d.token;
         // Instâncias/Canais e outras telas que dependem do wa-engine podem já ter
         // rodado (e falhado com 401) antes desse token chegar — re-renderiza agora.
+        // P3: o renderInstCard estava de fora desta lista, e ele é justamente o card
+        // "Sessões ativas" — a tela que ficava cega. Sem ele aqui, um 401 na carga
+        // não era desfeito nunca.
         try{if(typeof renderInstancias==="function")renderInstancias();}catch(e){}
+        try{if(typeof renderInstCard==="function")renderInstCard();}catch(e){}
+        return true;
       }
-      return true;
+      return false; // 200 sem token é falha, não sucesso
     }
     return false;
   }catch(e){console.warn("fetchWAEngineToken:",e);return false;}
+}
+
+// P3 — o token do wa-engine falhava CALADO. `fetchWAEngineToken` devolve false em
+// três caminhos (sem JWT, resposta não-ok, exceção) e ninguém lia o retorno: o
+// `.catch` só pega exceção. Resultado: WA_ENGINE_TOKEN ficava "" pela sessão
+// inteira, todo GET /sessions voltava 401 com `Bearer ` vazio, e a tela ficava em
+// branco sem dizer por quê — nem retry havia.
+// Uma tentativa a mais cobre o caso transitório; o aviso cobre o resto.
+async function fetchWAEngineTokenComRetry(){
+  if(await fetchWAEngineToken())return true;
+  await new Promise(r=>setTimeout(r,1500));
+  if(await fetchWAEngineToken())return true;
+  try{toast("Não consegui falar com o servidor de WhatsApp. As telas de sessão podem aparecer vazias — recarregue a página.","⚠️");}catch(e){}
+  console.warn("wa-engine: token nao obtido apos 2 tentativas; telas de sessao ficarao vazias");
+  return false;
 }
 let waPollTimer=null;
 
@@ -7308,7 +7328,7 @@ async function loadVipMembers(){
   }catch(e){console.warn("loadVipMembers exception:",e);}
 }
 
-renderAdminVisao();renderUsers();renderSubs();renderInstancias();renderSuporte();renderConfig();setTimeout(startQueue,0);renderVip();
+renderAdminVisao();renderUsers();renderSubs();/* P3: esta linha e top-level e rodava ANTES de enterApp obter o token, mandando `Bearer ` vazio e garantindo 401. O token chegando re-renderiza (fetchWAEngineToken) e a navegacao tambem (page adm-instancias). */if(WA_ENGINE_TOKEN)renderInstancias();renderSuporte();renderConfig();setTimeout(startQueue,0);renderVip();
 
 function vipStatus(v){
   if(v.tipo==="vitalicio")return "vitalicio";
@@ -9548,7 +9568,7 @@ function demoEnter(asAdmin){
   toast(asAdmin?"Modo demonstração: Administrador":"Modo demonstração: Afiliado","🧪");
 }
 async function enterApp(profile){
-  await fetchWAEngineToken().catch(e=>console.warn("token wa-engine:",e));
+  await fetchWAEngineTokenComRetry().catch(e=>{console.warn("token wa-engine:",e);return false;});
   MY_PROFILE=profile;
   IS_ADMIN=!!profile.is_admin;
   if(profile.trial_mission_completed_at&&!profile.trial_mission_notified){

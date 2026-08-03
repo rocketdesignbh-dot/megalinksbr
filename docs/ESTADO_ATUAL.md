@@ -1275,11 +1275,11 @@ desmarcado = não posta, não posta de outro jeito.
 
 | | |
 |---|---|
-| Commits | 2 · este doc e o `product-refresh` |
+| Commits | 3 · este doc, o `product-refresh` e o `index.html` (as duas cópias) |
 | Edge Functions | `product-refresh` **v20** — ⚠️ **codada e testada, AGUARDANDO DEPLOY** (contém a v19, que também nunca subiu). A rodada medida foi a **v18** |
 | Migrations | nenhuma |
 | Correção de dados | nenhuma |
-| Frontend | não tocado |
+| Frontend | `index.html` **e** `frontend/index.html` (eram byte a byte idênticos e seguem idênticos) — ⚠️ **AGUARDANDO DEPLOY** |
 | Repo × produção | ⚠️ **seguem sem bater** — v19 sem deploy, `product_refresh_runs` vazia |
 
 - **A ressalva da P29 fechou.** Os contadores foram **lidos** do
@@ -1294,8 +1294,18 @@ desmarcado = não posta, não posta de outro jeito.
 - **P34 consertada na v20** na mesma sessão, com a saída que o Érico escolheu:
   reserva de cota (`RESERVA_ANTIGOS = 4`), custo de leitura **igual** ao de hoje.
   Lógica testada em 8 cenários com os números reais do banco antes de qualquer deploy.
-- **Nada foi deployado.** A medição foi só leitura; o conserto está no repo e
-  aguarda o deploy de sessão limpa que já era devido pela v19.
+- **P3 diagnosticada e consertada**, e **a hipótese da raiz comum com a P2 caiu**:
+  o 401 era `Bearer ` vazio no frontend, não credencial. Três defeitos: chamada
+  top-level antes do token, retorno `false` que ninguém lia, e `renderInstCard`
+  fora da re-renderização. ⚠️ **Sintoma não reproduzido em navegador.**
+- **P35 aberta** (achado de lado): qualquer usuário autenticado — inclusive conta
+  grátis e modo demonstração — recebe o `WA_ENGINE_TOKEN` da plataforma inteira.
+  Não há exposição pública (`verify_jwt: true` medido), mas não há autorização.
+- **Smoke test da P15 reconstruído** (não estava commitado, apesar de o doc dizer
+  que existia) e rodado antes e depois: 4 blocos, o mesmo 1 erro pré-existente.
+  Veredito é **"não piorou"** — não é prova de que funciona.
+- **Nada foi deployado.** O conserto está no repo e aguarda o deploy de sessão
+  limpa que já era devido pela v19/v20.
 
 ---
 
@@ -1851,8 +1861,8 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
-| **P2** | Decidir o rate limit: `GRANT EXECUTE` a `anon` (abre superfície de ataque) **ou** trocar a credencial do engine para service role | 30/07 |
-| **P3** | Investigar o 401 do `GET /sessions` do wa-engine no painel — a tela de Conexão WhatsApp fica cega. Provável mesma raiz de credencial do P2. Não investigado | 30/07 |
+| **P2** | Decidir o rate limit: `GRANT EXECUTE` a `anon` (abre superfície de ataque) **ou** trocar a credencial do engine para service role. ⚠️ **03/08: a suposição de raiz comum com a P3 caiu** — o 401 da P3 era `Bearer ` vazio no frontend, sem relação com `anon` nem com service role. Esta pendência é isolada | 30/07 |
+| **P3** | 🟡 **DIAGNOSTICADA E CONSERTADA 03/08, AGUARDANDO DEPLOY — e a hipótese da raiz comum com a P2 está ERRADA.** O engine valida certo (`token !== WA_ENGINE_TOKEN` → 401) e o `get-wa-engine-token` está protegido (`verify_jwt: true`, **medido**). O 401 vem de `Bearer ` **vazio**: o painel declara `WA_ENGINE_TOKEN=""` e (a) a linha top-level `renderAdminVisao();...renderInstancias();...` rodava na carga do script, antes de `enterApp` buscar o token; (b) `fetchWAEngineToken` devolve `false` em três caminhos e **ninguém lia o retorno** — o `.catch` só pega exceção —, então uma falha deixava o token vazio pela sessão inteira, sem retry e sem aviso; (c) a re-renderização pós-token cobria `renderInstancias` mas **não** `renderInstCard`, que é o card "Sessões ativas", exatamente a tela cega. Consertados os três. ⚠️ **Sintoma NÃO reproduzido** — o mecanismo está lido no código, mas ninguém carregou a página e leu o console (ver P15). O smoke test dá "não piorou", não "funciona". **Consequência para a P2: ela perde o argumento de "resolve duas de uma vez" e volta a ser decisão isolada de rate limit** | 30/07 |
 | **P4** | Descobrir por que o wa-engine reiniciou sozinho às 12:45 de 30/07 (uptime 819s às 12:58, sem deploy). `CLONE_FILA` e o cache de vistas moram só em memória → todo restart descarta a fila. Olhar Deployments/Events do EasyPanel: OOM ou healthcheck | 30/07 |
 | **P5** | Enforcement server-side dos limites de plano: canais WhatsApp/Telegram e grupos WhatsApp ainda são só client-side | 03/07 |
 | **P6** | **Revogar os PATs do GitHub** — o clássico `ghp_vkOR…` acumulou 14 pushes | 30/07 |
@@ -1883,6 +1893,7 @@ código não relacionado.
 | **P15** | **Parcialmente endereçada 31/07 tarde.** Existe agora um smoke test executável: extrair os blocos `<script>`, rodar os quatro **no mesmo contexto** `vm` do Node com um DOM falso permissivo, e comparar contra o baseline **antes** do patch. Foi rodado neste push e pegaria o TDZ do `f94e2f0`. **Duas limitações medidas:** (1) dá falso positivo em `id` de elemento usado como global — `themeT.onclick` na linha 2496 acusa `ReferenceError` no sandbox e funciona no browser; por isso a comparação com o baseline é obrigatória, o veredito é "piorou?", não "tem erro?"; (2) não executa handler nenhum, só o top-level. **Continua aberta:** carregar a página num navegador de verdade e ler o console segue sendo a única prova real | 31/07 |
 | **P33** | 🟡 **CONSERTADA NA v19, AGUARDANDO DEPLOY.** Apagar o "de" deixava o `discount_pct` de pé — 5 produtos com porcentagem órfã em 02/08. O `send-post` **não** usa o campo (o post sai limpo); a lista de produtos do painel usa (linha 5799) e o formulário regrava (linha 8271). v19 zera junto, só no ML e na Amazon, onde o desconto é derivado do "de" — a Shopee fica de fora por construção (decisão da P32). **11 produtos hoje nesse estado:** 5 ML + 3 Amazon (órfãos, a v19 alcança na próxima leitura) e 3 Shopee (intencional) | 02/08 |
 | **P34** | 🟡 **CONSERTADA NA v20, AGUARDANDO DEPLOY.** ~~A rodada diária só alcança produto recém-criado.~~ Medido em 03/08: os 11 carimbos da rodada foram **todos** de produtos criados no mesmo dia às 03:25. 27 produtos criados em 24h contra `BATCH = 12`; 19 ainda com `price_checked_at` nulo; **4 Amazon parados desde 30/07 14:16** (La Roche, Kit Rapunzel, Kärcher, Calvin Klein). `nullsFirst` + ingestão maior que o lote = produto que já tem carimbo nunca volta à fila. **Não é bug do `nullsFirst`** — é o lote ser menor que a entrada diária. Saídas não decididas: subir o `BATCH`, rodar o cron mais de uma vez por dia, ou reservar parte do lote para os carimbados mais antigos. **Consertada em 03/08.** Saída escolhida: **reserva de cota** (`RESERVA_ANTIGOS = 4`, piso e não teto), a única sem aumento de consumo de leitura — `BATCH` segue 12. Duas filas (`novos` por `created_at`, `antigos` por `price_checked_at`) no lugar da ordenação global com `nullsFirst`. Contadores `candidatos_novos`/`candidatos_antigos` entram na resposta e no `resumo` jsonb, sem migration. Lógica testada em 8 cenários com os números reais do banco. ⚠️ **A v20 contém a v19**: um deploy entrega as duas, e é primeira ação de sessão limpa. Até lá produção segue na v18 e a fome continua | 03/08 |
+| **P35** | 🟠 **Qualquer usuário autenticado obtém o `WA_ENGINE_TOKEN` da plataforma inteira.** Achado de lado ao investigar a P3, em 03/08. O `get-wa-engine-token` **não checa nada em código** — sem leitura de header, sem plano, sem papel; o comentário diz "JWT verification is automatic with `verify_jwt: true`". Medido: `verify_jwt: true` está ligado, então **não** há exposição pública — mas basta uma conta grátis ou o modo demonstração para receber a credencial que dá controle do `wa-engine` de **todos** os usuários (`/sessions`, desconectar, enviar). Duas frágeis de uma vez: a proteção mora só na configuração (um deploy com `verify_jwt: false` abre tudo, sem nada no código para segurar), e não há autorização por plano. Parente da P5 e da P7. Não consertada | 03/08 |
 | **P16** | O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B". Decidir: gate técnico (feature flag / coluna desligada por padrão) ou desligar o auto-deploy do serviço `app` | 31/07 |
 
 | ~~P32~~ | ✅ **FECHADA 01/08 noite.** A Shopee devolvia `price_from = node.price`, que é o preço ATUAL e não o anterior; 3 de 3 capturas reais saíram com "de" == "por" e desconto de 53%/42%/35%, já no rodízio do grupo. `product-search` **v25** para de enviar `price_from` para a Shopee. Os 3 produtos foram limpos. O Radar, que tem leitura própria, **não** tinha o defeito — terceira vez que duas implementações da mesma coisa divergem neste repo | 01/08 |
