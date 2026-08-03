@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 31 — 03/08/2026 (tarde).** Se o número aqui não for o mais alto que você
+> **REVISÃO 32 — 03/08/2026 (fim de tarde).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1643,6 +1643,64 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**Sessão de 03/08/2026 (fim de tarde, REVISÃO 32) — o `/groups` mente por omissão.
+Cadastro de fonte por link de convite.**
+
+| | |
+|---|---|
+| Commits | 1 · `wa-engine/server.js` + as duas cópias do `index.html` + este doc |
+| Edge Functions | nenhuma tocada |
+| Migrations · dados | nenhuma |
+| Repo × produção | 🔴 até o deploy. **Este push reinicia o `wa-engine`** (P16) |
+
+🔴 **PROVADO POR COMPORTAMENTO: `groupFetchAllParticipating()` omite grupos que a
+sessão está escutando.** Medido no console do painel logado, sessão
+`+553198911521`, em 03/08 ~14:30 UTC:
+
+```
+total: 19
+TaNaMao ...737879 presente? false
+Melhores ...941813 presente? true
+nomes com # : []
+```
+
+O jid `120363426927737879@g.us` (TáNaMão – Promoções #02) é **fonte ativa**: 170
+linhas em `clone_ingest_log`, 4 capturas no dia, última mensagem às 13:51 UTC, pela
+**mesma sessão** que respondeu essa consulta. Ele entrega mensagem e não aparece no
+inventário. Nenhum dos 19 nomes tem `#` — os grupos de rede de promoção, que são
+exatamente os que servem de fonte, são os que somem.
+
+**Consequência:** o dropdown de "+ Nova fonte" **nunca foi um inventário confiável**.
+Grupo que não está nele era incadastrável pelo painel, por mais que se rolasse a
+lista. O gatilho foi o Érico não achar "Achadinhos #100" — e o grupo realmente não
+existe em `niche_groups`, `whatsapp_groups` nem `clone_sources` de ninguém.
+
+**O que entrou:**
+
+- `wa-engine`: `GET /group-invite-info?phone=&code=` — resolve JID e nome pelo link
+  de convite via `groupGetInviteInfo`. Mesma busca de sessão do `/groups`, **sem
+  fallback**, pelo mesmo motivo. Método conferido no pacote publicado
+  (`@whiskeysockets/baileys` 6.x, `groups.d.ts` linha 38; `extractGroupMetadata`
+  garante `id` com sufixo `@g.us`).
+- Frontend: campo "Cole o link de convite" no "+ Nova fonte". Resolve, injeta a
+  opção **no próprio `<select>`** marcada `(via convite)` e seleciona — `csSalvar()`
+  continua sendo o único caminho de gravação, sem ramo novo.
+- Lista vazia ou com erro **deixou de abortar o formulário**: vira aviso no topo do
+  card e o cadastro por convite segue disponível. Eram os dois `return` que
+  escondiam a única saída que funcionava.
+
+⚠️ **Falha silenciosa conhecida, por limitação do WhatsApp:** o invite info responde
+para **qualquer** código válido, inclusive de grupo em que a sessão não está. Não há
+como validar participação — a checagem que faria isso é justamente a lista furada. O
+aviso está na tela, em negrito. Ver **P39**.
+
+🔴 **Nada disso foi aberto em produção.** `node --check` no `server.js` e nos 4
+blocos inline, cópias do HTML idênticas por `md5sum`, `groupGetInviteInfo` conferido
+no tarball do npm. Isso prova que o código é válido, **não** que o convite resolve.
+Ver **P38**.
+
+---
+
 **Sessão de 03/08/2026 (tarde, REVISÃO 31) — nova aba `Link Rápido` no painel do
 afiliado. Só frontend.**
 
@@ -2358,6 +2416,25 @@ pública queimar cota alheia**. Decisão pendente (P2).
 
 ---
 
+### `/groups` — inventário incompleto por natureza (medido 03/08)
+
+`groupFetchAllParticipating()` **não é** a lista dos grupos da sessão: é um
+subconjunto, e os grupos grandes de promoção tendem a ficar de fora. Prova e números
+na "Última alteração" da REVISÃO 32.
+
+- **Não usar esse endpoint como verdade sobre participação.** Ausência ali não é
+  prova de que a sessão não está no grupo — o contraexemplo está medido.
+- O caminho de cadastro que funciona para esses grupos é o **link de convite**
+  (`/group-invite-info`).
+- Causa raiz **não investigada**. Hipóteses não testadas: subgrupo de comunidade,
+  truncamento da resposta do servidor, sincronização parcial de app-state depois do
+  restart. A correção entregue contorna, não explica.
+- O listener do Clone Post **vê** as mensagens de todos os grupos e descarta os não
+  cadastrados em `if (!CLONE_JIDS.has(jid)) continue`. O inventário que falta é
+  barato de construir a partir daí — é a **P40**, adiada de propósito.
+
+---
+
 ### Link Rápido (aba nova, 03/08 — NÃO MEDIDA EM PRODUÇÃO)
 
 Aba do menu do afiliado, logo abaixo de "Postar Agora" (`data-page="link-rapido"`,
@@ -2499,6 +2576,9 @@ código não relacionado.
 
 | ~~P32~~ | ✅ **FECHADA 01/08 noite.** A Shopee devolvia `price_from = node.price`, que é o preço ATUAL e não o anterior; 3 de 3 capturas reais saíram com "de" == "por" e desconto de 53%/42%/35%, já no rodízio do grupo. `product-search` **v25** para de enviar `price_from` para a Shopee. Os 3 produtos foram limpos. O Radar, que tem leitura própria, **não** tinha o defeito — terceira vez que duas implementações da mesma coisa divergem neste repo | 01/08 |
 | **P37** | 🔴 **Provar o `Link Rápido` por comportamento.** A aba foi codada e validada só no arquivo (`node --check` nos 4 blocos inline, `md5sum` idêntico entre as duas cópias). **Não foi aberta em produção nem uma vez.** Medir, depois do Deploy, com um link real de cada caminho: **Shopee encurtada** (`s.shopee.com.br/…`), **ML `/sec/`**, **Amazon `amzn.to`** e **um link completo, sem encurtador**. Em cada um, conferir na tela: (1) o alerta ficou verde, (2) o link entregue contém o ID de afiliado da conta logada — abrir o link e olhar a URL final, não confiar no que a tela escreveu. Testar também o caminho amarelo: loja **sem** credencial cadastrada tem que recusar o verde | 03/08 |
+| **P38** | 🔴 **Provar o cadastro por link de convite.** Depois do deploy: copiar "Convidar via link" do **Achadinhos #100** no WhatsApp, colar no "+ Nova fonte" e conferir que resolve nome e JID, que a opção entra selecionada no select e que o `clone_sources` grava `source_jid` e `source_label` certos. Prova final é **comportamento**: esperar mensagem de oferta nesse grupo e ver linha nova em `clone_ingest_log` com esse `source_jid`. Sem isso, o que existe é um formulário bonito | 03/08 |
+| **P39** | 🟡 **Fonte cadastrada em grupo onde a sessão não está falha calada.** O invite info responde para qualquer código válido, então dá pra cadastrar fonte de grupo alheio e ela nunca captura — sem erro em lugar nenhum. Hoje o único aviso é texto na tela. Sinalizar no card da fonte quando ela passar N dias com **zero** linha em `clone_ingest_log`: é o mesmo defeito de fundo de "mecanismo que parece existir e não executa nada" | 03/08 |
+| **P40** | 🔵 **Inventário de grupos ouvidos no `wa-engine`** — registrar `jid → {nome, visto_em}` de todo grupo de onde chega mensagem e somar essa lista à do Baileys no dropdown. **Adiado de propósito:** o registro teria que acontecer **antes** do filtro `CLONE_DONOS`, no caminho quente de toda mensagem de toda sessão, incluindo a admin `…73545214` — e errar o filtro por `phone` no endpoint vaza nome de grupo entre contas, que é exatamente o bug que o comentário "SEM FALLBACK, de proposito" do `/groups` documenta ter acontecido. Também exige `groupMetadata(jid)` por JID novo, o que vira rajada de consultas ao WhatsApp depois de cada restart. Sessão limpa, com cache e throttle | 03/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
