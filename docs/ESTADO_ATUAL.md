@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 36 — 04/08/2026 (manhã).** Se o número aqui não for o mais alto que você
+> **REVISÃO 37 — 04/08/2026 (tarde).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1643,6 +1643,144 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**Sessão de 04/08/2026 (tarde, REVISÃO 37) — P45: o teto subiu para 30, o que ele
+barra passa a aparecer no card, e o contador do card estava errado 3 horas por dia.**
+
+| | |
+|---|---|
+| Commits | 1 · as duas cópias do `index.html` + este doc |
+| Edge Functions · `wa-engine` · migrations | **nenhuma tocada** |
+| Dados | `clone_sources.max_per_day` **10 → 30** nas duas fontes |
+| Repo × produção | 🔴 até o Deploy do serviço `app`. **Este push reinicia o `wa-engine`** (P16) |
+
+🔴 **A razão de existir do teto não vale para a fonte que ele está barrando.** O
+comentário na linha 24 da `clone-ingest` diz para que ele foi criado: *"cada captura
+vira uma product-search; no ML isso é Scrape.do a 10 créditos"*. Medido em 04/08 no
+Achadinhos #34: as 10 capturas do dia são **8 Amazon + 2 Shopee, zero Mercado Livre**.
+Amazon é `consultarAmazonDireto` (fetch na página, de graça) e Shopee é API de afiliado
+com credencial do usuário (de graça). **Nenhuma captura desta fonte consome
+Scrape.do.** Consumo de agosto até agora: **80 de 1000 créditos**.
+
+### Os números que decidiram
+
+| medida (04/08, Achadinhos #34) | valor |
+|---|---|
+| capturas | 10, **todas entre 08:16 e 08:48 BRT** |
+| tempo até encher o teto | **32 minutos** |
+| recusas por teto, de 08:52 a 10:50 | **31** |
+| ritmo do grupo | ~15 mensagens com link por hora |
+
+**E esta fonte é de outra qualidade.** Aproveitamento das mensagens que chegam a ser
+avaliadas (`salvo` sobre `salvo+resolve_falhou+duplicado`):
+
+| dia | fonte | avaliadas | aproveitamento |
+|---|---|---|---|
+| **04/08** | **Achadinhos #34** | 44 | **77%** |
+| 02/08 | TáNaMão | 88 | 17% |
+| 01/08 | TáNaMão | 68 | 19% |
+| 31/07 | TáNaMão | 42 | 21% |
+
+**O teto de 10 foi calibrado num mundo em que ~80% das mensagens morriam na
+`resolve-link`.** Numa fonte onde quase tudo vira captura, ele satura antes das 9 da
+manhã. O argumento de 03/08 para mantê-lo em 10 — *"o gargalo é quem revisa"* — também
+enfraqueceu: `clone_posts` tem **53 approved, 8 rejected, 10 pending**, e os 10 pending
+são todos de hoje. A fila estava zerada.
+
+**Decidido pelo Érico em 04/08: subir para 30 E mostrar no card o que o teto barrou.**
+Baseline antes do UPDATE, às 13:56:09 UTC: as duas fontes em `max_per_day = 10`,
+Achadinhos com `captured_today = 10` em `captured_day = 2026-08-04`.
+
+⚠️ **O `max_per_day` das fontes NOVAS continua nascendo em 10** — é o default da
+coluna, não foi tocado. Decisão consciente: mudar o default muda o comportamento de
+toda fonte futura de todo usuário, e isso é decisão de produto, não consequência
+desta.
+
+### ✅ PROVADO POR COMPORTAMENTO, 7 minutos depois do UPDATE
+
+O UPDATE saiu às **13:56:09 UTC**. Não foi disparado nada à mão: o grupo entrega uma
+mensagem a cada ~4 minutos e a `clone-ingest` roda de 5 em 5, então a prova chegou de
+graça.
+
+| | antes | depois |
+|---|---|---|
+| última linha do log | `teto` às 13:53:04 UTC | **`salvo`** às **14:03:26 UTC** · Shopee · *"aguardando revisao"* |
+| `captured_today` | 10 | **11** |
+| `clone_posts` criados depois do UPDATE | — | **1, `pending`** |
+
+**A captura de número 11 é a prova:** com `max_per_day = 10` ela teria saído `teto`,
+que é literalmente o que as 31 anteriores fizeram na mesma fonte, no mesmo dia, com o
+mesmo código. O que mudou entre elas foi um número no banco. E a cadeia não parou no
+log — virou linha em `clone_posts`, na fila de revisão.
+
+### ⚠️ E a prova trouxe um efeito colateral junto: isto valoriza a P36
+
+Na mesma janela, às 14:01:44 UTC, entrou um **`resolve_falhou` de vitrine do Mercado
+Livre** (`link_host = mercadolivre.com.br`, *"leva a VITRINE do afiliado"*). Ele só
+chegou à `resolve-link` **porque o teto deixou de barrá-lo antes**.
+
+O teto era, sem que ninguém tivesse decidido isso, o que segurava as **44 recusas/dia
+de vitrine de ML** medidas em 03/08 — elas morriam no teto antes de gastar uma
+`resolve-link`. Com o teto em 30, elas voltam a gastar. **A `clone-ingest` v17 (P36) é
+exatamente o pré-filtro que resolve isso, está codada e validada desde 03/08 e continua
+sem deploy.** Ela deixou de ser economia opcional: subir o teto sem ela troca ofertas
+barradas por chamadas desperdiçadas. **Deployar a v17 é a próxima ação.**
+
+### 🔎 O número já estava na tela — e por isso ninguém o via
+
+A pendência pedia "mostrar quantas ofertas o teto barrou". Ao abrir o código, ele já
+estava lá: o `csVereditoHtml` imprime `CS_ROTULO_STATUS.teto` = *"acima do teto do
+dia"* no meio de uma lista de até sete status **ordenada por frequência**. As 31
+apareciam como *"31 acima do teto do dia"*, sem dizer que aquilo era oferta que
+existia, resolvia e foi descartada por configuração e não por qualidade — e sem
+oferecer o que fazer a respeito.
+
+**A entrega mudou de forma por causa disso:** não é contagem nova, é linha própria
+(`csTetoBarradoHtml`, só renderiza quando há barrada) mais dois botões `−`/`+` no card
+(`csAjustarTeto`, passo de 5) que gravam direto no clique, no mesmo padrão do
+`csAlternarLoja`. **Os limites 1 e 50 são os mesmos do formulário de nova fonte**, de
+propósito: dois lugares gravando a mesma coluna com tetos diferentes seria a
+divergência `mercadolivre`/`mercado_livre` de novo, agora em número.
+
+### 🔴 Achado no caminho: o contador do card mentia 3 horas por dia
+
+O `csRender` calculava `const hoje = new Date().toISOString().slice(0,10)` — **UTC** —
+e comparava com `captured_day`, que a `clone-ingest` grava em **America/Sao_Paulo**
+(comentário na linha 273 dela). **Entre 21:00 e 00:00 BRT o UTC já virou e o
+`captured_day` não:** nessas 3 horas o card mostrava *"0 de 30 hoje"* numa fonte que
+estava no teto, e a barra de uso voltava sozinha para zero. Corrigido com `csDiaBR()`,
+que usa `en-CA` no fuso de São Paulo (mesmo formato de `captured_day`) e cai num −3h
+fixo se o `Intl` falhar — São Paulo não tem horário de verão desde 2019.
+
+Foi achado porque a contagem de barradas precisa da **mesma janela** do contador de
+uso: os dois números ficam um debaixo do outro no card, e contar as barradas em 24h
+móveis ao lado de *"10 de 30 hoje"* entregaria duas contas que não fecham entre si.
+
+⚠️ **`new Date().toISOString().slice(0,10)` aparece mais 2 vezes no arquivo** — no KPI
+de cliques (linha ~2639) e no limite diário do plano Starter (linha ~9313). **As duas
+provavelmente têm o mesmo defeito de fuso e NÃO foram tocadas** (escopo estrito). A do
+Starter é a que importa: ela decide se um post é bloqueado, então entre 21h e meia-noite
+o limite diário do Starter pode estar zerando cedo demais. **Não medido.**
+
+### Validação
+
+- `node --check` nos 4 blocos inline das duas cópias: **ok**, e `md5sum` idêntico
+  (`ace3c6c1…`).
+- **Smoke test do P15 comparado com o baseline:** os dois arquivos param no mesmo
+  ponto, com os mesmos 2 erros de sandbox — o `themeT.onclick` da linha 2496 que o
+  próprio P15 documenta como falso positivo. Veredito **"não piorou"**. ⚠️ **E isso
+  vale menos do que parece aqui:** a parada em 2496 é **antes** do código novo (~8700),
+  então o smoke test não chegou a executar nada do que esta sessão escreveu.
+- **18 casos de mesa, 18 passaram** — e as três funções foram **extraídas do
+  `frontend/index.html` real** por varredura de chaves, não reescritas no teste: senão
+  provariam a minha cópia e não o que vai para o ar. Cobrem a virada do dia em SP nos
+  dois sentidos, o clamp nas duas pontas, a linha que não renderiza sem barrada, e o
+  erro do banco **não** mexendo no estado local.
+
+🔴 **Nada disso está medido em produção.** É a mesma classe de prova da P37: arquivo
+válido não é tela funcionando. Depois do Deploy, ver **P46**.
+
+---
+
 **Sessão de 04/08/2026 (manhã, REVISÃO 36) — P38 FECHADA. A mensagem temporária era
 mesmo a causa, e agora está provado com número.**
 
@@ -2566,10 +2704,17 @@ Captura ofertas de grupos-fonte de terceiros e replica nos grupos do usuário.
   mesmo padrão dos Grupos de Oferta). Cada card mostra uso do dia com barra, última
   captura, e resumo de 24h vindo do log. Card tracejado "+ Nova fonte" trava no teto
   do plano.
-- **Fontes ativas hoje: 1.** "Melhores Ofertas da Internet" (ativa, `last_capture_at`
-  **nulo** — nunca capturou nada) e TáNaMão – Promoções #02 (**`active = false`**,
-  5 capturas em 30/07, última às 16:38). A TáNaMão é a única que já produziu oferta,
-  e está desligada. Ver P13.
+- **Fontes, medidas em 04/08 à tarde** (o registro anterior era de 01/08 e estava
+  errado em todas as linhas):
+
+  | fonte | `active` | `max_per_day` | último dia com captura |
+  |---|---|---|---|
+  | Grupo de Achadinhos #34 | **true** | **30** | 04/08, 10 capturas |
+  | Melhores Ofertas da Internet | false | **30** | 03/08, 9 capturas |
+
+  A **TáNaMão – Promoções #02 não está mais na tabela** — foi apagada em 03/08 depois
+  que o admin do grupo removeu o Érico (P41). O Achadinhos #34 foi cadastrado por
+  **link de convite** (P38) e é a única fonte capturando hoje.
 - **Primeiro veredito lido (30/07):** `resolve_falhou` ("só link de convite de grupo,
   nenhum link de produto") e `outro_dono`. **A captura sempre funcionou** — o que
   chegava não era oferta.
@@ -2810,7 +2955,9 @@ código não relacionado.
 | ~~P32~~ | ✅ **FECHADA 01/08 noite.** A Shopee devolvia `price_from = node.price`, que é o preço ATUAL e não o anterior; 3 de 3 capturas reais saíram com "de" == "por" e desconto de 53%/42%/35%, já no rodízio do grupo. `product-search` **v25** para de enviar `price_from` para a Shopee. Os 3 produtos foram limpos. O Radar, que tem leitura própria, **não** tinha o defeito — terceira vez que duas implementações da mesma coisa divergem neste repo | 01/08 |
 | **P37** | 🔴 **Provar o `Link Rápido` por comportamento.** A aba foi codada e validada só no arquivo (`node --check` nos 4 blocos inline, `md5sum` idêntico entre as duas cópias). **Não foi aberta em produção nem uma vez.** Medir, depois do Deploy, com um link real de cada caminho: **Shopee encurtada** (`s.shopee.com.br/…`), **ML `/sec/`**, **Amazon `amzn.to`** e **um link completo, sem encurtador**. Em cada um, conferir na tela: (1) o alerta ficou verde, (2) o link entregue contém o ID de afiliado da conta logada — abrir o link e olhar a URL final, não confiar no que a tela escreveu. Testar também o caminho amarelo: loja **sem** credencial cadastrada tem que recusar o verde | 03/08 |
 | ~~P38~~ | ✅ **FECHADA 04/08 por comportamento.** ~~Provar o cadastro por link de convite.~~ Medido às 13:32 UTC: **39 linhas** em `clone_ingest_log` para `120363042232139638@g.us`, sendo **10 `salvo`** (8 Amazon, 2 Shopee), 26 `teto` e 3 `resolve_falhou`. Última linha 30 s antes da consulta. Fecha o convite **e** o desembrulho da mensagem temporária no mesmo experimento: a fonte foi cadastrada por link de convite e a captura só passou a existir depois do conserto do `ephemeralMessage`. Antes: zero linhas em 10 h 20 | 03/08 |
-| **P45** | 🔵 **O teto de 10/dia por fonte virou o gargalo, e agora há número.** Em 04/08 o Achadinhos #34 teve **26 recusas por teto contra 10 capturas**. O teto foi posto para conter consulta de loja (cada captura custa uma leitura), não para limitar oferta boa. Decidir: subir o teto por fonte, tornar o teto função do plano, ou deixar como está e mostrar no card quantas ofertas o teto barrou — hoje o dono não vê esse número em lugar nenhum, e ele é justamente o argumento de upgrade | 04/08 |
+| ~~P45~~ | ✅ **RESOLVIDA 04/08 à tarde, e a premissa dela caiu na medição.** ~~O teto de 10/dia virou o gargalo.~~ **O teto foi criado para conter Scrape.do no ML; as capturas desta fonte são 8 Amazon + 2 Shopee, zero ML — custo de crédito ZERO.** Teto encheu em **32 minutos** (08:16→08:48 BRT), 31 recusas nas 2h seguintes, ritmo de ~15 mensagens/hora, aproveitamento de **77%** contra 17–21% das fontes antigas. Fila de revisão não era gargalo: 53 approved, 8 rejected, 10 pending todos de hoje. **Feito:** `max_per_day` 10 → **30** nas duas fontes (baseline registrado), linha própria no card com o que o teto barrou (`csTetoBarradoHtml`) e botões `−`/`+` para ajustar (`csAjustarTeto`, clamp 1–50, o mesmo do formulário). ⚠️ **O default da coluna continua 10** — fonte nova nasce em 10 de propósito, mudar isso é decisão de produto. ✅ **Provado por comportamento 7 min depois do UPDATE:** a captura nº 11 saiu `salvo` (com teto 10 teria saído `teto`, como as 31 anteriores), `captured_today` 10 → 11, `clone_posts` novo `pending`. ⚠️ **Efeito colateral medido:** o teto era o que segurava as 44 recusas/dia de vitrine de ML antes da `resolve-link` — com o teto em 30 elas voltam a gastar chamada, o que **torna o deploy da P36 (v17) necessário e não mais opcional**. **A prova de tela é a P46** | 04/08 |
+| **P46** | 🔴 **Provar no navegador o card do teto — nada disto foi aberto em produção.** Depois do Deploy do `app`, na sessão logada: (1) a linha laranja **⛔ N oferta(s) ficaram de fora hoje** aparece no card do Achadinhos #34 e o N bate com `select count(*) from clone_ingest_log where status='teto'` **do dia em São Paulo**; (2) um clique real no **+** grava `max_per_day` no banco — conferir a linha, não a tela, que é a ressalva que a P31 deixou aberta por duas sessões; (3) o **−** em 1 e o **+** em 50 recusam com toast; (4) fonte **sem** barrada não mostra a linha (a "Melhores Ofertas" serve de controle negativo); (5) console limpo num load completo, e `csRender`/`csSalvar` continuam `function` — é esse controle que descarta TDZ. ⚠️ **O smoke test NÃO cobre este código:** ele para no falso positivo da linha 2496, e o código novo está na ~8700 | 04/08 |
+| **P47** | 🟡 **O mesmo defeito de fuso do card pode estar no limite diário do Starter.** `new Date().toISOString().slice(0,10)` aparece mais 2 vezes no `index.html`: KPI de cliques (~2639) e **limite de 5 posts/dia do plano Starter (~9313)**. O do card foi corrigido nesta sessão (`csDiaBR`); os outros dois **não foram tocados** por escopo estrito. O do Starter decide se um post é bloqueado — entre 21h e meia-noite BRT o contador dele pode virar cedo demais e liberar 5 posts a mais, ou barrar cedo. **Lido no código, NÃO medido** | 04/08 |
 | **P39** | 🟡 **Fonte cadastrada em grupo onde a sessão não está falha calada.** O invite info responde para qualquer código válido, então dá pra cadastrar fonte de grupo alheio e ela nunca captura — sem erro em lugar nenhum. Hoje o único aviso é texto na tela. Sinalizar no card da fonte quando ela passar N dias com **zero** linha em `clone_ingest_log`: é o mesmo defeito de fundo de "mecanismo que parece existir e não executa nada" | 03/08 |
 | **P40** | 🔵 **Inventário de grupos ouvidos no `wa-engine`** — registrar `jid → {nome, visto_em}` de todo grupo de onde chega mensagem e somar essa lista à do Baileys no dropdown. **Adiado de propósito:** o registro teria que acontecer **antes** do filtro `CLONE_DONOS`, no caminho quente de toda mensagem de toda sessão, incluindo a admin `…73545214` — e errar o filtro por `phone` no endpoint vaza nome de grupo entre contas, que é exatamente o bug que o comentário "SEM FALLBACK, de proposito" do `/groups` documenta ter acontecido. Também exige `groupMetadata(jid)` por JID novo, o que vira rajada de consultas ao WhatsApp depois de cada restart. Sessão limpa, com cache e throttle | 03/08 |
 | **P41** | 🟡 **Ser removido do grupo-fonte é o risco operacional do Clone Post, e hoje ninguém percebe.** O admin da "TáNaMão – Promoções #02" removeu o Érico do grupo em 03/08 — provavelmente por notar a clonagem. Do lado do painel isso é indistinguível de grupo parado: a fonte segue `active`, sem erro, sem aviso. Junta-se à **P39** (fonte em grupo onde a sessão não está): as duas terminam na mesma tela e pedem o mesmo remédio — **sinalizar no card a fonte que passou N dias sem nenhuma linha em `clone_ingest_log`**. Vale considerar também espaçar/limitar a clonagem por fonte, porque republicar rápido demais é o que denuncia | 04/08 |
@@ -2841,6 +2988,26 @@ código não relacionado.
 - **Dado calculado que não chega a nenhuma tela é dado que não existe.** Mesmo defeito
   de fundo do `price_changed`, do `expired` e da ingestão do clone: a informação era
   produzida e descartada antes de virar tela.
+- **E o degrau seguinte: dado que chega à tela dentro de uma lista de sete não
+  existe também.** A P45 pediu "mostrar quantas ofertas o teto barrou" e o número já
+  estava na tela — como *"31 acima do teto do dia"*, quinto item de uma lista ordenada
+  por frequência, ao lado de "3 link não resolveu" e "6 repetidas". Estava correto e
+  era invisível: nada ali dizia que aquele item era o único que representava oferta boa
+  perdida por configuração, nem oferecia o que fazer. **Antes de construir a contagem
+  que alguém pediu, procurar se ela já está na tela sem hierarquia** — o trabalho pode
+  ser de destaque e ação, não de cálculo.
+- **Contador de período só é comparável a outro contador do MESMO período.** O card
+  mostra "10 de 30 hoje" (dia em São Paulo, vindo da `clone-ingest`) e ia mostrar as
+  barradas do veredito (24h móveis, vindo da tela). Os dois números ficam um debaixo do
+  outro e o dono os lê como uma conta só. Foi ao alinhar as janelas que apareceu o
+  defeito real: a tela calculava "hoje" em **UTC** e comparava com um `captured_day`
+  gravado em **São Paulo** — 3 horas por dia, das 21h à meia-noite, o card zerava o uso
+  de uma fonte que estava no teto. **Quando dois números aparecem juntos, a janela dos
+  dois faz parte do recurso.**
+- **Prova de fuso precisa de caso na virada, não no meio do dia.** Testar `csDiaBR` ao
+  meio-dia passa nos dois códigos, o certo e o errado. O que separa é 01:00 UTC — que é
+  22h do dia anterior em São Paulo. **Todo teste de data tem que incluir a hora em que
+  os dois fusos discordam**, senão ele confirma o bug em vez de pegá-lo.
 
 - **Cache compartilhado entre produtores independentes vira corrida, não economia.**
   `CLONE_VISTAS` foi escrito como "não reenviar a mesma mensagem duas vezes no mesmo

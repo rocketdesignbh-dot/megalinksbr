@@ -293,6 +293,10 @@ tr:hover td{background:var(--surf2)}
 .cs-loja.on{border-color:var(--volt);background:rgba(25,226,125,.14);color:var(--volt)}
 .cs-loja-conta{font-size:11px;color:var(--mut);line-height:1.6;margin-top:7px}
 .cs-loja-conta b{color:var(--tx2)}
+.cs-barrado{font-size:11.5px;color:#F59E0B;line-height:1.6;margin-top:7px;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:7px 9px}
+.cs-barrado b{color:#F59E0B}
+.cs-teto-bt{font-family:inherit;font-size:12px;font-weight:700;line-height:1;width:20px;height:20px;margin-left:4px;border-radius:6px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2);vertical-align:middle}
+.cs-teto-bt:hover{border-color:var(--volt);color:var(--volt)}
 .cs-loja-check{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--tx);cursor:pointer}
 .cs-loja-check input{width:auto;margin:0}
 .cs-add{border:1px dashed var(--bd2);background:transparent;border-radius:var(--r-sm);padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:150px;cursor:pointer;color:var(--tx2);font-size:12.5px;text-align:center;transition:border-color .15s,color .15s}
@@ -8585,6 +8589,21 @@ const CS_ROTULO_STATUS={
   erro:"erro"
 };
 
+// P45 - o dia do contador do teto e o de Sao Paulo, nao o de UTC.
+// A clone-ingest grava captured_day em America/Sao_Paulo (comentario na linha
+// 273 dela); a tela comparava contra new Date().toISOString(), que e UTC.
+// Entre 21:00 e 00:00 BRT o UTC ja virou e o captured_day nao: nessas 3 horas o
+// card mostrava "0 de 30 hoje" numa fonte que estava no teto, e a barra voltava
+// a zero sozinha. Defeito pre-existente, achado ao ligar a contagem de barradas
+// — mostrar quantas o teto barrou em cima de um contador errado seria construir
+// sobre defeito conhecido.
+function csDiaBR(d){
+  // en-CA da aaaa-mm-dd, que e exatamente o formato de captured_day.
+  // O fallback e -3h fixo: Sao Paulo nao tem horario de verao desde 2019.
+  try{return d.toLocaleDateString("en-CA",{timeZone:"America/Sao_Paulo"});}
+  catch(e){return new Date(d.getTime()-10800000).toISOString().slice(0,10);}
+}
+
 function csQuandoTxt(iso){
   if(!iso)return "sem captura ainda";
   const min=Math.floor((Date.now()-new Date(iso).getTime())/60000);
@@ -8603,14 +8622,20 @@ async function csCarregarVereditos(){
   if(!CS_FONTES.length)return;
   const desde=new Date(Date.now()-86400000).toISOString();
   const{data,error}=await SB.from("clone_ingest_log")
-    .select("source_jid,status").gte("created_at",desde).limit(2000);
+    .select("source_jid,status,created_at").gte("created_at",desde).limit(2000);
   if(error||!data)return;
+  // P45 - o veredito e de 24h moveis, mas o teto zera na virada do dia em Sao
+  // Paulo. Os dois numeros aparecem no mesmo card, um debaixo do outro: contar
+  // as barradas em 24h ao lado de "10 de 30 hoje" entregaria duas contas que
+  // nao fecham entre si e mandaria o dono conferir a diferenca.
+  const hojeBR=csDiaBR(new Date());
   for(const r of data){
     const j=r.source_jid||"";
-    if(!CS_VEREDITOS[j])CS_VEREDITOS[j]={total:0,por:{}};
+    if(!CS_VEREDITOS[j])CS_VEREDITOS[j]={total:0,por:{},tetoHoje:0};
     CS_VEREDITOS[j].total++;
     const rot=CS_ROTULO_STATUS[r.status]||r.status;
     CS_VEREDITOS[j].por[rot]=(CS_VEREDITOS[j].por[rot]||0)+1;
+    if(r.status==="teto"&&r.created_at&&csDiaBR(new Date(r.created_at))===hojeBR)CS_VEREDITOS[j].tetoHoje++;
   }
 }
 
@@ -8688,6 +8713,39 @@ async function csAlternarLoja(id,slug){
   csRender();
 }
 
+// P45 - o numero ja estava na tela e ninguem o via. O csVereditoHtml lista
+// "31 acima do teto do dia" no meio de ate sete status ordenados por
+// frequencia, sem dizer o que aquilo significa: oferta que existia, resolvia e
+// foi descartada por configuracao, nao por qualidade. Aqui ele ganha linha
+// propria, com o teto ao lado para a conta fechar na mesma frase. So aparece
+// quando ha barrada — card sem barrada nao ganha ruido.
+function csTetoBarradoHtml(f){
+  const v=CS_VEREDITOS[f.source_jid||""];
+  const n=(v&&v.tetoHoje)?v.tetoHoje:0;
+  if(!n)return "";
+  const teto=Number(f.max_per_day||10);
+  return '<div class="cs-barrado">\u26d4 <b>'+n+'</b> oferta(s) ficaram de fora hoje \u2014 o grupo entregou mais do que o teto de <b>'
+    +teto+'</b> por dia deixa passar.</div>';
+}
+
+// O ajuste grava direto no clique, como o csAlternarLoja: e o padrao que esta
+// tela ja usa e o unico que nao exige um modal novo.
+// Os limites 1 e 50 sao OS MESMOS do formulario de nova fonte, de proposito.
+// Dois lugares que gravam a mesma coluna com tetos diferentes seriam a
+// divergencia mercadolivre/mercado_livre outra vez, agora em numero.
+async function csAjustarTeto(id,delta){
+  const f=CS_FONTES.find(x=>String(x.id)===String(id));
+  if(!f)return;
+  const atual=Number(f.max_per_day||10);
+  const novo=Math.min(Math.max(atual+Number(delta||0),1),50);
+  if(novo===atual){toast(Number(delta)>0?"50 por dia \u00e9 o m\u00e1ximo por fonte.":"1 por dia \u00e9 o m\u00ednimo.","\u26a0\ufe0f");return;}
+  const{error}=await SB.from("clone_sources").update({max_per_day:novo}).eq("id",id);
+  if(error){toast("N\u00e3o consegui mudar o teto: "+error.message,"\u26a0\ufe0f");return;}
+  f.max_per_day=novo;
+  toast("Teto desta fonte agora \u00e9 "+novo+" por dia.","\u2705");
+  csRender();
+}
+
 function csVereditoHtml(jid){
   const v=CS_VEREDITOS[jid];
   if(!v||!v.total){
@@ -8749,7 +8807,7 @@ function csRender(){
   const box=document.getElementById("csBox");
   if(!box)return;
   const nomeGrupo=id=>{const g=S.grupos.find(x=>String(x.db_id||x.id)===String(id));return g?g.nome:"\u2014 grupo removido \u2014";};
-  const hoje=new Date().toISOString().slice(0,10);
+  const hoje=csDiaBR(new Date());
 
   const cards=CS_FONTES.map(function(f){
     // captured_today so vale se o contador for de hoje: quem zera e a
@@ -8775,8 +8833,9 @@ function csRender(){
         <div class="cs-bar${cheio?" full":""}"><i style="width:${pct}%"></i></div>
       </div>
       ${csVereditoHtml(f.source_jid)}
+      ${csTetoBarradoHtml(f)}
       ${csLojasHtml(f)}
-      <div class="cs-meta" style="margin-top:2px">🕐 captura o dia inteiro · até ${teto} por dia</div>
+      <div class="cs-meta" style="margin-top:2px">🕐 captura o dia inteiro · até ${teto} por dia<button type="button" class="cs-teto-bt" title="Diminuir o teto em 5 por dia" onclick="csAjustarTeto('${f.id}',-5)">−</button><button type="button" class="cs-teto-bt" title="Aumentar o teto em 5 por dia" onclick="csAjustarTeto('${f.id}',5)">+</button></div>
       <div class="cs-acoes">
         <button class="btn btn-ghost btn-sm" onclick="csAlternar('${f.id}',${f.active?"false":"true"})">${f.active?"Pausar":"Ativar"}</button>
         <button class="btn btn-ghost btn-sm" onclick="csRemover('${f.id}')">Remover</button>
