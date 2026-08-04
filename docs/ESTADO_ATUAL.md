@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 37 — 04/08/2026 (tarde).** Se o número aqui não for o mais alto que você
+> **REVISÃO 38 — 04/08/2026 (tarde).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1643,6 +1643,66 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**Sessão de 04/08/2026 (tarde, REVISÃO 38) — P46 FECHADA no navegador logado, e com
+ela cai a ressalva que a P31 carregava desde 01/08: um clique de mouse real gravando
+no banco.**
+
+| | |
+|---|---|
+| Commits | 1 · só este doc |
+| Código | nada novo. Esta revisão é medição |
+| Deploy | auto-deploy do `app` pegou sozinho, conferido no código servido |
+
+✅ **A REVISÃO 37 está no ar e EXECUTOU** — não é conferência de bytes. Lido na sessão
+logada do Érico, em `www.megalinksbr.com.br`:
+
+| conferência | resultado |
+|---|---|
+| `csDiaBR`, `csTetoBarradoHtml`, `csAjustarTeto` | **todas `function`** |
+| **controle:** `csRender`, `csSalvar`, `csAlternarLoja`, `csVereditoHtml` | **continuam `function`** |
+| `.cs-barrado` e `.cs-teto-bt` nas folhas carregadas | **presentes** |
+| console num load completo | **zero erros** |
+
+O controle das peças antigas é o que descarta TDZ: se o bloco `<script>` tivesse
+explodido no meio, `csRender` teria sumido junto — foi essa a assinatura do `f94e2f0`.
+
+### ✅ O clique real, que faltava há duas sessões
+
+A P31 fechou em 01/08 com uma ressalva escrita: *"um clique real num chip, na sessão
+logada, gravando no banco, NÃO foi observado"*. O `csAjustarTeto` usa **o mesmo padrão
+de `update`** do `csAlternarLoja`, e agora esse padrão foi exercitado com **clique de
+mouse de verdade** — não `.click()` programático, não chamada de função:
+
+| | |
+|---|---|
+| antes do clique | `max_per_day` = **30** no banco |
+| clique de mouse no `+` do card | 1 clique só |
+| depois | `max_per_day` = **35** no banco, e a tela redesenhou com 35 em **3 lugares** |
+
+**Um clique só, de propósito.** Clicar duas vezes e voltar ao estado inicial dá
+resultado idêntico ao de "não funcionou" — é o erro de método registrado em 01/08.
+**Estado restaurado por UPDATE explícito** de volta para 30, que é o valor decidido,
+e a restauração está marcada como restauração e não como teste.
+
+### A contagem bate com o banco
+
+| | tela | banco (dia em São Paulo) |
+|---|---|---|
+| barradas por teto | **32** | **32** |
+| capturadas | **11** | **11** |
+
+E o **controle negativo estava do lado, na mesma imagem**: a "Melhores Ofertas da
+Internet" tem 4 capturadas em 24h, `tetoHoje = 0` e **nenhuma linha laranja** — a
+linha só renderiza onde há barrada, como desenhada.
+
+⚠️ **O que isto NÃO prova.** O chip de loja da P31 continua sem clique real próprio;
+o que foi exercitado é o padrão de escrita que os dois compartilham. E `csDiaBR` foi
+medido no navegador com os casos de virada — às 21h BRT o código antigo devolveria
+`2026-08-05` e o novo devolve `2026-08-04`, confirmando que o defeito das 3 horas era
+real e não dedução de leitura de código.
+
+---
+
 **Sessão de 04/08/2026 (tarde, REVISÃO 37) — P45: o teto subiu para 30, o que ele
 barra passa a aparecer no card, e o contador do card estava errado 3 horas por dia.**
 
@@ -2956,7 +3016,7 @@ código não relacionado.
 | **P37** | 🔴 **Provar o `Link Rápido` por comportamento.** A aba foi codada e validada só no arquivo (`node --check` nos 4 blocos inline, `md5sum` idêntico entre as duas cópias). **Não foi aberta em produção nem uma vez.** Medir, depois do Deploy, com um link real de cada caminho: **Shopee encurtada** (`s.shopee.com.br/…`), **ML `/sec/`**, **Amazon `amzn.to`** e **um link completo, sem encurtador**. Em cada um, conferir na tela: (1) o alerta ficou verde, (2) o link entregue contém o ID de afiliado da conta logada — abrir o link e olhar a URL final, não confiar no que a tela escreveu. Testar também o caminho amarelo: loja **sem** credencial cadastrada tem que recusar o verde | 03/08 |
 | ~~P38~~ | ✅ **FECHADA 04/08 por comportamento.** ~~Provar o cadastro por link de convite.~~ Medido às 13:32 UTC: **39 linhas** em `clone_ingest_log` para `120363042232139638@g.us`, sendo **10 `salvo`** (8 Amazon, 2 Shopee), 26 `teto` e 3 `resolve_falhou`. Última linha 30 s antes da consulta. Fecha o convite **e** o desembrulho da mensagem temporária no mesmo experimento: a fonte foi cadastrada por link de convite e a captura só passou a existir depois do conserto do `ephemeralMessage`. Antes: zero linhas em 10 h 20 | 03/08 |
 | ~~P45~~ | ✅ **RESOLVIDA 04/08 à tarde, e a premissa dela caiu na medição.** ~~O teto de 10/dia virou o gargalo.~~ **O teto foi criado para conter Scrape.do no ML; as capturas desta fonte são 8 Amazon + 2 Shopee, zero ML — custo de crédito ZERO.** Teto encheu em **32 minutos** (08:16→08:48 BRT), 31 recusas nas 2h seguintes, ritmo de ~15 mensagens/hora, aproveitamento de **77%** contra 17–21% das fontes antigas. Fila de revisão não era gargalo: 53 approved, 8 rejected, 10 pending todos de hoje. **Feito:** `max_per_day` 10 → **30** nas duas fontes (baseline registrado), linha própria no card com o que o teto barrou (`csTetoBarradoHtml`) e botões `−`/`+` para ajustar (`csAjustarTeto`, clamp 1–50, o mesmo do formulário). ⚠️ **O default da coluna continua 10** — fonte nova nasce em 10 de propósito, mudar isso é decisão de produto. ✅ **Provado por comportamento 7 min depois do UPDATE:** a captura nº 11 saiu `salvo` (com teto 10 teria saído `teto`, como as 31 anteriores), `captured_today` 10 → 11, `clone_posts` novo `pending`. ⚠️ **Efeito colateral medido:** o teto era o que segurava as 44 recusas/dia de vitrine de ML antes da `resolve-link` — com o teto em 30 elas voltam a gastar chamada, o que **torna o deploy da P36 (v17) necessário e não mais opcional**. **A prova de tela é a P46** | 04/08 |
-| **P46** | 🔴 **Provar no navegador o card do teto — nada disto foi aberto em produção.** Depois do Deploy do `app`, na sessão logada: (1) a linha laranja **⛔ N oferta(s) ficaram de fora hoje** aparece no card do Achadinhos #34 e o N bate com `select count(*) from clone_ingest_log where status='teto'` **do dia em São Paulo**; (2) um clique real no **+** grava `max_per_day` no banco — conferir a linha, não a tela, que é a ressalva que a P31 deixou aberta por duas sessões; (3) o **−** em 1 e o **+** em 50 recusam com toast; (4) fonte **sem** barrada não mostra a linha (a "Melhores Ofertas" serve de controle negativo); (5) console limpo num load completo, e `csRender`/`csSalvar` continuam `function` — é esse controle que descarta TDZ. ⚠️ **O smoke test NÃO cobre este código:** ele para no falso positivo da linha 2496, e o código novo está na ~8700 | 04/08 |
+| ~~P46~~ | ✅ **FECHADA 04/08 à tarde, no navegador logado.** As três funções novas são `function` no código servido e as antigas continuam de pé (controle que descarta TDZ); `.cs-barrado`/`.cs-teto-bt` presentes; console limpo num load completo. **Clique de mouse real no `+`: `max_per_day` 30 → 35 no banco**, tela redesenhada com 35 em 3 lugares, estado restaurado para 30 por UPDATE explícito. Contagem da tela **32/11** bate com o banco **32/11** contando pelo dia em São Paulo. Controle negativo na mesma imagem: "Melhores Ofertas" com `tetoHoje = 0` e sem a linha. Registro original abaixo. ~~🔴 Provar no navegador o card do teto — nada disto foi aberto em produção.~~ Depois do Deploy do `app`, na sessão logada: (1) a linha laranja **⛔ N oferta(s) ficaram de fora hoje** aparece no card do Achadinhos #34 e o N bate com `select count(*) from clone_ingest_log where status='teto'` **do dia em São Paulo**; (2) um clique real no **+** grava `max_per_day` no banco — conferir a linha, não a tela, que é a ressalva que a P31 deixou aberta por duas sessões; (3) o **−** em 1 e o **+** em 50 recusam com toast; (4) fonte **sem** barrada não mostra a linha (a "Melhores Ofertas" serve de controle negativo); (5) console limpo num load completo, e `csRender`/`csSalvar` continuam `function` — é esse controle que descarta TDZ. ⚠️ **O smoke test NÃO cobre este código:** ele para no falso positivo da linha 2496, e o código novo está na ~8700 | 04/08 |
 | **P47** | 🟡 **O mesmo defeito de fuso do card pode estar no limite diário do Starter.** `new Date().toISOString().slice(0,10)` aparece mais 2 vezes no `index.html`: KPI de cliques (~2639) e **limite de 5 posts/dia do plano Starter (~9313)**. O do card foi corrigido nesta sessão (`csDiaBR`); os outros dois **não foram tocados** por escopo estrito. O do Starter decide se um post é bloqueado — entre 21h e meia-noite BRT o contador dele pode virar cedo demais e liberar 5 posts a mais, ou barrar cedo. **Lido no código, NÃO medido** | 04/08 |
 | **P39** | 🟡 **Fonte cadastrada em grupo onde a sessão não está falha calada.** O invite info responde para qualquer código válido, então dá pra cadastrar fonte de grupo alheio e ela nunca captura — sem erro em lugar nenhum. Hoje o único aviso é texto na tela. Sinalizar no card da fonte quando ela passar N dias com **zero** linha em `clone_ingest_log`: é o mesmo defeito de fundo de "mecanismo que parece existir e não executa nada" | 03/08 |
 | **P40** | 🔵 **Inventário de grupos ouvidos no `wa-engine`** — registrar `jid → {nome, visto_em}` de todo grupo de onde chega mensagem e somar essa lista à do Baileys no dropdown. **Adiado de propósito:** o registro teria que acontecer **antes** do filtro `CLONE_DONOS`, no caminho quente de toda mensagem de toda sessão, incluindo a admin `…73545214` — e errar o filtro por `phone` no endpoint vaza nome de grupo entre contas, que é exatamente o bug que o comentário "SEM FALLBACK, de proposito" do `/groups` documenta ter acontecido. Também exige `groupMetadata(jid)` por JID novo, o que vira rajada de consultas ao WhatsApp depois de cada restart. Sessão limpa, com cache e throttle | 03/08 |
