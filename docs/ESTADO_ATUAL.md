@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 33 — 03/08/2026 (noite).** Se o número aqui não for o mais alto que você
+> **REVISÃO 34 — 04/08/2026 (madrugada).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1643,6 +1643,97 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**Sessão de 04/08/2026 (madrugada, REVISÃO 34) — mensagem temporária era
+descartada em silêncio (é por isso que o Clone Post não pegava nada) + a foto do
+post passa a sair padronizada em 1080×1080.**
+
+| | |
+|---|---|
+| Commits | 1 · `wa-engine/server.js` · `wa-engine/package.json` · este doc |
+| Frontend · Edge Functions · banco | nada tocado |
+| Dependência nova | **`sharp ^0.33.5`** no `wa-engine` — binário pré-compilado, sem compilar no build |
+| Repo × produção | 🔴 até o deploy. **Este push reinicia o `wa-engine`** (P16) |
+
+🔴 **CAUSA RAIZ, provada com antes-e-depois.** Grupo com **mensagens temporárias**
+ligadas entrega toda mensagem embrulhada em `ephemeralMessage.message`. O
+`textoDaMensagem` lia a camada de fora, não achava texto, devolvia `''`, e o
+listener fazia `continue` — **sem gravar linha em lugar nenhum**.
+
+Rodado contra a função que está em produção hoje:
+
+```
+TEMPORARIA + texto       -> ""   << descartada em silencio
+TEMPORARIA + estendido   -> ""   << descartada em silencio
+TEMPORARIA + imagem      -> ""   << descartada em silencio
+```
+
+E contra a corrigida: **11/11 casos**, incluindo os três acima, `viewOnceMessageV2`,
+`editedMessage` e os três negativos (temporária vazia, figurinha, nulo).
+
+**Como o caso foi fechado, na ordem:**
+
+1. Érico: fonte nova "Grupo de Achadinhos #34" não capturava nada.
+2. Banco: fonte gravada certo às 17:36 UTC, `active`, sessão certa, três lojas
+   liberadas — e **zero linha** em `clone_ingest_log`, nem captura nem recusa.
+3. Engine: uptime 10 h 13 min sem reiniciar, sessão `connected`, heartbeat de 23 s.
+4. Logs das Edge Functions: `clone-ingest` chamada de 5 em 5 min, sempre 200 — e
+   **nenhuma outra chamada**, ou seja a `CLONE_FILA` nunca teve nada. A mensagem
+   morria **dentro do engine**.
+5. 🔴 **Hipótese minha, errada, registrada por honestidade:** achei que era a P39 —
+   convite de grupo em que a sessão não está. Érico conferiu no celular: o grupo
+   **está** na lista de conversas dele. A P39 continua aberta, mas **não foi a
+   causa aqui**.
+6. Érico: o grupo tem o **símbolo de temporária** na foto. Fecha.
+
+**O que entrou:**
+
+- `conteudoRealDaMensagem()` — desembrulha `ephemeralMessage`, `viewOnceMessage`,
+  `viewOnceMessageV2`, `viewOnceMessageV2Extension`, `documentWithCaptionMessage` e
+  `editedMessage`, com teto de 5 voltas. Mesma lista do `normalizeMessageContent` do
+  Baileys v6, **copiada e não importada de propósito**: o engine é CommonJS, o
+  pacote é ESM (`"type": "module"`), e import que não resolve derruba o processo
+  inteiro — custo desproporcional ao de oito linhas sem dependência.
+- **O descarte deixou de ser mudo.** O `continue` de "sem texto/sem link" agora
+  registra `[CLONE] descartada em <jid>: <motivo> (tipo <tipo>)`. Vale só para grupo
+  já cadastrado como fonte, então o volume é limitado pelo número de fontes.
+
+**Foto do post — padronizada em 1080×1080 (pedido do Érico na mesma sessão).**
+
+Sintoma relatado: umas fotos saem esticadas na vertical, e não há padrão entre os
+posts. Causa, lida no código: **não havia normalização nenhuma**. O `send-post`
+passava `product.image_url` cru e o engine fazia `sendMessage(jid, { image: { url },
+caption })` — o Baileys baixa e manda exatamente o que a loja devolveu, e cada loja
+tem a sua convenção. Nos 46 produtos do Érico: **29 Amazon** (`._AC_SL1500_`,
+proporção livre), **16 Shopee** (original do CDN), **1 ML** (variante `-E`).
+
+- `imagemPadronizada(url)` baixa (timeout 12 s, teto de 12 MB), encaixa em
+  **1080×1080 com `fit: 'contain'`** — **sem cortar nada** —, achata transparência
+  sobre branco e reencoda JPEG 85.
+- **Falha nunca impede o envio:** loja fora do ar, formato ilegível ou timeout caem
+  no `catch` e mandam a URL original, que é o comportamento de antes. Foto torta é
+  melhor que post não enviado.
+- Cache em memória por URL (teto 40). O mesmo produto vai para vários grupos; sem
+  cache seria um download por grupo.
+- Vale para **os dois** caminhos de envio (`/send` e `/send-group`), portanto cobre
+  clone, radar e postagem manual de uma vez.
+- Medido com 6 imagens sintéticas (600×1800, 1500×500, 800×800, 1500×1125, PNG
+  transparente 900×1600, 80×240): **6/6 saíram 1080×1080 JPEG sem alfa**, entre 7 e
+  10 KB. `sharp` conferido instalando no mesmo `node:20-slim`: binário pronto,
+  libvips 8.15.3, **sem compilação**.
+- 🔴 **Não medido:** nenhuma imagem real de loja passou por isso ainda. Ver **P42**.
+
+🔎 **Achado de passagem, não corrigido:** a normalização de `mlstatic` para a
+variante `-O` só troca os sufixos `-V`, `-I`, `-B`, `-F` e `-T`. O único produto de
+ML do Érico está em **`-E`**, que não está na lista e passa direto. Com a
+padronização em 1080 isso deixa de afetar o formato, mas ainda afeta a resolução de
+origem.
+
+⚠️ **A "TáNaMão – Promoções #02" tem explicação própria e independente: o admin do
+grupo removeu o Érico.** Provável que tenha percebido a clonagem. A fonte foi
+apagada. Isso é risco de produto, não defeito de código — ver **P41**.
+
+---
+
 **Sessão de 03/08/2026 (noite, REVISÃO 33) — o `/group-invite-info` está no ar e
 provado; dois defeitos meus, achados na primeira tentativa de uso.**
 
@@ -2620,6 +2711,8 @@ código não relacionado.
 | **P38** | 🔴 **Provar o cadastro por link de convite.** Depois do deploy: copiar "Convidar via link" do **Achadinhos #100** no WhatsApp, colar no "+ Nova fonte" e conferir que resolve nome e JID, que a opção entra selecionada no select e que o `clone_sources` grava `source_jid` e `source_label` certos. Prova final é **comportamento**: esperar mensagem de oferta nesse grupo e ver linha nova em `clone_ingest_log` com esse `source_jid`. Sem isso, o que existe é um formulário bonito | 03/08 |
 | **P39** | 🟡 **Fonte cadastrada em grupo onde a sessão não está falha calada.** O invite info responde para qualquer código válido, então dá pra cadastrar fonte de grupo alheio e ela nunca captura — sem erro em lugar nenhum. Hoje o único aviso é texto na tela. Sinalizar no card da fonte quando ela passar N dias com **zero** linha em `clone_ingest_log`: é o mesmo defeito de fundo de "mecanismo que parece existir e não executa nada" | 03/08 |
 | **P40** | 🔵 **Inventário de grupos ouvidos no `wa-engine`** — registrar `jid → {nome, visto_em}` de todo grupo de onde chega mensagem e somar essa lista à do Baileys no dropdown. **Adiado de propósito:** o registro teria que acontecer **antes** do filtro `CLONE_DONOS`, no caminho quente de toda mensagem de toda sessão, incluindo a admin `…73545214` — e errar o filtro por `phone` no endpoint vaza nome de grupo entre contas, que é exatamente o bug que o comentário "SEM FALLBACK, de proposito" do `/groups` documenta ter acontecido. Também exige `groupMetadata(jid)` por JID novo, o que vira rajada de consultas ao WhatsApp depois de cada restart. Sessão limpa, com cache e throttle | 03/08 |
+| **P41** | 🟡 **Ser removido do grupo-fonte é o risco operacional do Clone Post, e hoje ninguém percebe.** O admin da "TáNaMão – Promoções #02" removeu o Érico do grupo em 03/08 — provavelmente por notar a clonagem. Do lado do painel isso é indistinguível de grupo parado: a fonte segue `active`, sem erro, sem aviso. Junta-se à **P39** (fonte em grupo onde a sessão não está): as duas terminam na mesma tela e pedem o mesmo remédio — **sinalizar no card a fonte que passou N dias sem nenhuma linha em `clone_ingest_log`**. Vale considerar também espaçar/limitar a clonagem por fonte, porque republicar rápido demais é o que denuncia | 04/08 |
+| **P42** | 🔴 **Provar a padronização da foto com imagem real.** O teste de 04/08 usou 6 imagens sintéticas geradas pelo próprio `sharp` — prova que o pipeline redimensiona, **não** que a foto de um anúncio real chega bonita no grupo. Depois do deploy: postar uma oferta de cada loja (Amazon `._AC_SL1500_`, Shopee, ML) e **olhar no WhatsApp**. Conferir também o log `[IMG] nao consegui padronizar` — se aparecer com frequência, alguma CDN está recusando o download do engine e os posts estão caindo no caminho antigo sem ninguém notar | 04/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
@@ -2816,6 +2909,19 @@ código não relacionado.
   sucesso** — fecha a janela de corrida em chamadas concorrentes.
 - **Nunca commitar token em texto puro no frontend.** Qualquer variável visível no
   HTML/JS público é pública, sem exceção. (`WA_ENGINE_TOKEN` já vazou assim.)
+- **Descarte silencioso é indistinguível de "não aconteceu nada".** O listener do
+  Clone Post tinha cinco pontos de `continue` sem log. Quatro são legítimos; o
+  quinto — mensagem sem texto legível — engoliu **todas** as mensagens de um grupo
+  com temporárias ligadas por mais de 10 horas, e a tela do dono mostrou exatamente
+  o mesmo que mostraria se o grupo estivesse parado. **Todo ponto de descarte dentro
+  de um caminho que o usuário observa precisa deixar rastro**, nem que seja uma linha
+  de console: sem isso, a investigação começa pelo lugar errado — no caso, pela
+  suspeita de que o usuário não estava no grupo.
+- **O envelope não é a mensagem.** WhatsApp embrulha conteúdo em camadas
+  (`ephemeralMessage`, `viewOnceMessage`, `editedMessage`) e o Baileys entrega o
+  embrulho cru no `messages.upsert`. Ler campo de conteúdo direto do objeto recebido
+  funciona no caso comum e falha inteiro no grupo com temporárias — que é justamente
+  o perfil de grupo de promoção.
 - **Resposta sem cabeçalho CORS, em app com CORS global, não veio do app.** O
   `wa-engine` registra o middleware de CORS antes de todas as rotas, então qualquer
   resposta do express — inclusive `400`, `404` e `502` — sai com o cabeçalho. Quando

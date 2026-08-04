@@ -33,6 +33,7 @@ const axios = require('axios');
 const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs-extra');
+const sharp = require('sharp');
 const RateLimitValidator = require('./rate-limit-utils');
 
 if (typeof globalThis.crypto === 'undefined') {
@@ -43,6 +44,68 @@ dotenv.config();
 
 const app = express();
 app.use(express.json());
+
+// ---- Padronizacao da foto do post ----
+//
+// Ate 04/08 a foto ia crua: `sendMessage(jid, { image: { url } })` faz o Baileys
+// baixar e mandar exatamente o que a loja devolveu. Como cada loja tem a sua
+// convencao (Amazon `._AC_SL1500_` com proporcao livre, Shopee o original do
+// CDN, ML a variante `-E`), o grupo recebia uma foto alta, outra larga, outra
+// quadrada — e as altas saem esticadas na conversa do WhatsApp.
+//
+// Aqui toda foto vira 1080x1080 com fundo branco e o produto INTEIRO dentro:
+// `fit: 'contain'` encaixa sem cortar nada. Quadrado e o formato que os grupos
+// de oferta usam, e o que o WhatsApp exibe sem recortar na pre-visualizacao.
+const IMG_LADO = 1080;
+const IMG_TIMEOUT_MS = 12000;
+const IMG_MAX_BYTES = 12 * 1024 * 1024;
+const IMG_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
+// Um mesmo produto vai para varios grupos: sem cache, seria um download por
+// grupo. Cabe na memoria e o processo reinicia com frequencia, entao nao ha TTL.
+const IMG_CACHE = new Map();
+const IMG_CACHE_MAX = 40;
+
+async function imagemPadronizada(url) {
+    if (!url) return null;
+    const emCache = IMG_CACHE.get(url);
+    if (emCache) return emCache;
+
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), IMG_TIMEOUT_MS);
+    let bruta;
+    try {
+        const r = await fetch(url, { signal: ctrl.signal, headers: { 'User-Agent': IMG_UA } });
+        if (!r.ok) throw new Error(`a loja respondeu HTTP ${r.status}`);
+        bruta = Buffer.from(await r.arrayBuffer());
+    } finally {
+        clearTimeout(t);
+    }
+    if (!bruta.length) throw new Error('arquivo vazio');
+    if (bruta.length > IMG_MAX_BYTES) throw new Error(`arquivo grande demais (${bruta.length} bytes)`);
+
+    const pronta = await sharp(bruta)
+        .resize(IMG_LADO, IMG_LADO, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } })
+        .flatten({ background: { r: 255, g: 255, b: 255 } })   // PNG/webp transparente -> fundo branco
+        .jpeg({ quality: 85 })
+        .toBuffer();
+
+    if (IMG_CACHE.size >= IMG_CACHE_MAX) IMG_CACHE.clear();
+    IMG_CACHE.set(url, pronta);
+    return pronta;
+}
+
+// A padronizacao NUNCA pode impedir o envio. Falhou por qualquer motivo — loja
+// fora do ar, formato que o sharp nao le, timeout — manda a original, que e
+// exatamente o comportamento de antes. Foto torta e melhor que post nao enviado.
+async function conteudoDeImagem(url) {
+    try {
+        const buf = await imagemPadronizada(url);
+        if (buf) return { image: buf };
+    } catch (e) {
+        console.warn(`[IMG] nao consegui padronizar (${e?.message || e}) — enviando a original`);
+    }
+    return { image: { url } };
+}
 
 // CORS
 app.use((req, res, next) => {
@@ -615,7 +678,7 @@ app.post('/send', verifyToken, async (req, res) => {
         }
 
         if (imageUrl) {
-            await session.socket.sendMessage(jid, { image: { url: imageUrl }, caption: text });
+            await session.socket.sendMessage(jid, { ...(await conteudoDeImagem(imageUrl)), caption: text });
         } else {
             await session.socket.sendMessage(jid, { text });
         }
@@ -767,7 +830,7 @@ app.post('/send-group', verifyToken, async (req, res) => {
         // groupId pode vir como "120363410208475859" ou "120363410208475859@g.us"
         const jid = groupId.includes('@') ? groupId : groupId + '@g.us';
         if (imageUrl) {
-            await session.socket.sendMessage(jid, { image: { url: imageUrl }, caption: text });
+            await session.socket.sendMessage(jid, { ...(await conteudoDeImagem(imageUrl)), caption: text });
         } else {
             await session.socket.sendMessage(jid, { text });
         }
@@ -1763,8 +1826,38 @@ function sufixoFoneClone(raw) {
 
 // Texto util de uma mensagem. Legenda de imagem conta: e o formato mais comum
 // de post de oferta em grupo de WhatsApp.
+// Desembrulha as camadas que o WhatsApp poe POR FORA do conteudo real. A mais
+// importante e `ephemeralMessage`: grupo com MENSAGENS TEMPORARIAS ligadas
+// entrega TODA mensagem embrulhada nela.
+//
+// MEDIDO em 03/08: o "Grupo de Achadinhos #34" esta com mensagens temporarias
+// ligadas. Em 10h20 como UNICA fonte ativa, com a sessao conectada, o engine de
+// pe e as tres lojas liberadas, o clone_ingest_log ficou com ZERO linhas — nem
+// captura, nem recusa. A mensagem morria aqui: textoDaMensagem lia a camada de
+// fora, nao achava texto, e o listener fazia `continue` sem registrar nada.
+//
+// A lista de embrulhos e a mesma do normalizeMessageContent do Baileys
+// (lib/Utils/messages.js, v6). Copiada em vez de importada de proposito: o
+// engine e CommonJS e o pacote e ESM ("type": "module"); um import que nao
+// resolva derruba o processo inteiro, e esse custo e desproporcional ao de oito
+// linhas que nao dependem de nada.
+function conteudoRealDaMensagem(m) {
+    let c = m || {};
+    for (let i = 0; i < 5; i++) {   // teto igual ao do Baileys: evita laco infinito
+        const embrulho = c.ephemeralMessage
+            || c.viewOnceMessage
+            || c.documentWithCaptionMessage
+            || c.viewOnceMessageV2
+            || c.viewOnceMessageV2Extension
+            || c.editedMessage;
+        if (!embrulho || !embrulho.message) break;
+        c = embrulho.message;
+    }
+    return c;
+}
+
 function textoDaMensagem(m) {
-    const c = m || {};
+    const c = conteudoRealDaMensagem(m);
     return c.conversation
         || c.extendedTextMessage?.text
         || c.imageMessage?.caption
@@ -1835,7 +1928,17 @@ function registrarListenerClone(socket, sessionId) {
                 const id = String(m?.key?.id || '');
                 if (id && CLONE_VISTAS.has(id)) continue;
                 const texto = textoDaMensagem(m?.message);
-                if (!texto || !/https?:\/\//i.test(texto)) continue; // sem link nao e oferta
+                if (!texto || !/https?:\/\//i.test(texto)) {
+                    // Descarte VISIVEL. Ate 03/08 este `continue` era mudo: a mensagem
+                    // que morria aqui nao deixava linha em lugar nenhum, e o painel do
+                    // dono mostrava um silencio identico ao de "grupo parado". Foi
+                    // exatamente esse ponto cego que escondeu a mensagem temporaria
+                    // por 10 horas. So vale para grupo JA cadastrado como fonte, entao
+                    // o volume e limitado pelo numero de fontes.
+                    const tipo = Object.keys(m?.message || {})[0] || 'vazio';
+                    console.log(`[CLONE] descartada em ${jid}: ${texto ? 'texto sem link' : 'sem texto legivel'} (tipo ${tipo})`);
+                    continue;
+                }
                 if (id) {
                     CLONE_VISTAS.add(id);
                     // Cache curto, so pra nao reenviar no mesmo processo.
