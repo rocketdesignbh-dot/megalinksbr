@@ -1,3 +1,20 @@
+// product-search v26 — a Amazon passa a ser lida no Postar Agora
+// v26 (04/08): ate aqui esta funcao tinha DOIS ramos de loja, Mercado Livre e
+//   Shopee. Amazon, AliExpress, Magalu, Shein, Natura e Terabyte caiam no
+//   "Loja sem integracao automatica. Preencha manualmente." — nunca houve
+//   leitor para elas neste caminho.
+//   MEDIDO nos logs de 04/08, tentativas do Erico: 3504 ms para um link de ML
+//   (busca real) contra 140-164 ms para os outros (retorno imediato, sem falar
+//   com loja nenhuma). O tempo separa os dois casos sem ambiguidade.
+//   ASSIMETRIA que motivou o conserto: o Clone Post automatico JA lia Amazon,
+//   porque a clone-ingest v15 tem leitor proprio de pagina (P21). Duas
+//   implementacoes da mesma coisa no mesmo repo, com capacidades diferentes —
+//   o Postar Agora recusava a loja que o Clone Post lia sem dificuldade.
+//   CONSERTO: o leitor `consultarAmazonDireto` da clone-ingest foi copiado
+//   VERBATIM para ca, com as funcoes de que depende. Ver o comentario do bloco.
+//   NOTA de versao: o cabecalho dizia v25 e os console.log diziam v24. Os dois
+//   passam a dizer v26. Numero de versao continua nao sendo prova de nada.
+//
 // product-search v25 — a Shopee para de devolver um "de" que nao existe (P32)
 // v25 (01/08, noite): MEDIDO em producao, 3 de 3 capturas reais de Shopee
 //   chegaram com price_original IGUAL a price e ainda assim um desconto de 53%,
@@ -297,18 +314,152 @@ async function fetchShopee(url: string, appId: string, appSecret: string): Promi
   };
 }
 
+
+// ── Amazon lida da pagina (copiado da clone-ingest v15 · P21) ─────────────
+//
+// COPIA VERBATIM, e a duplicacao e consciente. O certo seria um modulo
+// compartilhado, mas cada Edge Function do projeto e deployada com o seu proprio
+// array de `files`, e a clone-ingest tem 72 KB — reemitir aquele arquivo para
+// extrair um trecho e exatamente o tipo de operacao que ja colocou codigo errado
+// em producao aqui. Duplicar e o risco menor HOJE; unificar e trabalho de sessao
+// limpa, com as duas funcoes abertas lado a lado.
+//
+// SE MEXER AQUI, MEXA NOS DOIS LUGARES. A divergencia entre duas implementacoes
+// da mesma leitura ja mordeu este repo mais de uma vez (o "de" da Shopee, que o
+// Radar lia certo e a product-search lia errado).
+const AMZ_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
+const AMZ_TIMEOUT_MS = 15000;
+
+function numeroDaLoja(s: string): number | null {
+  const n = Number(String(s ?? "").replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function precoAmazon(html: string): { por: number | null; de: number | null } {
+  const vazio = { por: null, de: null };
+
+  // 1. Ancora. Sem o div do buybox nao ha preco a afirmar.
+  const p = html.indexOf('<div id="corePriceDisplay_desktop_feature_div"');
+  if (p < 0) return vazio;
+  const bloco = html.slice(p, p + 4000);
+
+  // 2. Duas testemunhas independentes do MESMO numero: o rotulo de
+  // acessibilidade e o preco visivel. Discordancia entre elas nao vira palpite,
+  // vira recusa — a pagina da Amazon tem preco de parcela, de assinatura e de
+  // vendedor alternativo no mesmo HTML, e pegar o errado publica o errado.
+  const mRotulo = bloco.match(/id="apex-pricetopay-accessibility-label"[\s\S]{0,300}?>[^0-9<]*([\d.]+,\d{2})/);
+  const mInteiro = bloco.match(/a-price-whole">([\d.]+)/);
+  const mCentavos = bloco.match(/a-price-fraction">(\d{2})/);
+  if (!mRotulo || !mInteiro || !mCentavos) return vazio;
+
+  const viaRotulo = numeroDaLoja(mRotulo[1]);
+  const viaVisivel = numeroDaLoja(`${mInteiro[1]},${mCentavos[1]}`);
+  if (viaRotulo === null || viaVisivel === null || viaRotulo !== viaVisivel) return vazio;
+
+  // 3. O "de" e opcional e so vale se for maior que o "por".
+  const mBase = bloco.match(/basisPrice[\s\S]{0,250}?([\d.]+,\d{2})/);
+  const de = mBase ? numeroDaLoja(mBase[1]) : null;
+  return { por: viaRotulo, de: de !== null && de > viaRotulo ? de : null };
+}
+
+function imagemAmazon(html: string): string {
+  const p = html.indexOf('id="landingImage"');
+  if (p < 0) return "";
+  // A tag do landingImage passa de 1,3 KB por causa do data-a-dynamic-image, e o
+  // src pode vir ANTES do id — por isso a janela abre para tras tambem.
+  const janela = html.slice(Math.max(p - 4000, 0), p + 8000);
+  const tag = janela.match(/<img[^>]*id="landingImage"[^>]*>/);
+  if (!tag) return "";
+  const m = tag[0].match(/images\/I\/([A-Za-z0-9+_-]+)\./);
+  if (!m) return "";
+  return `https://m.media-amazon.com/images/I/${m[1]}._AC_SL1500_.jpg`;
+}
+
+// Lista curta de proposito. Decodificar de menos deixa "&amp;" aparecendo no
+// post; um unescape generico decodificaria tambem o que nao devia. O "&amp;"
+// vai por ULTIMO: antes dele, "&amp;lt;" viraria "<".
+function textoDeHtml(s: string): string {
+  return s
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#0?39;/g, "'")
+    .replace(/&#(\d{2,5});/g, (_m, d) => String.fromCharCode(Number(d)))
+    .replace(/&amp;/g, "&");
+}
+
+function tituloAmazon(html: string): string {
+  const m = html.match(/<span[^>]*id="productTitle"[^>]*>([\s\S]{1,600}?)<\/span>/);
+  if (!m) return "";
+  return textoDeHtml(m[1].replace(/<[^>]*>/g, "")).replace(/\s+/g, " ").trim().slice(0, 120);
+}
+
+async function consultarAmazonDireto(url: string): Promise<any> {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), AMZ_TIMEOUT_MS);
+  try {
+    const r = await fetch(url, {
+      headers: {
+        "User-Agent": AMZ_UA,
+        "Accept-Language": "pt-BR,pt;q=0.9",
+        "Accept": "text/html,application/xhtml+xml",
+      },
+      redirect: "follow",
+      signal: c.signal,
+    });
+    if (!r.ok) return { success: false, source: "amazon-pagina", store: "amazon", error: `a Amazon respondeu HTTP ${r.status}` };
+
+    const html = await r.text();
+
+    // PROVA DE QUE A PAGINA E CONFIAVEL, antes de ler qualquer coisa. Status 200
+    // nao basta e ja mordeu este projeto duas vezes: captcha da Amazon volta 200
+    // com ~4 KB, e o fetch a partir do Postgres devolveu 200 com 3 bytes de
+    // corpo. Sem productTitle nada e afirmado — nem preco, nem foto, nem titulo.
+    if (!html.includes('id="productTitle"')) {
+      return {
+        success: false, source: "amazon-pagina", store: "amazon",
+        error: html.length < 8000 ? "a Amazon devolveu bloqueio/captcha" : "pagina da Amazon sem productTitle",
+      };
+    }
+    if (html.includes('id="outOfStock"')) {
+      return { success: false, source: "amazon-pagina", store: "amazon", error: "produto fora de estoque na Amazon" };
+    }
+
+    const titulo = tituloAmazon(html);
+    if (!titulo) return { success: false, source: "amazon-pagina", store: "amazon", error: "productTitle presente mas vazio" };
+
+    const { por, de } = precoAmazon(html);
+    // Preco sem as duas testemunhas e preco nao confirmado, e nao publicar preco
+    // nao confirmado e o motivo desta funcao existir.
+    if (por === null) {
+      return { success: false, source: "amazon-pagina", store: "amazon", error: "o buybox da Amazon nao confirmou o preco (duas testemunhas)" };
+    }
+
+    const img = imagemAmazon(html);
+    return {
+      success: true, source: "amazon-pagina", store: "amazon",
+      name: titulo, title: titulo,
+      image: img, thumbnail: img,
+      price_to: por, price: por, price_from: de,
+      availability: "disponivel",
+    };
+  } catch (e) {
+    return { success: false, source: "amazon-pagina", store: "amazon", error: `a Amazon nao respondeu: ${(e as Error).message}` };
+  } finally { clearTimeout(t); }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   try {
     const { url, credentials = {} } = await req.json();
-    console.log(`[product-search v24] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
+    console.log(`[product-search v26] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
     if (!url || !/^https?:\/\//i.test(url))
       return new Response(JSON.stringify({ success: false, error: "URL inválida" }), { status: 400, headers: { ...CORS, "Content-Type": "application/json" } });
 
     const store = detectStore(url);
     const authHeader = req.headers.get("authorization");
     const userId = getUserIdFromJwt(authHeader);
-    console.log(`[product-search v24] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
+    console.log(`[product-search v26] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
 
     const waEngineUrl = Deno.env.get("WA_ENGINE_URL") || "https://megalinksbr-wa-engine.fwezsn.easypanel.host";
     const waEngineToken = Deno.env.get("WA_ENGINE_TOKEN") || "";
@@ -320,13 +471,18 @@ Deno.serve(async (req: Request) => {
       result = await fetchMercadoLivre(url, waEngineUrl, waEngineToken, sb, userId);
     } else if (store === "shopee" && credentials.shopee_app_id && credentials.shopee_app_secret) {
       result = await fetchShopee(url, credentials.shopee_app_id, credentials.shopee_app_secret);
+    } else if (store === "amazon") {
+      // Le a pagina publica: nao depende das chaves da PA-API, que a maioria dos
+      // usuarios nao tem (a aprovacao exige vendas). E o mesmo caminho que o
+      // Clone Post automatico ja usava desde a clone-ingest v15.
+      result = await consultarAmazonDireto(url);
     }
 
     if (!result?.success) {
       result = result || { success: false, source: "none", store, error: "Loja sem integração automática. Preencha manualmente." };
     }
 
-    console.log(`[product-search v24] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
+    console.log(`[product-search v26] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
     return new Response(JSON.stringify(result), { headers: { ...CORS, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ success: false, error: (e as Error).message }), { status: 500, headers: { ...CORS, "Content-Type": "application/json" } });

@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 34 — 04/08/2026 (madrugada).** Se o número aqui não for o mais alto que você
+> **REVISÃO 36 — 04/08/2026 (manhã).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1643,6 +1643,107 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**Sessão de 04/08/2026 (manhã, REVISÃO 36) — P38 FECHADA. A mensagem temporária era
+mesmo a causa, e agora está provado com número.**
+
+| | |
+|---|---|
+| Commits | 1 · só este doc, junto com o push atrasado da REVISÃO 35 |
+| Código | nada novo. Esta revisão é medição |
+
+✅ **P38 FECHADA POR COMPORTAMENTO.** O "Grupo de Achadinhos #34" foi de **zero
+linhas em 10 h 20** para isto, medido às 13:32 UTC de 04/08:
+
+| Status | Qtd | Detalhe |
+|---|---|---|
+| `salvo` | **10** | 8 Amazon, 2 Shopee — última 11:48 |
+| `teto` | 26 | teto diário da fonte atingido (10/10) |
+| `resolve_falhou` | 3 | link sem ASIN, link sem par LOJA/ITEM, e um `linktr.ee` |
+
+39 linhas no total, a última 30 segundos antes da consulta. Isso fecha **duas**
+coisas de uma vez: o desembrulho do `ephemeralMessage` funciona, e o cadastro por
+**link de convite** entrega fonte que captura de verdade — não só linha bonita no
+banco.
+
+🔎 **Achado que a prova trouxe junto: o teto de 10/dia virou o gargalo.** 26 ofertas
+foram recusadas hoje só por teto, contra 10 aceitas. O grupo entrega bem mais do que
+a fonte deixa passar. Não é defeito — é um número que agora dá para decidir com
+base, e não no escuro. Ver **P45**.
+
+⚠️ **Este push corrige um estado ruim: o repo estava atrás da produção.** A
+`product-search` v26 foi deployada em 04/08 de madrugada e validada pelo Érico em
+produção, mas o push não aconteceu — a sessão acabou antes. Por ~9 horas a produção
+teve código que o repositório não tinha. A REVISÃO 35 vai junto neste commit.
+
+---
+
+**Sessão de 04/08/2026 (madrugada, REVISÃO 35) — o Postar Agora só lia Mercado
+Livre. Agora lê Amazon também. `product-search` v26 no ar e PROVADA.**
+
+| | |
+|---|---|
+| Commits | 1 · `supabase/functions/product-search/index.ts` + este doc |
+| Edge Functions | **`product-search` deployada — versão 45, ACTIVE, `verify_jwt: true`** |
+| wa-engine · frontend · banco | nada tocado |
+| Repo × produção | ✅ bate nesta função depois deste push |
+
+🔴 **A causa não era falha: era ausência.** A `product-search` tinha **dois** ramos
+de loja — Mercado Livre e Shopee. Amazon, AliExpress, Magalu, Shein, Natura e
+Terabyte caíam direto no `"Loja sem integração automática. Preencha manualmente."`.
+Nunca houve leitor para elas nesse caminho.
+
+**Como ficou visível nos logs**, tentativas do Érico em 04/08:
+
+| Duração | Leitura |
+|---|---|
+| **3504 ms** | foi buscar de verdade — Mercado Livre |
+| **140–164 ms** | retorno imediato, sem falar com loja nenhuma |
+
+Resposta em 150 ms não dá tempo de consultar loja. O tempo separa os dois casos sem
+ambiguidade — e serve de método para a próxima vez.
+
+🔎 **A assimetria que motivou o conserto:** o **Clone Post automático já lia
+Amazon**, porque a `clone-ingest` v15 tem leitor próprio de página (P21). Duas
+implementações da mesma coisa no mesmo repo, com capacidades diferentes — o Postar
+Agora recusava a loja que o Clone Post lia sem dificuldade. É a **quarta** vez que
+esse padrão aparece neste documento (assinatura da Shopee, "de" da Shopee, "de" do
+ML, e agora esta).
+
+**O que entrou:** `consultarAmazonDireto` e suas dependências (`precoAmazon`,
+`tituloAmazon`, `imagemAmazon`, `textoDeHtml`, `numeroDaLoja`) **copiadas verbatim**
+da `clone-ingest`. Zero colisão de nome, conferida antes. A duplicação é consciente
+e está comentada no código, junto com o aviso **"SE MEXER AQUI, MEXA NOS DOIS
+LUGARES"** — ver **P43**.
+
+- Lê a **página pública**, não a PA-API: não depende de ACCESS KEY/SECRET KEY, que o
+  Érico não tem (a aprovação da Amazon exige vendas). Ele tem só o ID de Associado,
+  que basta para o link de afiliado.
+- Mantém as guardas do original: sem `productTitle` nada é afirmado (captcha da
+  Amazon volta 200 com ~4 KB), fora de estoque recusa, e preço só sai com as **duas
+  testemunhas** concordando — rótulo de acessibilidade e preço visível.
+- Versionamento: o cabeçalho dizia v25 e os `console.log` diziam v24. Os dois passam
+  a dizer **v26**.
+
+✅ **PROVADO POR COMPORTAMENTO, não por versão.** Antes do deploy: 8/8 casos contra
+HTML sintético (título com `&amp;` decodificado, por/de com as duas testemunhas,
+recusa quando discordam, recusa sem o div do buybox, foto `_AC_SX679_` normalizada
+para `_AC_SL1500_`, captcha barrado). **Depois do deploy, em produção, o Érico
+postou um produto da Amazon e um do Mercado Livre — os dois saíram certos.** O ML foi
+testado de propósito: era o que já funcionava, e erro de transcrição no deploy o
+derrubaria junto.
+
+⚠️ **O primeiro deploy falhou** com `import map path does not exist` — o Supabase
+guardava o caminho absoluto da versão anterior e tentava resolvê-lo dentro da nova.
+**Não chegou a tocar produção.** Resolvido passando `import_map_path: "deno.json"`
+explícito. Vale para qualquer redeploy deste projeto.
+
+🔴 **P38 continua aberta.** Conferido às 04:51 UTC: `clone_ingest_log` segue com
+**zero linhas** para o Achadinhos #34. Mas são 01:51 BRT e o engine só voltou às
+04:22 — meia hora de monitoramento em horário morto. Cedo demais para concluir
+qualquer coisa.
+
+---
+
 **Sessão de 04/08/2026 (madrugada, REVISÃO 34) — mensagem temporária era
 descartada em silêncio (é por isso que o Clone Post não pegava nada) + a foto do
 post passa a sair padronizada em 1080×1080.**
@@ -2708,11 +2809,14 @@ código não relacionado.
 
 | ~~P32~~ | ✅ **FECHADA 01/08 noite.** A Shopee devolvia `price_from = node.price`, que é o preço ATUAL e não o anterior; 3 de 3 capturas reais saíram com "de" == "por" e desconto de 53%/42%/35%, já no rodízio do grupo. `product-search` **v25** para de enviar `price_from` para a Shopee. Os 3 produtos foram limpos. O Radar, que tem leitura própria, **não** tinha o defeito — terceira vez que duas implementações da mesma coisa divergem neste repo | 01/08 |
 | **P37** | 🔴 **Provar o `Link Rápido` por comportamento.** A aba foi codada e validada só no arquivo (`node --check` nos 4 blocos inline, `md5sum` idêntico entre as duas cópias). **Não foi aberta em produção nem uma vez.** Medir, depois do Deploy, com um link real de cada caminho: **Shopee encurtada** (`s.shopee.com.br/…`), **ML `/sec/`**, **Amazon `amzn.to`** e **um link completo, sem encurtador**. Em cada um, conferir na tela: (1) o alerta ficou verde, (2) o link entregue contém o ID de afiliado da conta logada — abrir o link e olhar a URL final, não confiar no que a tela escreveu. Testar também o caminho amarelo: loja **sem** credencial cadastrada tem que recusar o verde | 03/08 |
-| **P38** | 🔴 **Provar o cadastro por link de convite.** Depois do deploy: copiar "Convidar via link" do **Achadinhos #100** no WhatsApp, colar no "+ Nova fonte" e conferir que resolve nome e JID, que a opção entra selecionada no select e que o `clone_sources` grava `source_jid` e `source_label` certos. Prova final é **comportamento**: esperar mensagem de oferta nesse grupo e ver linha nova em `clone_ingest_log` com esse `source_jid`. Sem isso, o que existe é um formulário bonito | 03/08 |
+| ~~P38~~ | ✅ **FECHADA 04/08 por comportamento.** ~~Provar o cadastro por link de convite.~~ Medido às 13:32 UTC: **39 linhas** em `clone_ingest_log` para `120363042232139638@g.us`, sendo **10 `salvo`** (8 Amazon, 2 Shopee), 26 `teto` e 3 `resolve_falhou`. Última linha 30 s antes da consulta. Fecha o convite **e** o desembrulho da mensagem temporária no mesmo experimento: a fonte foi cadastrada por link de convite e a captura só passou a existir depois do conserto do `ephemeralMessage`. Antes: zero linhas em 10 h 20 | 03/08 |
+| **P45** | 🔵 **O teto de 10/dia por fonte virou o gargalo, e agora há número.** Em 04/08 o Achadinhos #34 teve **26 recusas por teto contra 10 capturas**. O teto foi posto para conter consulta de loja (cada captura custa uma leitura), não para limitar oferta boa. Decidir: subir o teto por fonte, tornar o teto função do plano, ou deixar como está e mostrar no card quantas ofertas o teto barrou — hoje o dono não vê esse número em lugar nenhum, e ele é justamente o argumento de upgrade | 04/08 |
 | **P39** | 🟡 **Fonte cadastrada em grupo onde a sessão não está falha calada.** O invite info responde para qualquer código válido, então dá pra cadastrar fonte de grupo alheio e ela nunca captura — sem erro em lugar nenhum. Hoje o único aviso é texto na tela. Sinalizar no card da fonte quando ela passar N dias com **zero** linha em `clone_ingest_log`: é o mesmo defeito de fundo de "mecanismo que parece existir e não executa nada" | 03/08 |
 | **P40** | 🔵 **Inventário de grupos ouvidos no `wa-engine`** — registrar `jid → {nome, visto_em}` de todo grupo de onde chega mensagem e somar essa lista à do Baileys no dropdown. **Adiado de propósito:** o registro teria que acontecer **antes** do filtro `CLONE_DONOS`, no caminho quente de toda mensagem de toda sessão, incluindo a admin `…73545214` — e errar o filtro por `phone` no endpoint vaza nome de grupo entre contas, que é exatamente o bug que o comentário "SEM FALLBACK, de proposito" do `/groups` documenta ter acontecido. Também exige `groupMetadata(jid)` por JID novo, o que vira rajada de consultas ao WhatsApp depois de cada restart. Sessão limpa, com cache e throttle | 03/08 |
 | **P41** | 🟡 **Ser removido do grupo-fonte é o risco operacional do Clone Post, e hoje ninguém percebe.** O admin da "TáNaMão – Promoções #02" removeu o Érico do grupo em 03/08 — provavelmente por notar a clonagem. Do lado do painel isso é indistinguível de grupo parado: a fonte segue `active`, sem erro, sem aviso. Junta-se à **P39** (fonte em grupo onde a sessão não está): as duas terminam na mesma tela e pedem o mesmo remédio — **sinalizar no card a fonte que passou N dias sem nenhuma linha em `clone_ingest_log`**. Vale considerar também espaçar/limitar a clonagem por fonte, porque republicar rápido demais é o que denuncia | 04/08 |
 | **P42** | 🔴 **Provar a padronização da foto com imagem real.** O teste de 04/08 usou 6 imagens sintéticas geradas pelo próprio `sharp` — prova que o pipeline redimensiona, **não** que a foto de um anúncio real chega bonita no grupo. Depois do deploy: postar uma oferta de cada loja (Amazon `._AC_SL1500_`, Shopee, ML) e **olhar no WhatsApp**. Conferir também o log `[IMG] nao consegui padronizar` — se aparecer com frequência, alguma CDN está recusando o download do engine e os posts estão caindo no caminho antigo sem ninguém notar | 04/08 |
+| **P43** | 🟡 **O leitor de Amazon existe em DOIS arquivos.** `consultarAmazonDireto` e as cinco funções de que depende estão duplicadas na `clone-ingest` e na `product-search`. Foi decisão consciente em 04/08: extrair para módulo compartilhado exigiria reemitir os 72 KB da `clone-ingest`, que é a operação que a P36 adiou justamente por risco de transcrição. **Enquanto durar, mudança em uma tem que ser repetida na outra** — o aviso está escrito nos dois lugares. Unificar em sessão limpa, com as duas funções abertas lado a lado, e provar depois em ambos os caminhos (Postar Agora e captura automática) | 04/08 |
+| **P44** | 🔵 **Postar Agora ainda não lê AliExpress, Magalu, Shein, Natura e TerabyteShop.** Continuam no "preencha manualmente" — e a mensagem não diz ao usuário QUAL loja não tem leitura nem por quê. Duas frentes possíveis: leitor genérico por `og:title`/`og:image` (traz título e foto; preço em og:tag quase nunca é confiável) ou melhorar só o texto da recusa. Nenhuma decidida | 04/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
