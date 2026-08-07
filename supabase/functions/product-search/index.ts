@@ -1,3 +1,8 @@
+// product-search v27 — a Shopee volta a ser lida no Postar Agora
+// v27 (04/08, noite): o leitor da Shopee so conhecia /product/LOJA/ITEM. Ver o
+//   comentario de urlLimpaPelaResolveLink. Junto: shp.ee no detectStore e motivo
+//   em campo proprio, para a tela parar de traduzir "link nao reconhecido" como
+//   "faltam credenciais".
 // product-search v26 — a Amazon passa a ser lida no Postar Agora
 // v26 (04/08): ate aqui esta funcao tinha DOIS ramos de loja, Mercado Livre e
 //   Shopee. Amazon, AliExpress, Magalu, Shein, Natura e Terabyte caiam no
@@ -101,7 +106,10 @@ async function sha256Hex(s: string): Promise<string> {
 function detectStore(url: string): string {
   const u = url.toLowerCase();
   if (u.includes("mercadolivre") || u.includes("mercadolibre") || u.includes("produto.mercadol") || /mlb[-_]?\d+/i.test(u)) return "mercadolivre";
-  if (u.includes("shopee") || u.includes("s.shopee")) return "shopee";
+  // v27: shp.ee e o encurtador oficial da Shopee e NAO contem a string "shopee".
+  // Sem esta linha um link legitimo da Shopee cai em "outras" e o usuario recebe
+  // "Loja sem integracao automatica. Preencha manualmente."
+  if (u.includes("shopee") || u.includes("s.shopee") || u.includes("shp.ee")) return "shopee";
   if (u.includes("amazon")) return "amazon";
   if (u.includes("aliexpress")) return "aliexpress";
   if (u.includes("magalu") || u.includes("magazineluiza")) return "magalu";
@@ -274,11 +282,56 @@ async function fetchMercadoLivre(url: string, waEngineUrl: string, waEngineToken
   return { success: false, store: "mercadolivre", error: `Não foi possível obter dados do produto MLB${mlb}. Preencha manualmente.` };
 }
 
-async function fetchShopee(url: string, appId: string, appSecret: string): Promise<any> {
+// ── v27 · a Shopee so era lida em UM formato de URL ────────────────────────
+// A P26 ensinou a resolve-link a reconhecer os formatos da Shopee em 01/08 e a
+// normalizar todos para /product/LOJA/ITEM. Esta funcao nao recebeu aquela
+// licao, e o Postar Agora fala so com ela: link copiado do app ("-i.LOJA.ITEM"),
+// link com primeiro segmento variavel e link encurtado (s.shopee.com.br,
+// shp.ee) morriam todos em "IDs do produto nao encontrados".
+// MEDIDO em 04/08 com link real do Erico: 4 dos 5 formatos conhecidos falhavam,
+// inclusive o mais comum, que e o que o site entrega ao copiar.
+//
+// NAO reimplementamos o reconhecimento aqui, de proposito. Copiar um SUBCONJUNTO
+// dos formatos e pior do que nao copiar nenhum: da aparencia de cobertura e
+// deixa de fora justamente o caso que a P26 descobriu (primeiro segmento
+// variavel). Copia parcial aqui seria gemea da P43.
+async function urlLimpaPelaResolveLink(url: string, authHeader: string | null): Promise<string | null> {
+  // Preferir o JWT de quem chamou: ele JA passou pelo verify_jwt desta funcao,
+  // entao e garantidamente aceito pela resolve-link. A SERVICE_ROLE fica de
+  // reserva e pode nao ser JWT em projeto com chave nova — autenticar so por ela
+  // daria 401 silencioso, e o conserto viraria mecanismo que nao executa nada.
+  const cred = authHeader && authHeader.startsWith("Bearer ") ? authHeader : (SERVICE_ROLE ? `Bearer ${SERVICE_ROLE}` : "");
+  if (!SUPABASE_URL || !cred) return null;
+  try {
+    const r = await fw(`${SUPABASE_URL}/functions/v1/resolve-link`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": cred },
+      body: JSON.stringify({ url }),
+    }, 12000);
+    if (!r.ok) { console.warn(`[shopee] resolve-link respondeu HTTP ${r.status}`); return null; }
+    const d = await r.json();
+    if (!d?.ok) { console.warn(`[shopee] resolve-link recusou: ${d?.error ?? "sem motivo"}`); return null; }
+    // `url` e a forma NORMALIZADA (/product/LOJA/ITEM). `resolved` e so o
+    // pos-redirecionamento e pode continuar em qualquer um dos outros formatos.
+    return String(d.url ?? "") || null;
+  } catch (e) {
+    console.warn(`[shopee] resolve-link falhou: ${(e as Error).message}`);
+    return null;
+  }
+}
+
+async function fetchShopee(url: string, appId: string, appSecret: string, authHeader: string | null): Promise<any> {
   let itemId: string | undefined, shopId: string | undefined;
-  const m = url.match(/\/product\/(\d+)\/(\d+)/);
+  let m = url.match(/\/product\/(\d+)\/(\d+)/);
+  if (!m) {
+    const limpa = await urlLimpaPelaResolveLink(url, authHeader);
+    if (limpa) {
+      console.log(`[shopee] v27 normalizou pela resolve-link: ${limpa}`);
+      m = limpa.match(/\/product\/(\d+)\/(\d+)/);
+    }
+  }
   if (m) { shopId = m[1]; itemId = m[2]; }
-  if (!itemId || !shopId) return { success: false, store: "shopee", error: "IDs do produto não encontrados no link" };
+  if (!itemId || !shopId) return { success: false, store: "shopee", motivo: "link_nao_reconhecido", error: "esse link da Shopee nao aponta pra um produto (nao achei o par LOJA/ITEM na URL). Abra a oferta e copie o link da pagina do produto." };
   const query = `{ productOfferV2(itemId: ${itemId}, shopId: ${shopId}) { nodes { itemId shopId productName imageUrl price priceMin priceDiscountRate commissionRate ratingStar sales offerLink productLink } } }`;
   const ts = Math.floor(Date.now() / 1000);
   const payload = JSON.stringify({ query });
@@ -452,14 +505,14 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   try {
     const { url, credentials = {} } = await req.json();
-    console.log(`[product-search v26] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
+    console.log(`[product-search v27] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
     if (!url || !/^https?:\/\//i.test(url))
       return new Response(JSON.stringify({ success: false, error: "URL inválida" }), { status: 400, headers: { ...CORS, "Content-Type": "application/json" } });
 
     const store = detectStore(url);
     const authHeader = req.headers.get("authorization");
     const userId = getUserIdFromJwt(authHeader);
-    console.log(`[product-search v26] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
+    console.log(`[product-search v27] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
 
     const waEngineUrl = Deno.env.get("WA_ENGINE_URL") || "https://megalinksbr-wa-engine.fwezsn.easypanel.host";
     const waEngineToken = Deno.env.get("WA_ENGINE_TOKEN") || "";
@@ -470,7 +523,19 @@ Deno.serve(async (req: Request) => {
     if (store === "mercadolivre") {
       result = await fetchMercadoLivre(url, waEngineUrl, waEngineToken, sb, userId);
     } else if (store === "shopee" && credentials.shopee_app_id && credentials.shopee_app_secret) {
-      result = await fetchShopee(url, credentials.shopee_app_id, credentials.shopee_app_secret);
+      result = await fetchShopee(url, credentials.shopee_app_id, credentials.shopee_app_secret, authHeader);
+    } else if (store === "shopee") {
+      // v27: ate aqui, credencial faltando caia no generico "Loja sem integracao
+      // automatica" — a mesma frase que o link nao reconhecido produzia. Duas
+      // causas sem relacao nenhuma com a mesma mensagem e o que escondeu este
+      // bug: o Erico TEM as duas chaves e a tela dizia que faltavam.
+      const faltando: string[] = [];
+      if (!credentials.shopee_app_id) faltando.push("App Key");
+      if (!credentials.shopee_app_secret) faltando.push("App Secret");
+      result = {
+        success: false, store: "shopee", motivo: "credenciais_incompletas", faltando,
+        error: `Shopee — faltam dados da sua conta de afiliado: ${faltando.join(" e ")}.`,
+      };
     } else if (store === "amazon") {
       // Le a pagina publica: nao depende das chaves da PA-API, que a maioria dos
       // usuarios nao tem (a aprovacao exige vendas). E o mesmo caminho que o
@@ -479,10 +544,10 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!result?.success) {
-      result = result || { success: false, source: "none", store, error: "Loja sem integração automática. Preencha manualmente." };
+      result = result || { success: false, source: "none", store, motivo: "loja_sem_integracao", error: "Loja sem integração automática. Preencha manualmente." };
     }
 
-    console.log(`[product-search v26] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
+    console.log(`[product-search v27] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
     return new Response(JSON.stringify(result), { headers: { ...CORS, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ success: false, error: (e as Error).message }), { status: 500, headers: { ...CORS, "Content-Type": "application/json" } });

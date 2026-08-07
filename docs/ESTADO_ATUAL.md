@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 38 — 04/08/2026 (tarde).** Se o número aqui não for o mais alto que você
+> **REVISÃO 39 — 04/08/2026 (noite).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1643,6 +1643,159 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**Sessão de 04/08/2026 (noite, REVISÃO 39) — nenhuma linha de frontend alterada, e
+mesmo assim quatro pendências mudaram de estado. Mais a Shopee voltando a ser lida
+no Postar Agora.**
+
+| | |
+|---|---|
+| Commits | 1 · `product-search` v27 + este doc |
+| Edge Functions | `product-search` **v27** deployada e provada (`version` 45 → 46, `ezbr_sha256` `6f9d61f8…` → `710156e3…`) |
+| Frontend | inalterado |
+| Repo × produção | batendo, menos a `clone-ingest` (repo v17, produção v16 — P36) |
+
+**Próxima ação sugerida:** acertar os relógios (P52) e então deployar a
+`clone-ingest` v17 como primeira ação de contexto limpo.
+
+### P33 — FECHADA por medição
+
+Os 9 descontos órfãos receberam `discount_pct = null` — **`null`, não `0`**, que é o
+que a v19 faz no código (`product-refresh` linha 757).
+
+| | antes | depois |
+|---|---|---|
+| Mercado Livre | 5 | **0** |
+| Amazon | 4 | **0** |
+| Shopee | 15 | 15 *(intencional — P32)* |
+| **controle:** com "de" **e** desconto | 65 | **65** |
+
+A rodada de 04/08 não restaurou nenhum "de" sozinha (`de_corrigidos` 0,
+`de_apagados` 0), então a condição combinada em 03/08 estava satisfeita. O mais caro
+dos nove: **Kit Rapunzel**, anunciando **−56%** sobre um preço que a própria rodada
+mediu **subindo** de 58,52 para 92,00.
+
+### P34 — a rodada de 04/08 09:00 UTC, lida no mesmo dia · 2 das 3 exigências
+
+`product_refresh_runs` tem **1 linha**, `2026-08-04 09:00:23.787 UTC`.
+
+| # | Exigência | Veredito |
+|---|---|---|
+| 1 | a tabela deixa de estar vazia | ✅ |
+| 2 | `candidatos_antigos > 0` | ✅ **4** — `candidatos` 12 = **8 novos + 4 antigos** |
+| 3 | os 4 da Amazon saem de `30/07 14:16` | 🟡 **3 de 4** |
+
+**A reserva de cota da v20 funcionou como piso.** Contadores: `preco_mudou` 4,
+`de_corrigidos` 0, `de_apagados` 0, `pulados` 0, `desconhecidos` 2,
+`lidos_da_loja` 10, `duracao_ms` 20004, **`usos_do_pool_compartilhado` 0**.
+
+🔴 **E ela entregou a P48 de lado.** O La Roche **foi lido** — está nos detalhes como
+`? pagina de produto sem botao e sem outOfStock`, um dos 2 `desconhecidos` — e **não
+carimbou** `price_checked_at`. Continua em `30/07 14:16:02.187`, o carimbo mais antigo
+da base. É o mecanismo da P29 no ramo `desconhecido` em vez do `pulado`: o `pulados`
+da rodada foi **0**, então o conserto da v17 pegou aquele caso e deixou este de fora.
+Medido: 12 candidatos, **10 carimbados**, `min(price_checked_at)` inalterado.
+
+### P47 — MEDIDA, e o defeito tem duas caras
+
+Medido no navegador logado às **23h BRT**, dentro da janela em que os fusos discordam:
+
+```
+gate usa: 2026-08-05T00:00:00Z
+correto : 2026-08-04T00:00:00Z
+iguais?  false
+```
+
+O gate do Starter faz `.gte("sent_at", hoje+"T00:00:00Z")` com `hoje` em UTC
+(`index.html` linha **9372** — o doc dizia ~9313 —, idêntico nas duas cópias):
+
+- **00h–21h BRT** — a janela começa às **21h de ontem**. O que saiu ontem à noite
+  conta contra a cota de hoje. *Barra cedo demais.*
+- **21h–meia-noite BRT** — `hoje` vira o dia seguinte em UTC e a janela reinicia.
+  *O contador zera e libera **5 posts a mais**.*
+
+Um Starter que estourou o limite ganha **uma segunda cota de 5 todo dia às 21h**.
+Limite de plano vazando — parente da P5. **Terceiro caso, não listado antes:** linha
+**2660**, o gráfico de 14 dias monta o **rótulo** em hora local e a **chave** em UTC;
+depois das 21h cada clique cai na barra do dia errado.
+
+⚠️ **O que foi medido e o que foi lido, ditos separadamente:** a divergência foi
+avaliada **no console, na hora** — é do relógio, não do bundle. O que a liga ao gate é
+a **leitura** do código na linha 9372. Conserto: reusar o `csDiaBR` (linha 8600) nos
+três lugares, nas **duas** cópias. Não codado — escopo estrito.
+
+### P36 — a premissa caiu na medição, e o chip resolveu
+
+**A fonte que captura hoje, "Grupo de Achadinhos #34", tinha `mercadolivre` em
+`lojas_permitidas`.** O pré-filtro da v17 só recusa quando nenhum link cru está nas
+lojas permitidas — com o ML permitido ele **nunca dispararia**, e o deploy teria
+pegado zero. O comentário da própria v17, linha 214, diz a premissa em que foi
+escrita: *"nas duas fontes, onde o ML nem está em lojas_permitidas"*. Era verdade para
+a TáNaMão e a "Melhores Ofertas"; a fonte que capta hoje é outra. A "Melhores
+Ofertas", que de fato exclui o ML, está **`active = false`**.
+
+**Feito:** Érico desmarcou o chip do ML no card. Lido no banco — `lojas_permitidas`
+agora é **`["shopee","amazon"]`**. Isso **fecha por clique real a última ressalva da
+P31** (`csAlternarLoja` gravando no banco, aberta desde 01/08; a P46 tinha fechado só
+o `csAjustarTeto`).
+
+⚠️ **Correção de um erro desta sessão, registrada de propósito:** foi previsto que o
+chip faria os links de ML virarem `[pos-filtro]` ainda com a v16, servindo de degrau
+intermediário. **Errado, e foi dedução, não leitura.** O filtro da v16 mora **depois**
+da `resolve-link` (linha 1196) e esses links morrem antes, porque são vitrine. O chip é
+**pré-requisito** do pré-filtro, não produtor de sinal próprio.
+
+**Baseline para o deploy:** `resolve_falhou` + `store='mercadolivre'` em 24h = **22**,
+e **22 de 22 são o MESMO link**, `mercadolivre.com.br` `/social/ofertinhas`. `salvo`:
+20 Amazon + 10 Shopee. `teto`: 81 (30/30) + 32 (10/10). Achadinhos #34 em **30/30**.
+⚠️ O teto é avaliado **antes** do pré-filtro (linha 1114 contra 1132): nada chega ao
+pré-filtro enquanto a fonte estiver no teto.
+
+### P50 — o Postar Agora não lia Shopee · `product-search` v27
+
+**Causa: a P26 de novo, no arquivo vizinho.** O `prBuscarProduto` manda o link **cru**
+para a `product-search`, sem passar pela `resolve-link`, e o leitor de Shopee de lá
+reconhecia **um único** formato, `/product/LOJA/ITEM`. Teste de mesa com os 5 formatos
+conhecidos: **4 falhavam**, inclusive o mais comum. O `shp.ee` nem era detectado como
+Shopee (`detectStore` procura a string `"shopee"`).
+
+🔴 **E a tela mentia sobre a causa.** Em falha, o frontend (linha 7891) **ignora o
+`d.error`** e monta a explicação sozinha; como o Érico *tem* App Key, caía no
+`prDicaLoja` genérico — *"Shopee requer credenciais oficiais"*. Ele tem as duas.
+Mensagem única para causas diferentes, de novo.
+
+**Conserto (v27):** quando o regex não acha os IDs, chama a **`resolve-link`** e refaz
+a leitura com a URL normalizada. **Os formatos NÃO foram copiados para cá** — cópia de
+um *subconjunto* é pior que nenhuma: dá aparência de cobertura e deixa de fora justo o
+caso da P26. Seria gêmea da P43. Mais `shp.ee` no `detectStore` e `motivo` em campo
+próprio. O JWT de quem chamou é repassado à `resolve-link`, **não** a `SERVICE_ROLE` —
+em projeto com chave nova a service role pode não ser JWT, e isso daria 401 silencioso.
+
+✅ **PROVADO POR COMPORTAMENTO:** mesmo link, post saiu com nome, foto e R$ 61,99.
+`product-search` **200 na version 46**, 951 ms. E não é inferência: o link não tem
+`/product/N/N`, então o único caminho até os IDs é o desvio pela `resolve-link`.
+
+**Sobre o "de" não aparecer na Shopee:** não é regressão, é a **P32**. A API de
+afiliado não devolve preço anterior, só a taxa.
+
+### P49 — o cache do navegador quase reabriu uma pendência certa
+
+Na primeira leitura, `csDiaBR`/`csAjustarTeto`/`csTetoBarradoHtml` vieram
+**`undefined`** no painel logado, com as de 01/08 em `function`. A conclusão óbvia
+seria reabrir a P46. O controle que separou:
+
+```js
+fetch(location.pathname+"?nc="+Date.now(),{cache:"reload"})
+  .then(r=>r.text()).then(t=>console.log(t.length, t.includes("csDiaBR")))
+```
+
+Servido pelo nginx: **640.669** caracteres, `csDiaBR: true` — **exatamente** o
+`length` UTF-16 do arquivo do repo (649.415 bytes UTF-8; a diferença era acento
+contado em dobro, não versão). As duas cópias do `index.html` com **md5 idêntico**.
+O nginx estava certo; a aba servia bundle anterior a 04/08. Depois do `Ctrl+Shift+R`,
+as três viraram `function` e o console ficou limpo.
+
+---
+
 **Sessão de 04/08/2026 (tarde, REVISÃO 38) — P46 FECHADA no navegador logado, e com
 ela cai a ressalva que a P31 carregava desde 01/08: um clique de mouse real gravando
 no banco.**
@@ -3006,8 +3159,8 @@ código não relacionado.
 | ~~P29~~ | ✅ **FECHADA 02/08.** Não era bug de lote: **8 dos 12 candidatos são inconferíveis por construção** (Shopee sem verificador, ML de plano starter sem monitoramento) e, antes da v17, não carimbavam `price_checked_at` — reenchiam o lote em toda rodada, deixando 1 único conferido. A rodada de 02/08 carimbou **11 linhas**. Ver "P29" acima. ⚠️ Os contadores do corpo **não foram lidos** (a janela já tinha fechado); a reconstrução é do `products` + do código, e a `product_refresh_runs` da v19 existe para isso não repetir. ✅ **Ressalva fechada em 03/08:** os contadores **foram lidos** do `net._http_response` 2h48 depois da rodada — `candidatos` 12, `conferidos` 4, `preco_mudou` 2, `pulados` 5, `desconhecidos` 1, `duracao_ms` 11115, pool 0 — e confirmam a explicação. Ver "Rodada de 03/08" acima | 01/08 |
 | ~~P30~~ | ✅ **FECHADA 01/08 noite.** `product-refresh` **v18**: `consultarML` devolve `precoDe`, saída (a) com a trava `undefined`/`null`. 13 de 13 corrigidos (169 → 169,90). ⚠️ **O ramo que APAGA não foi observado — não medido.** Ver a ressalva na seção da P30. Registro original abaixo. ~~🔜 **PRÓXIMA SESSÃO, PRIMEIRA AÇÃO** (combinado com o Érico em 01/08).~~ **`price_original` ("de") continua truncado nos produtos de Mercado Livre.** O `consultarML` não devolve `precoDe`, então a reconciliação da v16 nunca roda para o ML e o "de" mantém o valor inteiro antigo (96 em vez de 96,79). O wa-engine **já devolve** `price_from` com centavos — é só repassar. **Decisão pendente e não trivial:** repassar significa que, quando a loja não mostrar "de", o `precoDe` vira `null` e a v16 **apaga** o "de" existente. Isso remove o desconto de posts que hoje exibem um. Efeito atual do bug é conservador (desconto aparece menor do que é), então não é urgente — mas é o próximo item combinado. **As duas saídas, para decidir antes de codar:** (a) repassar direto e aceitar que o "de" seja apagado quando a loja não mostrar, que é o que a v16 escolheu de propósito para não publicar desconto que não existe; (b) repassar só quando a loja mostrar "de" e nunca apagar, que preserva o desconto atual mas reabre a porta para o "de" de terceiro que o caso La Roche fechou. **DECIDIDO PELO ÉRICO EM 01/08: saída (a), com uma trava que nenhuma das duas tinha.** O que fazia a (b) parecer necessária era o risco de apagar um "de" bom por causa de uma leitura que falhou — e isso não é escolher entre (a) e (b), é distinguir dois casos que a P30 tratava como um só. O `product-refresh` já faz essa distinção e ela está escrita no tipo `Consulta`: **`undefined` = não olhei; `null` = olhei e a loja não mostra.** Só o segundo pode apagar. Patch: `consultarML` devolve `precoDe: null` quando a leitura deu certo e não havia "de", e `undefined` quando a leitura falhou; a reconciliação da v16 só apaga no primeiro caso. **Falta codar** | 01/08 |
 | **P15** | **Parcialmente endereçada 31/07 tarde.** Existe agora um smoke test executável: extrair os blocos `<script>`, rodar os quatro **no mesmo contexto** `vm` do Node com um DOM falso permissivo, e comparar contra o baseline **antes** do patch. Foi rodado neste push e pegaria o TDZ do `f94e2f0`. **Duas limitações medidas:** (1) dá falso positivo em `id` de elemento usado como global — `themeT.onclick` na linha 2496 acusa `ReferenceError` no sandbox e funciona no browser; por isso a comparação com o baseline é obrigatória, o veredito é "piorou?", não "tem erro?"; (2) não executa handler nenhum, só o top-level. **Continua aberta:** carregar a página num navegador de verdade e ler o console segue sendo a única prova real | 31/07 |
-| **P33** | 🟡 **DEPLOYADA EM 03/08 (dentro da v20), AGUARDANDO PROVA.** Apagar o "de" deixava o `discount_pct` de pé — 5 produtos com porcentagem órfã em 02/08. O `send-post` **não** usa o campo (o post sai limpo); a lista de produtos do painel usa (linha 5799) e o formulário regrava (linha 8271). v19 zera junto, só no ML e na Amazon, onde o desconto é derivado do "de" — a Shopee fica de fora por construção (decisão da P32). 🔴 **CORREÇÃO 03/08: a v19 NÃO alcança os órfãos que já existem** — a guarda `antes !== res.precoDe` compara `null` com `null` e pula o bloco. Ela impede órfão novo, só isso. **Medidos hoje: 24 órfãos** — 15 Shopee (intencional), 5 ML e 4 Amazon. Os 9 de ML e Amazon exigem UPDATE à mão, **combinado para depois da rodada de 04/08**, que pode restaurar o "de" de alguns sozinha | 02/08 |
-| **P34** | 🟡 **DEPLOYADA EM 03/08, AGUARDANDO PROVA.** ~~A rodada diária só alcança produto recém-criado.~~ Medido em 03/08: os 11 carimbos da rodada foram **todos** de produtos criados no mesmo dia às 03:25. 27 produtos criados em 24h contra `BATCH = 12`; 19 ainda com `price_checked_at` nulo; **4 Amazon parados desde 30/07 14:16** (La Roche, Kit Rapunzel, Kärcher, Calvin Klein). `nullsFirst` + ingestão maior que o lote = produto que já tem carimbo nunca volta à fila. **Não é bug do `nullsFirst`** — é o lote ser menor que a entrada diária. Saídas não decididas: subir o `BATCH`, rodar o cron mais de uma vez por dia, ou reservar parte do lote para os carimbados mais antigos. **Consertada em 03/08.** Saída escolhida: **reserva de cota** (`RESERVA_ANTIGOS = 4`, piso e não teto), a única sem aumento de consumo de leitura — `BATCH` segue 12. Duas filas (`novos` por `created_at`, `antigos` por `price_checked_at`) no lugar da ordenação global com `nullsFirst`. Contadores `candidatos_novos`/`candidatos_antigos` entram na resposta e no `resumo` jsonb, sem migration. Lógica testada em 8 cenários com os números reais do banco. ⚠️ **A v20 contém a v19**: o deploy de 03/08 à tarde entregou as duas. **Deployado não é provado** — a prova é a rodada de 04/08 09:00 UTC, com `candidatos_antigos > 0` e os 4 da Amazon saindo de `30/07 14:16`. Enquanto isso não for lido, esta pendência fica 🟡 | 03/08 |
+| ~~P33~~ | ✅ **FECHADA 04/08 à noite.** Os 9 órfãos de ML e Amazon receberam `discount_pct = null` por UPDATE à mão, depois da rodada de 04/08 (que não restaurou nenhum "de": `de_corrigidos` 0, `de_apagados` 0). Restam os 15 da Shopee, intencionais. Controle de 65 produtos com "de" **e** desconto intacto. Ver "Última alteração". Registro original abaixo. ~~🟡 DEPLOYADA EM 03/08 (dentro da v20), AGUARDANDO PROVA.~~ Apagar o "de" deixava o `discount_pct` de pé — 5 produtos com porcentagem órfã em 02/08. O `send-post` **não** usa o campo (o post sai limpo); a lista de produtos do painel usa (linha 5799) e o formulário regrava (linha 8271). v19 zera junto, só no ML e na Amazon, onde o desconto é derivado do "de" — a Shopee fica de fora por construção (decisão da P32). 🔴 **CORREÇÃO 03/08: a v19 NÃO alcança os órfãos que já existem** — a guarda `antes !== res.precoDe` compara `null` com `null` e pula o bloco. Ela impede órfão novo, só isso. **Medidos hoje: 24 órfãos** — 15 Shopee (intencional), 5 ML e 4 Amazon. Os 9 de ML e Amazon exigem UPDATE à mão, **combinado para depois da rodada de 04/08**, que pode restaurar o "de" de alguns sozinha | 02/08 |
+| **P34** | 🟢 **2 DAS 3 EXIGÊNCIAS PROVADAS EM 04/08.** `product_refresh_runs` tem 1 linha; `candidatos_antigos` = **4** (12 = 8 novos + 4 antigos), a reserva funcionou como piso; dos 4 da Amazon, **3 saíram** do carimbo `30/07 14:16` e o La Roche **não** — ver **P48**. Registro original abaixo. ~~🟡 DEPLOYADA EM 03/08, AGUARDANDO PROVA.~~ ~~A rodada diária só alcança produto recém-criado.~~ Medido em 03/08: os 11 carimbos da rodada foram **todos** de produtos criados no mesmo dia às 03:25. 27 produtos criados em 24h contra `BATCH = 12`; 19 ainda com `price_checked_at` nulo; **4 Amazon parados desde 30/07 14:16** (La Roche, Kit Rapunzel, Kärcher, Calvin Klein). `nullsFirst` + ingestão maior que o lote = produto que já tem carimbo nunca volta à fila. **Não é bug do `nullsFirst`** — é o lote ser menor que a entrada diária. Saídas não decididas: subir o `BATCH`, rodar o cron mais de uma vez por dia, ou reservar parte do lote para os carimbados mais antigos. **Consertada em 03/08.** Saída escolhida: **reserva de cota** (`RESERVA_ANTIGOS = 4`, piso e não teto), a única sem aumento de consumo de leitura — `BATCH` segue 12. Duas filas (`novos` por `created_at`, `antigos` por `price_checked_at`) no lugar da ordenação global com `nullsFirst`. Contadores `candidatos_novos`/`candidatos_antigos` entram na resposta e no `resumo` jsonb, sem migration. Lógica testada em 8 cenários com os números reais do banco. ⚠️ **A v20 contém a v19**: o deploy de 03/08 à tarde entregou as duas. **Deployado não é provado** — a prova é a rodada de 04/08 09:00 UTC, com `candidatos_antigos > 0` e os 4 da Amazon saindo de `30/07 14:16`. Enquanto isso não for lido, esta pendência fica 🟡 | 03/08 |
 | **P35** | 🟠 **Qualquer usuário autenticado obtém o `WA_ENGINE_TOKEN` da plataforma inteira.** Achado de lado ao investigar a P3, em 03/08. O `get-wa-engine-token` **não checa nada em código** (1391 bytes, devolve o token e a URL); a proteção mora só em `verify_jwt: true`, que está **medido** como ligado — não há exposição pública, mas basta uma conta cadastrada para receber a credencial que controla o `wa-engine` de **todos**. 🔴 **CORREÇÃO 03/08: "autorizar por plano" foi decidido e depois DERRUBADO pela medição.** Não existe plano sem WhatsApp: `starter` tem `wa_groups ≥ 1` e **1 dos 5 starters tem instância conectada**. Um gate por plano excluiria ninguém — toda conta cadastrada continuaria recebendo o token mestre. **Sobram duas saídas de verdade:** (a) **token por usuário no engine**, escopando `/sessions`, `/disconnect` e `/send` ao dono — resolve a raiz, mexe no `wa-engine` inteiro e em todo chamador; (b) **registrar o risco** com a ressalva de que um deploy com `verify_jwt: false` abre tudo, sem nada no código para segurar. **Não decidida** | 03/08 |
 | **P36** | 🟡 **CODADA E VALIDADA EM 03/08 (REVISÃO 30) — NÃO DEPLOYADA.** ~~Pré-filtro de domínio antes da `resolve-link`, decidido e não codado.~~ `clone-ingest` **v17** no repo, produção em **v16**. Mapa `DOMINIOS_LOJA` (host → loja, casando por sufixo, cobrindo `meli.la`, `s.shopee.com.br`, `amzlink.to`, `link.amazon`, `shp.ee`, `a.co`) + `lojaDoDominio()` + `linksDoTexto()`. **Regra conservadora:** só recusa quando **todos** os links do texto têm domínio reconhecido **e** nenhum está em `lojas_permitidas`; um único link desconhecido faz a mensagem seguir para a `resolve-link` como na v16. Array vazio = todas, então fonte sem filtro não muda. As duas recusas ficam separáveis no log pelos prefixos **`[pre-filtro]`** e **`[pos-filtro]`** — é isso que vai medir se o pré-filtro pega 44/dia ou zero. Validação de 03/08: `esbuild` parse limpo do arquivo inteiro, `node --check` no bundle, `const permitidas` declarada 1 vez só, **12/12 cenários** conforme o esperado. 🔴 **Premissa corrigida na medição:** as 44/dia são `resolve_falhou`, não `loja_filtrada` — `loja_filtrada` em 24h é **0**, o filtro da v16 nunca disparou para este caso. **Baseline gravada 03/08 13:53:12 UTC:** `resolve_falhou`+`mercadolivre.com.br` = **44**, `loja_filtrada` = **0**, `salvo` = 17, total = 100. **Falta só o deploy e a prova por comportamento** | 03/08 |
 | **P16** | 🔴 **DEIXOU DE SER TEÓRICA EM 03/08 — ela é a causa da P4.** ~~O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B".~~ Medido: **todo push para o `main` reinicia o `wa-engine` em produção**, inclusive push só de documentação. 4 boots em 35 minutos em 03/08, 3 deles casados com eventos conhecidos, e 53 minutos sem push = sem restart. **Custo por push:** a `CLONE_FILA` (memória) é descartada, as 3 sessões levam `conflict/replaced` 440 do WhatsApp e o container antigo e o novo disputam a sessão por alguns segundos. O engine trata certo (`Não reconectar`), então não há laço — mas há janela. Decidir: gate técnico ou **desligar o auto-deploy do serviço `app`** | 31/07 |
@@ -3024,6 +3177,12 @@ código não relacionado.
 | **P42** | 🔴 **Provar a padronização da foto com imagem real.** O teste de 04/08 usou 6 imagens sintéticas geradas pelo próprio `sharp` — prova que o pipeline redimensiona, **não** que a foto de um anúncio real chega bonita no grupo. Depois do deploy: postar uma oferta de cada loja (Amazon `._AC_SL1500_`, Shopee, ML) e **olhar no WhatsApp**. Conferir também o log `[IMG] nao consegui padronizar` — se aparecer com frequência, alguma CDN está recusando o download do engine e os posts estão caindo no caminho antigo sem ninguém notar | 04/08 |
 | **P43** | 🟡 **O leitor de Amazon existe em DOIS arquivos.** `consultarAmazonDireto` e as cinco funções de que depende estão duplicadas na `clone-ingest` e na `product-search`. Foi decisão consciente em 04/08: extrair para módulo compartilhado exigiria reemitir os 72 KB da `clone-ingest`, que é a operação que a P36 adiou justamente por risco de transcrição. **Enquanto durar, mudança em uma tem que ser repetida na outra** — o aviso está escrito nos dois lugares. Unificar em sessão limpa, com as duas funções abertas lado a lado, e provar depois em ambos os caminhos (Postar Agora e captura automática) | 04/08 |
 | **P44** | 🔵 **Postar Agora ainda não lê AliExpress, Magalu, Shein, Natura e TerabyteShop.** Continuam no "preencha manualmente" — e a mensagem não diz ao usuário QUAL loja não tem leitura nem por quê. Duas frentes possíveis: leitor genérico por `og:title`/`og:image` (traz título e foto; preço em og:tag quase nunca é confiável) ou melhorar só o texto da recusa. Nenhuma decidida | 04/08 |
+
+| **P48** | 🟡 **O ramo `desconhecido` do `product-refresh` não carimba `price_checked_at`.** Variante viva da P29, agora no outro ramo: o produto reenche a fila de antigos em toda rodada e ocupa vaga da `RESERVA_ANTIGOS`. Medido em 04/08 com o La Roche — **lido** (`? pagina de produto sem botao e sem outOfStock`) e **não carimbado**, parado em `30/07 14:16:02.187`, o carimbo mais antigo da base. Hoje custa 1 das 4 vagas; se mais páginas vierem nesse formato, come a reserva inteira e o backlog para de andar | 04/08 |
+| **P49** | 🟠 **O frontend não tem cache-busting.** Depois de cada Deploy, quem está logado continua rodando o bundle antigo por tempo indeterminado, sem nada na tela dizendo isso — é por isso que o Érico digita `?v=` na mão. Pior: **toda "prova no navegador" pode estar medindo o cache**. Em 04/08 isso quase reabriu a P46, que estava certa. Saídas: `?v=` gerado no build, ou header de cache no nginx | 04/08 |
+| **P50** | 🟡 **A tela inventa o motivo do erro em vez de ler o do servidor.** `prBuscarProduto` (linha 7891) ignora `d.error` e monta a explicação a partir da URL — por isso o Érico, que **tem** App Key e App Secret, recebeu "Shopee requer credenciais oficiais" quando o defeito era o formato do link. A `product-search` v27 já devolve `motivo` em campo próprio (`credenciais_incompletas` · `link_nao_reconhecido` · `loja_sem_integracao`) e a lista do que falta. Falta a tela consumir isso, com botão para Config Afiliados. **Mensagem já aprovada pelo Érico em 04/08.** Exige push | 04/08 |
+| **P51** | 🟠 **Duas contas com `connected = true` e credencial inútil.** **duas contas de clientes** (identificadas na consulta, não nomeadas aqui — este repo é público, e é a mesma preocupação da P7) têm `App Key` e `App Secret` **vazios** em `affiliate_credentials`, só o `ID de Afiliado` preenchido (medido em 04/08). Para elas a busca automática de Shopee falha sempre e o painel diz que está tudo certo. O `connected` está medindo "a linha existe", não "dá para usar" — o padrão de sempre: mecanismo que parece existir e não executa nada | 04/08 |
+| **P52** | 🔴 **Os relógios do log e do banco não batem.** Ao converter os carimbos de `get_logs` para conferir a hora de uma chamada, a data saiu com **dias** de diferença do `now()` do Postgres. Não afeta medição de versão/status, mas **afeta qualquer medição por janela de tempo** — inclusive a leitura do `[pre-filtro]` da P36. **Resolver ANTES de qualquer prova que dependa de intervalo** | 04/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
