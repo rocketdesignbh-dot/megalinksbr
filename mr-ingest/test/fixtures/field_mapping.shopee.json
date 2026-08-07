@@ -1,0 +1,980 @@
+[
+  {
+    "source_header": "ID do pedido",
+    "canonical_field": "externalOrderId",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": true,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Status do Pedido",
+    "canonical_field": "status",
+    "transform": {
+      "type": "enum",
+      "keepRaw": true,
+      "default": "pending",
+      "unknownAction": "warn",
+      "valueMap": {
+        "Pendente": "pending",
+        "Concluído": "approved",
+        "Aprovado": "approved",
+        "Pago": "approved",
+        "Cancelado": "cancelled",
+        "Não pago": "unpaid",
+        "Reembolsado": "refunded",
+        "Devolvido": "refunded",
+        "Recusado": "rejected",
+        "Estornado": "rejected"
+      }
+    },
+    "is_required": true,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "ID do pagamento",
+    "canonical_field": "raw.paymentId",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Horário do pedido",
+    "canonical_field": "occurredAt",
+    "transform": {
+      "type": "datetime",
+      "formats": [
+        "yyyy-MM-dd HH:mm:ss",
+        "yyyy-MM-dd HH:mm",
+        "dd/MM/yyyy HH:mm:ss",
+        "iso8601"
+      ],
+      "sourceTimezone": "America/Sao_Paulo",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": true,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Tempo de Conclusão",
+    "canonical_field": "approvedAt",
+    "transform": {
+      "type": "datetime",
+      "formats": [
+        "yyyy-MM-dd HH:mm:ss",
+        "yyyy-MM-dd HH:mm",
+        "dd/MM/yyyy HH:mm:ss",
+        "iso8601"
+      ],
+      "sourceTimezone": "America/Sao_Paulo",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Tempo dos Cliques",
+    "canonical_field": "clickedAt",
+    "transform": {
+      "type": "datetime",
+      "formats": [
+        "yyyy-MM-dd HH:mm:ss",
+        "yyyy-MM-dd HH:mm",
+        "dd/MM/yyyy HH:mm:ss",
+        "iso8601"
+      ],
+      "sourceTimezone": "America/Sao_Paulo",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Nome da loja",
+    "canonical_field": "merchantName",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "ID da loja",
+    "canonical_field": "merchantExternalId",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Tipo da Loja",
+    "canonical_field": "merchantType",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "ID do item",
+    "canonical_field": "externalItemId",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Nome do Item",
+    "canonical_field": "productName",
+    "transform": {
+      "type": "string",
+      "collapseWhitespace": true,
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Modelo de ID",
+    "canonical_field": "externalVariantId",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Tipo de Produto",
+    "canonical_field": "raw.productType",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "ID da promoção",
+    "canonical_field": "raw.promotionId",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Categoria Global L1",
+    "canonical_field": "categoryL1",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Categoria Global L2",
+    "canonical_field": "categoryL2",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Categoria Global L3",
+    "canonical_field": "categoryL3",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Preço(R$)",
+    "canonical_field": "unitPrice",
+    "transform": {
+      "type": "decimal",
+      "decimalSeparator": ".",
+      "thousandsSeparator": ",",
+      "stripChars": [
+        "R$",
+        " "
+      ],
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Qtd",
+    "canonical_field": "quantity",
+    "transform": {
+      "type": "integer",
+      "default": 1,
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Offer Type",
+    "canonical_field": "offerType",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Parceiro de campanha",
+    "canonical_field": "raw.campaignPartner",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Valor de Compra(R$)",
+    "canonical_field": "grossRevenue",
+    "transform": {
+      "type": "decimal",
+      "decimalSeparator": ".",
+      "thousandsSeparator": ",",
+      "stripChars": [
+        "R$",
+        " "
+      ],
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": true,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Valor do Reembolso(R$)",
+    "canonical_field": "refundAmount",
+    "transform": {
+      "type": "decimal",
+      "decimalSeparator": ".",
+      "thousandsSeparator": ",",
+      "stripChars": [
+        "R$",
+        " "
+      ],
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Taxa de comissão Shopee do item",
+    "canonical_field": "raw.shopeeCommissionRate",
+    "transform": {
+      "type": "percent",
+      "decimalSeparator": ".",
+      "stripChars": [
+        "%",
+        " "
+      ],
+      "divideBy": 100,
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Comissão do Item da Shopee(R$)",
+    "canonical_field": "raw.shopeeItemCommission",
+    "transform": {
+      "type": "decimal",
+      "decimalSeparator": ".",
+      "thousandsSeparator": ",",
+      "stripChars": [
+        "R$",
+        " "
+      ],
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Taxa de comissão do vendedor do item",
+    "canonical_field": "raw.sellerCommissionRate",
+    "transform": {
+      "type": "percent",
+      "decimalSeparator": ".",
+      "stripChars": [
+        "%",
+        " "
+      ],
+      "divideBy": 100,
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Comissão do Item da Marca(R$)",
+    "canonical_field": "raw.brandItemCommission",
+    "transform": {
+      "type": "decimal",
+      "decimalSeparator": ".",
+      "thousandsSeparator": ",",
+      "stripChars": [
+        "R$",
+        " "
+      ],
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Comissão total do item(R$)",
+    "canonical_field": "commissionGross",
+    "transform": {
+      "type": "decimal",
+      "decimalSeparator": ".",
+      "thousandsSeparator": ",",
+      "stripChars": [
+        "R$",
+        " "
+      ],
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Comissão Shopee(R$)",
+    "canonical_field": "raw.shopeeCommission",
+    "transform": {
+      "type": "decimal",
+      "decimalSeparator": ".",
+      "thousandsSeparator": ",",
+      "stripChars": [
+        "R$",
+        " "
+      ],
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Comissão do vendedor(R$)",
+    "canonical_field": "raw.sellerCommission",
+    "transform": {
+      "type": "decimal",
+      "decimalSeparator": ".",
+      "thousandsSeparator": ",",
+      "stripChars": [
+        "R$",
+        " "
+      ],
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Comissão total do pedido(R$)",
+    "canonical_field": "raw.totalOrderCommission",
+    "transform": {
+      "type": "decimal",
+      "decimalSeparator": ".",
+      "thousandsSeparator": ",",
+      "stripChars": [
+        "R$",
+        " "
+      ],
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "RM vinculada",
+    "canonical_field": "raw.linkedRM",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "ID de contrato da RM",
+    "canonical_field": "raw.rmContractId",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A",
+        "0"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Taxa do Fee de gestão da RM",
+    "canonical_field": "raw.rmFeeRate",
+    "transform": {
+      "type": "percent",
+      "decimalSeparator": ".",
+      "stripChars": [
+        "%",
+        " "
+      ],
+      "divideBy": 100,
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Fee de Gestão da RM(R$)",
+    "canonical_field": "platformFee",
+    "transform": {
+      "type": "decimal",
+      "decimalSeparator": ".",
+      "thousandsSeparator": ",",
+      "stripChars": [
+        "R$",
+        " "
+      ],
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Taxa de contrato do afiliado",
+    "canonical_field": "raw.affiliateContractRate",
+    "transform": {
+      "type": "percent",
+      "decimalSeparator": ".",
+      "stripChars": [
+        "%",
+        " "
+      ],
+      "divideBy": 100,
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Comissão líquida do afiliado(R$)",
+    "canonical_field": "commissionNet",
+    "transform": {
+      "type": "decimal",
+      "decimalSeparator": ".",
+      "thousandsSeparator": ",",
+      "stripChars": [
+        "R$",
+        " "
+      ],
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": true,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Status do item do afiliado",
+    "canonical_field": "raw.affiliateItemStatus",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Notas do item",
+    "canonical_field": "raw.itemNotes",
+    "transform": {
+      "type": "string",
+      "collapseWhitespace": true,
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Tipo de atribuição",
+    "canonical_field": "attribution",
+    "transform": {
+      "type": "enum",
+      "keepRaw": true,
+      "default": "unknown",
+      "unknownAction": "warn",
+      "valueMap": {
+        "Pedido na mesma loja": "direct",
+        "Pedido na mesma loja (Direto)": "direct",
+        "Mesma loja": "direct",
+        "Pedido em loja diferente": "indirect",
+        "Pedido em loja diferente (Indireto)": "indirect",
+        "Loja diferente": "indirect"
+      }
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Status do Comprador",
+    "canonical_field": "buyerKind",
+    "transform": {
+      "type": "enum",
+      "keepRaw": true,
+      "default": "unknown",
+      "unknownAction": "warn",
+      "valueMap": {
+        "Novo": "new",
+        "Existente": "returning",
+        "Recorrente": "returning"
+      }
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Sub_id1",
+    "canonical_field": "subId1",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ],
+      "nullPattern": "^[-._]+$"
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Sub_id2",
+    "canonical_field": "subId2",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ],
+      "nullPattern": "^[-._]+$"
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Sub_id3",
+    "canonical_field": "subId3",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ],
+      "nullPattern": "^[-._]+$"
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Sub_id4",
+    "canonical_field": "subId4",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ],
+      "nullPattern": "^[-._]+$"
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Sub_id5",
+    "canonical_field": "subId5",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ],
+      "nullPattern": "^[-._]+$"
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "Canal",
+    "canonical_field": "channel",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ],
+      "nullPattern": "^[-._]+$"
+    },
+    "is_required": false,
+    "dataset": "transaction",
+    "owner_id": null
+  },
+  {
+    "source_header": "ID dos Cliques",
+    "canonical_field": "externalClickId",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": true,
+    "dataset": "click",
+    "owner_id": null
+  },
+  {
+    "source_header": "Tempo dos Cliques",
+    "canonical_field": "occurredAt",
+    "transform": {
+      "type": "datetime",
+      "formats": [
+        "yyyy-MM-dd HH:mm:ss",
+        "yyyy-MM-dd HH:mm",
+        "dd/MM/yyyy HH:mm:ss",
+        "iso8601"
+      ],
+      "sourceTimezone": "America/Sao_Paulo",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": true,
+    "dataset": "click",
+    "owner_id": null
+  },
+  {
+    "source_header": "Região dos Cliques",
+    "canonical_field": "region",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ]
+    },
+    "is_required": false,
+    "dataset": "click",
+    "owner_id": null
+  },
+  {
+    "source_header": "Sub_id",
+    "canonical_field": "subId1",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ],
+      "nullPattern": "^[-._]+$"
+    },
+    "is_required": false,
+    "dataset": "click",
+    "owner_id": null
+  },
+  {
+    "source_header": "Referenciador",
+    "canonical_field": "referrer",
+    "transform": {
+      "type": "string",
+      "nullValues": [
+        "",
+        "--",
+        "-",
+        "N/A"
+      ],
+      "nullPattern": "^[-._]+$"
+    },
+    "is_required": false,
+    "dataset": "click",
+    "owner_id": null
+  }
+]

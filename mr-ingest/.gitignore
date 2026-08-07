@@ -1,0 +1,8 @@
+node_modules/
+.env
+
+# Scratch da sessao de desenvolvimento: .emit.js gera .rows.json a partir dos
+# CSVs reais de "Mega Results/samples". O resultado carrega dados de venda
+# (pedido, comissao, loja), entao nao entra no repositorio.
+.emit.js
+.rows.json
