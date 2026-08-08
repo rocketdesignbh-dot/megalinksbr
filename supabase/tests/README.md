@@ -21,8 +21,10 @@ teste.
 
 ## Status
 
-`megaresults_ingest_idempotencia.sql` **ainda nao foi executado**. Foi escrito
-em 07/08 a partir da leitura das migrations 09-11, para substituir uma versao
-anterior que so imprimia `RAISE NOTICE` e por isso passava mesmo com contagens
-erradas. Os valores esperados estao derivados do codigo, nao observados -- rodar
-e conferir e o proximo passo.
+`megaresults_ingest_idempotencia.sql` **rodou verde em 08/08/2026** contra o
+projeto `nxlfezpagporealqqbfj`, executado como esta versionado. As 14 assercoes
+passaram e a limpeza deixou zero residuo (0 transacoes, 0 conexoes do owner de
+teste).
+
+Vale re-rodar sempre que uma das migrations 09-11 for alterada: sao elas que
+implementam o contrato que este arquivo fixa.
