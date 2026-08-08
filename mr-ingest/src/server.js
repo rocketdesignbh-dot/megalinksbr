@@ -7,6 +7,8 @@
  *
  * Endpoints:
  *  - POST /import              multipart; campos: file, ownerId, connectionId, store
+ *                              opcionais: method, sourceTimezone e force ("importar
+ *                              mesmo assim" um arquivo ja processado)
  *  - GET  /import/:id/stream   progresso ao vivo por SSE
  *  - GET  /health              estado do servico
  */
@@ -18,11 +20,13 @@ const Busboy = require('busboy');
 const dotenv = require('dotenv');
 const crypto = require('crypto');
 
-const { runPipeline } = require('./pipeline');
-const { loadFieldMapping, db } = require('./supabase');
-const upsert = require('./upsert');
-
+// dotenv ANTES dos requires locais. supabase.js e upsert.js leem process.env, e
+// carregar o .env depois deles deixaria a configuracao invisivel para eles.
 dotenv.config();
+
+const { runPipeline } = require('./pipeline');
+const { loadFieldMapping, db, serviceKey } = require('./supabase');
+const upsert = require('./upsert');
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -37,9 +41,15 @@ app.use((req, res, next) => {
 
 const PORT = process.env.PORT || 8080;
 const MR_INGEST_TOKEN = process.env.MR_INGEST_TOKEN;
-if (!MR_INGEST_TOKEN) {
-  console.error('MR_INGEST_TOKEN nao configurado. Configure no EasyPanel antes de iniciar.');
-  process.exit(1);
+// Toda a configuracao obrigatoria e conferida AQUI, no boot. Descobrir que
+// falta chave na primeira requisicao significa um container que passa no
+// healthcheck e so falha quando o usuario ja subiu o arquivo.
+for (const [nome, valor] of [['MR_INGEST_TOKEN', MR_INGEST_TOKEN],
+                             ['SUPABASE_SERVICE_ROLE_KEY', serviceKey()]]) {
+  if (!valor) {
+    console.error(`${nome} nao configurado. Configure no EasyPanel antes de iniciar.`);
+    process.exit(1);
+  }
 }
 const MAX_FILE_BYTES = Number(process.env.MAX_FILE_BYTES || 200 * 1024 * 1024);
 
@@ -86,6 +96,8 @@ app.post('/import', authorize, (req, res) => {
   bb.on('file', async (_name, fileStream, info) => {
     handled = true;
     const { ownerId, connectionId, store } = fields;
+    // "Importar mesmo assim" da tela de DUPLICATE_FILE (doc 08 §12).
+    const force = /^(1|true|sim)$/i.test(String(fields.force || ''));
     if (!ownerId || !connectionId || !store) {
       fileStream.resume();
       return res.status(400).json({ error: 'BAD_REQUEST', message: 'ownerId, connectionId e store sao obrigatorios' });
@@ -100,19 +112,30 @@ app.post('/import', authorize, (req, res) => {
 
     // O import_batch nasce antes do parsing: se o processo cair no meio, o
     // registro fica em `parsing` e a reconciliacao enxerga o orfao.
-    const { data: batch, error: batchErr } = await db()
-      .from('import_batch')
-      .insert({
-        owner_id: ownerId,
-        connection_id: connectionId,
-        dataset: 'transaction', // corrigido apos a deteccao
-        status: 'parsing',
-        source_method: fields.method || 'upload',
-        file_name: info.filename || null,
-        started_at: new Date().toISOString(),
-      })
-      .select('id')
-      .single();
+    // O try e obrigatorio: este handler e async, e uma excecao aqui vira
+    // unhandled rejection, que no Node 20+ derruba o processo inteiro. Uma
+    // requisicao ruim nunca pode matar o servico.
+    let batch, batchErr;
+    try {
+      ({ data: batch, error: batchErr } = await db()
+        .from('import_batch')
+        .insert({
+          owner_id: ownerId,
+          connection_id: connectionId,
+          dataset: 'transaction', // corrigido apos a deteccao
+          status: 'parsing',
+          source_method: fields.method || 'upload',
+          file_name: info.filename || null,
+          started_at: new Date().toISOString(),
+        })
+        .select('id')
+        .single());
+    } catch (e) {
+      fileStream.resume();
+      console.error('[mr-ingest] nao foi possivel abrir o lote:', e.message);
+      if (!res.headersSent) res.status(500).json({ error: 'INTERNAL', message: e.message });
+      return;
+    }
 
     if (batchErr) {
       fileStream.resume();
@@ -138,11 +161,30 @@ app.post('/import', authorize, (req, res) => {
 
       if (truncated) throw Object.assign(new Error('Arquivo acima do limite configurado.'), { code: 'FILE_TOO_LARGE' });
 
+      // Nivel 1 de protecao contra duplicata (doc 08 §12). A checagem so pode
+      // acontecer aqui: o checksum e do arquivo inteiro e so existe depois que
+      // o ultimo byte passou pelo tap. As linhas ja foram para o sink, mas o
+      // dedupe por linha (nivel 2) as tratou como no-op — nada foi duplicado.
+      const previo = await upsert.findByChecksum({ connectionId, checksum, exceptId: importId });
+      if (previo && !force) {
+        const quando = new Date(previo.created_at)
+          .toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+        const err = new Error(`Este arquivo ja foi importado em ${quando}.`);
+        err.code = 'DUPLICATE_FILE';
+        err.details = { previousImportId: previo.id, importedAt: previo.created_at };
+        throw err;
+      }
+
       await upsert.saveIssues(ownerId, importId, result.issues);
       await upsert.updateBatch(importId, {
         dataset: result.plan.dataset,
         status: 'completed',
-        file_checksum: checksum,
+        // Reimportacao deliberada (force): o checksum vai nulo. `idx_import_dedupe`
+        // recusaria o par (connection_id, checksum) que ja existe em `completed`,
+        // e a recusa derruba o UPDATE inteiro — foi assim que um lote ficou preso
+        // em `parsing`. O indice e parcial em file_checksum IS NOT NULL, entao
+        // nulo passa, ao custo de esse lote nao participar da dedupe por arquivo.
+        file_checksum: previo ? null : checksum,
         file_size: fileBytes,
         rows_total: result.stats.total,
         rows_valid: result.stats.valid,
@@ -153,12 +195,21 @@ app.post('/import', authorize, (req, res) => {
       });
       publish(importId, { stage: 'completed', ...result.stats });
     } catch (e) {
-      await upsert.updateBatch(importId, {
-        status: 'failed',
-        error_message: `${e.code || 'ERROR'}: ${e.message}`,
-        finished_at: new Date().toISOString(),
-      });
-      publish(importId, { stage: 'failed', code: e.code || 'ERROR', message: e.message });
+      // Este UPDATE toca so status/mensagem, nenhuma coluna do indice unico,
+      // entao ele passa mesmo quando o UPDATE de `completed` foi recusado.
+      // Ainda assim vai protegido: se ate a marcacao de falha falhar, o lote
+      // fica orfao em `parsing` e quem precisa saber e a reconciliacao — nao
+      // pode virar unhandled rejection e derrubar o servico.
+      try {
+        await upsert.updateBatch(importId, {
+          status: 'failed',
+          error_message: `${e.code || 'ERROR'}: ${e.message}`,
+          finished_at: new Date().toISOString(),
+        });
+      } catch (falhaAoFechar) {
+        console.error(`[mr-ingest] lote ${importId} ficou orfao em parsing:`, falhaAoFechar.message);
+      }
+      publish(importId, { stage: 'failed', code: e.code || 'ERROR', message: e.message, details: e.details });
     } finally {
       setTimeout(() => PROGRESS.delete(importId), 5 * 60 * 1000);
     }
