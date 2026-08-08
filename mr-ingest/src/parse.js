@@ -16,23 +16,44 @@ const detect = require('./detect');
  * e um novo stream com esses bytes recolocados na frente.
  */
 async function sniff(stream, bytes = detect.SNIFF_BYTES) {
+  const { Readable } = require('stream');
   const chunks = [];
   let size = 0;
-  for await (const chunk of stream) {
-    chunks.push(chunk);
-    size += chunk.length;
-    if (size >= bytes) break;
-  }
+
+  // NAO usar `for await ... break`: sair do laco de um async iterator destroi o
+  // stream de origem (AbortError). Com arquivo pequeno o stream acabava antes
+  // do break e o defeito ficava invisivel; com 22 MB ele aborta sempre.
+  // Modo pausado + read() le so o necessario e deixa o resto intacto.
+  await new Promise((resolve, reject) => {
+    const cleanup = () => {
+      stream.removeListener('readable', onReadable);
+      stream.removeListener('end', onEnd);
+      stream.removeListener('error', onError);
+    };
+    const onReadable = () => {
+      let chunk;
+      while ((chunk = stream.read()) !== null) {
+        chunks.push(chunk);
+        size += chunk.length;
+        if (size >= bytes) { cleanup(); return resolve(); }
+      }
+    };
+    const onEnd = () => { cleanup(); resolve(); };
+    const onError = (e) => { cleanup(); reject(e); };
+    stream.on('readable', onReadable);
+    stream.on('end', onEnd);
+    stream.on('error', onError);
+  });
+
   const head = Buffer.concat(chunks);
-  const { Readable } = require('stream');
-  const replay = new Readable({ read() {} });
-  replay.push(head);
-  // O `for await` acima ja consumiu parte do stream; o resto e reemitido.
-  stream.on('data', (c) => replay.push(c));
-  stream.on('end', () => replay.push(null));
-  stream.on('error', (e) => replay.destroy(e));
-  if (stream.readableEnded) replay.push(null);
-  return { head, stream: replay };
+
+  // Arquivo menor que a janela de sniff: ja acabou, e unshift apos o 'end'
+  // lanca. O conteudo inteiro esta em `head`, entao basta reemiti-lo.
+  if (stream.readableEnded) return { head, stream: Readable.from([head]) };
+
+  // Devolve os bytes lidos ao proprio stream, que segue de onde parou.
+  if (head.length) stream.unshift(head);
+  return { head, stream };
 }
 
 /** Decide formato/encoding/delimitador/cabecalho a partir do buffer de sniff. */

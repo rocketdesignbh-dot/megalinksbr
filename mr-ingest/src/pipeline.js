@@ -14,6 +14,13 @@ const normalizeMod = require('./normalize');
 
 const MAX_ERROR_RATE = Number(process.env.MAX_ERROR_RATE || 0.3);
 
+// Teto de problemas GUARDADOS em memoria. O contador continua exato; so a lista
+// para de crescer. Sem isso um mapeamento errado sobre um arquivo de 200 MB
+// acumula milhoes de objetos e derruba o processo por heap — o teste de volume
+// mostrou 100 mil problemas com apenas 22 MB de arquivo.
+// `upsert.saveIssues` ja grava no maximo 1.000; guardar mais nao serve a nada.
+const MAX_ISSUES_KEPT = Number(process.env.MAX_ISSUES_KEPT || 1000);
+
 /**
  * @param {ReadableStream} stream    conteudo do arquivo
  * @param {object} opts
@@ -72,14 +79,17 @@ async function runPipeline(stream, opts) {
 
   const stats = { total: 0, valid: 0, inserted: 0, updated: 0, skipped: 0, issues: 0 };
   const issues = [];
+  const noteIssue = (i) => {
+    stats.issues++;
+    if (issues.length < MAX_ISSUES_KEPT) issues.push(i);
+  };
   let batch = [];
   let rowNumber = plan.headerRow + 1; // 1-based, ja contando o cabecalho
 
   const flush = async () => {
     if (batch.length === 0) return;
     const { rows, issues: dupIssues } = normalizeMod.dedupeBatch(batch);
-    for (const i of dupIssues) issues.push(i);
-    stats.issues += dupIssues.length;
+    for (const i of dupIssues) noteIssue(i);
 
     const res = await opts.sink({ dataset: plan.dataset, rows });
     stats.inserted += res.inserted || 0;
@@ -98,14 +108,8 @@ async function runPipeline(stream, opts) {
     canonical._raw = applied.raw;
 
     const { row, issues: rowIssues } = normalizeRow(canonical, ctx);
-    for (const i of rowIssues) {
-      issues.push({ ...i, row_number: rowNumber });
-      stats.issues++;
-    }
-    for (const i of applied.issues) {
-      issues.push({ ...i, row_number: rowNumber });
-      stats.issues++;
-    }
+    for (const i of rowIssues) noteIssue({ ...i, row_number: rowNumber });
+    for (const i of applied.issues) noteIssue({ ...i, row_number: rowNumber });
 
     if (!row) continue; // linha invalida: virou issue, o arquivo segue
     stats.valid++;
