@@ -53,14 +53,40 @@ for (const [nome, valor] of [['MR_INGEST_TOKEN', MR_INGEST_TOKEN],
 }
 const MAX_FILE_BYTES = Number(process.env.MAX_FILE_BYTES || 200 * 1024 * 1024);
 
-function authorize(req, res, next) {
+/**
+ * Dois tipos de chamador:
+ *
+ *  - servico (Edge Function, cron): apresenta o MR_INGEST_TOKEN e diz por qual
+ *    ownerId esta importando.
+ *  - usuario final (navegador): apresenta o access token do Supabase. O
+ *    ownerId NAO vem do formulario nesse caso — vem do proprio token. O
+ *    MR_INGEST_TOKEN nunca pode ir para o navegador: e segredo compartilhado,
+ *    e quem o tivesse importaria em nome de qualquer pessoa.
+ */
+async function authorize(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-  // Comparacao em tempo constante: o token e um segredo compartilhado.
-  const ok = token.length === MR_INGEST_TOKEN.length &&
-    crypto.timingSafeEqual(Buffer.from(token), Buffer.from(MR_INGEST_TOKEN));
-  if (!ok) return res.status(401).json({ error: 'unauthorized' });
-  next();
+  if (!token) return res.status(401).json({ error: 'unauthorized' });
+
+  // Comparacao em tempo constante: o token de servico e um segredo compartilhado.
+  if (token.length === MR_INGEST_TOKEN.length &&
+      crypto.timingSafeEqual(Buffer.from(token), Buffer.from(MR_INGEST_TOKEN))) {
+    req.caller = { kind: 'service' };
+    return next();
+  }
+
+  // Nao bateu como token de servico: pode ser JWT de usuario. Quem valida a
+  // assinatura e o proprio Supabase — decodificar o payload aqui e confiar no
+  // `sub` seria aceitar qualquer token forjado.
+  try {
+    const { data, error } = await db().auth.getUser(token);
+    if (error || !data?.user) return res.status(401).json({ error: 'unauthorized' });
+    req.caller = { kind: 'user', userId: data.user.id };
+    return next();
+  } catch (e) {
+    console.error('[mr-ingest] falha ao validar token de usuario:', e.message);
+    return res.status(401).json({ error: 'unauthorized' });
+  }
 }
 
 // Progresso por import_id, para o SSE. Em memoria de proposito: e efemero e
@@ -95,7 +121,10 @@ app.post('/import', authorize, (req, res) => {
 
   bb.on('file', async (_name, fileStream, info) => {
     handled = true;
-    const { ownerId, connectionId, store } = fields;
+    // Chamada de usuario ignora o ownerId do formulario: o dono e quem o token
+    // diz que e. Sem isso um usuario logado importaria para a conta de outro.
+    const ownerId = req.caller.kind === 'user' ? req.caller.userId : fields.ownerId;
+    const { connectionId, store } = fields;
     // "Importar mesmo assim" da tela de DUPLICATE_FILE (doc 08 §12).
     const force = /^(1|true|sim)$/i.test(String(fields.force || ''));
     if (!ownerId || !connectionId || !store) {
