@@ -59,21 +59,42 @@ async function saveIssues(ownerId, importId, issues) {
   if (error) console.error('[mr-ingest] falha ao gravar import_issue:', error.message);
 }
 
+/**
+ * Fecha (ou corrige) o lote. LANCA em caso de erro de proposito: engolir a
+ * falha aqui deixava o lote preso em `parsing` para sempre, sem `finished_at`
+ * e sem mensagem — o UPDATE de `completed` pode ser recusado inteiro por
+ * `idx_import_dedupe`, e quem chama precisa saber disso para marcar o lote
+ * como `failed`.
+ */
 async function updateBatch(importId, patch) {
   const { error } = await db().from('import_batch').update(patch).eq('id', importId);
-  if (error) console.error('[mr-ingest] falha ao atualizar import_batch:', error.message);
+  if (error) throw new Error(`falha ao atualizar import_batch: ${error.message}`);
 }
 
-/** Arquivo identico ja processado -> 409 (doc 08 §12, DUPLICATE_FILE). */
-async function findByChecksum(ownerId, checksum) {
-  const { data, error } = await db()
+/**
+ * Arquivo identico ja processado (doc 08 §12, DUPLICATE_FILE).
+ *
+ * A busca e por `connection_id`, e nao por `owner_id`, para casar exatamente
+ * com `idx_import_dedupe` — unique (connection_id, file_checksum) WHERE
+ * file_checksum IS NOT NULL AND status = 'completed'. Procurar por um par
+ * diferente do que o indice cobre deixaria passar caso que o banco recusa
+ * depois, que foi como o lote orfao apareceu.
+ *
+ * `exceptId` exclui o proprio lote em andamento.
+ */
+async function findByChecksum({ connectionId, checksum, exceptId }) {
+  let q = db()
     .from('import_batch')
-    .select('id, created_at, status')
-    .eq('owner_id', ownerId)
+    .select('id, created_at, file_name')
+    .eq('connection_id', connectionId)
     .eq('file_checksum', checksum)
-    .in('status', ['completed', 'loading', 'aggregating'])
+    .eq('status', 'completed')
     .limit(1);
-  if (error) return null;
+  if (exceptId) q = q.neq('id', exceptId);
+  const { data, error } = await q;
+  // Sem resposta confiavel nao da para afirmar que nao e duplicata: seguir em
+  // frente esbarraria no indice e travaria o lote. Melhor falhar com motivo.
+  if (error) throw new Error(`falha ao checar duplicata por checksum: ${error.message}`);
   return (data && data[0]) || null;
 }
 

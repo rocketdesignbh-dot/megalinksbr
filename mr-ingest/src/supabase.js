@@ -2,21 +2,29 @@
 
 const { createClient } = require('@supabase/supabase-js');
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://nxlfezpagporealqqbfj.supabase.co';
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// NAO capturar process.env no topo do modulo: `require('./supabase')` roda
+// antes do `dotenv.config()` de quem importa, entao a chave sairia sempre
+// undefined e o servico so descobriria isso na primeira requisicao. Ler dentro
+// de db() torna a leitura independente da ordem de require.
+const DEFAULT_URL = 'https://nxlfezpagporealqqbfj.supabase.co';
 
 let client = null;
+
+function serviceKey() {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY;
+}
 
 /**
  * Cliente com a service role. Criado sob demanda para que o dry-run offline
  * (test/dry-run.js) rode sem nenhuma credencial configurada.
  */
 function db() {
-  if (!SERVICE_KEY) {
+  const key = serviceKey();
+  if (!key) {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY nao configurada. Sem ela o mr-ingest nao grava nada.');
   }
   if (!client) {
-    client = createClient(SUPABASE_URL, SERVICE_KEY, {
+    client = createClient(process.env.SUPABASE_URL || DEFAULT_URL, key, {
       auth: { persistSession: false, autoRefreshToken: false },
       db: { schema: 'megaresults' },
     });
@@ -48,4 +56,4 @@ async function loadFieldMapping({ store, dataset, ownerId, version = 1 }) {
   return [...byHeader.values()];
 }
 
-module.exports = { db, loadFieldMapping, SUPABASE_URL };
+module.exports = { db, loadFieldMapping, serviceKey };
