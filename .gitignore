@@ -1,2 +1,6 @@
 
 supabase/.temp/
+
+# Configuracao local do Claude Code
+.claude/
+.claude.json
