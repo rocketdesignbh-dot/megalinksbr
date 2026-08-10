@@ -128,6 +128,30 @@ function comparaTotais(atual: Record<string, number | null>, anterior: Record<st
   return saida;
 }
 
+/**
+ * Erro do PostgREST -> resposta HTTP.
+ *
+ * Falha de autorizacao nao e erro interno. Sem esta traducao todo erro virava
+ * 500 com a mensagem crua do Postgres — "permission denied for table
+ * rollup_daily" — que e ao mesmo tempo o status errado (num 500 o chamador nao
+ * tem o que corrigir, e o monitoramento passa a acusar incidente onde houve
+ * apenas acesso negado) e um vazamento do nome das tabelas internas para quem
+ * justamente nao tem acesso a elas. A mensagem original vai para o log, onde e
+ * util, e nao para o cliente.
+ */
+function erroDeLeitura(erro: { code?: string; message?: string }): Response {
+  console.error('[mega-results] falha ao ler metricas:', erro.code, erro.message);
+  switch (erro.code) {
+    case '42501': // insufficient_privilege: papel sem grant na tabela
+      return json({ error: 'FORBIDDEN', message: 'Sem acesso aos dados do Mega Results.' }, 403);
+    case 'PGRST301': // JWT ausente, expirado ou invalido
+    case 'PGRST302': // acesso anonimo recusado
+      return json({ error: 'UNAUTHORIZED', message: 'Sessao expirada. Entre novamente.' }, 401);
+    default:
+      return json({ error: 'DB_ERROR', message: 'Nao foi possivel consultar as metricas.' }, 500);
+  }
+}
+
 const CAMPO_DIM: Record<string, string> = {
   store: 'store',
   campaign: 'campaign_id',
@@ -179,13 +203,29 @@ Deno.serve(async (req: Request) => {
     db.from('rollup_dirty').select('day').gte('day', periodo.from).lte('day', periodo.to).limit(1),
   ]);
 
-  if (atualRes.error) return json({ error: 'DB_ERROR', message: atualRes.error.message }, 500);
+  if (atualRes.error) return erroDeLeitura(atualRes.error);
+
+  // As duas consultas de apoio podem falhar sozinhas sem derrubar a resposta,
+  // mas nao podem falhar em silencio: vao para o log e mudam o que a resposta
+  // afirma logo abaixo.
+  if (anteriorRes.error) {
+    console.error('[mega-results] periodo anterior indisponivel:', anteriorRes.error.code, anteriorRes.error.message);
+  }
+  if (sujosRes.error) {
+    console.error('[mega-results] fila de agregacao indisponivel:', sujosRes.error.code, sujosRes.error.message);
+  }
 
   const linhas = (atualRes.data || []) as Linha[];
 
   // ---- totais e comparacao -------------------------------------------------
   const totaisAtual = derivadas(linhas.reduce((a, l) => acumula(a, l), zerado()));
-  const totaisAnterior = derivadas(((anteriorRes.data || []) as Linha[]).reduce((a, l) => acumula(a, l), zerado()));
+  // Comparativo indisponivel nao e comparativo zerado. Somar sobre `|| []` depois
+  // de uma falha afirmaria que o periodo anterior foi zero, e `changePct` sairia
+  // inventado — "+100%" onde a verdade e "nao sei". Objeto vazio faz
+  // comparaTotais devolver `previous: null` e `changePct: null`.
+  const totaisAnterior: Record<string, number | null> = anteriorRes.error
+    ? {}
+    : derivadas(((anteriorRes.data || []) as Linha[]).reduce((a, l) => acumula(a, l), zerado()));
 
   // ---- serie por dia -------------------------------------------------------
   const porDia = new Map<string, Record<string, number>>();
@@ -256,7 +296,10 @@ Deno.serve(async (req: Request) => {
         source: 'rollup_daily',
         // Honestidade sobre completude (doc 05 secao 6): ha dia do periodo ainda
         // na fila de agregacao, entao o numero pode mudar nos proximos minutos.
-        partial: (sujosRes.data || []).length > 0,
+        // Completude desconhecida conta como incompleta: apos uma falha na
+        // consulta da fila, `false` afirmaria que o numero esta fechado sem ter
+        // como saber. Avisar a mais custa um aviso; deixar de avisar engana.
+        partial: sujosRes.error ? true : (sujosRes.data || []).length > 0,
       },
     },
   });
