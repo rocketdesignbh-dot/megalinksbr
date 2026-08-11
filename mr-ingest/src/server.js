@@ -132,6 +132,28 @@ app.post('/import', authorize, (req, res) => {
       return res.status(400).json({ error: 'BAD_REQUEST', message: 'ownerId, connectionId e store sao obrigatorios' });
     }
 
+    // Trava de acesso: o piloto vale tambem para a ingestao. Sem ela uma conta
+    // fora do piloto processaria o arquivo inteiro para depois receber 403 no
+    // dashboard — dado gravado que o dono nao consegue ler. Falha na consulta
+    // nega: nao da para liberar ingestao "no escuro" so porque o banco piscou.
+    let liberado = false;
+    try {
+      const { data, error } = await db().rpc('mr_habilitado', { uid: ownerId });
+      if (error) throw new Error(error.message);
+      liberado = data === true;
+    } catch (e) {
+      fileStream.resume();
+      console.error('[mr-ingest] nao foi possivel verificar o acesso ao modulo:', e.message);
+      return res.status(500).json({ error: 'INTERNAL', message: 'Nao foi possivel verificar o acesso ao modulo.' });
+    }
+    if (!liberado) {
+      fileStream.resume();
+      return res.status(403).json({
+        error: 'MODULE_DISABLED',
+        message: 'O Mega Results ainda nao esta liberado para esta conta.',
+      });
+    }
+
     let checksum = null;
     let fileBytes = 0;
     const tap = require('./parse').checksumTap((digest, bytes) => { checksum = digest; fileBytes = bytes; });

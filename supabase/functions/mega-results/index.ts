@@ -6,6 +6,13 @@
  * Le exclusivamente megaresults.rollup_daily. Nada de varrer fact_transaction:
  * a razao de o rollup existir e o dashboard responder rapido (doc 04 secao 9).
  *
+ * ACESSO: o modulo esta em piloto — liberado conta a conta em
+ * megaresults.pilot_access, nao por plano (todas as linhas de plan_features
+ * seguem com mr_enabled = false). Quem nao esta liberado recebe 403
+ * MODULE_DISABLED antes de qualquer consulta. Sem essa checagem a resposta
+ * seria um dashboard zerado com HTTP 200 — indistinguivel de "voce nao vendeu
+ * nada", que e a pior forma de negar acesso.
+ *
  * SEGURANCA: o escopo do usuario vem de RLS, nao de parametro. O token do
  * chamador e repassado ao PostgREST, que valida a assinatura e aplica
  * `owner_id = auth.uid()`. Esta funcao NAO decodifica JWT por conta propria nem
@@ -139,8 +146,8 @@ function comparaTotais(atual: Record<string, number | null>, anterior: Record<st
  * justamente nao tem acesso a elas. A mensagem original vai para o log, onde e
  * util, e nao para o cliente.
  */
-function erroDeLeitura(erro: { code?: string; message?: string }): Response {
-  console.error('[mega-results] falha ao ler metricas:', erro.code, erro.message);
+function erroDeLeitura(erro: { code?: string; message?: string }, contexto = 'ler metricas'): Response {
+  console.error(`[mega-results] falha ao ${contexto}:`, erro.code, erro.message);
   switch (erro.code) {
     case '42501': // insufficient_privilege: papel sem grant na tabela
       return json({ error: 'FORBIDDEN', message: 'Sem acesso aos dados do Mega Results.' }, 403);
@@ -177,6 +184,18 @@ Deno.serve(async (req: Request) => {
     Deno.env.get('SUPABASE_ANON_KEY')!,
     { global: { headers: { Authorization: authorization } }, db: { schema: 'megaresults' } },
   );
+
+  // Trava de acesso antes de qualquer consulta. A forma sem argumento pergunta
+  // pelo proprio chamador (auth.uid() dentro do banco): o uid nao vem daqui,
+  // entao nao ha como pedir metricas em nome de outra conta.
+  const { data: habilitado, error: erroAcesso } = await db.rpc('mr_habilitado');
+  if (erroAcesso) return erroDeLeitura(erroAcesso, 'verificar acesso ao modulo');
+  if (habilitado !== true) {
+    return json({
+      error: 'MODULE_DISABLED',
+      message: 'O Mega Results ainda nao esta liberado para esta conta.',
+    }, 403);
+  }
 
   // deno-lint-ignore no-explicit-any
   let corpo: Record<string, any> = {};
