@@ -1,0 +1,24 @@
+# Contexto de build da imagem do mr-ingest.
+#
+# O Dockerfile faz `COPY . .` depois do `npm ci`. Sem esta lista, dois estragos:
+#
+#  1. `.env` entraria numa camada da imagem — e ele carrega a SERVICE ROLE key,
+#     que da bypass de RLS no projeto inteiro. No EasyPanel o build vem do Git e
+#     o .env nem existe no contexto, entao hoje isso e seguro; a lista existe
+#     para que continue seguro se algum dia o build sair de um upload local.
+#  2. `node_modules/` do host (Windows) sobrescreveria o que o `npm ci` acabou
+#     de instalar no container Linux, trazendo devDependencies junto.
+node_modules/
+.env
+.env.*
+!.env.example
+
+# Scratch com dados de venda reais (mesma razao do .gitignore).
+.emit.js
+.rows.json
+
+# Nao vao para producao.
+test/
+.git/
+.gitignore
+README.md

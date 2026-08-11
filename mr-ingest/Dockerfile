@@ -10,7 +10,10 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install --omit=dev
+# `npm ci`, nao `npm install`: instala exatamente o que esta no package-lock.json
+# e falha se o lock divergir do package.json. Com `install` o build de producao
+# poderia resolver versoes diferentes das testadas aqui, sem avisar ninguem.
+RUN npm ci --omit=dev
 
 COPY . .
 
