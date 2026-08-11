@@ -1,7 +1,15 @@
 # mr-ingest — Mega Results / Mega Links BR
-# Node 20 pelo mesmo motivo do wa-engine: traz o global `File`, entao o `undici`
-# puxado pelo supabase-js nao quebra com "ReferenceError: File is not defined".
-FROM node:20-slim
+#
+# Node 22, nao 20. O motivo original de fixar o 20 (ter o global `File`, senao o
+# `undici` do supabase-js quebra com "ReferenceError: File is not defined")
+# continua atendido — `File` existe desde o 20 e segue no 22.
+#
+# O que forcou a subida: o @supabase/supabase-js 2.111 exige WebSocket nativo,
+# que so existe a partir do Node 22. No 20 o `auth.getUser()` lanca "Node.js
+# detected but native WebSocket not found", e como essa chamada e quem valida o
+# token do usuario, TODA importacao pelo navegador voltava 401 — parecia sessao
+# invalida do usuario e era versao errada de runtime.
+FROM node:22-slim
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
