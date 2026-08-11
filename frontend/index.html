@@ -656,6 +656,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="nav" data-page="clone-post"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Clone Post<span class="tag dot" id="cloneBadge" style="display:none">0</span></div>
     <div class="nav" data-page="radar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 3v4.5M12 12l6-4"/></svg>Radar de Ofertas<span class="tag dot" id="radarBadge">0</span></div>
     <div class="nav" data-page="analitico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 20V8M10 20V4M16 20v-9M21 20H3"/></svg>Analítico</div>
+    <div class="nav" data-page="mega-results"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 20h18"/><path d="M6 20V10M12 20V4M18 20v-7"/></svg>Mega Results<span class="tag orange">NEW</span></div>
     <div class="nav" data-page="post-automatico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>⚡ Post. Automático<span class="tag dot" id="autoPostBadge" style="display:none">0</span></div>
     <div class="lbl">Seus Canais</div>
     <div class="nav" data-page="canais-grupos"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M17 8a5 5 0 1 0-10 0c0 5-2 6-2 6h14s-2-1-2-6"/><path d="M10.5 19a1.7 1.7 0 0 0 3 0"/></svg>Grupos de Oferta</div>
@@ -969,6 +970,74 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="heat-wrap"><div class="heat" id="heat"></div></div>
       <div class="heat-leg"><span>Menos</span><span class="sq" style="background:var(--surf2)"></span><span class="sq" style="background:rgba(245,197,24,.32)"></span><span class="sq" style="background:rgba(245,197,24,.6)"></span><span class="sq" style="background:var(--volt)"></span><span>Mais</span></div>
     </div></div>
+  </section>
+
+  <!-- ===== MEGA RESULTS ===== -->
+  <section class="page" id="page-mega-results">
+    <div class="phead"><div><h1 class="pt">💰 Mega Results</h1><div class="psub">Importe o relatório da sua conta de afiliado e acompanhe comissões, pedidos e conversão.
+      <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button></div></div></div>
+
+    <div class="card" id="mrBoot"><div class="cb" style="color:var(--mut);padding:30px;text-align:center">Carregando…</div></div>
+
+    <!-- Modulo nao liberado para a conta (403 MODULE_DISABLED) -->
+    <div class="card" id="mrLocked" style="display:none;border-color:rgba(245,197,24,.25)">
+      <div class="ch">🔒 Ainda não liberado</div>
+      <div class="cb">
+        <p style="color:var(--mut);margin:0 0 12px">O Mega Results está em piloto fechado e ainda não foi liberado para esta conta.</p>
+        <button class="btn btn-ghost" onclick="go('suporte')">Falar com o suporte</button>
+      </div>
+    </div>
+
+    <!-- Falha ao verificar o acesso: nao afirmar que esta liberado nem que nao esta -->
+    <div class="card" id="mrErr" style="display:none;border-color:rgba(239,68,68,.35)">
+      <div class="ch">⚠️ Não foi possível verificar seu acesso</div>
+      <div class="cb">
+        <p style="color:var(--mut);margin:0 0 12px" id="mrErrMsg"></p>
+        <button class="btn btn-ghost" onclick="mrInit()">Tentar de novo</button>
+      </div>
+    </div>
+
+    <div id="mrMain" style="display:none">
+      <div class="card"><div class="ch">🔌 Conexão <span class="r"><button class="btn btn-ghost btn-sm" onclick="mrLoadConns()" style="font-size:11px">↻ Atualizar</button></span></div><div class="cb">
+        <div id="mrConnWrap">
+          <div class="field"><label>Importar para a conexão</label><select id="mrConn"></select></div>
+        </div>
+        <div id="mrConnEmpty" style="display:none">
+          <p style="color:var(--mut);margin:0 0 12px">Você ainda não tem uma conexão. Ela identifica de qual conta de afiliado o relatório veio.</p>
+        </div>
+        <details style="margin-top:10px">
+          <summary style="cursor:pointer;color:var(--mut);font-size:13px">+ Criar nova conexão</summary>
+          <div class="g2" style="gap:12px;margin-top:12px">
+            <div class="field"><label>Loja</label><select id="mrNewStore"></select></div>
+            <div class="field"><label>Apelido</label><input id="mrNewLabel" placeholder="Ex.: Shopee — conta principal"></div>
+          </div>
+          <button class="btn btn-ghost" id="mrBtnNewConn">Criar conexão</button>
+        </details>
+      </div></div>
+
+      <div class="card"><div class="ch">📤 Importar relatório</div><div class="cb">
+        <div class="field"><label>Arquivo (.csv, .xlsx)</label><input type="file" id="mrFile" accept=".csv,.xlsx,.xls"></div>
+        <div class="hint" style="margin-bottom:12px">O arquivo é lido em streaming — pode ter centenas de milhares de linhas sem travar o navegador.</div>
+        <button class="btn btn-volt" id="mrBtnUp" style="width:100%;justify-content:center">Importar</button>
+        <div id="mrProg" style="display:none;margin-top:16px">
+          <div style="height:8px;background:var(--surf2);border-radius:99px;overflow:hidden"><div id="mrBar" style="height:100%;width:0;background:var(--volt);transition:width .3s"></div></div>
+          <div id="mrProgTxt" style="color:var(--mut);font-size:13px;margin-top:8px"></div>
+        </div>
+      </div></div>
+
+      <!-- Nivel 1 de dedupe: arquivo ja importado (doc 08 §12) -->
+      <div class="card" id="mrDup" style="display:none;border-color:rgba(245,197,24,.35)">
+        <div class="ch">⚠️ Este arquivo já foi importado</div>
+        <div class="cb">
+          <p style="color:var(--mut);margin:0 0 12px" id="mrDupMsg"></p>
+          <p style="color:var(--mut);margin:0 0 12px;font-size:13px">Nenhuma linha foi duplicada: o sistema reconhece o que já entrou. Importar de novo só faz sentido se o arquivo foi corrigido na origem.</p>
+          <button class="btn btn-volt" id="mrBtnForce">Importar mesmo assim</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('mrDup').style.display='none'">Cancelar</button>
+        </div>
+      </div>
+
+      <div class="card"><div class="ch">🕘 Importações recentes <span class="r"><button class="btn btn-ghost btn-sm" onclick="mrLoadHist()" style="font-size:11px">↻ Atualizar</button></span></div><div class="cb" id="mrHist"></div></div>
+    </div>
   </section>
 
   <!-- ===== LINK RÁPIDO ===== -->
@@ -10823,7 +10892,216 @@ window.validateAndSend = validateAndSend;
   document.querySelector('[data-page="config-afiliados"]')?.addEventListener('click', () => { if (typeof initConfigOnboarding === 'function') initConfigOnboarding(); });
 </script>
   
-</script><img src="https://tracker.metricool.com/c3po.jpg?hash=44f262a1022a6b3e770377853802b39a" style="display:none" alt=""/>
+</script>
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   MEGA RESULTS — importacao de relatorios de afiliado
+   Backend: mr-ingest (EasyPanel) + schema megaresults no Supabase.
+   ══════════════════════════════════════════════════════════════════ */
+const MR_INGEST_URL = "https://megalinksbr-mr-ingest.fwezsn.easypanel.host";
+
+// O schema megaresults e separado do public. Sem .schema() o PostgREST
+// procuraria as tabelas no public e devolveria 404.
+function mrDb(){ return SB.schema('megaresults'); }
+
+// Token DO USUARIO. O MR_INGEST_TOKEN e segredo de servidor e nunca pode vir
+// para o navegador: quem o tivesse importaria em nome de qualquer conta.
+async function mrToken(){
+  const { data } = await SB.auth.getSession();
+  return data?.session?.access_token || null;
+}
+
+let MR_CONNS = [];
+let MR_FILE  = null;   // guardado para o "importar mesmo assim" reenviar
+
+function mrShow(qual){
+  for(const id of ['mrBoot','mrLocked','mrErr','mrMain']){
+    const el = document.getElementById(id);
+    if(el) el.style.display = (id===qual) ? '' : 'none';
+  }
+}
+
+async function mrInit(){
+  mrShow('mrBoot');
+  try{
+    // Mesma fonte de verdade do backend. Distinguir "nao liberado" de "nao deu
+    // para verificar" importa: um dashboard zerado por engano parece "voce nao
+    // vendeu nada", que e a pior forma de negar acesso.
+    const { data, error } = await mrDb().rpc('mr_habilitado');
+    if(error) throw new Error(error.message || 'falha ao consultar');
+    if(data !== true){ mrShow('mrLocked'); return; }
+  }catch(e){
+    document.getElementById('mrErrMsg').textContent = e.message || String(e);
+    mrShow('mrErr');
+    return;
+  }
+  mrShow('mrMain');
+  mrLoadStores();
+  await mrLoadConns();
+  mrLoadHist();
+}
+
+// Lojas vem de field_mapping, nao do enum: so faz sentido oferecer loja que o
+// parser sabe ler. Loja sem mapeamento importaria e nao casaria coluna nenhuma.
+async function mrLoadStores(){
+  const sel = document.getElementById('mrNewStore');
+  const { data, error } = await mrDb().from('field_mapping').select('store').is('owner_id', null);
+  if(error){ sel.innerHTML = '<option value="">— erro ao carregar —</option>'; return; }
+  const lojas = [...new Set((data||[]).map(r=>r.store))].sort();
+  sel.innerHTML = lojas.length
+    ? lojas.map(s=>`<option value="${s}">${s}</option>`).join('')
+    : '<option value="">— nenhuma loja mapeada —</option>';
+}
+
+async function mrLoadConns(){
+  const sel = document.getElementById('mrConn');
+  const { data, error } = await mrDb().from('connection')
+    .select('id,label,store,status').eq('status','active').order('created_at');
+  if(error){ sel.innerHTML = `<option value="">— ${error.message} —</option>`; return; }
+  MR_CONNS = data || [];
+  document.getElementById('mrConnWrap').style.display  = MR_CONNS.length ? '' : 'none';
+  document.getElementById('mrConnEmpty').style.display = MR_CONNS.length ? 'none' : '';
+  sel.innerHTML = MR_CONNS.map(c=>`<option value="${c.id}">${c.label} · ${c.store}</option>`).join('');
+}
+
+async function mrCreateConn(){
+  const store = document.getElementById('mrNewStore').value;
+  const label = document.getElementById('mrNewLabel').value.trim();
+  if(!store || !label){ alert('Escolha a loja e dê um apelido para a conexão.'); return; }
+  const { data: u } = await SB.auth.getUser();
+  if(!u?.user){ alert('Sua sessão expirou. Entre de novo.'); return; }
+  const { error } = await mrDb().from('connection')
+    .insert({ owner_id: u.user.id, store, label });
+  if(error){ alert('Não foi possível criar: ' + error.message); return; }
+  document.getElementById('mrNewLabel').value = '';
+  await mrLoadConns();
+}
+
+async function mrUpload(force){
+  const conn = MR_CONNS.find(c=>c.id === document.getElementById('mrConn').value);
+  const file = MR_FILE || document.getElementById('mrFile').files[0];
+  if(!conn){ alert('Crie uma conexão antes de importar.'); return; }
+  if(!file){ alert('Escolha um arquivo.'); return; }
+  MR_FILE = file;
+
+  const tk = await mrToken();
+  if(!tk){ alert('Sua sessão expirou. Entre de novo.'); return; }
+
+  document.getElementById('mrDup').style.display = 'none';
+  document.getElementById('mrProg').style.display = '';
+  document.getElementById('mrBtnUp').disabled = true;
+  mrProgresso({ stage: 'enviando' });
+
+  const fd = new FormData();
+  fd.append('file', file);
+  // ownerId NAO vai: para chamada de usuario o servidor usa o dono do token e
+  // ignora o do formulario. Mandar daqui so daria a ilusao de que decide algo.
+  fd.append('connectionId', conn.id);
+  fd.append('store', conn.store);
+  if(force) fd.append('force', '1');
+
+  try{
+    const res  = await fetch(`${MR_INGEST_URL}/import`, {
+      method: 'POST', headers: { Authorization: `Bearer ${tk}` }, body: fd
+    });
+    const body = await res.json().catch(()=>({}));
+    if(res.status === 403){ mrShow('mrLocked'); return; }
+    if(!res.ok) throw new Error(body.message || `HTTP ${res.status}`);
+    await mrStream(body.importId, tk);
+  }catch(e){
+    mrProgresso({ stage: 'failed', message: e.message });
+  }finally{
+    document.getElementById('mrBtnUp').disabled = false;
+    mrLoadHist();
+  }
+}
+
+/* O endpoint de progresso exige header Authorization, e EventSource nao permite
+   headers — dai o fetch com leitura de stream em vez de new EventSource(). */
+async function mrStream(importId, tk){
+  const res = await fetch(`${MR_INGEST_URL}/import/${importId}/stream`, {
+    headers: { Authorization: `Bearer ${tk}` }
+  });
+  if(!res.ok || !res.body) throw new Error('não foi possível acompanhar o progresso');
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  while(true){
+    const { done, value } = await reader.read();
+    if(done) break;
+    buf += dec.decode(value, { stream: true });
+    const blocos = buf.split('\n\n');
+    buf = blocos.pop();
+    for(const bloco of blocos){
+      const linha = bloco.split('\n').find(l=>l.startsWith('data: '));
+      if(!linha) continue;
+      let p; try{ p = JSON.parse(linha.slice(6)); }catch(_){ continue; }
+      mrProgresso(p);
+      if(p.stage === 'completed' || p.stage === 'failed'){ reader.cancel(); return; }
+    }
+  }
+}
+
+function mrProgresso(p){
+  const bar = document.getElementById('mrBar');
+  const txt = document.getElementById('mrProgTxt');
+  const n   = v => (v ?? 0).toLocaleString('pt-BR');
+
+  if(p.stage === 'failed' && p.code === 'DUPLICATE_FILE'){
+    document.getElementById('mrProg').style.display = 'none';
+    document.getElementById('mrDupMsg').textContent = p.message || 'Este arquivo já foi importado.';
+    document.getElementById('mrDup').style.display = '';
+    return;
+  }
+  if(p.stage === 'failed'){
+    bar.style.width = '100%'; bar.style.background = '#EF4444';
+    txt.textContent = `Falhou: ${p.message || p.code || 'erro desconhecido'}`;
+    return;
+  }
+  if(p.stage === 'completed'){
+    bar.style.width = '100%'; bar.style.background = 'var(--volt)';
+    txt.textContent = `Concluído — ${n(p.valid)} linhas válidas de ${n(p.total)} · ${n(p.inserted)} novas, ${n(p.updated)} atualizadas, ${n(p.skipped)} ignoradas`;
+    MR_FILE = null;
+    return;
+  }
+  // O total so e conhecido quando o arquivo acaba, entao nao da para mostrar
+  // porcentagem sem inventar: a barra fica indeterminada e o texto conta linhas.
+  bar.style.background = 'var(--volt)';
+  bar.style.width = p.stage === 'enviando' ? '8%' : '60%';
+  txt.textContent = p.stage === 'enviando' ? 'Enviando arquivo…'
+    : p.stage === 'parsing' ? 'Lendo o arquivo…'
+    : `Processando… ${n(p.total)} linhas lidas, ${n(p.valid)} válidas`;
+}
+
+async function mrLoadHist(){
+  const el = document.getElementById('mrHist');
+  const { data, error } = await mrDb().from('import_batch')
+    .select('id,file_name,status,rows_total,rows_valid,error_message,created_at')
+    .order('created_at', { ascending: false }).limit(10);
+  if(error){ el.innerHTML = `<p style="color:var(--mut)">Não foi possível carregar: ${error.message}</p>`; return; }
+  if(!data?.length){ el.innerHTML = '<p style="color:var(--mut)">Nenhuma importação ainda.</p>'; return; }
+  const cor = { completed:'green', failed:'red', parsing:'gray' };
+  el.innerHTML = data.map(b=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--surf2)">
+      <div>
+        <div style="font-weight:600">${b.file_name || '(sem nome)'}</div>
+        <div style="color:var(--mut);font-size:12px">${new Date(b.created_at).toLocaleString('pt-BR')}${b.error_message ? ' · ' + b.error_message : ''}</div>
+      </div>
+      <div style="text-align:right;white-space:nowrap">
+        <span class="pill ${cor[b.status]||'gray'}">${b.status}</span>
+        <div style="color:var(--mut);font-size:12px">${(b.rows_valid ?? 0).toLocaleString('pt-BR')}/${(b.rows_total ?? 0).toLocaleString('pt-BR')} linhas</div>
+      </div>
+    </div>`).join('');
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  document.getElementById('mrBtnUp')?.addEventListener('click', ()=>{ MR_FILE = null; mrUpload(false); });
+  document.getElementById('mrBtnForce')?.addEventListener('click', ()=> mrUpload(true));
+  document.getElementById('mrBtnNewConn')?.addEventListener('click', mrCreateConn);
+  document.querySelector('[data-page="mega-results"]')?.addEventListener('click', mrInit);
+});
+</script>
+<img src="https://tracker.metricool.com/c3po.jpg?hash=44f262a1022a6b3e770377853802b39a" style="display:none" alt=""/>
 </body>
 </html>
 <!-- teste auto-deploy 2026-07-02T15:38:33Z -->
