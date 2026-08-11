@@ -80,7 +80,20 @@ async function authorize(req, res, next) {
   // `sub` seria aceitar qualquer token forjado.
   try {
     const { data, error } = await db().auth.getUser(token);
-    if (error || !data?.user) return res.status(401).json({ error: 'unauthorized' });
+    // Dois motivos muito diferentes caem aqui: o token do usuario e ruim, ou a
+    // NOSSA service key morreu (revogada, trocada, digitada errado). Sem
+    // distinguir, o servico culpa o usuario por um problema que e dele mesmo —
+    // e foi exatamente isso que aconteceu em 11/08, com 401 sem rastro nenhum.
+    if (error) {
+      const chaveMorta = error.status === 401 || /api key|apikey|invalid.*key/i.test(error.message || '');
+      console.error(chaveMorta
+        ? `[mr-ingest] SUPABASE_SERVICE_ROLE_KEY parece invalida — o Supabase recusou NOSSA chave: ${error.message}`
+        : `[mr-ingest] token de usuario recusado: ${error.message}`);
+      return res.status(chaveMorta ? 500 : 401).json(chaveMorta
+        ? { error: 'INTERNAL', message: 'Nao foi possivel verificar sua sessao.' }
+        : { error: 'unauthorized' });
+    }
+    if (!data?.user) return res.status(401).json({ error: 'unauthorized' });
     req.caller = { kind: 'user', userId: data.user.id };
     return next();
   } catch (e) {
