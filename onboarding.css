@@ -149,6 +149,9 @@
 
 /* ========== GUIAS PASSO-A-PASSO ========== */
 
+/* O guia agora NAVEGA para a tela de cada passo, entao o fundo precisa ficar
+   legivel: sem blur e com o cartao ancorado embaixo, em vez de centralizado
+   tapando justamente a tela que o passo esta apontando. */
 .onboarding-guide {
   position: fixed;
   top: 0;
@@ -157,20 +160,22 @@
   bottom: 0;
   z-index: 10000;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
+  padding: 0 16px 24px;
+  pointer-events: none;
 }
 
 .guide-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.28);
 }
 
 .guide-card {
   position: relative;
   z-index: 1;
+  pointer-events: auto;
   background: var(--bg-primary, #ffffff);
   border-radius: var(--r, 12px);
   padding: 32px;

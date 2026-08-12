@@ -267,9 +267,27 @@ const OnboardingManager = (() => {
       }
     };
 
+    /* Pedido do Erico: clicar em "Proximo" tem que LEVAR o usuario para a tela
+       que o passo descreve. Cada passo aponta para o item de menu pelo
+       targetSelector ([data-page="conexao"], etc.), entao o destino ja esta ali
+       — basta extrair o data-page e chamar o go() do painel. Um passo tambem
+       pode declarar goPage explicitamente, que tem prioridade. Se nao houver
+       destino, ou se o go() nao existir na pagina, o guia segue como antes. */
+    const irParaTelaDoPasso = (step) => {
+      if (!step) return;
+      let destino = step.goPage;
+      if (!destino && step.targetSelector) {
+        const m = String(step.targetSelector).match(/data-page=["']([^"']+)["']/);
+        if (m) destino = m[1];
+      }
+      if (!destino || typeof window.go !== 'function') return;
+      try { window.go(destino); } catch (e) { console.warn('guia: go() falhou', e); }
+    };
+
     const updateGuide = () => {
       clearHighlight();
       const step = steps[currentStep];
+      irParaTelaDoPasso(step);
       guide.innerHTML = `
         <div class="guide-overlay"></div>
         <div class="guide-card">
