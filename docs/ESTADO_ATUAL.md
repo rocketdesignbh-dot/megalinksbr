@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 40 — 07/08/2026 (manhã).** Se o número aqui não for o mais alto que você
+> **REVISÃO 41 — 12/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1643,6 +1643,123 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**REVISÃO 41 — 12/08/2026 — três alterações de frontend pedidas pelo Érico, todas
+exercitadas em navegador de verdade antes do push.**
+
+| | |
+|---|---|
+| Arquivos | `index.html`, `frontend/index.html`, `onboarding.js`, `onboarding.css` (as duas cópias de cada) |
+| Edge Functions | nenhuma tocada |
+| Banco | nenhuma migração — a `clone_posts` já tinha a policy `clone_posts_owner` `FOR ALL`, medida nesta sessão, que é o que autoriza o DELETE novo |
+| Repo × produção | **exige Deploy no EasyPanel** — nada disso está no ar até o rebuild |
+
+### 1. MegaIA só aparece onde há CTA preenchível à mão
+
+O botão flutuante `#fabAI` nasce com `display:none` e é ligado/desligado por
+`atualizarFabIA()`. A regra **não é lista de páginas**: é a presença de um campo
+marcado `data-cta-manual` na tela ativa. Hoje são dois — `#prCtaCustom` (Postar
+Agora) e `#lpCta` (Editar Grupo → aba Layout). Um CTA manual novo em qualquer aba
+liga a MegaIA sozinho; um que sair de cena a desliga.
+
+⚠️ **A conta é por tela, não por pixel.** A primeira versão usava `offsetParent` e
+falhou na medição: o `#prCtaCustom` mora dentro do `#prStep2`, que só abre depois
+que o link é resolvido — a MegaIA sumia no Postar Agora até o usuário colar um
+link. A regra final olha `.page.on` e, quando existe, `.tp.on` (as abas do Editar
+Grupo). Sair de uma tela dessas com a gaveta aberta fecha a gaveta.
+
+**Medido em Chromium (Playwright, arquivo servido localmente):**
+
+| tela | `#fabAI` |
+|---|---|
+| Dashboard · Radar · Clone Post · Conexão | `display:none` |
+| Postar Agora | `display:flex` |
+| Editar Grupo, aba Layout ativa | `display:flex` |
+| Editar Grupo, qualquer outra aba | `display:none` |
+
+### 2. Fila de clones: seleção múltipla, aprovar e apagar em lote
+
+Botão **☑️ Selecionar** entra num modo opt-in — enquanto ninguém clica, a fila é
+idêntica à de antes. No modo: checkbox por linha, "Selecionar todos", e dois botões
+em lote. Os botões de linha (Aprovar/Descartar) somem no modo seleção, para não
+haver dois caminhos clicáveis para a mesma coisa.
+
+🔴 **"Apagar" NÃO é "Descartar", e a diferença está no confirm.** Descartar marca
+`status='rejected'` e o registro fica no histórico; **Apagar faz `DELETE` de verdade
+na `clone_posts`**. Produto já publicado a partir de um clone aprovado vive em
+`products` e não é afetado. A RLS que autoriza isso é a `clone_posts_owner`,
+`polcmd = '*'` (FOR ALL) com `user_id = auth.uid()` — **medido nesta sessão**, não
+suposto.
+
+As duas contagens são diferentes de propósito: **apagar vale para qualquer item,
+aprovar só para os `pending`**. Selecionar 3 itens sendo 2 pendentes mostra
+"✅ Aprovar (2)" e "🗑️ Apagar (3)"; selecionar só um já publicado desabilita o
+Aprovar e escreve "1 selecionado · nenhum pendente".
+
+O laço de aprovação **relê cada linha do banco** antes de chamar
+`cloneCriarProduto` — o que está em memória pode ter envelhecido com a tela aberta.
+
+**Medido em Chromium, com a fila semeada em memória** (3 itens: 2 `pending`, 1
+`approved`): modo normal → 0 checkbox e os botões de linha de pé; modo seleção → 3
+checkboxes, botões de linha somem, contadores 2/3 corretos, "selecionar todos"
+marca os 3, "Cancelar" limpa a seleção. Chamar apagar sem seleção devolve
+"Selecione ao menos um item" e **não fala com o banco**.
+
+### 3. Tutorial de Boas-Vindas: sem fundo borrado, e o "Próximo" leva para a tela
+
+Duas mudanças no `onboarding.js`/`onboarding.css` — o guia é o
+`showCompleteSetupGuide()`, disparado por `initConfigOnboarding()` ao entrar em
+Config Afiliados.
+
+- **`backdrop-filter: blur(2px)` removido** do `.guide-overlay` e o escurecimento
+  caiu de `rgba(0,0,0,.5)` para `.28`.
+- **O cartão saiu do centro e foi ancorado embaixo** (`align-items:flex-end`), com
+  `pointer-events:none` no container e `auto` no cartão. Sem isso, tirar o blur não
+  resolveria nada: o cartão centralizado tapava justamente a tela que o passo
+  aponta.
+- **`irParaTelaDoPasso()`**: cada passo já apontava para o item de menu pelo
+  `targetSelector` (`[data-page="conexao"]`, etc.). O destino é extraído desse
+  seletor e vai para o `window.go()` do painel. Um passo pode declarar `goPage`
+  explicitamente, que tem prioridade. Sem destino, ou sem `go()` na página, o guia
+  se comporta como antes.
+
+**Medido em Chromium, os 6 passos clicados um a um:**
+
+| passo | `.page.on` depois do clique | `backdrop-filter` |
+|---|---|---|
+| 1 · Vamos Configurar Tudo | `page-config-afiliados` | `none` |
+| 2 · Dados Pessoais | `page-meus-dados` | `none` |
+| 3 · WhatsApp Conectado? | `page-conexao` | `none` |
+| 4 · Seu Plano | `page-assinatura` | `none` |
+| 5 · Preferências | `page-config-afiliados` | `none` |
+| 6 · Parabéns | `page-post-relampago` | `none` |
+
+O `.guide-highlight` acompanha o item de menu em todos os seis. "Concluído!" fecha
+e marca `dismiss`. Console sem `pageerror` na varredura inteira.
+
+### ⚠️ O que isto NÃO prova
+
+Foi medido num Chromium headless servindo os arquivos do repo, **deslogado** — sem
+Supabase, sem sessão, com a fila semeada à mão. Prova que o código faz o que diz
+sobre o DOM real da SPA. **Não prova** o `DELETE` em lote contra o banco de verdade
+(a policy foi lida, o delete não foi executado), nem a aprovação em lote criando
+produto, nem nada disso servido pelo nginx. **Falta o Deploy no EasyPanel e uma
+conferência do Érico logado** — ver P54.
+
+### 🔴 Descoberta de lado: as duas cópias do `index.html` ESTÃO divergentes
+
+O doc manda editar as duas idênticas. Elas não estão, e há tempo:
+
+| falta em | o quê |
+|---|---|
+| `index.html` (raiz) | a aba **Mega Results** inteira — item de menu, `<section id="page-mega-results">` e o bloco `<script>` de 9.296 bytes. **279 linhas** |
+| `frontend/index.html` | o pixel do **Metricool** (`tracker.metricool.com/c3po.jpg`). 1 linha |
+
+As alterações desta sessão foram aplicadas **idênticas nas duas** por script, com
+asserção de âncora única. A divergência anterior **não foi mexida** — escopo
+estrito. Virou a **P53**.
+
+---
+
 **REVISÃO 40 — 07/08/2026 (manhã) — CORRIGE A REVISÃO 39, que datou a si mesma
 errado e abriu DUAS pendências falsas por causa disso.**
 
@@ -2958,6 +3075,16 @@ Captura ofertas de grupos-fonte de terceiros e replica nos grupos do usuário.
   - ⚠️ **A chave de leitura no painel é `source_jid`, não `clone_source_id`** — as
     recusas anteriores à localização da fonte chegam com `source_id` nulo, e são
     justamente elas que explicam o silêncio.
+- **Frontend — fila de clones (REVISÃO 41):** modo de seleção **opt-in** pelo botão
+  "☑️ Selecionar". Ligado, mostra checkbox por linha, "Selecionar todos" e dois
+  botões em lote; os botões de linha somem enquanto ele estiver ligado. **Aprovar
+  em lote só age nos `pending`; apagar age em qualquer item** — as duas contagens
+  na barra são diferentes de propósito. **Apagar é `DELETE` na `clone_posts`**, não
+  `status='rejected'`; quem quiser manter histórico usa Descartar. Autorizado pela
+  policy `clone_posts_owner` (FOR ALL, `user_id = auth.uid()`).
+- **Frontend — MegaIA (REVISÃO 41):** o botão flutuante só aparece em tela que tenha
+  campo `data-cta-manual` — Postar Agora e Editar Grupo → Layout. Clone Post **não
+  tem**, então a MegaIA não aparece nele.
 - **Frontend:** "Fontes automáticas" é grid de cards (`auto-fill minmax(300px,1fr)`,
   mesmo padrão dos Grupos de Oferta). Cada card mostra uso do dia com barra, última
   captura, e resumo de 24h vindo do log. Card tracejado "+ Nova fonte" trava no teto
@@ -3228,6 +3355,9 @@ código não relacionado.
 | **P50** | 🟡 **A tela inventa o motivo do erro em vez de ler o do servidor.** `prBuscarProduto` (linha 7891) ignora `d.error` e monta a explicação a partir da URL — por isso o Érico, que **tem** App Key e App Secret, recebeu "Shopee requer credenciais oficiais" quando o defeito era o formato do link. A `product-search` v27 já devolve `motivo` em campo próprio (`credenciais_incompletas` · `link_nao_reconhecido` · `loja_sem_integracao`) e a lista do que falta. Falta a tela consumir isso, com botão para Config Afiliados. **Mensagem já aprovada pelo Érico em 07/08.** Exige push | 07/08 |
 | **P51** | 🟠 **Duas contas com `connected = true` e credencial inútil.** **duas contas de clientes** (identificadas na consulta, não nomeadas aqui — este repo é público, e é a mesma preocupação da P7) têm `App Key` e `App Secret` **vazios** em `affiliate_credentials`, só o `ID de Afiliado` preenchido (medido em 04/08). Para elas a busca automática de Shopee falha sempre e o painel diz que está tudo certo. O `connected` está medindo "a linha existe", não "dá para usar" — o padrão de sempre: mecanismo que parece existir e não executa nada | 07/08 |
 | ~~P52~~ | ❌ **RETIRADA EM 07/08 — nunca foi real.** Os relógios batem: sandbox `07/08 10:46:34`, banco `07/08 10:46:35`, Érico "10:45". O que não batia era um carimbo de log de sexta comparado com uma leitura de banco de terça, dentro da mesma conversa, tratadas as duas como "agora". ~~🔴 Os relógios do log e do banco não batem.~~ Ao converter os carimbos de `get_logs` para conferir a hora de uma chamada, a data saiu com **dias** de diferença do `now()` do Postgres. Não afeta medição de versão/status, mas **afeta qualquer medição por janela de tempo** — inclusive a leitura do `[pre-filtro]` da P36. **Resolver ANTES de qualquer prova que dependa de intervalo** | 04/08 |
+
+| **P53** | 🟠 **As duas cópias do `index.html` estão divergentes, e há tempo.** O doc manda editá-las idênticas. Medido em 12/08 por `diff`: a **raiz não tem a aba Mega Results** (item de menu, `<section id="page-mega-results">` e um `<script>` de 9.296 bytes — 279 linhas), e o **`frontend/` não tem o pixel do Metricool**. Como `frontend/index.html` é a fonte real de deploy, o efeito prático é que o Mega Results está no ar e o Metricool não. As alterações da REVISÃO 41 foram aplicadas idênticas nas duas por script; **esta divergência antiga não foi tocada** — escopo estrito. Precisa de decisão do Érico: qual das duas é a verdade de cada bloco | 12/08 |
+| **P54** | 🟡 **As três alterações da REVISÃO 41 não foram vistas em produção.** Medidas em Chromium headless, **deslogado**, com os arquivos do repo servidos localmente e a fila de clones semeada em memória. Faltam três coisas que só o ambiente real dá: (a) **Deploy no EasyPanel** — sem ele nada disso está no ar; (b) o **`DELETE` em lote contra o banco de verdade** (a policy foi lida, o delete não foi executado); (c) a **aprovação em lote criando produto**. Enquanto não for medido logado, o estado é "código certo no repo", não "funciona". Lembrar da **P49**: sem cache-busting, a primeira conferência pode estar lendo o bundle velho — usar `?v=` | 12/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
