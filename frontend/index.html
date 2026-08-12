@@ -832,7 +832,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="ch">3️⃣ Escolha o CTA</div>
             <div class="cb">
               <div id="prCtaGrid" style="display:grid;gap:8px"></div>
-              <div class="field" style="margin-top:12px"><label>Ou escreva seu próprio</label><input id="prCtaCustom" placeholder="Ex: Corre que acaba!" oninput="prUpdatePreview()"></div>
+              <div class="field" style="margin-top:12px"><label>Ou escreva seu próprio</label><input id="prCtaCustom" data-cta-manual="1" placeholder="Ex: Corre que acaba!" oninput="prUpdatePreview()"></div>
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:12px">
                 <input type="checkbox" id="prChkCtaRandom" onchange="prToggleCtaRandom(this.checked)" style="width:auto">
                 <span style="font-size:13px">🎲 CTA aleatório a cada disparo</span>
@@ -1939,7 +1939,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 
 <!-- ============ FAB + DRAWER (MegaIA) ============ -->
-<button class="fab" id="fabAI">✨ MegaIA</button>
+<button class="fab" id="fabAI" style="display:none">✨ MegaIA</button>
 <div class="drw" id="drw">
   <div class="drwh">
     <div style="display:flex;align-items:center;gap:10px">
@@ -2686,6 +2686,8 @@ function go(page){
   if(page==="assinatura")setTimeout(()=>renderPlans(),80);
   if(page==="adm-seo")setTimeout(()=>renderSeoMarketing(),50);
   if(page==="link-rapido")setTimeout(()=>{const i=document.getElementById("lrInput");if(i)i.focus();},80);
+  // MegaIA só aparece onde há CTA preenchível à mão — ver atualizarFabIA().
+  if(typeof atualizarFabIA==="function")setTimeout(atualizarFabIA,0);
 }
 document.querySelectorAll(".nav").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
 document.querySelectorAll(".nav-cta").forEach(n=>n.addEventListener("click",()=>go(n.dataset.page)));
@@ -5003,7 +5005,7 @@ layout:`
         <div class="ch">🎯 Escolha o CTA</div>
         <div class="cb">
           <div id="lpCtaGrid" style="display:grid;gap:8px"></div>
-          <div class="field" style="margin-top:12px"><label>Ou escreva seu próprio</label><input id="lpCta" placeholder="Ex: Corre que acaba!" oninput="rp()"></div>
+          <div class="field" style="margin-top:12px"><label>Ou escreva seu próprio</label><input id="lpCta" data-cta-manual="1" placeholder="Ex: Corre que acaba!" oninput="rp()"></div>
           <!-- CTA Randômico -->
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:12px">
             <input type="checkbox" id="lpChkCtaRandom" onchange="lpToggleCtaRandom(this.checked)" style="width:auto">
@@ -6852,6 +6854,41 @@ function openDrawer(){
 }
 function closeDrawer(){drw.classList.remove("open");}
 fabAI.onclick=openDrawer;
+
+/* ── Onde a MegaIA aparece ─────────────────────────────────────────────
+   Pedido do Érico: o botão flutuante só faz sentido nas telas em que existe
+   um CTA que dá pra escrever à mão — é nelas que "reescreva esse post" e
+   "sugira um CTA" têm onde ser colados. A regra não é uma lista de páginas:
+   é a presença de um campo marcado com data-cta-manual visível na tela. Assim
+   um CTA manual novo em qualquer aba passa a ligar a MegaIA sozinho, e um que
+   sair de cena a desliga, sem ninguém ter que lembrar de atualizar a lista.
+   Hoje são dois: #prCtaCustom (Postar Agora) e #lpCta (Editar Grupo → Layout). */
+function ctaManualVisivel(){
+  return Array.from(document.querySelectorAll("[data-cta-manual]")).some(el=>{
+    // A conta é por TELA, não por pixel visível: o campo de CTA do Postar Agora
+    // mora dentro do #prStep2, que só abre depois que o link é resolvido, e
+    // ninguém quer a MegaIA piscando no meio do fluxo. Basta a tela (.page.on)
+    // e, quando houver, a aba (.tp.on do Editar Grupo) serem as ativas.
+    const pagina=el.closest(".page");
+    if(!pagina||!pagina.classList.contains("on"))return false;
+    const aba=el.closest(".tp");
+    if(aba&&!aba.classList.contains("on"))return false;
+    return true;
+  });
+}
+function atualizarFabIA(){
+  const f=document.getElementById("fabAI");
+  if(!f)return;
+  const mostrar=ctaManualVisivel();
+  f.style.display=mostrar?"":"none";
+  // Sair da tela com a gaveta aberta deixaria a MegaIA de pé num lugar onde ela
+  // não deveria estar. Fecha junto.
+  if(!mostrar&&typeof drw!=="undefined"&&drw&&drw.classList.contains("open")&&typeof closeDrawer==="function")closeDrawer();
+}
+// Troca de página chama direto (fim do go()). O clique global cobre o resto:
+// abas do Editar Grupo, modais, qualquer coisa que troque o que está visível.
+document.addEventListener("click",()=>setTimeout(atualizarFabIA,80));
+setTimeout(atualizarFabIA,0);
 aiSend.onclick=()=>aiSendMsg();
 aiInput.addEventListener("keydown",e=>{if(e.key==="Enter")aiSendMsg();});
 
@@ -8548,14 +8585,97 @@ async function cloneCriarProduto(cloneId,row){
   }
 }
 
+/* ── Fila de clones: seleção múltipla ───────────────────────────────────
+   Aprovar e descartar um a um não escala quando a captura automática enche a
+   fila. O modo de seleção é opt-in: enquanto o botão "Selecionar" não for
+   clicado, a fila continua exatamente como era.
+
+   "Apagar" NÃO é "Descartar". Descartar marca status='rejected' e o registro
+   fica no histórico; apagar faz DELETE de verdade na clone_posts (a RLS
+   clone_posts_owner é FOR ALL, então o dono pode). Produto já publicado a
+   partir de um clone aprovado vive em products e não é afetado. */
+let CLONE_FILA_DATA=[];
+let CLONE_SEL_MODO=false;
+let CLONE_SEL=new Set();
+
+function cloneSelToggleModo(){
+  CLONE_SEL_MODO=!CLONE_SEL_MODO;
+  if(!CLONE_SEL_MODO)CLONE_SEL.clear();
+  cloneRenderFila();
+}
+function cloneSelItem(id,on){
+  if(on)CLONE_SEL.add(id);else CLONE_SEL.delete(id);
+  cloneSelAtualizarBarra();
+}
+function cloneSelTodos(on){
+  CLONE_SEL.clear();
+  if(on)CLONE_FILA_DATA.forEach(c=>CLONE_SEL.add(c.id));
+  document.querySelectorAll("#cloneFila input.clone-chk").forEach(i=>{i.checked=on;});
+  cloneSelAtualizarBarra();
+}
+// A barra reflete duas contas diferentes de propósito: apagar vale para
+// qualquer item, aprovar só vale para os que ainda estão pendentes.
+function cloneSelAtualizarBarra(){
+  const n=CLONE_SEL.size;
+  const pend=CLONE_FILA_DATA.filter(c=>CLONE_SEL.has(c.id)&&c.status==="pending").length;
+  const cnt=document.getElementById("cloneSelCount");
+  if(cnt)cnt.textContent=n?`${n} selecionado${n>1?"s":""}${n&&!pend?" · nenhum pendente":""}`:"nenhum selecionado";
+  const bA=document.getElementById("cloneBtnAprovarSel");
+  if(bA){bA.disabled=!pend;bA.style.opacity=pend?"":".5";bA.textContent=pend?`✅ Aprovar (${pend})`:"✅ Aprovar";}
+  const bD=document.getElementById("cloneBtnApagarSel");
+  if(bD){bD.disabled=!n;bD.style.opacity=n?"":".5";bD.textContent=n?`🗑️ Apagar (${n})`:"🗑️ Apagar";}
+  const all=document.getElementById("cloneSelAll");
+  if(all)all.checked=n>0&&n===CLONE_FILA_DATA.length;
+}
+
+async function cloneAprovarSelecionados(){
+  const alvos=CLONE_FILA_DATA.filter(c=>CLONE_SEL.has(c.id)&&c.status==="pending");
+  if(!alvos.length){toast("Nenhum clone pendente entre os selecionados.","⚠️");return;}
+  if(!confirm(`Aprovar e publicar ${alvos.length} clone(s) no grupo de destino?`))return;
+  let ok=0,falhou=0;
+  for(const alvo of alvos){
+    // Relê a linha do banco: o que está em memória pode ter envelhecido enquanto
+    // a tela ficou aberta, e cloneCriarProduto grava com base no que receber.
+    const{data:linha}=await SB.from("clone_posts").select("*").eq("id",alvo.id).maybeSingle();
+    if(!linha){falhou++;continue;}
+    const r=await cloneCriarProduto(alvo.id,linha);
+    if(r)ok++;else falhou++;
+  }
+  CLONE_SEL.clear();CLONE_SEL_MODO=false;
+  toast(falhou?`${ok} publicado(s), ${falhou} com erro — veja o motivo na fila.`:`${ok} clone(s) publicado(s).`,falhou?"⚠️":"✅");
+  cloneCarregarFila();
+}
+
+async function cloneApagarSelecionados(){
+  const ids=Array.from(CLONE_SEL);
+  if(!ids.length){toast("Selecione ao menos um item.","⚠️");return;}
+  if(!confirm(`Apagar ${ids.length} item(ns) da fila?\n\nIsso remove o registro de vez — diferente de "Descartar", que só marca. Produtos já publicados não são afetados.`))return;
+  const{error}=await SB.from("clone_posts").delete().in("id",ids);
+  if(error){toast("Erro ao apagar: "+error.message,"⚠️");return;}
+  CLONE_SEL.clear();CLONE_SEL_MODO=false;
+  toast(`${ids.length} item(ns) apagado(s) da fila.`,"🗑️");
+  cloneCarregarFila();
+}
+
 async function cloneCarregarFila(){
   const el=document.getElementById("cloneFila");
   if(!el||!CURRENT_USER?.id)return;
   const{data,error}=await SB.from("clone_posts").select("*").eq("user_id",CURRENT_USER.id).order("created_at",{ascending:false}).limit(30);
   if(error){el.innerHTML=`<div class="alert r" style="margin:0"><span>Não consegui carregar a fila: ${error.message}</span></div>`;return;}
-  if(!data||!data.length){
+  CLONE_FILA_DATA=data||[];
+  // Seleção só sobrevive para item que ainda está na fila.
+  CLONE_SEL=new Set(Array.from(CLONE_SEL).filter(id=>CLONE_FILA_DATA.some(c=>c.id===id)));
+  cloneRenderFila();
+}
+
+function cloneRenderFila(){
+  const el=document.getElementById("cloneFila");
+  if(!el)return;
+  const data=CLONE_FILA_DATA;
+  if(!data.length){
     el.innerHTML='<div style="color:var(--tx2);font-size:13px">Nenhum clone ainda. Cole a mensagem de uma oferta acima pra começar.</div>';
     const b0=document.getElementById("cloneBadge");if(b0)b0.style.display="none";
+    CLONE_SEL_MODO=false;CLONE_SEL.clear();
     return;
   }
   const nomeGrupo=id=>{const g=S.grupos.find(x=>String(x.db_id||x.id)===String(id));return g?g.nome:"—";};
@@ -8569,16 +8689,33 @@ async function cloneCarregarFila(){
   // preco sao lidos do texto da mensagem capturada. Isso NAO foi conferido na
   // loja: e copia do que outra pessoa digitou. Quem aprova precisa saber.
   const doTexto='<span class="pill" title="Titulo e preco foram lidos do texto da mensagem capturada, nao conferidos na loja. Confira antes de aprovar." style="background:rgba(245,197,24,.12);color:var(--gold);margin-left:6px">📋 do texto da mensagem</span>';
-  el.innerHTML=data.map(c=>`
+  const barra=CLONE_SEL_MODO?`
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border:1px solid var(--bd2);border-radius:8px;background:var(--bg2)">
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;margin:0">
+        <input type="checkbox" id="cloneSelAll" onchange="cloneSelTodos(this.checked)" style="width:auto">
+        <span>Selecionar todos</span>
+      </label>
+      <span id="cloneSelCount" style="font-size:12px;color:var(--tx2)"></span>
+      <span style="flex:1"></span>
+      <button class="btn btn-volt btn-sm" id="cloneBtnAprovarSel" onclick="cloneAprovarSelecionados()">✅ Aprovar</button>
+      <button class="btn btn-ghost btn-sm" id="cloneBtnApagarSel" onclick="cloneApagarSelecionados()" style="color:var(--red,#ef4444);border-color:var(--red,#ef4444)">🗑️ Apagar</button>
+      <button class="btn btn-ghost btn-sm" onclick="cloneSelToggleModo()">Cancelar</button>
+    </div>`:`
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+      <button class="btn btn-ghost btn-sm" onclick="cloneSelToggleModo()">☑️ Selecionar</button>
+    </div>`;
+  el.innerHTML=barra+data.map(c=>`
     <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--bd)">
+      ${CLONE_SEL_MODO?`<input type="checkbox" class="clone-chk" data-id="${c.id}" ${CLONE_SEL.has(c.id)?"checked":""} onchange="cloneSelItem('${c.id}',this.checked)" style="width:auto;flex:none;margin-top:4px">`:""}
       ${c.image_url?`<img src="${c.image_url}" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#fff;flex:none" onerror="this.style.display='none'">`:""}
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:13.5px">${c.title||"(sem título)"}</div>
         <div style="font-size:12px;color:var(--tx2);margin-top:3px">${c.store_label||c.store||""} · ${nomeGrupo(c.niche_group_id)} · ${c.price?("R$ "+c.price):"sem preço"}${c.coupon_code?` · 🏷️ ${c.coupon_code}`:""} ${badge[c.status]||c.status}${c.data_source==="message"?doTexto:""}</div>
         ${c.error?`<div style="font-size:11.5px;color:var(--red);margin-top:3px">${c.error}</div>`:""}
       </div>
-      ${c.status==="pending"?`<div style="display:flex;gap:8px;flex:none"><button class="btn btn-volt btn-sm" onclick="cloneAprovar('${c.id}')">Aprovar</button><button class="btn btn-ghost btn-sm" onclick="cloneRejeitar('${c.id}')">Descartar</button></div>`:""}
+      ${(!CLONE_SEL_MODO&&c.status==="pending")?`<div style="display:flex;gap:8px;flex:none"><button class="btn btn-volt btn-sm" onclick="cloneAprovar('${c.id}')">Aprovar</button><button class="btn btn-ghost btn-sm" onclick="cloneRejeitar('${c.id}')">Descartar</button></div>`:""}
     </div>`).join("");
+  if(CLONE_SEL_MODO)cloneSelAtualizarBarra();
   const pend=data.filter(c=>c.status==="pending").length;
   const b=document.getElementById("cloneBadge");
   if(b){b.textContent=pend;b.style.display=pend?"inline-flex":"none";}
