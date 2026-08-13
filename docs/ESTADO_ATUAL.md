@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 46 — 13/08/2026 (fim de tarde).** Se o número aqui não for o mais alto que você
+> **REVISÃO 47 — 13/08/2026 (noite).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,82 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 47 — 13/08/2026 (noite) — a tela da REVISÃO 45 estava MENTINDO sobre 49
+dos 107 produtos, e a premissa de custo da P57 estava errada. Os dois consertados.**
+
+### 🔴 Defeito introduzido pela REVISÃO 45, corrigido aqui
+
+A `product-refresh` grava `price_checked_at` em **três pulos por condição** —
+sem URL consultável, **loja sem verificador**, e plano sem monitoramento. Isso é
+correto lá: o carimbo quer dizer *"foi avaliado"*, e tira o produto da fila por 24h
+para ele não empurrar os outros em toda rodada.
+
+A REVISÃO 45 leu esse carimbo como **"preço conferido há X"**. Nos três casos isso é
+falso. `LOJAS_COM_VERIFICADOR = {mercado_livre, amazon}` — **a Shopee não tem
+verificador**, e a conta do Érico tem **49 produtos de Shopee**. A tela dizia "preço
+conferido há 2 dias" para produto que ninguém consultou.
+
+**Dar informação errada sobre preço é pior do que não dar nenhuma**: é com ela que se
+decide postar. Agora a tela diz o motivo, na mesma ordem dos pulos do backend:
+
+| situação | o que a linha diz |
+|---|---|
+| plano sem `stock_monitor` | 🔍 seu plano não inclui conferência automática de preço |
+| sem `original_url` (ou só o nosso short link) | 🔍 sem link consultável — não dá para conferir o preço |
+| loja fora de `{mercado_livre, amazon}` | 🔍 esta loja ainda não é conferida automaticamente |
+| conferível | preço conferido há Xh / X dias (âmbar ≥3 dias, ⚠️ se nunca) |
+
+Os inconferíveis **saíram das contagens de "nunca conferido" e "3 dias ou mais"** e
+ganharam linha própria — somar os dois faria parecer que basta esperar, quando o que
+falta é mecanismo. E a explicação segue o motivo real: para quem está travado pelo
+plano, a tela **não** fala em Shopee.
+
+⚠️ `PROD_LOJAS_COM_VERIFICADOR` no frontend é **espelho** do `LOJAS_COM_VERIFICADOR`
+da `product-refresh` (linha 192), com o mesmo enum do banco (`products.source`).
+Duas listas do mesmo vocabulário é o risco `mercadolivre`/`mercado_livre` da P31 —
+**mexeu lá, mexe aqui.**
+
+### 🔴 E a premissa de custo da P57 estava errada
+
+A REVISÃO 45 dizia "aumentar a leitura custa crédito de Scrape.do". Isso foi
+generalizado de um comentário do código **sem cruzar com a base real**. Medido:
+
+| loja | produtos do Érico | como é conferida | custo |
+|---|---|---|---|
+| **Amazon** | **57** | `consultarAmazon` → `fetch` **direto** na página | **zero** |
+| **Shopee** | **49** | não é conferida — sem verificador | zero (e sem valor) |
+| Mercado Livre | **1** | `consultarML` → Scrape.do | crédito |
+
+Um produto de Mercado Livre. E o Érico tem **token próprio do Scrape.do** (e backup),
+que não toca a cota compartilhada. **Conferir a base inteira dele hoje custaria
+praticamente nada.**
+
+E há folga de relógio de sobra: `DEADLINE_MS = 70000`, e as seis últimas rodadas
+gastaram entre **9,5 s e 27 s** com 12 candidatos, **nenhuma interrompida por tempo**.
+
+O problema, então, não é dinheiro: é **um `BATCH` global de 12 para lojas com custos
+completamente diferentes**. O desenho certo é orçamento por loja — Amazon com lote
+grande, Mercado Livre mantendo o `MAX_POOL_POR_RODADA = 5`. Isso ficou na P57 como o
+próximo passo, ainda **não feito**.
+
+### Medido em Chromium, cinco linhas cobrindo os quatro caminhos
+
+| linha | resultado |
+|---|---|
+| Amazon, carimbo de 1 dia | "preço conferido há 1 dia" |
+| Amazon, 5 dias | 🕐 âmbar |
+| Amazon, nunca | ⚠️ "preço nunca conferido" |
+| **Shopee, carimbado há 2 dias** | 🔍 "esta loja ainda não é conferida automaticamente" |
+| ML só com short link nosso | 🔍 "sem link consultável" |
+| tudo isso no plano **Starter** | as 5 linhas viram "seu plano não inclui…", e o alarme de atraso **some** |
+
+### ⚠️ Não medido
+
+Nada em produção — falta Deploy. E o **orçamento por loja não foi implementado**: os
+57 da Amazon continuam saindo a 12 por dia disputando fila com a plataforma inteira.
+
+---
 
 **REVISÃO 46 — 13/08/2026 (fim de tarde) — só documentação. A REVISÃO 45 foi medida
 em produção, e a P57 é PIOR do que estava escrita.**
@@ -3792,7 +3868,7 @@ código não relacionado.
 
 | ~~P56~~ | ✅ **FECHADA 13/08 de madrugada, MEDIDA EM PRODUÇÃO E LOGADO.** Paginação contra o banco de verdade com 30 linhas de teste: total 30 por `count:"exact"`, página 1 com 20 ("1–20 de 30"), página 2 com 10 linhas diferentes, **badge 24** — nem 20 nem 30, que é a prova do conserto. Seleção atravessou páginas (10 + 20 = 30, "Aprovar (24)"), atalho da fila inteira funcionou, expirados saíram riscados com o aviso de preço. **E o cron disparou sozinho:** `jobid 34` `succeeded` às `04:07:00.125637`, com o `expired_at` da isca em `04:07:00.125670` — mesmo instante, não foi chamada à mão. Linhas de teste apagadas; `clone_posts` de volta a 1 linha e 0 pendentes. Registro original abaixo. ~~🟡 **A REVISÃO 43 não foi vista em produção.** Paginação medida com dados em memória — `range()` e `count:"exact"` contra o PostgREST **não foram executados**; e o cron `expirar-clone-posts` (jobid 34, `7 * * * *`) **nunca disparou sozinho**, a função foi chamada à mão. Exige Deploy no EasyPanel e, depois, uma leitura logada com fila de 20+ linhas: conferir que o badge bate com a contagem do banco (era esse o defeito), que a página 2 traz linhas diferentes, e que a rodada automática do cron carimba. ⚠️ **O banco já está mudado** — a migração e o cron foram aplicados antes do frontend subir. Isso é seguro (coluna nova com default, status novo que nenhuma tela antiga escreve), mas significa que **clone pendente já começa a expirar mesmo com o frontend velho no ar**, e o frontend velho não sabe desenhar `expired`: ele cai no `badge[c.status]||c.status` e escreve a palavra crua | 12/08 |
 
-| **P57** | 🔴 **A conferência de preço não cobre a base, e o desenho não escala. AGRAVADA NA REVISÃO 46 com a distribuição real** — a média escondia o tamanho: **3 de 107** conferidos nas últimas 24h; **27 nunca**; **32** entre 3 e 7 dias; **28** com mais de 7. Ou seja **87 dos 107** vão pro grupo com preço de 3 dias ou mais. E o `BATCH = 12` é **global**: as consultas de candidatos não filtram por `user_id`, então os 12 diários são repartidos entre os **148** produtos da plataforma — com mais usuários, a cobertura de cada um cai sem nenhum aviso na tela. Registro original abaixo. ~~🟠 Medido em 13/08 na conta do Érico: **107 produtos, 27 nunca conferidos, idade média do carimbo 5,3 dias, o mais antigo de 03/08**. A `product-refresh` roda 1x/dia com `BATCH = 12` — varredura completa levaria ~9 dias e produto novo fura a fila. E a **`send-post` não relê a loja**: publica o `price` gravado (varredura na função inteira: nenhuma chamada a loja, Scrape.do, `product-search` ou `resolve-link`). O mecanismo de tirar do ar funciona (`expired` é respeitado, e `never_expires` não isenta dele); o que falta é alcance. ⚠️ **Não tem saída barata:** subir o `BATCH` ou o cron dobra as chamadas de loja, e o Scrape.do é Free (1.000/mês). A REVISÃO 45 escolheu **mostrar em vez de barrar** — a lista agora exibe a idade do preço. Decidir depois, com o número à vista: avisar sem barrar, pular produto muito velho no disparo, ou reler no disparo (o mais caro). Ideia não avaliada: botão "conferir agora" por produto — a `product-refresh` já aceita `productId`, mas exige `CRON_SECRET`/service role, então precisaria de um caminho autenticado no meio (mesma discussão da P2)~~ | 13/08 |
+| **P57** | 🔴 **A conferência de preço não cobre a base, e o desenho não escala. AGRAVADA NA REVISÃO 46 com a distribuição real** — a média escondia o tamanho: **3 de 107** conferidos nas últimas 24h; **27 nunca**; **32** entre 3 e 7 dias; **28** com mais de 7. Ou seja **87 dos 107** vão pro grupo com preço de 3 dias ou mais. E o `BATCH = 12` é **global**: as consultas de candidatos não filtram por `user_id`, então os 12 diários são repartidos entre os **148** produtos da plataforma — com mais usuários, a cobertura de cada um cai sem nenhum aviso na tela. 🔴 **CORREÇÃO DA REVISÃO 47 — a premissa de custo estava errada:** conferir **não** custa o mesmo em toda loja. A `consultarAmazon` faz `fetch` **direto**, sem Scrape.do, **sem crédito**; só o Mercado Livre consome. Na base do Érico são **57 Amazon, 49 Shopee (sem verificador) e 1 ML** — e ele tem token próprio. Conferir a base inteira dele custaria praticamente nada. Com `DEADLINE_MS = 70000` e rodadas gastando 9,5–27 s, há ~5× de folga de relógio. **O próximo passo é orçamento POR LOJA em vez de um `BATCH` global** (Amazon com lote grande, ML mantendo `MAX_POOL_POR_RODADA = 5`) — combinado com o Érico em 13/08 e **ainda não feito**. Risco a medir junto: mais leituras da Amazon podem elevar a taxa de captcha, que hoje já aparece como 2–3 `desconhecidos` por rodada; o código não afirma nada sem `id="productTitle"`, então falha para o lado seguro. Registro original abaixo. ~~🟠 Medido em 13/08 na conta do Érico: **107 produtos, 27 nunca conferidos, idade média do carimbo 5,3 dias, o mais antigo de 03/08**. A `product-refresh` roda 1x/dia com `BATCH = 12` — varredura completa levaria ~9 dias e produto novo fura a fila. E a **`send-post` não relê a loja**: publica o `price` gravado (varredura na função inteira: nenhuma chamada a loja, Scrape.do, `product-search` ou `resolve-link`). O mecanismo de tirar do ar funciona (`expired` é respeitado, e `never_expires` não isenta dele); o que falta é alcance. ⚠️ **Não tem saída barata:** subir o `BATCH` ou o cron dobra as chamadas de loja, e o Scrape.do é Free (1.000/mês). A REVISÃO 45 escolheu **mostrar em vez de barrar** — a lista agora exibe a idade do preço. Decidir depois, com o número à vista: avisar sem barrar, pular produto muito velho no disparo, ou reler no disparo (o mais caro). Ideia não avaliada: botão "conferir agora" por produto — a `product-refresh` já aceita `productId`, mas exige `CRON_SECRET`/service role, então precisaria de um caminho autenticado no meio (mesma discussão da P2)~~ | 13/08 |
 | **P58** | 🔵 **Nenhuma trava de plano é observável na conta do Érico.** `prodMax()` devolve −1 para `IS_ADMIN` ou `is_vip`, e a conta dele é as duas coisas — medido em 13/08: a lista de produtos mostra "sem teto" e o aviso de upgrade nunca aparece. O mesmo vale para qualquer gate que trate admin/VIP como ilimitado. O ramo com teto foi exercitado no bundle servido forçando as flags em memória (saiu "107 de 15" com o bloqueio e o link para Assinatura, e o estado real foi restaurado), mas **isso prova o render, não o fluxo de um cliente**. Enquanto não houver uma **conta de teste num plano baixo**, toda tela com trava de plano é escrita às cegas. ⚠️ Não mexer nas flags da conta do Érico para testar | 13/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
