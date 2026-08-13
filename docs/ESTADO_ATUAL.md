@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 43 — 12/08/2026 (noite).** Se o número aqui não for o mais alto que você
+> **REVISÃO 44 — 13/08/2026 (madrugada).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1643,6 +1643,80 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
+**REVISÃO 44 — 13/08/2026 (madrugada) — a REVISÃO 43 medida em produção e o cron
+observado disparando sozinho. P56 e P53 fechadas. Nenhuma linha de frontend nova
+além do apagamento das cópias mortas da raiz.**
+
+| | |
+|---|---|
+| Deploy | feito pelo Érico; medido com `?v=rev43` (P49) na sessão logada dele |
+| Frontend | 7 arquivos da raiz **apagados** — ver P53 |
+| Banco | nada novo; só a leitura do cron criado na REVISÃO 43 |
+
+### P56 — a paginação medida contra o banco de verdade
+
+30 linhas de teste semeadas na fila real (título `ZZTESTE`), apagadas depois.
+
+| medida | resultado |
+|---|---|
+| total por `count:"exact"` | **30** → 2 páginas |
+| página 1 | 20 linhas, "1–20 de 30", `‹ 1 2 ›`, ativo **1** |
+| página 2 | 10 linhas **diferentes**, "21–30 de 30" |
+| **badge de pendentes** | **24** |
+| seleção na pág. 2 | 10 marcados → "✅ Aprovar (4)" e "🗑️ Apagar (10)" |
+| voltando à pág. 1 | seleção **mantida**; marcando a página, soma **30** → "Aprovar (24)" |
+| atalho "marcar os 30 da fila inteira" | 30 marcados, "Aprovar (24)" / "Apagar (30)" |
+| expirados | riscados, cinza, "expirou sem revisão · o preço não foi conferido desde então" |
+
+🔴 **O número que fecha a pendência é o 24.** Não é 20 (o tamanho da página) nem 30
+(o total): é a contagem de pendentes feita **no banco**. Antes desta correção o badge
+saía do array já truncado e teria dito **20**. O "Aprovar (4)" da página 2 fecha a
+conta pelo outro lado: daquelas 10 linhas, só 4 eram `pending`.
+
+### O cron disparou sozinho — e isso não era garantido
+
+Uma isca foi plantada de propósito: uma linha `pending` com **30h** de idade, criada
+depois da rodada anterior, para que a **primeira rodada automática** tivesse trabalho
+real em vez de devolver zero.
+
+```
+cron.job_run_details · jobid 34 · status succeeded
+  start_time  2026-08-13 04:07:00.125637+00
+  end_time    2026-08-13 04:07:00.164869+00
+
+clone_posts · a isca
+  status      expired
+  expired_at  2026-08-13 04:07:00.125670+00
+```
+
+O `expired_at` e o `start_time` **coincidem no mesmo instante** — não foi chamada à
+mão, foi a rodada do cron. Isto é o oposto da armadilha da P30 na REVISÃO 21 e da
+P55 hoje: mecanismo *autorizado e deployado* não é mecanismo *acionado*, e neste
+projeto o ramo nunca observado já foi, mais de uma vez, exatamente o que estava
+quebrado. A isca foi apagada; a `clone_posts` voltou a **1 linha, 0 pendentes**.
+
+### P53 — a saída não era sincronizar, era apagar
+
+O `Dockerfile` mora em `frontend/` e faz `COPY index.html` **relativo a esse
+contexto**. Não existe Dockerfile na raiz. **Prova observável, não inferência:** o
+Mega Results aparece no site em produção e existe *apenas* em `frontend/index.html`.
+
+Levantamento das 7 cópias da raiz: `guia.html`, `revops.html`, `onboarding.js`,
+`onboarding.css`, `robots.txt` e `sitemap.xml` estavam **idênticas**; só o
+`index.html` tinha divergido (279 linhas, o Mega Results inteiro). **Nenhum arquivo
+da raiz era exclusivo.** As 7 foram apagadas por decisão do Érico.
+
+A regra "edite as duas cópias" era compensação para uma duplicação que não precisava
+existir — e falhou sem ninguém notar. Foi revogada na seção Stack.
+
+### ⚠️ O que continua sem ter sido observado
+
+**A aprovação em lote nunca disparou** (P55). Segue igual: `cloneAprovarSelecionados`
+está no ar e foi exercitada só até habilitar/desabilitar o botão. A fila está vazia,
+então o teste depende de captura nova.
+
+---
+
 **REVISÃO 43 — 12/08/2026 (noite) — a fila de clones ganha paginação e validade.
 E a paginação não é melhoria: é conserto de truncamento silencioso.**
 
@@ -3206,9 +3280,18 @@ EasyPanel.
 | Pagamentos | **Asaas — produção, ativo, cartão habilitado, pagamentos reais funcionando** | Webhook `asaas-webhook` |
 | Repo | `rocketdesignbh-dot/megalinksbr` (público) | — |
 
-⚠️ **`frontend/index.html` é a fonte real de deploy.** O `index.html` da raiz é uma
-cópia sincronizada à mão. **Os dois precisam receber edições idênticas** — esquecer
-o `frontend/index.html` deixa o site publicado sem mudança nenhuma.
+✅ **`frontend/` é a ÚNICA fonte de deploy, e desde a REVISÃO 44 é a única que
+existe.** O `Dockerfile` mora em `frontend/` e faz `COPY index.html` — relativo ao
+contexto `frontend/`. Não há Dockerfile na raiz. **Prova observável:** o Mega Results
+aparece no site em produção e existe *apenas* em `frontend/index.html`.
+
+~~O `index.html` da raiz é uma cópia sincronizada à mão. Os dois precisam receber
+edições idênticas.~~ **Regra revogada.** Ela existia para compensar uma duplicação que
+não precisava existir, e falhou: a cópia da raiz ficou 279 linhas atrás sem ninguém
+notar (P53). As 7 cópias da raiz — `index.html`, `guia.html`, `revops.html`,
+`onboarding.js`, `onboarding.css`, `robots.txt`, `sitemap.xml` — foram **apagadas**.
+Nenhum arquivo da raiz era exclusivo; todos tinham par em `frontend/`.
+**Editar só `frontend/`.**
 
 ### URLs
 - Site: `https://www.megalinksbr.com.br`
@@ -3537,11 +3620,11 @@ código não relacionado.
 | **P51** | 🟠 **Duas contas com `connected = true` e credencial inútil.** **duas contas de clientes** (identificadas na consulta, não nomeadas aqui — este repo é público, e é a mesma preocupação da P7) têm `App Key` e `App Secret` **vazios** em `affiliate_credentials`, só o `ID de Afiliado` preenchido (medido em 04/08). Para elas a busca automática de Shopee falha sempre e o painel diz que está tudo certo. O `connected` está medindo "a linha existe", não "dá para usar" — o padrão de sempre: mecanismo que parece existir e não executa nada | 07/08 |
 | ~~P52~~ | ❌ **RETIRADA EM 07/08 — nunca foi real.** Os relógios batem: sandbox `07/08 10:46:34`, banco `07/08 10:46:35`, Érico "10:45". O que não batia era um carimbo de log de sexta comparado com uma leitura de banco de terça, dentro da mesma conversa, tratadas as duas como "agora". ~~🔴 Os relógios do log e do banco não batem.~~ Ao converter os carimbos de `get_logs` para conferir a hora de uma chamada, a data saiu com **dias** de diferença do `now()` do Postgres. Não afeta medição de versão/status, mas **afeta qualquer medição por janela de tempo** — inclusive a leitura do `[pre-filtro]` da P36. **Resolver ANTES de qualquer prova que dependa de intervalo** | 04/08 |
 
-| **P53** | 🟠 **As duas cópias do `index.html` estão divergentes, e há tempo.** O doc manda editá-las idênticas. Medido em 12/08 por `diff`: a **raiz não tem a aba Mega Results** (item de menu, `<section id="page-mega-results">` e um `<script>` de 9.296 bytes — 279 linhas), e o **`frontend/` não tem o pixel do Metricool**. Como `frontend/index.html` é a fonte real de deploy, o efeito prático é que o Mega Results está no ar e o Metricool não. As alterações da REVISÃO 41 foram aplicadas idênticas nas duas por script; **esta divergência antiga não foi tocada** — escopo estrito. Precisa de decisão do Érico: qual das duas é a verdade de cada bloco | 12/08 |
+| ~~P53~~ | ✅ **FECHADA 13/08 — e a saída não era sincronizar, era apagar.** As 7 cópias da raiz (`index.html`, `guia.html`, `revops.html`, `onboarding.js`, `onboarding.css`, `robots.txt`, `sitemap.xml`) **não iam pro ar por nada**: o `Dockerfile` mora em `frontend/` e copia relativo a esse contexto, e não existe Dockerfile na raiz. Prova observável, não inferência: o **Mega Results aparece em produção** e existe só em `frontend/index.html`. Das 7, **6 eram idênticas** e só o `index.html` tinha divergido. Nenhum arquivo da raiz era exclusivo. Apagadas por decisão do Érico; a regra "edite as duas" foi revogada na seção Stack. Registro original abaixo. ~~🟠 **As duas cópias do `index.html` estão divergentes, e há tempo.** O doc manda editá-las idênticas. Medido em 12/08 por `diff`: a **raiz não tem a aba Mega Results** (item de menu, `<section id="page-mega-results">` e um `<script>` de 9.296 bytes — 279 linhas), e o **`frontend/` não tem o pixel do Metricool**. Como `frontend/index.html` é a fonte real de deploy, o efeito prático é que o Mega Results está no ar e o Metricool não. As alterações da REVISÃO 41 foram aplicadas idênticas nas duas por script; **esta divergência antiga não foi tocada** — escopo estrito. Precisa de decisão do Érico: qual das duas é a verdade de cada bloco | 12/08 |
 | ~~P54~~ | ✅ **FECHADA 12/08 à tarde, MEDIDA EM PRODUÇÃO E LOGADO.** Deploy feito; as três alterações lidas na SPA servida com `?v=rev41`. MegaIA: `none` em 5 telas, `flex` no Postar Agora. Tutorial: os 3 passos navegaram para `conexao`/`assinatura`/`post-relampago`, sem blur. **Apagar em lote executado pelo Érico contra o banco: 30 pendentes → 0, com a linha aprovada de 30/07 intacta.** ⚠️ **Sobra UMA coisa não observada, e ela não é pequena: a aprovação em lote nunca disparou** — nem local, nem em produção. Virou a **P55**. Registro original abaixo. ~~🟡 **As três alterações da REVISÃO 41 não foram vistas em produção.** Medidas em Chromium headless, **deslogado**, com os arquivos do repo servidos localmente e a fila de clones semeada em memória. Faltam três coisas que só o ambiente real dá: (a) **Deploy no EasyPanel** — sem ele nada disso está no ar; (b) o **`DELETE` em lote contra o banco de verdade** (a policy foi lida, o delete não foi executado); (c) a **aprovação em lote criando produto**. Enquanto não for medido logado, o estado é "código certo no repo", não "funciona". Lembrar da **P49**: sem cache-busting, a primeira conferência pode estar lendo o bundle velho — usar `?v=` | 12/08 |
 | **P55** | 🟡 **A aprovação em lote nunca disparou.** Herdada da P54 ao fechá-la. `cloneAprovarSelecionados` está deployada e foi exercitada só até o ponto de habilitar/desabilitar o botão — **o laço que relê cada linha e chama `cloneCriarProduto` nunca rodou**, nem local nem em produção. O caminho de um a um é antigo e não mudou; o novo é o laço. É a mesma forma da ressalva da P30 na REVISÃO 21 — "autorizado e deployado, nunca acionado" —, e lá o ramo não observado era justamente o que tinha defeito. **Depende de a captura automática render clone novo:** a fila foi zerada em 12/08 e está vazia. Quando houver 2 ou mais pendentes, marcar os dois, aprovar em lote e conferir que viraram linha em `products` | 12/08 |
 
-| **P56** | 🟡 **A REVISÃO 43 não foi vista em produção.** Paginação medida com dados em memória — `range()` e `count:"exact"` contra o PostgREST **não foram executados**; e o cron `expirar-clone-posts` (jobid 34, `7 * * * *`) **nunca disparou sozinho**, a função foi chamada à mão. Exige Deploy no EasyPanel e, depois, uma leitura logada com fila de 20+ linhas: conferir que o badge bate com a contagem do banco (era esse o defeito), que a página 2 traz linhas diferentes, e que a rodada automática do cron carimba. ⚠️ **O banco já está mudado** — a migração e o cron foram aplicados antes do frontend subir. Isso é seguro (coluna nova com default, status novo que nenhuma tela antiga escreve), mas significa que **clone pendente já começa a expirar mesmo com o frontend velho no ar**, e o frontend velho não sabe desenhar `expired`: ele cai no `badge[c.status]||c.status` e escreve a palavra crua | 12/08 |
+| ~~P56~~ | ✅ **FECHADA 13/08 de madrugada, MEDIDA EM PRODUÇÃO E LOGADO.** Paginação contra o banco de verdade com 30 linhas de teste: total 30 por `count:"exact"`, página 1 com 20 ("1–20 de 30"), página 2 com 10 linhas diferentes, **badge 24** — nem 20 nem 30, que é a prova do conserto. Seleção atravessou páginas (10 + 20 = 30, "Aprovar (24)"), atalho da fila inteira funcionou, expirados saíram riscados com o aviso de preço. **E o cron disparou sozinho:** `jobid 34` `succeeded` às `04:07:00.125637`, com o `expired_at` da isca em `04:07:00.125670` — mesmo instante, não foi chamada à mão. Linhas de teste apagadas; `clone_posts` de volta a 1 linha e 0 pendentes. Registro original abaixo. ~~🟡 **A REVISÃO 43 não foi vista em produção.** Paginação medida com dados em memória — `range()` e `count:"exact"` contra o PostgREST **não foram executados**; e o cron `expirar-clone-posts` (jobid 34, `7 * * * *`) **nunca disparou sozinho**, a função foi chamada à mão. Exige Deploy no EasyPanel e, depois, uma leitura logada com fila de 20+ linhas: conferir que o badge bate com a contagem do banco (era esse o defeito), que a página 2 traz linhas diferentes, e que a rodada automática do cron carimba. ⚠️ **O banco já está mudado** — a migração e o cron foram aplicados antes do frontend subir. Isso é seguro (coluna nova com default, status novo que nenhuma tela antiga escreve), mas significa que **clone pendente já começa a expirar mesmo com o frontend velho no ar**, e o frontend velho não sabe desenhar `expired`: ele cai no `badge[c.status]||c.status` e escreve a palavra crua | 12/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
