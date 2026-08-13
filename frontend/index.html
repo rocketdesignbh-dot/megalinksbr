@@ -5923,15 +5923,56 @@ function prodMax(){
    aqui a tela não dizia isso em lugar nenhum.
    Não conserta a cobertura (aumentar leitura custa crédito de Scrape.do). O que
    faz é parar de esconder: quem vai postar decide vendo a idade. */
-function prodIdadePreco(iso){
-  if(!iso)return {txt:"preço nunca conferido",cor:"var(--gold)",velho:true,nunca:true};
+/* 🔴 ESPELHO do LOJAS_COM_VERIFICADOR da product-refresh v20 (linha 192).
+   Duas listas do mesmo vocabulário em lugares diferentes é exatamente o risco
+   `mercadolivre`/`mercado_livre` da P31 — por isso aqui usamos o MESMO enum do
+   banco (`products.source`), e não os slugs da resolve-link. Mexeu lá, mexe aqui. */
+const PROD_LOJAS_COM_VERIFICADOR=new Set(["mercado_livre","amazon"]);
+
+/* 🔴 O CARIMBO NÃO SIGNIFICA "FOI CONSULTADO NA LOJA".
+   A product-refresh grava `price_checked_at` em TRÊS pulos por condição —
+   sem URL consultável, loja sem verificador, e plano sem monitoramento — de
+   propósito, para o produto não voltar à fila em toda rodada. É correto lá.
+
+   Mas a REVISÃO 45 leu esse carimbo como "preço conferido há X", e isso é
+   FALSO nesses três casos. Medido em 13/08: dos 107 produtos desta conta, 49
+   são de Shopee, que **não tem verificador** — a tela dizia "preço conferido
+   há 2 dias" para produto que ninguém consultou. Dar informação errada sobre
+   preço é pior do que não dar nenhuma: é com ela que se decide postar.
+
+   Ordem dos motivos = ordem dos pulos na product-refresh, para a tela contar a
+   mesma história que o backend. */
+function prodMotivoSemConferencia(p){
+  // (a) plano — o backend usa `is_vip ? 'elite' : plan` e exige PLANOS_COM_MONITORAMENTO
+  const temMonitor = (MY_PROFILE&&MY_PROFILE.is_vip) ? true : (lim("stock_monitor")===true);
+  if(!temMonitor)return "plano";
+  // (b) URL consultável: sem original_url, ou só o nosso short link
+  const url=String(p.original_url||p.affiliate_url||"");
+  if(!url)return "url";
+  try{ const u=new URL(url,window.location.origin);
+       if(u.hostname.replace(/^www\./,"")==="megalinksbr.com.br"&&u.pathname.startsWith("/r/"))return "url"; }catch(e){}
+  // (c) loja sem verificador — hoje tudo que não é Mercado Livre nem Amazon
+  if(!PROD_LOJAS_COM_VERIFICADOR.has(String(p.source||"")))return "loja";
+  return null;
+}
+
+function prodIdadePreco(p){
+  // Aceita a linha inteira. A versão da REVISÃO 45 recebia só o carimbo, e era
+  // justamente por não ver o resto da linha que ela não tinha como saber que
+  // aquele carimbo não valia nada.
+  const iso=p&&typeof p==="object"?p.price_checked_at:p;
+  const motivo=(p&&typeof p==="object")?prodMotivoSemConferencia(p):null;
+  if(motivo==="plano")return {txt:"seu plano não inclui conferência automática de preço",cor:"var(--mut)",velho:false,nunca:false,semConferencia:true};
+  if(motivo==="loja") return {txt:"esta loja ainda não é conferida automaticamente",cor:"var(--mut)",velho:false,nunca:false,semConferencia:true};
+  if(motivo==="url")  return {txt:"sem link consultável — não dá para conferir o preço",cor:"var(--gold)",velho:false,nunca:false,semConferencia:true};
+  if(!iso)return {txt:"preço nunca conferido",cor:"var(--gold)",velho:true,nunca:true,semConferencia:false};
   const h=Math.floor((Date.now()-new Date(iso).getTime())/3600000);
-  if(!Number.isFinite(h))return {txt:"",cor:"var(--mut)",velho:false,nunca:false};
-  if(h<1)  return {txt:"preço conferido agora há pouco",cor:"var(--mut)",velho:false,nunca:false};
-  if(h<24) return {txt:`preço conferido há ${h}h`,cor:"var(--mut)",velho:false,nunca:false};
+  if(!Number.isFinite(h))return {txt:"",cor:"var(--mut)",velho:false,nunca:false,semConferencia:false};
+  if(h<1)  return {txt:"preço conferido agora há pouco",cor:"var(--mut)",velho:false,nunca:false,semConferencia:false};
+  if(h<24) return {txt:`preço conferido há ${h}h`,cor:"var(--mut)",velho:false,nunca:false,semConferencia:false};
   const d=Math.floor(h/24);
   const velho=d>=3;
-  return {txt:`preço conferido há ${d===1?"1 dia":d+" dias"}`,cor:velho?"var(--gold)":"var(--mut)",velho,nunca:false};
+  return {txt:`preço conferido há ${d===1?"1 dia":d+" dias"}`,cor:velho?"var(--gold)":"var(--mut)",velho,nunca:false,semConferencia:false};
 }
 
 async function wireProdLista(){
@@ -5959,8 +6000,14 @@ async function wireProdLista(){
   const cheio=!semTeto&&totalConta>=max;
   const quase=!semTeto&&!cheio&&pct>=80;
   const corBarra=cheio?"var(--red,#ef4444)":(quase?"var(--gold)":"var(--volt)");
-  const nunca=data.filter(p=>!p.price_checked_at).length;
-  const velhos=data.filter(p=>{const a=prodIdadePreco(p.price_checked_at);return a.velho&&!a.nunca;}).length;
+  // Contar "nunca conferido" incluindo produto que NUNCA VAI SER conferido
+  // inflaria o alarme e escondia a causa. Os inconferíveis viram linha própria.
+  const idades=data.map(p=>({p,a:prodIdadePreco(p),m:prodMotivoSemConferencia(p)}));
+  const semConf=idades.filter(x=>x.a.semConferencia).length;
+  const semConfPorMotivo={plano:0,loja:0,url:0};
+  idades.forEach(x=>{if(x.m)semConfPorMotivo[x.m]++;});
+  const nunca=idades.filter(x=>x.a.nunca).length;
+  const velhos=idades.filter(x=>x.a.velho&&!x.a.nunca).length;
   const foraDoAr=data.filter(p=>p.expired===true).length;
 
   const prox={starter:["Pro",50],pro:["Elite",150],elite:["Premium",300]}[MY_PLAN]||null;
@@ -5977,6 +6024,20 @@ async function wireProdLista(){
       nunca?`<b>${nunca}</b> produto(s) com preço <b>nunca conferido</b> na loja`:"",
       velhos?`<b>${velhos}</b> com preço conferido há 3 dias ou mais`:""
     ].filter(Boolean).join(" · ")}. O post usa o preço gravado aqui, não o preço de agora — a conferência automática roda 1x por dia e alcança 12 produtos por rodada.</div></div>`:"";
+  // Linha própria, e não somada ao aviso acima: aqui o problema não é atraso,
+  // é ausência de mecanismo. Juntar os dois faria parecer que basta esperar.
+  // A explicação segue o motivo REAL. Dizer "a Shopee não tem verificador" para
+  // quem está travado pelo plano seria trocar uma informação errada por outra.
+  const explicaSemConf=(()=>{
+    const m=semConfPorMotivo;
+    if(m.plano&&!m.loja&&!m.url)return `o plano ${myFeatures().label} não inclui monitoramento de preço e estoque. O preço deles é o que foi gravado no cadastro e não muda sozinho.`;
+    const partes=[];
+    if(m.plano)partes.push(`<b>${m.plano}</b> pelo plano ${myFeatures().label}, que não inclui monitoramento`);
+    if(m.loja) partes.push(`<b>${m.loja}</b> em loja sem verificador — só Mercado Livre e Amazon são consultados hoje`);
+    if(m.url)  partes.push(`<b>${m.url}</b> sem link original consultável`);
+    return partes.join(" · ")+". O preço deles é o que foi gravado no cadastro e não muda sozinho.";
+  })();
+  const avisoSemConf=semConf?`<div class="alert y" style="margin:10px 0 0;font-size:12.5px"><div>🔍 <b>${semConf}</b> produto(s) <b>não têm conferência automática</b> de preço: ${explicaSemConf}</div></div>`:"";
 
   el.innerHTML=`
     <div style="padding:2px 2px 12px;border-bottom:1px solid var(--bd);margin-bottom:6px">
@@ -5988,6 +6049,7 @@ async function wireProdLista(){
       ${semTeto?"":`<div style="height:6px;background:var(--surf2,var(--bg2));border-radius:99px;overflow:hidden;margin-top:8px"><div style="height:100%;width:${pct}%;background:${corBarra};transition:width .3s"></div></div>`}
       ${avisoTeto}
       ${avisoPreco}
+      ${avisoSemConf}
     </div>
     <div id="prodSelBarra" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:0 2px 12px;border-bottom:1px solid var(--bd);margin-bottom:6px">
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:var(--tx2);user-select:none">
@@ -5997,7 +6059,7 @@ async function wireProdLista(){
       <span id="prodSelInfo" style="font-size:12px;color:var(--mut)">nenhum selecionado</span>
       <button class="btn btn-red btn-sm" id="prodSelBtn" onclick="prodRemoverSelecionados()" disabled style="margin-left:auto;opacity:.5">🗑 Apagar selecionados</button>
     </div>`+data.map((p,i)=>{
-    const idade=prodIdadePreco(p.price_checked_at);
+    const idade=prodIdadePreco(p);
     const fora=p.expired===true;
     return `
     <div class="prod" style="align-items:center${fora?";opacity:.6":""}">
@@ -6008,7 +6070,7 @@ async function wireProdLista(){
         <strong${fora?' style="text-decoration:line-through"':""}>${p.title||"Sem título"}</strong>
         ${fora?'<span class="pill" style="background:rgba(255,81,104,.12);color:var(--red);margin-left:6px">fora do ar na loja</span>':""}<br>
         <small style="color:var(--mut)">${p.price?`R$ ${Number(p.price).toFixed(2).replace(".",",")} · `:""}${p.discount_pct?p.discount_pct+"% OFF · ":""}<span class="mono" style="color:var(--volt);font-size:10px">${(p.affiliate_url||"").slice(0,60)}${(p.affiliate_url||"").length>60?"…":""}</span></small>
-        <div style="font-size:11px;color:${idade.cor};margin-top:2px">${idade.nunca?"⚠️ ":(idade.velho?"🕐 ":"")}${idade.txt}</div>
+        <div style="font-size:11px;color:${idade.cor};margin-top:2px">${idade.semConferencia?"🔍 ":(idade.nunca?"⚠️ ":(idade.velho?"🕐 ":""))}${idade.txt}</div>
       </div>
       <button class="btn btn-red btn-sm" onclick="prodRemover('${p.id}')">✕</button>
     </div>`;}).join("");
