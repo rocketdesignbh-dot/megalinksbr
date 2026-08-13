@@ -297,6 +297,14 @@ tr:hover td{background:var(--surf2)}
 .cs-barrado b{color:#F59E0B}
 .cs-teto-bt{font-family:inherit;font-size:12px;font-weight:700;line-height:1;width:20px;height:20px;margin-left:4px;border-radius:6px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2);vertical-align:middle}
 .cs-teto-bt:hover{border-color:var(--volt);color:var(--volt)}
+/* Paginação da fila de clones */
+.cl-pg{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-top:14px;margin-top:4px}
+.cl-pg-info{font-size:12px;color:var(--mut)}
+.cl-pg-bt{font-family:inherit;font-size:12.5px;font-weight:700;line-height:1;min-width:28px;height:28px;padding:0 8px;border-radius:7px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2)}
+.cl-pg-bt:hover:not(:disabled){border-color:var(--volt);color:var(--volt)}
+.cl-pg-bt.on{background:var(--volt);border-color:var(--volt);color:#0c0c0e}
+.cl-pg-bt:disabled{opacity:.35;cursor:default}
+.cl-pg-el{color:var(--mut);font-size:12px;padding:0 2px}
 .cs-loja-check{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--tx);cursor:pointer}
 .cs-loja-check input{width:auto;margin:0}
 .cs-add{border:1px dashed var(--bd2);background:transparent;border-radius:var(--r-sm);padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:150px;cursor:pointer;color:var(--tx2);font-size:12.5px;text-align:center;transition:border-color .15s,color .15s}
@@ -8594,9 +8602,33 @@ async function cloneCriarProduto(cloneId,row){
    fica no histórico; apagar faz DELETE de verdade na clone_posts (a RLS
    clone_posts_owner é FOR ALL, então o dono pode). Produto já publicado a
    partir de um clone aprovado vive em products e não é afetado. */
-let CLONE_FILA_DATA=[];
+/* ── Fila de clones: seleção múltipla, paginação e validade ─────────────
+   Aprovar e descartar um a um não escala quando a captura automática enche a
+   fila. O modo de seleção é opt-in: enquanto o botão "Selecionar" não for
+   clicado, a fila continua exatamente como era.
+
+   "Apagar" NÃO é "Descartar". Descartar marca status='rejected' e o registro
+   fica no histórico; apagar faz DELETE de verdade na clone_posts (a RLS
+   clone_posts_owner é FOR ALL, então o dono pode). Produto já publicado a
+   partir de um clone aprovado vive em products e não é afetado.
+
+   🔴 A PAGINAÇÃO NÃO É COSMÉTICA. Antes daqui a consulta era `.limit(30)` e o
+   badge de pendentes era contado a partir do array JÁ TRUNCADO: com 45
+   pendentes o badge dizia 30 e 15 ficavam invisíveis, inclusive para o
+   "selecionar todos". Truncamento silencioso é a mesma classe de defeito que a
+   P20 consertou no log. Agora o total vem de `count:"exact"` e o número de
+   pendentes é uma contagem própria NO BANCO, não do que coube na página.
+
+   A seleção sobrevive à troca de página de propósito — por isso ela é um Map
+   id→status, e não um Set: os contadores de "aprovar" (só pendentes) e
+   "apagar" (qualquer um) precisam do status de item que não está mais na tela. */
+let CLONE_FILA_DATA=[];        // só as linhas da página atual
 let CLONE_SEL_MODO=false;
-let CLONE_SEL=new Set();
+let CLONE_SEL=new Map();       // id → status, atravessa páginas
+let CLONE_FILA_PAG=0;          // página atual, base 0
+const CLONE_FILA_TAM=20;
+let CLONE_FILA_TOTAL=0;        // linhas na fila inteira
+let CLONE_FILA_PENDENTES=0;    // contado no banco, não no array da página
 
 function cloneSelToggleModo(){
   CLONE_SEL_MODO=!CLONE_SEL_MODO;
@@ -8604,41 +8636,52 @@ function cloneSelToggleModo(){
   cloneRenderFila();
 }
 function cloneSelItem(id,on){
-  if(on)CLONE_SEL.add(id);else CLONE_SEL.delete(id);
+  if(on){
+    const linha=CLONE_FILA_DATA.find(c=>c.id===id);
+    CLONE_SEL.set(id,linha?linha.status:"pending");
+  }else CLONE_SEL.delete(id);
   cloneSelAtualizarBarra();
 }
+// "Selecionar todos" marca a PÁGINA. Quem quer a fila inteira usa o atalho ao
+// lado — dizer "todos" e marcar 20 de 47 seria o truncamento de novo, só que
+// agora na seleção.
 function cloneSelTodos(on){
-  CLONE_SEL.clear();
-  if(on)CLONE_FILA_DATA.forEach(c=>CLONE_SEL.add(c.id));
+  CLONE_FILA_DATA.forEach(c=>{ if(on)CLONE_SEL.set(c.id,c.status); else CLONE_SEL.delete(c.id); });
   document.querySelectorAll("#cloneFila input.clone-chk").forEach(i=>{i.checked=on;});
   cloneSelAtualizarBarra();
 }
-// A barra reflete duas contas diferentes de propósito: apagar vale para
-// qualquer item, aprovar só vale para os que ainda estão pendentes.
+async function cloneSelFilaInteira(){
+  if(!CURRENT_USER?.id)return;
+  const{data,error}=await SB.from("clone_posts").select("id,status").eq("user_id",CURRENT_USER.id);
+  if(error){toast("Não consegui marcar a fila inteira: "+error.message,"⚠️");return;}
+  CLONE_SEL=new Map((data||[]).map(r=>[r.id,r.status]));
+  cloneRenderFila();
+  toast(`${CLONE_SEL.size} item(ns) marcados na fila inteira.`,"☑️");
+}
 function cloneSelAtualizarBarra(){
   const n=CLONE_SEL.size;
-  const pend=CLONE_FILA_DATA.filter(c=>CLONE_SEL.has(c.id)&&c.status==="pending").length;
+  const pend=Array.from(CLONE_SEL.values()).filter(s=>s==="pending").length;
   const cnt=document.getElementById("cloneSelCount");
-  if(cnt)cnt.textContent=n?`${n} selecionado${n>1?"s":""}${n&&!pend?" · nenhum pendente":""}`:"nenhum selecionado";
+  if(cnt)cnt.textContent=n?`${n} selecionado${n>1?"s":""}${pend?"":" · nenhum pendente"}`:"nenhum selecionado";
   const bA=document.getElementById("cloneBtnAprovarSel");
   if(bA){bA.disabled=!pend;bA.style.opacity=pend?"":".5";bA.textContent=pend?`✅ Aprovar (${pend})`:"✅ Aprovar";}
   const bD=document.getElementById("cloneBtnApagarSel");
   if(bD){bD.disabled=!n;bD.style.opacity=n?"":".5";bD.textContent=n?`🗑️ Apagar (${n})`:"🗑️ Apagar";}
   const all=document.getElementById("cloneSelAll");
-  if(all)all.checked=n>0&&n===CLONE_FILA_DATA.length;
+  if(all)all.checked=CLONE_FILA_DATA.length>0&&CLONE_FILA_DATA.every(c=>CLONE_SEL.has(c.id));
 }
 
 async function cloneAprovarSelecionados(){
-  const alvos=CLONE_FILA_DATA.filter(c=>CLONE_SEL.has(c.id)&&c.status==="pending");
-  if(!alvos.length){toast("Nenhum clone pendente entre os selecionados.","⚠️");return;}
-  if(!confirm(`Aprovar e publicar ${alvos.length} clone(s) no grupo de destino?`))return;
+  const ids=Array.from(CLONE_SEL.entries()).filter(([,s])=>s==="pending").map(([id])=>id);
+  if(!ids.length){toast("Nenhum clone pendente entre os selecionados.","⚠️");return;}
+  if(!confirm(`Aprovar e publicar ${ids.length} clone(s) no grupo de destino?`))return;
   let ok=0,falhou=0;
-  for(const alvo of alvos){
-    // Relê a linha do banco: o que está em memória pode ter envelhecido enquanto
-    // a tela ficou aberta, e cloneCriarProduto grava com base no que receber.
-    const{data:linha}=await SB.from("clone_posts").select("*").eq("id",alvo.id).maybeSingle();
-    if(!linha){falhou++;continue;}
-    const r=await cloneCriarProduto(alvo.id,linha);
+  for(const id of ids){
+    // Relê a linha do banco: o que está em memória pode ter envelhecido com a
+    // tela aberta, e cloneCriarProduto grava com base no que receber.
+    const{data:linha}=await SB.from("clone_posts").select("*").eq("id",id).maybeSingle();
+    if(!linha||linha.status!=="pending"){falhou++;continue;}
+    const r=await cloneCriarProduto(id,linha);
     if(r)ok++;else falhou++;
   }
   CLONE_SEL.clear();CLONE_SEL_MODO=false;
@@ -8647,7 +8690,7 @@ async function cloneAprovarSelecionados(){
 }
 
 async function cloneApagarSelecionados(){
-  const ids=Array.from(CLONE_SEL);
+  const ids=Array.from(CLONE_SEL.keys());
   if(!ids.length){toast("Selecione ao menos um item.","⚠️");return;}
   if(!confirm(`Apagar ${ids.length} item(ns) da fila?\n\nIsso remove o registro de vez — diferente de "Descartar", que só marca. Produtos já publicados não são afetados.`))return;
   const{error}=await SB.from("clone_posts").delete().in("id",ids);
@@ -8657,44 +8700,102 @@ async function cloneApagarSelecionados(){
   cloneCarregarFila();
 }
 
+function cloneIrPagina(n){
+  const paginas=Math.max(1,Math.ceil(CLONE_FILA_TOTAL/CLONE_FILA_TAM));
+  CLONE_FILA_PAG=Math.min(Math.max(0,n),paginas-1);
+  cloneCarregarFila();
+}
+
+// Idade da captura em texto curto. Existe porque preço de clone velho é preço
+// que ninguém conferiu desde então — quem aprova precisa ver isso na linha.
+function cloneIdadeTxt(iso){
+  if(!iso)return "";
+  const h=Math.floor((Date.now()-new Date(iso).getTime())/3600000);
+  if(h<1)return "agora há pouco";
+  if(h<24)return `há ${h}h`;
+  const d=Math.floor(h/24);
+  return d===1?"há 1 dia":`há ${d} dias`;
+}
+
 async function cloneCarregarFila(){
   const el=document.getElementById("cloneFila");
   if(!el||!CURRENT_USER?.id)return;
-  const{data,error}=await SB.from("clone_posts").select("*").eq("user_id",CURRENT_USER.id).order("created_at",{ascending:false}).limit(30);
-  if(error){el.innerHTML=`<div class="alert r" style="margin:0"><span>Não consegui carregar a fila: ${error.message}</span></div>`;return;}
-  CLONE_FILA_DATA=data||[];
-  // Seleção só sobrevive para item que ainda está na fila.
-  CLONE_SEL=new Set(Array.from(CLONE_SEL).filter(id=>CLONE_FILA_DATA.some(c=>c.id===id)));
+  const ini=CLONE_FILA_PAG*CLONE_FILA_TAM;
+  const[res,cnt]=await Promise.all([
+    SB.from("clone_posts").select("*",{count:"exact"}).eq("user_id",CURRENT_USER.id)
+      .order("created_at",{ascending:false}).range(ini,ini+CLONE_FILA_TAM-1),
+    // Contagem própria: o badge NÃO pode sair do array da página.
+    SB.from("clone_posts").select("id",{count:"exact",head:true}).eq("user_id",CURRENT_USER.id).eq("status","pending")
+  ]);
+  if(res.error){el.innerHTML=`<div class="alert r" style="margin:0"><span>Não consegui carregar a fila: ${esc(res.error.message)}</span></div>`;return;}
+  CLONE_FILA_TOTAL=res.count||0;
+  CLONE_FILA_PENDENTES=cnt.error?0:(cnt.count||0);
+  // Apagar a última linha de uma página deixaria o usuário numa página vazia
+  // que existe e não mostra nada. Recua uma e recarrega.
+  if(!(res.data||[]).length&&CLONE_FILA_PAG>0){CLONE_FILA_PAG--;return cloneCarregarFila();}
+  CLONE_FILA_DATA=res.data||[];
   cloneRenderFila();
+}
+
+function clonePaginacaoHtml(){
+  const paginas=Math.ceil(CLONE_FILA_TOTAL/CLONE_FILA_TAM);
+  const ini=CLONE_FILA_PAG*CLONE_FILA_TAM+1;
+  const fim=Math.min(CLONE_FILA_TOTAL,(CLONE_FILA_PAG+1)*CLONE_FILA_TAM);
+  const resumo=CLONE_FILA_TOTAL?`<span class="cl-pg-info">${ini}–${fim} de ${CLONE_FILA_TOTAL}</span>`:"";
+  if(paginas<=1)return `<div class="cl-pg">${resumo}</div>`;
+  // Janela de no máximo 5 números com reticências — lista de 40 páginas em
+  // linha vira ruído e quebra no celular.
+  const nums=[];
+  const de=Math.max(0,Math.min(CLONE_FILA_PAG-2,paginas-5));
+  const ate=Math.min(paginas-1,de+4);
+  if(de>0)nums.push(`<button class="cl-pg-bt" onclick="cloneIrPagina(0)">1</button>`,`<span class="cl-pg-el">…</span>`);
+  for(let i=de;i<=ate;i++){
+    nums.push(`<button class="cl-pg-bt${i===CLONE_FILA_PAG?" on":""}" onclick="cloneIrPagina(${i})">${i+1}</button>`);
+  }
+  if(ate<paginas-1)nums.push(`<span class="cl-pg-el">…</span>`,`<button class="cl-pg-bt" onclick="cloneIrPagina(${paginas-1})">${paginas}</button>`);
+  return `<div class="cl-pg">
+    ${resumo}
+    <span style="flex:1"></span>
+    <button class="cl-pg-bt" onclick="cloneIrPagina(${CLONE_FILA_PAG-1})" ${CLONE_FILA_PAG===0?"disabled":""}>‹</button>
+    ${nums.join("")}
+    <button class="cl-pg-bt" onclick="cloneIrPagina(${CLONE_FILA_PAG+1})" ${CLONE_FILA_PAG>=paginas-1?"disabled":""}>›</button>
+  </div>`;
 }
 
 function cloneRenderFila(){
   const el=document.getElementById("cloneFila");
   if(!el)return;
   const data=CLONE_FILA_DATA;
+  const b0=document.getElementById("cloneBadge");
+  if(b0){b0.textContent=CLONE_FILA_PENDENTES;b0.style.display=CLONE_FILA_PENDENTES?"inline-flex":"none";}
   if(!data.length){
     el.innerHTML='<div style="color:var(--tx2);font-size:13px">Nenhum clone ainda. Cole a mensagem de uma oferta acima pra começar.</div>';
-    const b0=document.getElementById("cloneBadge");if(b0)b0.style.display="none";
     CLONE_SEL_MODO=false;CLONE_SEL.clear();
     return;
   }
   const nomeGrupo=id=>{const g=S.grupos.find(x=>String(x.db_id||x.id)===String(id));return g?g.nome:"—";};
+  // O esc() global não escapa aspas, e aqui entra conteúdo de grupo de terceiro
+  // dentro de atributo HTML. Aspas próprias para atributo.
+  const escAtt=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   const badge={
     pending:'<span class="pill" style="background:rgba(245,197,24,.15);color:var(--gold)">aguardando revisão</span>',
     approved:'<span class="pill" style="background:rgba(25,226,125,.15);color:var(--volt)">publicado</span>',
     rejected:'<span class="pill" style="background:rgba(255,81,104,.12);color:var(--red)">descartado</span>',
-    failed:'<span class="pill" style="background:rgba(255,81,104,.2);color:var(--red)">falhou</span>'
+    failed:'<span class="pill" style="background:rgba(255,81,104,.2);color:var(--red)">falhou</span>',
+    expired:'<span class="pill" style="background:rgba(255,255,255,.08);color:var(--tx2)">expirou sem revisão</span>'
   };
   // Quando a loja nao tem integracao automatica (Amazon, por exemplo), titulo e
   // preco sao lidos do texto da mensagem capturada. Isso NAO foi conferido na
   // loja: e copia do que outra pessoa digitou. Quem aprova precisa saber.
   const doTexto='<span class="pill" title="Titulo e preco foram lidos do texto da mensagem capturada, nao conferidos na loja. Confira antes de aprovar." style="background:rgba(245,197,24,.12);color:var(--gold);margin-left:6px">📋 do texto da mensagem</span>';
+  const faltaPagina=CLONE_FILA_TOTAL>CLONE_FILA_DATA.length;
   const barra=CLONE_SEL_MODO?`
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border:1px solid var(--bd2);border-radius:8px;background:var(--bg2)">
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;margin:0">
         <input type="checkbox" id="cloneSelAll" onchange="cloneSelTodos(this.checked)" style="width:auto">
-        <span>Selecionar todos</span>
+        <span>Selecionar todos${faltaPagina?" desta página":""}</span>
       </label>
+      ${faltaPagina?`<a href="#" onclick="cloneSelFilaInteira();return false" style="font-size:12px">marcar os ${CLONE_FILA_TOTAL} da fila inteira</a>`:""}
       <span id="cloneSelCount" style="font-size:12px;color:var(--tx2)"></span>
       <span style="flex:1"></span>
       <button class="btn btn-volt btn-sm" id="cloneBtnAprovarSel" onclick="cloneAprovarSelecionados()">✅ Aprovar</button>
@@ -8704,21 +8805,21 @@ function cloneRenderFila(){
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
       <button class="btn btn-ghost btn-sm" onclick="cloneSelToggleModo()">☑️ Selecionar</button>
     </div>`;
-  el.innerHTML=barra+data.map(c=>`
-    <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--bd)">
+  el.innerHTML=barra+data.map(c=>{
+    const vencido=c.status==="expired";
+    return `
+    <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--bd)${vencido?";opacity:.55":""}">
       ${CLONE_SEL_MODO?`<input type="checkbox" class="clone-chk" data-id="${c.id}" ${CLONE_SEL.has(c.id)?"checked":""} onchange="cloneSelItem('${c.id}',this.checked)" style="width:auto;flex:none;margin-top:4px">`:""}
-      ${c.image_url?`<img src="${c.image_url}" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#fff;flex:none" onerror="this.style.display='none'">`:""}
+      ${c.image_url?`<img src="${escAtt(c.image_url)}" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#fff;flex:none${vencido?";filter:grayscale(1)":""}" onerror="this.style.display='none'">`:""}
       <div style="flex:1;min-width:0">
-        <div style="font-weight:600;font-size:13.5px">${c.title||"(sem título)"}</div>
-        <div style="font-size:12px;color:var(--tx2);margin-top:3px">${c.store_label||c.store||""} · ${nomeGrupo(c.niche_group_id)} · ${c.price?("R$ "+c.price):"sem preço"}${c.coupon_code?` · 🏷️ ${c.coupon_code}`:""} ${badge[c.status]||c.status}${c.data_source==="message"?doTexto:""}</div>
-        ${c.error?`<div style="font-size:11.5px;color:var(--red);margin-top:3px">${c.error}</div>`:""}
+        <div style="font-weight:600;font-size:13.5px${vencido?";text-decoration:line-through":""}">${esc(c.title||"(sem título)")}</div>
+        <div style="font-size:12px;color:var(--tx2);margin-top:3px">${esc(c.store_label||c.store||"")} · ${esc(nomeGrupo(c.niche_group_id))} · ${c.price?("R$ "+esc(String(c.price))):"sem preço"}${c.coupon_code?` · 🏷️ ${esc(c.coupon_code)}`:""} ${badge[c.status]||esc(c.status)}${c.data_source==="message"?doTexto:""}</div>
+        <div style="font-size:11.5px;color:var(--mut);margin-top:3px">capturada ${cloneIdadeTxt(c.created_at)}${vencido?" · o preço não foi conferido desde então":""}</div>
+        ${c.error?`<div style="font-size:11.5px;color:var(--red);margin-top:3px">${esc(c.error)}</div>`:""}
       </div>
       ${(!CLONE_SEL_MODO&&c.status==="pending")?`<div style="display:flex;gap:8px;flex:none"><button class="btn btn-volt btn-sm" onclick="cloneAprovar('${c.id}')">Aprovar</button><button class="btn btn-ghost btn-sm" onclick="cloneRejeitar('${c.id}')">Descartar</button></div>`:""}
-    </div>`).join("");
+    </div>`;}).join("")+clonePaginacaoHtml();
   if(CLONE_SEL_MODO)cloneSelAtualizarBarra();
-  const pend=data.filter(c=>c.status==="pending").length;
-  const b=document.getElementById("cloneBadge");
-  if(b){b.textContent=pend;b.style.display=pend?"inline-flex":"none";}
 }
 
 async function cloneAprovar(id){
@@ -8952,6 +9053,29 @@ async function csAjustarTeto(id,delta){
   csRender();
 }
 
+// Mesmo padrão do csAjustarTeto: grava no clique, sem modal novo. Os limites
+// 6 e 168 são OS MESMOS do CHECK clone_sources_expira_horas_check no banco — dois
+// lugares gravando a mesma coluna com tetos diferentes seria a divergência
+// mercadolivre/mercado_livre outra vez, agora em hora.
+//
+// O que esta configuração faz: clone que passar desse tempo sem ser aprovado vira
+// `expired` (o cron expirar-clone-posts roda de hora em hora), continua visível na
+// fila em cinza dizendo que expirou, e só sai do banco 7 dias depois. Expirar não
+// é apagar de propósito: fila que esvazia sozinha sem deixar rastro é o defeito do
+// silêncio, que neste projeto já custou caro.
+async function csAjustarValidade(id,delta){
+  const f=CS_FONTES.find(x=>String(x.id)===String(id));
+  if(!f)return;
+  const atual=Number(f.expira_horas||24);
+  const novo=Math.min(Math.max(atual+Number(delta||0),6),168);
+  if(novo===atual){toast(Number(delta)>0?"168 horas (7 dias) é o máximo.":"6 horas é o mínimo.","⚠️");return;}
+  const{error}=await SB.from("clone_sources").update({expira_horas:novo}).eq("id",id);
+  if(error){toast("Não consegui mudar a validade: "+error.message,"⚠️");return;}
+  f.expira_horas=novo;
+  toast(novo>=48?`A fila desta fonte agora guarda por ${Math.round(novo/24)} dias.`:`A fila desta fonte agora guarda por ${novo}h.`,"✅");
+  csRender();
+}
+
 function csVereditoHtml(jid){
   const v=CS_VEREDITOS[jid];
   if(!v||!v.total){
@@ -9020,6 +9144,7 @@ function csRender(){
     // clone-ingest na proxima captura, nao a virada do relogio.
     const usados=(f.captured_day===hoje)?Number(f.captured_today||0):0;
     const teto=Number(f.max_per_day||10);
+    const validade=Number(f.expira_horas||24);
     const pct=Math.min(100,Math.round(usados*100/(teto||1)));
     const cheio=usados>=teto;
     return `
@@ -9042,6 +9167,7 @@ function csRender(){
       ${csTetoBarradoHtml(f)}
       ${csLojasHtml(f)}
       <div class="cs-meta" style="margin-top:2px">🕐 captura o dia inteiro · até ${teto} por dia<button type="button" class="cs-teto-bt" title="Diminuir o teto em 5 por dia" onclick="csAjustarTeto('${f.id}',-5)">−</button><button type="button" class="cs-teto-bt" title="Aumentar o teto em 5 por dia" onclick="csAjustarTeto('${f.id}',5)">+</button></div>
+      <div class="cs-meta" style="margin-top:2px">⏳ a fila guarda por ${validade}h sem revisão<button type="button" class="cs-teto-bt" title="Diminuir a validade em 6 horas" onclick="csAjustarValidade('${f.id}',-6)">−</button><button type="button" class="cs-teto-bt" title="Aumentar a validade em 6 horas" onclick="csAjustarValidade('${f.id}',6)">+</button></div>
       <div class="cs-acoes">
         <button class="btn btn-ghost btn-sm" onclick="csAlternar('${f.id}',${f.active?"false":"true"})">${f.active?"Pausar":"Ativar"}</button>
         <button class="btn btn-ghost btn-sm" onclick="csRemover('${f.id}')">Remover</button>
