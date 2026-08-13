@@ -5904,6 +5904,36 @@ window._mlSearchInFlight=window._mlSearchInFlight||new Set();
 function _mlSearchLock(key){if(window._mlSearchInFlight.has(key))return false;window._mlSearchInFlight.add(key);return true;}
 function _mlSearchUnlock(key){window._mlSearchInFlight.delete(key);}
 
+// Teto de produtos do plano. -1 = sem teto. Mesmo desenho do cloneFontesMax:
+// admin e VIP não têm teto, e o número vem do plan_features (max_products),
+// nunca de um if pelo nome do plano — as três fontes já discordaram uma vez
+// (ver o histórico da send-post v18) e não vale repetir.
+function prodMax(){
+  if(typeof IS_ADMIN!=="undefined"&&IS_ADMIN)return -1;
+  if(typeof MY_PROFILE!=="undefined"&&MY_PROFILE&&MY_PROFILE.is_vip)return -1;
+  const v=lim("max_products");
+  return (v===null||v===undefined)?15:Number(v);
+}
+
+/* Idade da última conferência de preço.
+   Por que isto existe: a send-post NÃO relê a loja — ela posta o `price`
+   gravado na linha. Quem confere é a product-refresh, 1x por dia, BATCH 12.
+   Medido em 13/08 nesta conta: 107 produtos, 27 nunca conferidos, idade média
+   de 5,3 dias. Ou seja, o post sai com o preço do dia da última leitura, e até
+   aqui a tela não dizia isso em lugar nenhum.
+   Não conserta a cobertura (aumentar leitura custa crédito de Scrape.do). O que
+   faz é parar de esconder: quem vai postar decide vendo a idade. */
+function prodIdadePreco(iso){
+  if(!iso)return {txt:"preço nunca conferido",cor:"var(--gold)",velho:true,nunca:true};
+  const h=Math.floor((Date.now()-new Date(iso).getTime())/3600000);
+  if(!Number.isFinite(h))return {txt:"",cor:"var(--mut)",velho:false,nunca:false};
+  if(h<1)  return {txt:"preço conferido agora há pouco",cor:"var(--mut)",velho:false,nunca:false};
+  if(h<24) return {txt:`preço conferido há ${h}h`,cor:"var(--mut)",velho:false,nunca:false};
+  const d=Math.floor(h/24);
+  const velho=d>=3;
+  return {txt:`preço conferido há ${d===1?"1 dia":d+" dias"}`,cor:velho?"var(--gold)":"var(--mut)",velho,nunca:false};
+}
+
 async function wireProdLista(){
   const el=document.getElementById("prodListaBody");if(!el)return;
   const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
@@ -5912,27 +5942,76 @@ async function wireProdLista(){
   const{data,error}=await SB.from("products").select("*").eq("niche_group_id",gid).order("position");
   if(error||!data){el.innerHTML=`<p style="color:var(--red);text-align:center;padding:28px">Erro: ${error?.message||"desconhecido"}</p>`;return;}
   S.grupoAtual.produtos=data.length;renderGrupos();
+  // Total da CONTA, não só deste grupo: o teto do plano é por conta, e mostrar
+  // "107 de 300" olhando um grupo só mentiria para quem tem vários.
+  let totalConta=data.length;
+  if(CURRENT_USER?.id){
+    const{count,error:e2}=await SB.from("products").select("id",{count:"exact",head:true}).eq("user_id",CURRENT_USER.id);
+    if(!e2&&typeof count==="number")totalConta=count;
+  }
   loadTabProdCounts().then(()=>{const grupo=TAB_GROUPS.find(g=>g.id===_currentTabL1)||TAB_GROUPS[0];tabsBar.innerHTML=grupo.tabs.map((t,i)=>{const count=_tabProdCounts[t.id]||0;const countBadge=count>0?`<span style="margin-left:4px;font-size:10px;background:var(--volt);color:#0c0c0e;padding:1px 5px;border-radius:6px;font-weight:700">${count}</span>`:"";return `<button class="tab${tabsBar.querySelector('.tab.active')?.dataset.tab===t.id?" active":""}" data-tab="${t.id}">${t.label}${t.novo?'<span class="tag-new">NEW</span>':""}${countBadge}</button>`;}).join(""); tabsBar.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{tabsBar.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".tp").forEach(p=>p.classList.toggle("on",p.id==="pane-"+b.dataset.tab));if(b.dataset.tab==="wagrupos")wireWaGrupos();if(b.dataset.tab==="prod-meus")wireProdLista();if(MARKET_STORES.some(s=>s.id===b.dataset.tab))impRenderAlert(b.dataset.tab);if(b.dataset.tab==="prod-add"){wireProdAdd();prodIdeaisCalc();prodCupomTipoChange();}});});
   if(!data.length){el.innerHTML='<p style="color:var(--mut);text-align:center;padding:28px">Nenhum produto cadastrado ainda.<br>Use a aba <strong>➕ Adicionar</strong> para começar.</p>';return;}
+
+  // ─── Cabeçalho: quantos, de quanto, e o que está velho ───
+  const max=prodMax();
+  const semTeto=max<0;
+  const pct=semTeto?0:Math.min(100,Math.round(totalConta*100/(max||1)));
+  const cheio=!semTeto&&totalConta>=max;
+  const quase=!semTeto&&!cheio&&pct>=80;
+  const corBarra=cheio?"var(--red,#ef4444)":(quase?"var(--gold)":"var(--volt)");
+  const nunca=data.filter(p=>!p.price_checked_at).length;
+  const velhos=data.filter(p=>{const a=prodIdadePreco(p.price_checked_at);return a.velho&&!a.nunca;}).length;
+  const foraDoAr=data.filter(p=>p.expired===true).length;
+
+  const prox={starter:["Pro",50],pro:["Elite",150],elite:["Premium",300]}[MY_PLAN]||null;
+  const avisoTeto=semTeto?"":(cheio
+    ? `<div class="alert y" style="margin:10px 0 0;font-size:12.5px"><div>🔒 Você atingiu o limite de <b>${max}</b> produtos do plano ${myFeatures().label}. Para cadastrar mais, remova algum${prox?` ou passe para o <b>${prox[0]}</b> (${prox[1]} produtos)`:""}.${prox?` <a href="#" onclick="setRole('afiliado');go('assinatura');return false">Ver planos</a>`:""}</div></div>`
+    : (quase
+      ? `<div class="alert b" style="margin:10px 0 0;font-size:12.5px"><div>Faltam <b>${max-totalConta}</b> para o teto de ${max} do plano ${myFeatures().label}.${prox?` O <b>${prox[0]}</b> sobe para ${prox[1]}. <a href="#" onclick="setRole('afiliado');go('assinatura');return false">Ver planos</a>`:""}</div></div>`
+      : ""));
+
+  // O aviso de preço velho é informativo de propósito: NADA é barrado no
+  // disparo. A send-post continua postando esses produtos exatamente como
+  // antes — a decisão de mudar isso ficou para depois, com o número à vista.
+  const avisoPreco=(nunca||velhos)?`<div class="alert b" style="margin:10px 0 0;font-size:12.5px"><div>🕐 ${[
+      nunca?`<b>${nunca}</b> produto(s) com preço <b>nunca conferido</b> na loja`:"",
+      velhos?`<b>${velhos}</b> com preço conferido há 3 dias ou mais`:""
+    ].filter(Boolean).join(" · ")}. O post usa o preço gravado aqui, não o preço de agora — a conferência automática roda 1x por dia e alcança 12 produtos por rodada.</div></div>`:"";
+
   el.innerHTML=`
-    <div id="prodSelBarra" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 2px 12px;border-bottom:1px solid var(--bd);margin-bottom:6px">
+    <div style="padding:2px 2px 12px;border-bottom:1px solid var(--bd);margin-bottom:6px">
+      <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+        <span style="font-size:15px;font-weight:700">${data.length} produto${data.length===1?"":"s"} neste grupo</span>
+        <span style="font-size:12.5px;color:var(--tx2)">${semTeto?`· ${totalConta} na conta · sem teto`:`· <b>${totalConta}</b> de <b>${max}</b> na conta`}</span>
+        ${foraDoAr?`<span class="pill" style="background:rgba(255,81,104,.12);color:var(--red)">${foraDoAr} fora do ar</span>`:""}
+      </div>
+      ${semTeto?"":`<div style="height:6px;background:var(--surf2,var(--bg2));border-radius:99px;overflow:hidden;margin-top:8px"><div style="height:100%;width:${pct}%;background:${corBarra};transition:width .3s"></div></div>`}
+      ${avisoTeto}
+      ${avisoPreco}
+    </div>
+    <div id="prodSelBarra" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:0 2px 12px;border-bottom:1px solid var(--bd);margin-bottom:6px">
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:var(--tx2);user-select:none">
         <input type="checkbox" id="prodSelTodos" onchange="prodSelMarcarTodos(this.checked)" style="width:auto;margin:0;cursor:pointer">
         Selecionar todos
       </label>
       <span id="prodSelInfo" style="font-size:12px;color:var(--mut)">nenhum selecionado</span>
       <button class="btn btn-red btn-sm" id="prodSelBtn" onclick="prodRemoverSelecionados()" disabled style="margin-left:auto;opacity:.5">🗑 Apagar selecionados</button>
-    </div>`+data.map((p,i)=>`
-    <div class="prod" style="align-items:center">
+    </div>`+data.map((p,i)=>{
+    const idade=prodIdadePreco(p.price_checked_at);
+    const fora=p.expired===true;
+    return `
+    <div class="prod" style="align-items:center${fora?";opacity:.6":""}">
       <input type="checkbox" class="prod-chk" value="${p.id}" onchange="prodSelAtualizar()" title="Selecionar para apagar" style="width:auto;margin:0 2px 0 0;flex:none;cursor:pointer">
-      <div class="pimg">${p.image_url?`<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:"📦"}</div>
-      <div style="flex:1">
-        <strong>${p.title||"Sem título"}</strong><br>
+      <span style="color:var(--mut);font-size:11.5px;font-variant-numeric:tabular-nums;min-width:34px;text-align:right;flex:none">${i+1}.</span>
+      <div class="pimg">${p.image_url?`<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px${fora?";filter:grayscale(1)":""}">`:"📦"}</div>
+      <div style="flex:1;min-width:0">
+        <strong${fora?' style="text-decoration:line-through"':""}>${p.title||"Sem título"}</strong>
+        ${fora?'<span class="pill" style="background:rgba(255,81,104,.12);color:var(--red);margin-left:6px">fora do ar na loja</span>':""}<br>
         <small style="color:var(--mut)">${p.price?`R$ ${Number(p.price).toFixed(2).replace(".",",")} · `:""}${p.discount_pct?p.discount_pct+"% OFF · ":""}<span class="mono" style="color:var(--volt);font-size:10px">${(p.affiliate_url||"").slice(0,60)}${(p.affiliate_url||"").length>60?"…":""}</span></small>
+        <div style="font-size:11px;color:${idade.cor};margin-top:2px">${idade.nunca?"⚠️ ":(idade.velho?"🕐 ":"")}${idade.txt}</div>
       </div>
-      <span style="color:var(--mut);font-size:11px;margin-right:8px">#${i+1}</span>
       <button class="btn btn-red btn-sm" onclick="prodRemover('${p.id}')">✕</button>
-    </div>`).join("");
+    </div>`;}).join("");
   prodSelAtualizar();
 }
 
