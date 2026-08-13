@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 44 — 13/08/2026 (madrugada).** Se o número aqui não for o mais alto que você
+> **REVISÃO 45 — 13/08/2026 (tarde).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,103 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 45 — 13/08/2026 (tarde) — P55 fechada pelo Érico, e a lista de produtos
+passa a dizer quantos são, qual é o teto e QUANDO cada preço foi conferido.**
+
+| | |
+|---|---|
+| Frontend | `frontend/index.html` (a raiz não existe mais — P53) |
+| Banco | nada |
+| Edge Functions | nada |
+
+### P55 — a aprovação em lote disparou, e não falhou nenhuma
+
+Executada pelo Érico na fila real. Medido no banco depois:
+
+| | |
+|---|---|
+| clones aprovados em lote | **9** |
+| viraram linha em `products` | **9 de 9** |
+| com `error` | **0** |
+| janela | 13:55:53 → 13:55:57 — 4s, um por vez, que é o laço |
+| pendentes que sobraram | 2 — os que ele **não** marcou |
+
+Cada `clone_posts.product_id` aponta para um produto que existe, com preço gravado.
+O laço agiu **só** sobre a seleção. Era a última coisa desta série que estava no ar
+sem nunca ter sido acionada.
+
+### 🔴 O que foi descoberto ao responder "o preço atualiza ao postar?"
+
+**Não atualiza.** Varredura na `send-post` inteira: **nenhuma** chamada a loja,
+Scrape.do, `product-search` ou `resolve-link`. Ela publica o `price` gravado na
+linha. **O preço do post é a foto do dia em que o produto foi conferido pela última
+vez.**
+
+**O produto sai do rodízio quando esgota — se alguém tiver marcado.** A `send-post`
+v14+ pula todo produto com `expired = true`, e o `never_expires` isenta da validade
+*nossa* mas **não** do `expired` — o comentário no código merece ser citado: *"o
+usuário pode abrir mão de uma política nossa, nunca da realidade"*. O mecanismo
+existe e está certo. O furo é **cobertura**, e ele foi medido:
+
+| medida na conta do Érico, 13/08 | |
+|---|---|
+| produtos | **107** |
+| teto do plano Premium (`max_products`) | 300 |
+| **nunca conferidos** (`price_checked_at` nulo) | **27** |
+| idade média do último carimbo | **5,3 dias** |
+| carimbo mais antigo | **03/08** — 10 dias |
+| marcados `expired` | **0** |
+
+A `product-refresh` roda 1x/dia com `BATCH = 12`. Com 107 produtos uma varredura
+completa levaria ~9 dias, e produto novo fura a fila o tempo todo. Virou a **P57**.
+
+### A escolha: mostrar, não barrar
+
+Aumentar a leitura custa crédito de Scrape.do — o próprio cabeçalho da
+`product-refresh` v20 documenta que subir o `BATCH` ou rodar mais vezes **dobraria**
+as chamadas, e o plano é o Free de 1.000/mês. Então a REVISÃO 45 **não muda nada no
+disparo** (decisão do Érico, tomada com os números acima à vista). O que ela faz é
+parar de esconder a idade do preço.
+
+**Cabeçalho da lista** (`wireProdLista`):
+
+- `N produtos neste grupo · **T** de **max** na conta` — o total é da **conta**, por
+  uma consulta `count:"exact"` própria, porque o teto do plano é por conta e mostrar
+  o número de um grupo só mentiria para quem tem vários.
+- Barra de uso; ≥80% avisa quanto falta; no teto, bloqueio explicado com o próximo
+  plano e link para Assinatura. `prodMax()` lê `max_products` do `plan_features` e dá
+  −1 para admin e VIP — **nunca um `if` pelo nome do plano**, que é a armadilha que a
+  `send-post` v18 já teve de desfazer com três fontes discordando.
+- Contadores de "nunca conferido" e "conferido há 3 dias ou mais", com a frase que
+  explica o porquê: o post usa o preço gravado, e a conferência alcança 12/dia.
+
+**Por linha:** numeração `1.` `2.` `3.` à esquerda, `preço conferido há X` (âmbar a
+partir de 3 dias, ⚠️ quando nunca foi conferido) e, para `expired`, título riscado,
+imagem em cinza e pill "fora do ar na loja".
+
+### Medido em Chromium, com a `SB` stubada
+
+| cenário | resultado |
+|---|---|
+| premium, 107 de 300 | sem aviso de upgrade, barra presente, contadores certos |
+| starter, 14 de 15 | "Faltam **1** para o teto de 15 do plano Starter. O **Pro** sobe para 50. Ver planos" |
+| starter, 15 de 15 | "🔒 Você atingiu o limite de **15**… ou passe para o **Pro** (50 produtos). Ver planos" |
+| `prodMax()` por plano | 15 · 50 · 150 · 300 — batendo com o `plan_features` |
+| idades | 4h · 4 dias (âmbar) · nunca (⚠️) · 1 dia |
+| `expired` | riscado, cinza, com a pill |
+
+🔎 **Defeito visual pego na própria medição:** `.alert` é flex, então os `<b>` viravam
+itens de flex e a frase se espalhava em colunas. Os três alertas novos passaram a
+embrulhar o conteúdo num `<div>` — que é o padrão que o resto do arquivo já usava.
+
+### ⚠️ Não medido
+
+Nada disto foi visto em produção — **falta Deploy**. E a stub da `SB` prova o render,
+não a consulta: o `count:"exact"` do total da conta não foi executado contra o
+PostgREST.
+
+---
 
 **REVISÃO 44 — 13/08/2026 (madrugada) — a REVISÃO 43 medida em produção e o cron
 observado disparando sozinho. P56 e P53 fechadas. Nenhuma linha de frontend nova
@@ -3622,9 +3719,11 @@ código não relacionado.
 
 | ~~P53~~ | ✅ **FECHADA 13/08 — e a saída não era sincronizar, era apagar.** As 7 cópias da raiz (`index.html`, `guia.html`, `revops.html`, `onboarding.js`, `onboarding.css`, `robots.txt`, `sitemap.xml`) **não iam pro ar por nada**: o `Dockerfile` mora em `frontend/` e copia relativo a esse contexto, e não existe Dockerfile na raiz. Prova observável, não inferência: o **Mega Results aparece em produção** e existe só em `frontend/index.html`. Das 7, **6 eram idênticas** e só o `index.html` tinha divergido. Nenhum arquivo da raiz era exclusivo. Apagadas por decisão do Érico; a regra "edite as duas" foi revogada na seção Stack. Registro original abaixo. ~~🟠 **As duas cópias do `index.html` estão divergentes, e há tempo.** O doc manda editá-las idênticas. Medido em 12/08 por `diff`: a **raiz não tem a aba Mega Results** (item de menu, `<section id="page-mega-results">` e um `<script>` de 9.296 bytes — 279 linhas), e o **`frontend/` não tem o pixel do Metricool**. Como `frontend/index.html` é a fonte real de deploy, o efeito prático é que o Mega Results está no ar e o Metricool não. As alterações da REVISÃO 41 foram aplicadas idênticas nas duas por script; **esta divergência antiga não foi tocada** — escopo estrito. Precisa de decisão do Érico: qual das duas é a verdade de cada bloco | 12/08 |
 | ~~P54~~ | ✅ **FECHADA 12/08 à tarde, MEDIDA EM PRODUÇÃO E LOGADO.** Deploy feito; as três alterações lidas na SPA servida com `?v=rev41`. MegaIA: `none` em 5 telas, `flex` no Postar Agora. Tutorial: os 3 passos navegaram para `conexao`/`assinatura`/`post-relampago`, sem blur. **Apagar em lote executado pelo Érico contra o banco: 30 pendentes → 0, com a linha aprovada de 30/07 intacta.** ⚠️ **Sobra UMA coisa não observada, e ela não é pequena: a aprovação em lote nunca disparou** — nem local, nem em produção. Virou a **P55**. Registro original abaixo. ~~🟡 **As três alterações da REVISÃO 41 não foram vistas em produção.** Medidas em Chromium headless, **deslogado**, com os arquivos do repo servidos localmente e a fila de clones semeada em memória. Faltam três coisas que só o ambiente real dá: (a) **Deploy no EasyPanel** — sem ele nada disso está no ar; (b) o **`DELETE` em lote contra o banco de verdade** (a policy foi lida, o delete não foi executado); (c) a **aprovação em lote criando produto**. Enquanto não for medido logado, o estado é "código certo no repo", não "funciona". Lembrar da **P49**: sem cache-busting, a primeira conferência pode estar lendo o bundle velho — usar `?v=` | 12/08 |
-| **P55** | 🟡 **A aprovação em lote nunca disparou.** Herdada da P54 ao fechá-la. `cloneAprovarSelecionados` está deployada e foi exercitada só até o ponto de habilitar/desabilitar o botão — **o laço que relê cada linha e chama `cloneCriarProduto` nunca rodou**, nem local nem em produção. O caminho de um a um é antigo e não mudou; o novo é o laço. É a mesma forma da ressalva da P30 na REVISÃO 21 — "autorizado e deployado, nunca acionado" —, e lá o ramo não observado era justamente o que tinha defeito. **Depende de a captura automática render clone novo:** a fila foi zerada em 12/08 e está vazia. Quando houver 2 ou mais pendentes, marcar os dois, aprovar em lote e conferir que viraram linha em `products` | 12/08 |
+| ~~P55~~ | ✅ **FECHADA 13/08 — executada pelo Érico na fila real, 9 de 9 sem erro.** Nove clones aprovados em lote entre 13:55:53 e 13:55:57 (um por vez, que é o laço), **todos** com `product_id` apontando para linha existente em `products`, `error` nulo em todos, e os 2 pendentes que ele não marcou intactos. Registro original abaixo. ~~🟡 **A aprovação em lote nunca disparou.** Herdada da P54 ao fechá-la. `cloneAprovarSelecionados` está deployada e foi exercitada só até o ponto de habilitar/desabilitar o botão — **o laço que relê cada linha e chama `cloneCriarProduto` nunca rodou**, nem local nem em produção. O caminho de um a um é antigo e não mudou; o novo é o laço. É a mesma forma da ressalva da P30 na REVISÃO 21 — "autorizado e deployado, nunca acionado" —, e lá o ramo não observado era justamente o que tinha defeito. **Depende de a captura automática render clone novo:** a fila foi zerada em 12/08 e está vazia. Quando houver 2 ou mais pendentes, marcar os dois, aprovar em lote e conferir que viraram linha em `products` | 12/08 |
 
 | ~~P56~~ | ✅ **FECHADA 13/08 de madrugada, MEDIDA EM PRODUÇÃO E LOGADO.** Paginação contra o banco de verdade com 30 linhas de teste: total 30 por `count:"exact"`, página 1 com 20 ("1–20 de 30"), página 2 com 10 linhas diferentes, **badge 24** — nem 20 nem 30, que é a prova do conserto. Seleção atravessou páginas (10 + 20 = 30, "Aprovar (24)"), atalho da fila inteira funcionou, expirados saíram riscados com o aviso de preço. **E o cron disparou sozinho:** `jobid 34` `succeeded` às `04:07:00.125637`, com o `expired_at` da isca em `04:07:00.125670` — mesmo instante, não foi chamada à mão. Linhas de teste apagadas; `clone_posts` de volta a 1 linha e 0 pendentes. Registro original abaixo. ~~🟡 **A REVISÃO 43 não foi vista em produção.** Paginação medida com dados em memória — `range()` e `count:"exact"` contra o PostgREST **não foram executados**; e o cron `expirar-clone-posts` (jobid 34, `7 * * * *`) **nunca disparou sozinho**, a função foi chamada à mão. Exige Deploy no EasyPanel e, depois, uma leitura logada com fila de 20+ linhas: conferir que o badge bate com a contagem do banco (era esse o defeito), que a página 2 traz linhas diferentes, e que a rodada automática do cron carimba. ⚠️ **O banco já está mudado** — a migração e o cron foram aplicados antes do frontend subir. Isso é seguro (coluna nova com default, status novo que nenhuma tela antiga escreve), mas significa que **clone pendente já começa a expirar mesmo com o frontend velho no ar**, e o frontend velho não sabe desenhar `expired`: ele cai no `badge[c.status]||c.status` e escreve a palavra crua | 12/08 |
+
+| **P57** | 🟠 **A conferência de preço não cobre a base, e o post sai com preço velho.** Medido em 13/08 na conta do Érico: **107 produtos, 27 nunca conferidos, idade média do carimbo 5,3 dias, o mais antigo de 03/08**. A `product-refresh` roda 1x/dia com `BATCH = 12` — varredura completa levaria ~9 dias e produto novo fura a fila. E a **`send-post` não relê a loja**: publica o `price` gravado (varredura na função inteira: nenhuma chamada a loja, Scrape.do, `product-search` ou `resolve-link`). O mecanismo de tirar do ar funciona (`expired` é respeitado, e `never_expires` não isenta dele); o que falta é alcance. ⚠️ **Não tem saída barata:** subir o `BATCH` ou o cron dobra as chamadas de loja, e o Scrape.do é Free (1.000/mês). A REVISÃO 45 escolheu **mostrar em vez de barrar** — a lista agora exibe a idade do preço. Decidir depois, com o número à vista: avisar sem barrar, pular produto muito velho no disparo, ou reler no disparo (o mais caro). Ideia não avaliada: botão "conferir agora" por produto — a `product-refresh` já aceita `productId`, mas exige `CRON_SECRET`/service role, então precisaria de um caminho autenticado no meio (mesma discussão da P2) | 13/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
