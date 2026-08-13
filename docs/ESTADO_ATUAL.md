@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 45 — 13/08/2026 (tarde).** Se o número aqui não for o mais alto que você
+> **REVISÃO 46 — 13/08/2026 (fim de tarde).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,75 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 46 — 13/08/2026 (fim de tarde) — só documentação. A REVISÃO 45 foi medida
+em produção, e a P57 é PIOR do que estava escrita.**
+
+Nenhuma linha de código. Deploy da REVISÃO 45 feito pelo Érico e lido com
+`?v=rev45` (P49) na sessão logada dele.
+
+### A REVISÃO 45 no ar, contra a base real
+
+| medida | resultado |
+|---|---|
+| produtos listados | **107** — bate com o banco |
+| preço **nunca conferido** | **27** — bate |
+| carimbo mais antigo exibido | **10 dias** — bate com o `03/08` |
+| numeração, barra de uso, idade por linha, `expired` riscado | ✅ |
+
+### 🔴 A média escondia a distribuição
+
+A REVISÃO 45 registrou "idade média 5,3 dias". Medido agora, a distribuição da
+conta do Érico:
+
+| idade do `price_checked_at` | produtos |
+|---|---|
+| **nunca conferido** | **27** |
+| até 1 dia | **3** |
+| 1 a 3 dias | 17 |
+| 3 a 7 dias | **32** |
+| mais de 7 dias | **28** |
+| **total** | **107** |
+
+**Três.** Três produtos de 107 foram conferidos nas últimas 24 horas. E **87 dos
+107** — 27 nunca + 60 com três dias ou mais — estão sendo postados com preço que
+ninguém confere há pelo menos três dias. "Média de 5,3 dias" fazia isso soar como um
+atraso uniforme; não é. É uma cauda longa com quase toda a base dentro dela.
+
+### E o `BATCH` é GLOBAL, não por usuário
+
+Lido no código: as duas consultas de candidatos da `product-refresh` **não filtram
+por `user_id`** — `.is('price_checked_at', null).eq('expired', false).limit(BATCH)`.
+Os 12 por rodada são repartidos entre **todos** os produtos da plataforma, hoje
+**148**. Com um único usuário sério a fila já não fecha; com dez, a cobertura de cada
+um cai proporcionalmente **sem nenhum aviso na tela**. Isto não é um ajuste de
+número: é o desenho que não escala. Anotado na P57.
+
+### O teto do plano não é observável na conta do Érico — e isso era previsível
+
+`prodMax()` devolve **−1** para `IS_ADMIN` ou `is_vip`, por simetria com o
+`cloneFontesMax`. A conta do Érico é **as duas coisas**. Resultado medido em
+produção: a tela diz *"107 na conta · sem teto"*, e o ramo que ele pediu — "107 de
+300" com aviso de upgrade — **nunca aparece para ele**.
+
+É o mesmo padrão da P30, da P55 e da P48: ramo autorizado, deployado e nunca
+observado. Então foi exercitado **no bundle servido**, sem gravar nada: `IS_ADMIN` e
+`is_vip` forçados a `false` em memória com `MY_PLAN='starter'`, re-render, e a tela
+devolveu
+
+> 107 de **15** na conta · 🔒 Você atingiu o limite de **15** produtos do plano
+> Starter. Para cadastrar mais, remova algum ou passe para o **Pro** (50 produtos).
+> Ver planos
+
+Estado real restaurado em seguida e reconferido (`sem teto`, `prodMax()` −1). Nada
+foi escrito no banco.
+
+⚠️ **A consequência prática fica registrada:** o Érico é a única pessoa usando o
+painel hoje, e **não consegue ver com os próprios olhos o que um cliente pagante vê**
+em nenhuma tela com trava de plano. Conferir isso de verdade exige uma conta de teste
+num plano baixo — nunca mexer nas flags da conta dele.
+
+---
 
 **REVISÃO 45 — 13/08/2026 (tarde) — P55 fechada pelo Érico, e a lista de produtos
 passa a dizer quantos são, qual é o teto e QUANDO cada preço foi conferido.**
@@ -3723,7 +3792,8 @@ código não relacionado.
 
 | ~~P56~~ | ✅ **FECHADA 13/08 de madrugada, MEDIDA EM PRODUÇÃO E LOGADO.** Paginação contra o banco de verdade com 30 linhas de teste: total 30 por `count:"exact"`, página 1 com 20 ("1–20 de 30"), página 2 com 10 linhas diferentes, **badge 24** — nem 20 nem 30, que é a prova do conserto. Seleção atravessou páginas (10 + 20 = 30, "Aprovar (24)"), atalho da fila inteira funcionou, expirados saíram riscados com o aviso de preço. **E o cron disparou sozinho:** `jobid 34` `succeeded` às `04:07:00.125637`, com o `expired_at` da isca em `04:07:00.125670` — mesmo instante, não foi chamada à mão. Linhas de teste apagadas; `clone_posts` de volta a 1 linha e 0 pendentes. Registro original abaixo. ~~🟡 **A REVISÃO 43 não foi vista em produção.** Paginação medida com dados em memória — `range()` e `count:"exact"` contra o PostgREST **não foram executados**; e o cron `expirar-clone-posts` (jobid 34, `7 * * * *`) **nunca disparou sozinho**, a função foi chamada à mão. Exige Deploy no EasyPanel e, depois, uma leitura logada com fila de 20+ linhas: conferir que o badge bate com a contagem do banco (era esse o defeito), que a página 2 traz linhas diferentes, e que a rodada automática do cron carimba. ⚠️ **O banco já está mudado** — a migração e o cron foram aplicados antes do frontend subir. Isso é seguro (coluna nova com default, status novo que nenhuma tela antiga escreve), mas significa que **clone pendente já começa a expirar mesmo com o frontend velho no ar**, e o frontend velho não sabe desenhar `expired`: ele cai no `badge[c.status]||c.status` e escreve a palavra crua | 12/08 |
 
-| **P57** | 🟠 **A conferência de preço não cobre a base, e o post sai com preço velho.** Medido em 13/08 na conta do Érico: **107 produtos, 27 nunca conferidos, idade média do carimbo 5,3 dias, o mais antigo de 03/08**. A `product-refresh` roda 1x/dia com `BATCH = 12` — varredura completa levaria ~9 dias e produto novo fura a fila. E a **`send-post` não relê a loja**: publica o `price` gravado (varredura na função inteira: nenhuma chamada a loja, Scrape.do, `product-search` ou `resolve-link`). O mecanismo de tirar do ar funciona (`expired` é respeitado, e `never_expires` não isenta dele); o que falta é alcance. ⚠️ **Não tem saída barata:** subir o `BATCH` ou o cron dobra as chamadas de loja, e o Scrape.do é Free (1.000/mês). A REVISÃO 45 escolheu **mostrar em vez de barrar** — a lista agora exibe a idade do preço. Decidir depois, com o número à vista: avisar sem barrar, pular produto muito velho no disparo, ou reler no disparo (o mais caro). Ideia não avaliada: botão "conferir agora" por produto — a `product-refresh` já aceita `productId`, mas exige `CRON_SECRET`/service role, então precisaria de um caminho autenticado no meio (mesma discussão da P2) | 13/08 |
+| **P57** | 🔴 **A conferência de preço não cobre a base, e o desenho não escala. AGRAVADA NA REVISÃO 46 com a distribuição real** — a média escondia o tamanho: **3 de 107** conferidos nas últimas 24h; **27 nunca**; **32** entre 3 e 7 dias; **28** com mais de 7. Ou seja **87 dos 107** vão pro grupo com preço de 3 dias ou mais. E o `BATCH = 12` é **global**: as consultas de candidatos não filtram por `user_id`, então os 12 diários são repartidos entre os **148** produtos da plataforma — com mais usuários, a cobertura de cada um cai sem nenhum aviso na tela. Registro original abaixo. ~~🟠 Medido em 13/08 na conta do Érico: **107 produtos, 27 nunca conferidos, idade média do carimbo 5,3 dias, o mais antigo de 03/08**. A `product-refresh` roda 1x/dia com `BATCH = 12` — varredura completa levaria ~9 dias e produto novo fura a fila. E a **`send-post` não relê a loja**: publica o `price` gravado (varredura na função inteira: nenhuma chamada a loja, Scrape.do, `product-search` ou `resolve-link`). O mecanismo de tirar do ar funciona (`expired` é respeitado, e `never_expires` não isenta dele); o que falta é alcance. ⚠️ **Não tem saída barata:** subir o `BATCH` ou o cron dobra as chamadas de loja, e o Scrape.do é Free (1.000/mês). A REVISÃO 45 escolheu **mostrar em vez de barrar** — a lista agora exibe a idade do preço. Decidir depois, com o número à vista: avisar sem barrar, pular produto muito velho no disparo, ou reler no disparo (o mais caro). Ideia não avaliada: botão "conferir agora" por produto — a `product-refresh` já aceita `productId`, mas exige `CRON_SECRET`/service role, então precisaria de um caminho autenticado no meio (mesma discussão da P2)~~ | 13/08 |
+| **P58** | 🔵 **Nenhuma trava de plano é observável na conta do Érico.** `prodMax()` devolve −1 para `IS_ADMIN` ou `is_vip`, e a conta dele é as duas coisas — medido em 13/08: a lista de produtos mostra "sem teto" e o aviso de upgrade nunca aparece. O mesmo vale para qualquer gate que trate admin/VIP como ilimitado. O ramo com teto foi exercitado no bundle servido forçando as flags em memória (saiu "107 de 15" com o bloqueio e o link para Assinatura, e o estado real foi restaurado), mas **isso prova o render, não o fluxo de um cliente**. Enquanto não houver uma **conta de teste num plano baixo**, toda tela com trava de plano é escrita às cegas. ⚠️ Não mexer nas flags da conta do Érico para testar | 13/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
