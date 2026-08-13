@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 41 — 12/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 43 — 12/08/2026 (noite).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,187 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 43 — 12/08/2026 (noite) — a fila de clones ganha paginação e validade.
+E a paginação não é melhoria: é conserto de truncamento silencioso.**
+
+| | |
+|---|---|
+| Frontend | `index.html` e `frontend/index.html` (patch idêntico por script) |
+| Banco | migração `validade_da_fila_de_clones` + cron `expirar-clone-posts` (jobid 34, `7 * * * *`) |
+| Edge Functions | nenhuma tocada |
+
+### 🔴 O defeito que estava lá o tempo todo
+
+`cloneCarregarFila` fazia `.limit(30)` **e o badge de pendentes era contado a partir
+do array já truncado**. Com 45 pendentes o badge dizia **30**, os outros 15 eram
+invisíveis, e o "Selecionar todos" da REVISÃO 41 marcava só os 30 carregados. É a
+mesma classe da P20 — cap silencioso que se apresenta como total.
+
+Agora: página de 20, total por `count:"exact"`, e **o número de pendentes é uma
+contagem própria no banco**, não o tamanho do array. Rodapé `‹ 1 2 3 ›` com janela
+de 5 números e reticências, e o resumo "1–20 de 47" — nenhum número da tela sai de
+conjunto truncado.
+
+**A seleção atravessa páginas de propósito**, e por isso `CLONE_SEL` deixou de ser
+`Set` e virou `Map` id→status: os contadores de "aprovar" (só pendentes) e "apagar"
+(qualquer um) precisam do status de item que não está mais na tela. "Selecionar
+todos" marca **a página**, e quando há mais de uma aparece o atalho "marcar os N da
+fila inteira" — dizer "todos" e marcar 20 de 47 seria o truncamento outra vez, agora
+na seleção.
+
+Apagar a última linha de uma página recua para a anterior sozinho, em vez de deixar
+o usuário numa página que existe e não mostra nada.
+
+### Validade da fila — desenho decidido com o Érico em 12/08
+
+A ideia era dele, e substituiu a minha: eu tinha proposto um **teto de fila** que
+travaria a captura ao encher. Com `max_per_day = 30` e validade de 24h a fila já
+fica limitada a ~30 **por construção** — o teto vira peça redundante. Retirado.
+
+**Expirar não é apagar.** Pendente vencido vira `status='expired'`, continua na fila
+em cinza, riscado, dizendo *"expirou sem revisão · o preço não foi conferido desde
+então"*, e só sai do banco **7 dias depois**. Fila que esvazia sozinha sem deixar
+rastro é o defeito do silêncio (P28, P36) — que aqui custaria a pergunta "cadê minhas
+ofertas?" sem resposta.
+
+⚠️ **O motivo real não é a fila ficar ociosa, é o preço envelhecer.** Não existia
+**nenhum** cron que expirasse `clone_posts` — pendente vivia para sempre — e o
+`cloneCriarProduto` publica o **preço gravado na linha**, não relê a loja. Aprovar um
+pendente de 5 dias é publicar preço velho: a P30 e a P32 pelo lado do tempo.
+
+⚠️ **E validade NÃO economiza consulta de loja — nenhuma.** A consulta já foi gasta
+antes de a linha existir; matar depois não devolve crédito. Só um teto checado
+**antes** do `resolve-link` economizaria. Quem quiser gastar menos mexe no
+`max_per_day`, não aqui.
+
+**O que foi para o banco** (`expirar_clone_posts()`, `SECURITY DEFINER`, sem `GRANT`
+para `anon`/`authenticated` — quem chama é o pg_cron, e abrir para `anon` seria
+repetir a P2):
+
+| peça | o quê |
+|---|---|
+| `clone_sources.expira_horas` | `int not null default 24`, CHECK entre 6 e 168 |
+| `clone_posts.expired_at` | carimbo de quando expirou; é o que datar a purga de 7 dias |
+| CHECK de `status` | ganhou `'expired'` (era pending/approved/rejected/failed) |
+| cron `expirar-clone-posts` | `7 * * * *` |
+
+A tela ganhou o ajuste ±6h no card da fonte, ao lado do ±5 do teto do dia, **com os
+mesmos limites 6 e 168 do CHECK do banco** — dois lugares gravando a mesma coluna com
+tetos diferentes seria a divergência `mercadolivre`/`mercado_livre` outra vez, agora
+em hora. Fonte sem `expira_horas` (linha velha) cai em 24h por `||`, e clone colado à
+mão (`clone_source_id` nulo) cai em 24h pelo `coalesce` da função.
+
+### Medido — banco com controles, antes de encostar na tela
+
+Cinco linhas de teste, rodada única de `expirar_clone_posts()` → `expirados 2,
+purgados 1`:
+
+| linha | esperado | resultado |
+|---|---|---|
+| pendente 30h, fonte de 24h | expira | `expired`, com carimbo ✅ |
+| **pendente 10h** | fica | `pending` ✅ *(controle negativo)* |
+| pendente 30h **sem fonte** | expira pelo padrão 24h | `expired`, com carimbo ✅ |
+| **aprovado 30h** | não tocar | intacto ✅ *(controle)* |
+| já `expired` há 8 dias | purgar | sumiu da tabela ✅ |
+
+As linhas de teste foram **apagadas** depois.
+
+### Medido — tela, em Chromium
+
+| o quê | resultado |
+|---|---|
+| 47 itens, página 1 | "1–20 de 47", `‹ 1 2 3 ›`, ativo **1**, "anterior" desabilitado |
+| última página | "41–47 de 47", "próxima" desabilitado |
+| 400 itens, página 11 | `‹ 1 … 9 10 11 12 13 … 20 ›` — 2 reticências |
+| badge | **41** com 41 pendentes e 20 na página — *não* sai do array |
+| seleção entre páginas | 20 na pág. 1 → mantidos na pág. 2 → +20 = **40**, contadores 38 pendentes / 40 total |
+| expirado na lista | riscado, cinza, com "o preço não foi conferido desde então" |
+| título com `<script>` | escapado ✅ |
+
+🔎 **Conserto de lado, na mesma linha que já estava sendo reescrita:** o título, a
+loja, o cupom e o erro do clone iam para o HTML **sem escapar**. É conteúdo de grupo
+de terceiro. Agora passam por `esc()`, e o `image_url` por um escape próprio de
+atributo — o `esc()` global não escapa aspas.
+
+### ⚠️ O que NÃO foi medido
+
+- **Nada disso está em produção** enquanto não houver Deploy. Ver P56.
+- A paginação foi exercitada com dados **em memória**; `range()` e `count:"exact"`
+  contra o PostgREST não foram executados.
+- O cron `expirar-clone-posts` **nunca disparou sozinho** — a função foi chamada à
+  mão. Primeira rodada automática: minuto 7 da próxima hora.
+- **A aprovação em lote continua sem nunca ter disparado** (P55).
+
+---
+
+**REVISÃO 42 — 12/08/2026 (tarde) — nenhuma linha de código alterada. Deploy feito e
+as três alterações da REVISÃO 41 MEDIDAS EM PRODUÇÃO, logado. P54 FECHADA.**
+
+| | |
+|---|---|
+| Commits | 0 de código · este doc |
+| Deploy | **feito pelo Érico no EasyPanel** (serviço `app`) |
+| Como foi lido | `https://www.megalinksbr.com.br/?v=rev41` — com cache-buster de propósito, por causa da **P49** |
+
+### As três, medidas na SPA servida pelo nginx
+
+**1. MegaIA.** Varredura de páginas na sessão logada do Érico:
+
+| tela | `#fabAI` | `ctaManualVisivel()` |
+|---|---|---|
+| Dashboard · Radar · Clone Post · Conexão · Cupons | `none` | `false` |
+| Postar Agora | `flex` | `true` |
+
+`atualizarFabIA` e `ctaManualVisivel` existem como função no bundle servido, e o FAB
+nasce `display:none`. Sem exceção nas 6 telas varridas.
+
+**2. Tutorial.** Rodado com **chave descartável** (`__teste_rev41__`) para não gastar
+o `dismiss` do guia de verdade, e o `localStorage` foi salvo antes e conferido
+idêntico depois. Três passos, "Próximo" clicado:
+
+| passo | `.page.on` depois do clique |
+|---|---|
+| 1 → `[data-page="conexao"]` | `page-conexao` |
+| 2 → `[data-page="assinatura"]` | `page-assinatura` |
+| 3 → `[data-page="post-relampago"]` | `page-post-relampago` |
+
+`.guide-overlay` servido: `backdrop-filter: none`, fundo `rgba(0,0,0,0.28)`.
+`.onboarding-guide`: `align-items: flex-end`, `pointer-events: none`. O
+`onboarding.js` servido contém `irParaTelaDoPasso`.
+
+**3. Fila de clones — e aqui está a prova que faltava.** O botão "☑️ Selecionar"
+apareceu na fila real do Érico, que tinha **30 pendentes**. Com 3 marcados sendo 2
+pendentes, a barra escreveu "✅ Aprovar (2)" e "🗑️ Apagar (3)" — as duas contagens
+separadas, como desenhado.
+
+🔴 **E o `DELETE` em lote rodou contra o banco de verdade — executado pelo Érico, na
+tela, autenticado como ele mesmo, passando pela RLS.** Não foi simulação:
+
+| `clone_posts` do Érico | antes | depois |
+|---|---|---|
+| pendentes | **30** | **0** |
+| aprovados | 1 (de 30/07) | **1 — intacto** |
+| descartados | 0 | 0 |
+
+Apagou **exatamente** o que estava selecionado e não encostou na linha aprovada. É a
+diferença entre Apagar e Descartar valendo na prática, e é o que a REVISÃO 41 tinha
+deixado explicitamente sem prova.
+
+### ⚠️ O que AINDA não foi observado
+
+**A aprovação em lote nunca disparou.** Nenhum clone foi aprovado em lote em nenhuma
+medição — nem local, nem em produção. O caminho de um a um (`cloneAprovar`) é antigo
+e não mudou; o que é novo é o laço que relê cada linha do banco antes de chamar
+`cloneCriarProduto`. **Está autorizado e deployado, não está provado.** Mesmo padrão
+da ressalva da P30 na REVISÃO 21 — e lá o ramo não observado acabou sendo o que
+tinha defeito. Não escrever que funciona.
+
+Segundo detalhe: a fila está **vazia** agora, então o próximo teste depende de a
+captura automática render clone novo. A fonte "Grupo de Achadinhos #34" segue ativa,
+com teto de 30/dia batido no dia da medição.
+
+---
 
 **REVISÃO 41 — 12/08/2026 — três alterações de frontend pedidas pelo Érico, todas
 exercitadas em navegador de verdade antes do push.**
@@ -3357,7 +3538,10 @@ código não relacionado.
 | ~~P52~~ | ❌ **RETIRADA EM 07/08 — nunca foi real.** Os relógios batem: sandbox `07/08 10:46:34`, banco `07/08 10:46:35`, Érico "10:45". O que não batia era um carimbo de log de sexta comparado com uma leitura de banco de terça, dentro da mesma conversa, tratadas as duas como "agora". ~~🔴 Os relógios do log e do banco não batem.~~ Ao converter os carimbos de `get_logs` para conferir a hora de uma chamada, a data saiu com **dias** de diferença do `now()` do Postgres. Não afeta medição de versão/status, mas **afeta qualquer medição por janela de tempo** — inclusive a leitura do `[pre-filtro]` da P36. **Resolver ANTES de qualquer prova que dependa de intervalo** | 04/08 |
 
 | **P53** | 🟠 **As duas cópias do `index.html` estão divergentes, e há tempo.** O doc manda editá-las idênticas. Medido em 12/08 por `diff`: a **raiz não tem a aba Mega Results** (item de menu, `<section id="page-mega-results">` e um `<script>` de 9.296 bytes — 279 linhas), e o **`frontend/` não tem o pixel do Metricool**. Como `frontend/index.html` é a fonte real de deploy, o efeito prático é que o Mega Results está no ar e o Metricool não. As alterações da REVISÃO 41 foram aplicadas idênticas nas duas por script; **esta divergência antiga não foi tocada** — escopo estrito. Precisa de decisão do Érico: qual das duas é a verdade de cada bloco | 12/08 |
-| **P54** | 🟡 **As três alterações da REVISÃO 41 não foram vistas em produção.** Medidas em Chromium headless, **deslogado**, com os arquivos do repo servidos localmente e a fila de clones semeada em memória. Faltam três coisas que só o ambiente real dá: (a) **Deploy no EasyPanel** — sem ele nada disso está no ar; (b) o **`DELETE` em lote contra o banco de verdade** (a policy foi lida, o delete não foi executado); (c) a **aprovação em lote criando produto**. Enquanto não for medido logado, o estado é "código certo no repo", não "funciona". Lembrar da **P49**: sem cache-busting, a primeira conferência pode estar lendo o bundle velho — usar `?v=` | 12/08 |
+| ~~P54~~ | ✅ **FECHADA 12/08 à tarde, MEDIDA EM PRODUÇÃO E LOGADO.** Deploy feito; as três alterações lidas na SPA servida com `?v=rev41`. MegaIA: `none` em 5 telas, `flex` no Postar Agora. Tutorial: os 3 passos navegaram para `conexao`/`assinatura`/`post-relampago`, sem blur. **Apagar em lote executado pelo Érico contra o banco: 30 pendentes → 0, com a linha aprovada de 30/07 intacta.** ⚠️ **Sobra UMA coisa não observada, e ela não é pequena: a aprovação em lote nunca disparou** — nem local, nem em produção. Virou a **P55**. Registro original abaixo. ~~🟡 **As três alterações da REVISÃO 41 não foram vistas em produção.** Medidas em Chromium headless, **deslogado**, com os arquivos do repo servidos localmente e a fila de clones semeada em memória. Faltam três coisas que só o ambiente real dá: (a) **Deploy no EasyPanel** — sem ele nada disso está no ar; (b) o **`DELETE` em lote contra o banco de verdade** (a policy foi lida, o delete não foi executado); (c) a **aprovação em lote criando produto**. Enquanto não for medido logado, o estado é "código certo no repo", não "funciona". Lembrar da **P49**: sem cache-busting, a primeira conferência pode estar lendo o bundle velho — usar `?v=` | 12/08 |
+| **P55** | 🟡 **A aprovação em lote nunca disparou.** Herdada da P54 ao fechá-la. `cloneAprovarSelecionados` está deployada e foi exercitada só até o ponto de habilitar/desabilitar o botão — **o laço que relê cada linha e chama `cloneCriarProduto` nunca rodou**, nem local nem em produção. O caminho de um a um é antigo e não mudou; o novo é o laço. É a mesma forma da ressalva da P30 na REVISÃO 21 — "autorizado e deployado, nunca acionado" —, e lá o ramo não observado era justamente o que tinha defeito. **Depende de a captura automática render clone novo:** a fila foi zerada em 12/08 e está vazia. Quando houver 2 ou mais pendentes, marcar os dois, aprovar em lote e conferir que viraram linha em `products` | 12/08 |
+
+| **P56** | 🟡 **A REVISÃO 43 não foi vista em produção.** Paginação medida com dados em memória — `range()` e `count:"exact"` contra o PostgREST **não foram executados**; e o cron `expirar-clone-posts` (jobid 34, `7 * * * *`) **nunca disparou sozinho**, a função foi chamada à mão. Exige Deploy no EasyPanel e, depois, uma leitura logada com fila de 20+ linhas: conferir que o badge bate com a contagem do banco (era esse o defeito), que a página 2 traz linhas diferentes, e que a rodada automática do cron carimba. ⚠️ **O banco já está mudado** — a migração e o cron foram aplicados antes do frontend subir. Isso é seguro (coluna nova com default, status novo que nenhuma tela antiga escreve), mas significa que **clone pendente já começa a expirar mesmo com o frontend velho no ar**, e o frontend velho não sabe desenhar `expired`: ele cai no `badge[c.status]||c.status` e escreve a palavra crua | 12/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
