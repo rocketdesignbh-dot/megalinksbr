@@ -1,4 +1,49 @@
-// Mega Links BR · Edge Function "product-refresh" v20
+// Mega Links BR · Edge Function "product-refresh" v21
+// v21 (13/08, P57): ORCAMENTO POR LOJA no lugar de UM lote global.
+//
+//      A v20 carregava `BATCH = 12` candidatos e deixava todas as lojas
+//      disputarem as mesmas 12 vagas. O defeito nao e o numero -- e tratar
+//      leituras de custo completamente diferente como se fossem a mesma coisa.
+//      MEDIDO em 13/08, no banco:
+//
+//        loja           | ativos | elegiveis hoje | como e lida             | custo
+//        ---------------|--------|----------------|-------------------------|-------
+//        amazon         |   57   |       56       | `fetch` DIRETO na pagina| ZERO
+//        shopee         |   49   |       47       | nao e lida (sem verif.) | ZERO
+//        mercado_livre  |   42   |       35       | wa-engine / Scrape.do   | credito
+//
+//      A Shopee nao gasta rede nenhuma -- entra na rodada so para receber
+//      carimbo -- e mesmo assim ocupava vaga que a Amazon teria usado para ler
+//      preco de verdade. Resultado medido nas 8 ultimas rodadas: entre **1 e 7**
+//      paginas da Amazon lidas por dia, com 56 esperando. E a premissa que
+//      segurava o `BATCH` baixo ("subir isso dobra o consumo de credito") vale
+//      so para o ML: `consultarAmazon` nao passa por Scrape.do e nao debita
+//      cota de ninguem. Ler a Amazon inteira custa relogio, nao dinheiro.
+//
+//      Entao: um numero POR BALDE, e nao um numero para todos. A cota de
+//      antigos da P34 continua valendo, agora DENTRO de cada balde -- pelo
+//      mesmo motivo de sempre: a fila de nulos monopoliza a rodada quando a
+//      ingestao entrega mais produto por dia do que o lote.
+//
+//      A ORDEM dos baldes esta escolhida, nao e acidente: `sem_verificador`
+//      (custo zero) -> `mercado_livre` (escasso, com teto proprio) -> `amazon`
+//      (o unico que pode estourar o relogio). Assim um corte por DEADLINE
+//      nunca deixa o ML sem rodada, e quem for cortado fica com o carimbo
+//      velho e volta na FRENTE amanha -- as duas consultas ordenam por
+//      `price_checked_at` ascendente.
+//
+//      `DEADLINE_MS` NAO foi mexido. O orcamento da Amazon foi escolhido para
+//      caber nele, e `interrompido_por_tempo` continua sendo o numero que
+//      denuncia se nao coube.
+//
+//      Efeito conferivel na proxima rodada: `candidatos_por_balde` com a
+//      Amazon em dezenas (e nao 1 a 7), e `conferidos_amazon` acompanhando.
+//      Se `desconhecidos` subir junto com um motivo de captcha, a taxa de
+//      bloqueio da Amazon reagiu ao volume -- e ai o numero volta a baixar.
+//      Baseline medido em 13/08 para essa comparacao: **zero** captchas em 9
+//      dias de rodadas. Os 2-3 `desconhecidos` diarios NAO sao captcha: sao
+//      dois produtos de ML com link sem MLB ID, que falham e (por desenho)
+//      nao recebem carimbo, entao voltam em TODA rodada.
 // v20 (03/08, P34): RESERVA DE COTA NO LOTE. A rodada diaria so alcancava
 //      produto recem-criado, e isso foi MEDIDO na rodada de 03/08 09:00 UTC:
 //      os 11 carimbos daquela rodada eram TODOS de produtos criados no mesmo
@@ -179,9 +224,21 @@ const CRON_SECRET = Deno.env.get('CRON_SECRET') ?? '';
 const WA_ENGINE_URL = Deno.env.get('WA_ENGINE_URL') || 'https://megalinksbr-wa-engine.fwezsn.easypanel.host';
 const WA_ENGINE_TOKEN = Deno.env.get('WA_ENGINE_TOKEN') ?? '';
 
-const BATCH = 12;                 // candidatos carregados por rodada
-const RESERVA_ANTIGOS = 4;        // vagas GARANTIDAS para quem ja tem carimbo (P34).
-                                  // Piso, nao teto: vaga nao usada passa para o outro lado.
+// P57 · ORCAMENTO POR BALDE, no lugar do `BATCH` global da v20. Um balde por
+// REGIME DE CUSTO, nao por gosto: ver o cabecalho da v21.
+const ORCAMENTO_POR_BALDE: Record<string, number> = {
+  sem_verificador: 20,   // nao consulta loja nenhuma, so recebe carimbo. Custo de rede ZERO.
+  mercado_livre: 8,      // wa-engine / Scrape.do. Quem nao tem token proprio ainda
+                         // esbarra no MAX_POOL_POR_RODADA la embaixo.
+  amazon: 45,            // `fetch` direto na pagina: sem Scrape.do, sem credito, so relogio.
+};
+// Vagas GARANTIDAS, DENTRO do balde, para quem ja tem carimbo (P34). Piso, nao
+// teto: vaga que um lado nao usar passa para o outro, e o balde nunca encolhe.
+const RESERVA_ANTIGOS: Record<string, number> = {
+  sem_verificador: 7,
+  mercado_livre: 3,
+  amazon: 15,
+};
 const MAX_POOL_POR_RODADA = 5;    // teto de chamadas que caem no token da plataforma
 const TOLERANCIA_PRECO = 0.05;    // 5%
 const DEADLINE_MS = 70000;        // orcamento de relogio da rodada
@@ -511,6 +568,10 @@ Deno.serve(async (req: Request) => {
   // cota da P34 disparou -- e "status 200 nao e prova" vale aqui tambem.
   let candidatosNovos = 0;
   let candidatosAntigos = 0;
+  // P57: quanto cada balde levou desta rodada. Sem isto nao ha como provar que o
+  // orcamento por loja disparou -- é o mesmo papel que `candidatos_antigos` faz
+  // para a cota da P34.
+  const candidatosPorBalde: Record<string, number> = {};
 
   if (soProduto) {
     const q = await SB.from('products').select(campos).eq('id', soProduto).limit(1);
@@ -522,8 +583,8 @@ Deno.serve(async (req: Request) => {
     // que um produto sumiu da fila), e o `nullsFirst` so era seguro POR CAUSA
     // do carimbo nos pulos por condicao la embaixo -- sem ele, produto sempre
     // pulado ficaria com carimbo nulo para sempre e ocuparia a frente de TODA
-    // rodada. Esse carimbo continua sendo obrigatorio na v20: a fila `novos`
-    // abaixo e exatamente a fila dos nulos, e ela precisa esvaziar.
+    // rodada. Esse carimbo continua sendo obrigatorio na v21: a fila `novos`
+    // de cada balde e exatamente a fila dos nulos, e ela precisa esvaziar.
     // P34 · DUAS FILAS COM COTA, em vez de uma ordenacao global.
     //
     // A consulta unica com `nullsFirst` era correta e mesmo assim causava fome:
@@ -537,35 +598,70 @@ Deno.serve(async (req: Request) => {
     //            mesma rodada de ingestao empatavam e a escolha era do banco.
     // `antigos`: ja carimbados e vencidos, o mais desatualizado primeiro.
     //
-    // As duas pedem BATCH linhas de proposito: assim um lado curto e coberto
-    // pelo outro sem uma terceira consulta. Sao leituras de banco, nao de loja
-    // -- nao custam credito.
-    const [qNovos, qAntigos] = await Promise.all([
-      SB.from('products').select(campos)
-        .is('price_checked_at', null)
-        .eq('expired', false)
-        .order('created_at', { ascending: true })
-        .limit(BATCH),
-      SB.from('products').select(campos)
-        .lt('price_checked_at', corte)
-        .eq('expired', false)
-        .order('price_checked_at', { ascending: true })
-        .limit(BATCH),
-    ]);
+    // As duas pedem o orcamento INTEIRO do balde de proposito: assim um lado
+    // curto e coberto pelo outro sem uma terceira consulta.
+    // P57 · UM BALDE POR REGIME DE CUSTO, cada um com o seu orcamento.
+    //
+    // A ordem da lista e a ordem de PROCESSAMENTO la embaixo, e esta escolhida:
+    // `sem_verificador` nao toca a rede, `mercado_livre` e escasso mas pequeno,
+    // e `amazon` e o unico capaz de estourar o DEADLINE -- entao a Amazon vai
+    // por ultimo, e um corte por tempo nunca deixa o ML sem rodada.
+    const BALDES: { chave: string; aplicar: (q: any) => any }[] = [
+      {
+        chave: 'sem_verificador',
+        // `source` e enum NOT NULL (`marketplace`, 16 valores) -- conferido em
+        // 13/08 --, entao um `not in` cobre todo o resto sem ramo para null.
+        // ⚠️ Esta lista sai do mesmo LOJAS_COM_VERIFICADOR de cima de proposito:
+        // uma segunda lista escrita a mao seria o risco `mercadolivre`/`mercado_livre`
+        // da P31 de novo.
+        aplicar: (q: any) => q.not('source', 'in', `(${[...LOJAS_COM_VERIFICADOR].join(',')})`),
+      },
+      { chave: 'mercado_livre', aplicar: (q: any) => q.eq('source', 'mercado_livre') },
+      { chave: 'amazon', aplicar: (q: any) => q.eq('source', 'amazon') },
+    ];
 
-    error = qNovos.error ?? qAntigos.error;
-    const novos = qNovos.data ?? [];
-    const antigos = qAntigos.data ?? [];
+    // Duas consultas por balde (novos / antigos), todas em paralelo. Sao leituras
+    // de BANCO, nao de loja -- nao custam credito nem relogio de rede.
+    // Seis consultas onde a v20 fazia duas: seis vezes zero continua zero.
+    const consultas = BALDES.flatMap(({ chave, aplicar }) => {
+      const orc = ORCAMENTO_POR_BALDE[chave] ?? 0;
+      return [
+        aplicar(SB.from('products').select(campos))
+          .is('price_checked_at', null)
+          .eq('expired', false)
+          .order('created_at', { ascending: true })
+          .limit(orc),
+        aplicar(SB.from('products').select(campos))
+          .lt('price_checked_at', corte)
+          .eq('expired', false)
+          .order('price_checked_at', { ascending: true })
+          .limit(orc),
+      ];
+    });
 
-    // A cota e PISO para os antigos, nao teto: se nao houver antigo represado,
-    // a rodada inteira vai para os novos, exatamente como antes da v20.
-    const vagasAntigos = Math.min(RESERVA_ANTIGOS, antigos.length);
-    const doNovos = novos.slice(0, BATCH - vagasAntigos);
-    const doAntigos = antigos.slice(0, BATCH - doNovos.length);
+    const rs: any[] = await Promise.all(consultas);
+    const comErro = rs.find((r) => r.error);
+    error = comErro ? { message: String(comErro.error?.message ?? comErro.error) } : null;
 
-    candidatosNovos = doNovos.length;
-    candidatosAntigos = doAntigos.length;
-    produtos = [...doNovos, ...doAntigos];
+    const selecionados: any[] = [];
+    for (let i = 0; i < BALDES.length; i++) {
+      const chave = BALDES[i].chave;
+      const orc = ORCAMENTO_POR_BALDE[chave] ?? 0;
+      const novos = rs[i * 2]?.data ?? [];
+      const antigos = rs[i * 2 + 1]?.data ?? [];
+
+      // A cota e PISO para os antigos, nao teto: sem antigo represado no balde,
+      // ele inteiro vai para os novos.
+      const vagasAntigos = Math.min(RESERVA_ANTIGOS[chave] ?? 0, antigos.length);
+      const doNovos = novos.slice(0, orc - vagasAntigos);
+      const doAntigos = antigos.slice(0, orc - doNovos.length);
+
+      candidatosNovos += doNovos.length;
+      candidatosAntigos += doAntigos.length;
+      candidatosPorBalde[chave] = doNovos.length + doAntigos.length;
+      selecionados.push(...doNovos, ...doAntigos);
+    }
+    produtos = selecionados;
   }
 
   if (error) return json({ ok: false, error: error.message }, 500);
@@ -780,6 +876,8 @@ Deno.serve(async (req: Request) => {
     candidatos: produtos.length,
     candidatos_novos: candidatosNovos,
     candidatos_antigos: candidatosAntigos,
+    candidatos_por_balde: candidatosPorBalde,
+    orcamento_por_balde: ORCAMENTO_POR_BALDE,
     lidos_da_loja: lidosDaLoja,
     conferidos,
     conferidos_amazon: conferidosAmazon,
