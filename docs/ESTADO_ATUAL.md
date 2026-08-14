@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 47 — 13/08/2026 (noite).** Se o número aqui não for o mais alto que você
+> **REVISÃO 48 — 14/08/2026 (manhã).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,109 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 48 — 14/08/2026 (manhã) — o `BATCH` global virou ORÇAMENTO POR LOJA
+(`product-refresh` v21, no ar e medida em produção). E a base contra a qual a P57
+foi dimensionada não existe mais.**
+
+| | |
+|---|---|
+| Frontend | nada |
+| Banco | nada |
+| Edge Functions | `product-refresh` **v21** (contador do Supabase: 26) |
+
+### O que mudou
+
+`BATCH = 12` e `RESERVA_ANTIGOS = 4`, que eram um número só para todas as lojas,
+viraram **um balde por regime de custo**:
+
+| balde | orçamento | reserva p/ antigos | por quê |
+|---|---|---|---|
+| `sem_verificador` | 20 | 7 | não consulta loja nenhuma — só recebe carimbo. Custo de rede **zero** |
+| `mercado_livre` | 8 | 3 | wa-engine / Scrape.do. Ainda esbarra no `MAX_POOL_POR_RODADA = 5` |
+| `amazon` | 45 | 15 | `fetch` direto na página: sem Scrape.do, **sem crédito**, só relógio |
+
+A cota da P34 continua valendo, agora **dentro** de cada balde, com a mesma regra
+de sempre: piso, não teto. A **ordem de processamento** está escolhida e não é
+acidente — `sem_verificador` → `mercado_livre` → `amazon`. A Amazon é a única
+capaz de estourar o `DEADLINE_MS`, então vai por último, e um corte por tempo
+nunca deixa o ML sem rodada. `DEADLINE_MS` **não** foi mexido: continua 70000.
+
+### Medido em produção — rodada do cron de 14/08 09:00 UTC, sem dryRun
+
+| | previsto | na rodada |
+|---|---|---|
+| `candidatos_por_balde` | ML 8 (5 novos + 3 antigos) | **ML 8 — 5 novos, 3 antigos** |
+| duração | dentro dos 70 s | **17,1 s** |
+| `interrompido_por_tempo` | false | **false** |
+
+Os baldes `amazon` e `sem_verificador` vieram **0** — e isso está certo, ver
+abaixo. O log do PostgREST das 16:01 de 13/08 mostra as **seis** consultas saindo
+com os filtros e limites exatos (`source=eq.amazon&…&limit=45`,
+`source=not.in.(mercado_livre,amazon)&…&limit=20`), todas **200**. O mecanismo
+dispara; o que faltou foi produto.
+
+### 🔴 A base do Érico foi esvaziada — e a P57 foi dimensionada contra ela
+
+Entre **12:50 e 13:01 (BRT) de 13/08**, os **107 produtos** e as **11 fontes de
+clone** do Érico sumiram do banco. **Confirmado com ele em 14/08: limpeza
+proposital, não é defeito.** O perfil está intacto (premium, `is_vip`), e
+`clone_posts` (16), `niche_groups` (1), `whatsapp_instances` (2) e
+`affiliate_credentials` (3) continuam lá.
+
+A plataforma inteira hoje: **41 produtos, todos de Mercado Livre**, de 3 clientes.
+Zero Amazon, zero Shopee.
+
+⚠️ **Consequência direta:** os números 45 (Amazon) e 20 (sem verificador) foram
+calculados contra 57 Amazon e 49 Shopee que não existem mais. O **formato** está
+provado; a **calibragem** não pode ser medida hoje. Quando entrar Amazon na base,
+a primeira rodada com dezenas de leituras é o teste de verdade — e é onde
+`interrompido_por_tempo` deixa de ser decorativo.
+
+### 🔴 A premissa de captcha da REVISÃO 47 estava ERRADA
+
+Estava escrito que "mais leituras da Amazon podem elevar a taxa de captcha, que
+hoje já aparece como 2–3 `desconhecidos` por rodada". Medido em 13/08, lendo os
+`detalhes` de 9 dias de rodadas: **zero captchas.** Nenhuma ocorrência de
+`bloqueio/captcha da Amazon`. Os 2–3 `desconhecidos` diários são outra coisa —
+ver abaixo. O risco de captcha continua **plausível e não medido**; o que caiu foi
+a afirmação de que ele já estaria acontecendo.
+
+### 🔴 Dois produtos de ML ocupam vaga em TODA rodada, desde sempre
+
+Os `desconhecidos` diários são sempre os mesmos dois, com o mesmo motivo
+(`MLB ID não encontrado no link`):
+
+| produto | carimbo | há quanto tempo volta |
+|---|---|---|
+| Caixa 10 Máscaras Faciais Skincare Nutri | **`null`** desde 08/07 | 37 dias na fila `novos` |
+| Gloss Fran By Franciny Ehlke Liphoney Mel | `02/08 09:00` | 12 dias na fila `antigos` |
+
+Falha de leitura **não é carimbada** — decisão deliberada da v17, para que erro
+transitório volte já. Mas link permanentemente ilegível não é erro transitório:
+esses dois queimavam **2 das 12 vagas** de toda rodada (17% do lote) e hoje
+queimam 2 das 8 do balde de ML (**25%**). Aberto como **P59** — a saída não é
+óbvia e não foi decidida: carimbar depois de N falhas iguais, ou marcar o produto
+como link inválido e avisar a dona.
+
+### ⚠️ Não medido
+
+* Os baldes `amazon` e `sem_verificador` **nunca tiveram um candidato sequer** —
+  não há base para eles hoje.
+* Se 45 leituras de Amazon cabem em `DEADLINE_MS = 70000`. A conta com 1,2 s por
+  leitura dá ~54 s, o que é apertado; a expectativa registrada é que
+  `interrompido_por_tempo` venha `true` e a Amazon seja cortada por volta de 40.
+  Isso é **auto-corrigível** (quem for cortado volta na frente, `price_checked_at`
+  ascendente), mas é previsão, não medição.
+* Se mais volume de leitura da Amazon eleva captcha.
+
+### 🔴 O código v21 está NO AR mas NÃO está no repo
+
+Deployado pelo MCP do Supabase, que não passa pelo GitHub. `supabase/functions/product-refresh/index.ts`
+no `main` ainda é a **v20**. Publicado ≠ commitado até isso ser resolvido — ver a
+nota de infraestrutura sobre o push.
+
+---
 
 **REVISÃO 47 — 13/08/2026 (noite) — a tela da REVISÃO 45 estava MENTINDO sobre 49
 dos 107 produtos, e a premissa de custo da P57 estava errada. Os dois consertados.**
@@ -3868,7 +3971,8 @@ código não relacionado.
 
 | ~~P56~~ | ✅ **FECHADA 13/08 de madrugada, MEDIDA EM PRODUÇÃO E LOGADO.** Paginação contra o banco de verdade com 30 linhas de teste: total 30 por `count:"exact"`, página 1 com 20 ("1–20 de 30"), página 2 com 10 linhas diferentes, **badge 24** — nem 20 nem 30, que é a prova do conserto. Seleção atravessou páginas (10 + 20 = 30, "Aprovar (24)"), atalho da fila inteira funcionou, expirados saíram riscados com o aviso de preço. **E o cron disparou sozinho:** `jobid 34` `succeeded` às `04:07:00.125637`, com o `expired_at` da isca em `04:07:00.125670` — mesmo instante, não foi chamada à mão. Linhas de teste apagadas; `clone_posts` de volta a 1 linha e 0 pendentes. Registro original abaixo. ~~🟡 **A REVISÃO 43 não foi vista em produção.** Paginação medida com dados em memória — `range()` e `count:"exact"` contra o PostgREST **não foram executados**; e o cron `expirar-clone-posts` (jobid 34, `7 * * * *`) **nunca disparou sozinho**, a função foi chamada à mão. Exige Deploy no EasyPanel e, depois, uma leitura logada com fila de 20+ linhas: conferir que o badge bate com a contagem do banco (era esse o defeito), que a página 2 traz linhas diferentes, e que a rodada automática do cron carimba. ⚠️ **O banco já está mudado** — a migração e o cron foram aplicados antes do frontend subir. Isso é seguro (coluna nova com default, status novo que nenhuma tela antiga escreve), mas significa que **clone pendente já começa a expirar mesmo com o frontend velho no ar**, e o frontend velho não sabe desenhar `expired`: ele cai no `badge[c.status]||c.status` e escreve a palavra crua | 12/08 |
 
-| **P57** | 🔴 **A conferência de preço não cobre a base, e o desenho não escala. AGRAVADA NA REVISÃO 46 com a distribuição real** — a média escondia o tamanho: **3 de 107** conferidos nas últimas 24h; **27 nunca**; **32** entre 3 e 7 dias; **28** com mais de 7. Ou seja **87 dos 107** vão pro grupo com preço de 3 dias ou mais. E o `BATCH = 12` é **global**: as consultas de candidatos não filtram por `user_id`, então os 12 diários são repartidos entre os **148** produtos da plataforma — com mais usuários, a cobertura de cada um cai sem nenhum aviso na tela. 🔴 **CORREÇÃO DA REVISÃO 47 — a premissa de custo estava errada:** conferir **não** custa o mesmo em toda loja. A `consultarAmazon` faz `fetch` **direto**, sem Scrape.do, **sem crédito**; só o Mercado Livre consome. Na base do Érico são **57 Amazon, 49 Shopee (sem verificador) e 1 ML** — e ele tem token próprio. Conferir a base inteira dele custaria praticamente nada. Com `DEADLINE_MS = 70000` e rodadas gastando 9,5–27 s, há ~5× de folga de relógio. **O próximo passo é orçamento POR LOJA em vez de um `BATCH` global** (Amazon com lote grande, ML mantendo `MAX_POOL_POR_RODADA = 5`) — combinado com o Érico em 13/08 e **ainda não feito**. Risco a medir junto: mais leituras da Amazon podem elevar a taxa de captcha, que hoje já aparece como 2–3 `desconhecidos` por rodada; o código não afirma nada sem `id="productTitle"`, então falha para o lado seguro. Registro original abaixo. ~~🟠 Medido em 13/08 na conta do Érico: **107 produtos, 27 nunca conferidos, idade média do carimbo 5,3 dias, o mais antigo de 03/08**. A `product-refresh` roda 1x/dia com `BATCH = 12` — varredura completa levaria ~9 dias e produto novo fura a fila. E a **`send-post` não relê a loja**: publica o `price` gravado (varredura na função inteira: nenhuma chamada a loja, Scrape.do, `product-search` ou `resolve-link`). O mecanismo de tirar do ar funciona (`expired` é respeitado, e `never_expires` não isenta dele); o que falta é alcance. ⚠️ **Não tem saída barata:** subir o `BATCH` ou o cron dobra as chamadas de loja, e o Scrape.do é Free (1.000/mês). A REVISÃO 45 escolheu **mostrar em vez de barrar** — a lista agora exibe a idade do preço. Decidir depois, com o número à vista: avisar sem barrar, pular produto muito velho no disparo, ou reler no disparo (o mais caro). Ideia não avaliada: botão "conferir agora" por produto — a `product-refresh` já aceita `productId`, mas exige `CRON_SECRET`/service role, então precisaria de um caminho autenticado no meio (mesma discussão da P2)~~ | 13/08 |
+| **P57** | 🟡 **PARCIALMENTE RESOLVIDA NA REVISÃO 48 — o orçamento por loja foi implementado e está no ar (`product-refresh` v21), mas a calibragem ficou sem como ser medida.** O `BATCH = 12` global virou três baldes por regime de custo: `sem_verificador` 20, `mercado_livre` 8, `amazon` 45, cada um com a cota da P34 por dentro, processados nessa ordem para que um corte por `DEADLINE_MS` nunca deixe o ML sem rodada. **Medido na rodada real de 14/08 09:00 UTC:** o balde de ML entregou exatamente os 8 previstos (5 novos + 3 antigos) em 17,1 s, sem corte por tempo, e o log do PostgREST mostra as seis consultas saindo com os filtros e limites certos. ⚠️ **O que continua aberto:** os baldes `amazon` (45) e `sem_verificador` (20) **nunca tiveram um candidato** — a base do Érico (57 Amazon, 49 Shopee) foi apagada por ele em 13/08, e a plataforma hoje tem 41 produtos, todos de ML. Os dois números foram dimensionados contra uma base que não existe mais, então **o formato está provado e a calibragem não**. Falta medir, quando houver Amazon de novo: se 45 leituras cabem nos 70 s (a conta a 1,2 s/leitura dá ~54 s, apertado — a expectativa é corte por tempo em torno de 40, o que é auto-corrigível) e se o volume eleva captcha. 🔴 **E a premissa de captcha da REVISÃO 47 caiu:** medido nos `detalhes` de 9 dias, **zero captchas** — os 2–3 `desconhecidos` diários são dois links de ML ilegíveis, agora na P59. Registro original abaixo. ~~🔴 **A conferência de preço não cobre a base, e o desenho não escala. AGRAVADA NA REVISÃO 46 com a distribuição real** — a média escondia o tamanho: **3 de 107** conferidos nas últimas 24h; **27 nunca**; **32** entre 3 e 7 dias; **28** com mais de 7. Ou seja **87 dos 107** vão pro grupo com preço de 3 dias ou mais. E o `BATCH = 12` é **global**: as consultas de candidatos não filtram por `user_id`, então os 12 diários são repartidos entre os **148** produtos da plataforma — com mais usuários, a cobertura de cada um cai sem nenhum aviso na tela. 🔴 **CORREÇÃO DA REVISÃO 47 — a premissa de custo estava errada:** conferir **não** custa o mesmo em toda loja. A `consultarAmazon` faz `fetch` **direto**, sem Scrape.do, **sem crédito**; só o Mercado Livre consome. Na base do Érico são **57 Amazon, 49 Shopee (sem verificador) e 1 ML** — e ele tem token próprio. Conferir a base inteira dele custaria praticamente nada. Com `DEADLINE_MS = 70000` e rodadas gastando 9,5–27 s, há ~5× de folga de relógio. **O próximo passo é orçamento POR LOJA em vez de um `BATCH` global** (Amazon com lote grande, ML mantendo `MAX_POOL_POR_RODADA = 5`) — combinado com o Érico em 13/08 e **ainda não feito**. Risco a medir junto: mais leituras da Amazon podem elevar a taxa de captcha, que hoje já aparece como 2–3 `desconhecidos` por rodada; o código não afirma nada sem `id="productTitle"`, então falha para o lado seguro. Registro original abaixo. ~~🟠 Medido em 13/08 na conta do Érico: **107 produtos, 27 nunca conferidos, idade média do carimbo 5,3 dias, o mais antigo de 03/08**. A `product-refresh` roda 1x/dia com `BATCH = 12` — varredura completa levaria ~9 dias e produto novo fura a fila. E a **`send-post` não relê a loja**: publica o `price` gravado (varredura na função inteira: nenhuma chamada a loja, Scrape.do, `product-search` ou `resolve-link`). O mecanismo de tirar do ar funciona (`expired` é respeitado, e `never_expires` não isenta dele); o que falta é alcance. ⚠️ **Não tem saída barata:** subir o `BATCH` ou o cron dobra as chamadas de loja, e o Scrape.do é Free (1.000/mês). A REVISÃO 45 escolheu **mostrar em vez de barrar** — a lista agora exibe a idade do preço. Decidir depois, com o número à vista: avisar sem barrar, pular produto muito velho no disparo, ou reler no disparo (o mais caro). Ideia não avaliada: botão "conferir agora" por produto — a `product-refresh` já aceita `productId`, mas exige `CRON_SECRET`/service role, então precisaria de um caminho autenticado no meio (mesma discussão da P2)~~ | 13/08 |
+| **P59** | 🟡 **Dois produtos de Mercado Livre ocupam vaga em TODA rodada da `product-refresh`, e um deles há 37 dias.** Medido em 13/08 nos `detalhes` de 9 dias de rodadas: os `desconhecidos` são sempre os mesmos dois, com o mesmo motivo (`MLB ID não encontrado no link`) — "Caixa 10 Máscaras Faciais Skincare Nutri" com `price_checked_at` **nulo desde 08/07**, e "Gloss Fran By Franciny Ehlke Liphoney Mel" parado em `02/08 09:00`. Falha de leitura **não é carimbada** de propósito desde a v17 (erro transitório precisa voltar já), mas link permanentemente ilegível não é transitório: os dois queimavam 2 das 12 vagas do lote global e agora queimam **2 das 8** do balde de ML. **Saída não decidida:** carimbar após N falhas iguais, ou marcar o produto como link inválido e avisar a dona — a segunda é mais honesta com a cliente e mais cara de codar | 14/08 |
 | **P58** | 🔵 **Nenhuma trava de plano é observável na conta do Érico.** `prodMax()` devolve −1 para `IS_ADMIN` ou `is_vip`, e a conta dele é as duas coisas — medido em 13/08: a lista de produtos mostra "sem teto" e o aviso de upgrade nunca aparece. O mesmo vale para qualquer gate que trate admin/VIP como ilimitado. O ramo com teto foi exercitado no bundle servido forçando as flags em memória (saiu "107 de 15" com o bloqueio e o link para Assinatura, e o estado real foi restaurado), mas **isso prova o render, não o fluxo de um cliente**. Enquanto não houver uma **conta de teste num plano baixo**, toda tela com trava de plano é escrita às cegas. ⚠️ Não mexer nas flags da conta do Érico para testar | 13/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
