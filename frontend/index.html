@@ -8316,6 +8316,23 @@ function planTemRastreamento(){
   return !!(myFeatures().click_tracking);
 }
 
+// P60 — monta a previa (tags OG) a partir do produto achado no Link Rapido.
+// ⚠️ LIMITACAO CONHECIDA, registrada de proposito: isto e capturado no momento
+// em que o link e CRIADO. Se o usuario editar nome ou preco depois, a previa
+// segue com o valor da busca. Consertar isso exige regravar o short_link na
+// edicao, e nao foi feito.
+function prOgDoProduto(p){
+  if(!p)return null;
+  const nome=String(p.nome||"").trim();
+  if(!nome)return null;
+  const de=String(p.de||"").trim(),por=String(p.por||"").trim();
+  const desc=(de&&por)?`De R$ ${de} por R$ ${por}`:(por?`Por R$ ${por}`:"Oferta selecionada no Mega Links BR");
+  const foto=String(p.foto||"").trim();
+  // Foto enviada a mao vira `data:` URL, que NAO serve como og:image — o robo
+  // precisa de URL publica. Melhor previa sem imagem do que imagem quebrada.
+  return {title:nome,description:desc,image:/^https?:\/\//i.test(foto)?foto:""};
+}
+
 // Gera um código aleatório de 7 chars
 function gerarCode(){
   return Math.random().toString(36).slice(2,9);
@@ -8323,7 +8340,7 @@ function gerarCode(){
 
 // Encurta link: Elite/Premium → short link próprio com rastreamento
 //               Starter/Pro    → is.gd sem rastreamento (fallback)
-async function mlEncurtarLink(longUrl, postRef){
+async function mlEncurtarLink(longUrl, postRef, og){
   // Elite/Premium: grava no banco e retorna /r/{code}
   if(planTemRastreamento()&&SB&&CURRENT_USER?.id){
     try{
@@ -8333,7 +8350,17 @@ async function mlEncurtarLink(longUrl, postRef){
         long_url:longUrl,
         destination:longUrl,
         user_id:CURRENT_USER.id,
-        post_ref:postRef||null
+        post_ref:postRef||null,
+        // P60 — a previa que o WhatsApp mostra passa a ser NOSSA. Ate a v15 do
+        // `redirect` o link devolvia um 302 pelado, entao a previa era sempre da
+        // loja — e a Amazon bloqueia robo (captcha com status 200, medido na
+        // v14/v15 do product-refresh). Gravar isto aqui e o que permite a
+        // `redirect` v16 servir tag OG propria.
+        // Nulo quando quem chamou nao tem produto em maos: a funcao cai no 302
+        // de sempre e nada regride.
+        og_title:og&&og.title?og.title:null,
+        og_description:og&&og.description?og.description:null,
+        og_image:og&&og.image?og.image:null
       });
       if(!error){
         return `${window.location.origin}/r/${code}`;
@@ -8355,10 +8382,10 @@ async function mlEncurtarLink(longUrl, postRef){
 
 // Encurta apenas se ainda não for um short link próprio (evita /r/ apontando para /r/).
 // SEMPRE receber aqui o link JÁ afiliado com as credenciais do usuário logado.
-async function encurtarLinkFinal(longUrl,postRef){
+async function encurtarLinkFinal(longUrl,postRef,og){
   if(!longUrl)return longUrl;
   try{ if(new URL(longUrl,window.location.origin).pathname.startsWith("/r/"))return longUrl; }catch(e){}
-  try{ const s=await mlEncurtarLink(longUrl,postRef); return s||longUrl; }catch(e){ return longUrl; }
+  try{ const s=await mlEncurtarLink(longUrl,postRef,og); return s||longUrl; }catch(e){ return longUrl; }
 }
 
 /* ================= LINK RAPIDO ================= */
@@ -9627,7 +9654,7 @@ function prPreencherStep2(){
   // Encurta via is.gd para qualquer loja
   if(PR.linkAfil){
     if(_elAfil)_elAfil.placeholder="Encurtando link... ⏳";
-    mlEncurtarLink(PR.linkAfil).then(short=>{
+    mlEncurtarLink(PR.linkAfil,null,prOgDoProduto(p)).then(short=>{
       if(short){PR.linkAfil=short;if(_elAfil)_elAfil.value=short;prUpdatePreview();}
       else if(_elAfil){_elAfil.value=PR.linkAfil;_elAfil.placeholder="Cole o link do produto para gerar";}
     });

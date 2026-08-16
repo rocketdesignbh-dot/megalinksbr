@@ -40,6 +40,22 @@ server {
     proxy_pass https://$supabase_backend;
     proxy_set_header Host nxlfezpagporealqqbfj.supabase.co;
     proxy_ssl_server_name on;
+
+    # P60 — o gateway do Supabase NEUTRALIZA HTML. MEDIDO em 16/08 batendo
+    # direto em nxlfezpagporealqqbfj.supabase.co (server: cloudflare): a
+    # resposta da `redirect` v16 chega com o corpo certo (1457 bytes, as nossas
+    # tags OG) mas com `content-type: text/plain`, `x-content-type-options:
+    # nosniff` e `content-security-policy: default-src 'none'; sandbox`. O
+    # `cache-control` que a funcao mandou passa intacto, entao a reescrita e
+    # seletiva: e a protecao anti-phishing do dominio compartilhado *.supabase.co.
+    # Com `text/plain` + nosniff o WhatsApp nao le tag OG nenhuma, e a previa
+    # propria nao serve para nada.
+    # Aqui, no NOSSO dominio, a resposta volta a ser HTML. Vale para o 302 do
+    # usuario de verdade tambem, que nao tem corpo — inofensivo.
+    proxy_hide_header Content-Type;
+    proxy_hide_header X-Content-Type-Options;
+    proxy_hide_header Content-Security-Policy;
+    add_header Content-Type "text/html; charset=utf-8" always;
   }
 
   location / {
