@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 48 — 14/08/2026 (manhã).** Se o número aqui não for o mais alto que você
+> **REVISÃO 49 — 16/08/2026 (tarde).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,95 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 49 — 16/08/2026 (tarde) — a prévia do link no WhatsApp nunca foi nossa,
+era da Amazon. Agora é nossa. E robô de prévia parou de contar como clique.**
+
+| | |
+|---|---|
+| Frontend | `frontend/index.html` + `frontend/Dockerfile` (nginx) — **exige Deploy** |
+| Banco | `short_links`: `og_title`, `og_description`, `og_image` |
+| Edge Functions | `redirect` **v16** (contador do Supabase: 16) |
+
+### O sintoma que o Érico trouxe
+
+Link do Link Rápido enviado no WhatsApp não mostrava informação nenhuma do
+produto. Colado **duas vezes seguidas** por engano, mostrou.
+
+### A causa, medida — e não é o nosso link
+
+O `link_clicks` registra todo acesso com user-agent. O robô do WhatsApp
+(`WhatsApp/2.2631.102 W`) **bateu no nosso link cinco vezes**, 11:59:27 a
+12:00:38 — o minuto exato das capturas. O link sempre funcionou.
+
+O que não funcionava era o que vinha depois: até a **v15** a `redirect` devolvia
+um **302 pelado, sem uma única tag OG própria**. Então a prévia que o WhatsApp
+mostrava nunca foi nossa — era a da **Amazon**, colhida depois do redirect. E a
+Amazon é exatamente a loja que este projeto já mediu bloqueando cliente que não é
+navegador (v14/v15 do `product-refresh`: *captcha volta com status 200*). Cara ou
+coroa, e a moeda não é nossa.
+
+**O link duplicado não funcionou por ser duplicado.** Do nosso lado os dois são o
+mesmo link: o nginx faz `rewrite ^/r/(.*)$` e a função pega o **último** pedaço
+do caminho — `s2310c5` nos dois casos, e por isso todos os cliques caíram no
+mesmo código. O que mudou foi o **cache do WhatsApp**: string diferente, chave
+diferente, busca limpa em vez da prévia vazia já guardada.
+
+⚠️ **Registro honesto:** não foi separado, tentativa a tentativa, quanto é
+bloqueio da Amazon e quanto é cache do WhatsApp. As duas explicam o observado.
+
+### 🔴 O achado de lado: um quarto dos cliques é robô
+
+O `redirect` gravava `link_clicks` e incrementava `clicks` **para qualquer
+requisição**, robô inclusive. Medido em 16/08:
+
+| | |
+|---|---|
+| cliques registrados na base | **140** |
+| robô de prévia | **36 — 25,7%** |
+| no código `s2310c5` | `clicks = 6`, sendo **5 robô e 1 gente** |
+
+A v16 só grava para gente. **Histórico não foi mexido** — limpar o passado é
+outra decisão, e o Érico ainda não a tomou.
+
+### 🔴 A armadilha que quase matou o conserto: o Supabase neutraliza HTML
+
+A v16 foi deployada e a prévia foi provada ponta a ponta com `pg_net`, batendo no
+domínio real com o user-agent do WhatsApp:
+
+| quem | resultado |
+|---|---|
+| `WhatsApp/2.2631.102 W` | **200**, 1457 bytes, `og:title` e `og:image` **nossos**, apóstrofo escapado como `&#39;` |
+| iPhone (gente) | **302** para o destino, e **1 linha** em `link_clicks` |
+| robô em `link_clicks` | **nenhuma linha** ✅ |
+
+**Mas o cabeçalho denunciou o problema:** a resposta chega com
+`content-type: text/plain`, `x-content-type-options: nosniff` e
+`content-security-policy: default-src 'none'; sandbox`. Batendo **direto** em
+`nxlfezpagporealqqbfj.supabase.co` (server `cloudflare`), o mesmo trio — então
+não é o nosso nginx: é o gateway do Supabase neutralizando HTML, proteção
+anti-phishing do domínio compartilhado `*.supabase.co`. O `cache-control` que a
+função mandou passa intacto, o que mostra que a reescrita é **seletiva**.
+
+**Com `text/plain` + `nosniff` o WhatsApp não lê tag OG nenhuma.** Servir a
+prévia certa não bastava. O `location /r/` do nginx passa a desfazer isso no
+nosso domínio: `proxy_hide_header` nos três e `add_header Content-Type
+"text/html; charset=utf-8" always`.
+
+Este é o caso exemplar da regra da casa: **status 200 não é prova.** O corpo
+estava perfeito e a coisa não teria funcionado.
+
+### ⚠️ Não medido
+
+* **O conserto do nginx.** Exige Deploy no EasyPanel, que é ação do Érico. Até
+  ele acontecer, a prévia continua como estava: dependendo da Amazon.
+* Se o WhatsApp aceita a prévia depois do Deploy — só o envio real prova.
+* Links **antigos** não têm `og_title` e caem no 302 da v15 de propósito.
+* Só o **Link Rápido** grava a prévia hoje. `send-post` e `group-blast` usam o
+  mesmo `encurtarLinkFinal`, que já aceita o parâmetro, mas nenhum dos dois passa
+  nada ainda.
+
+---
 
 **REVISÃO 48 — 14/08/2026 (manhã) — o `BATCH` global virou ORÇAMENTO POR LOJA
 (`product-refresh` v21, no ar e medida em produção). E a base contra a qual a P57
@@ -3972,6 +4061,8 @@ código não relacionado.
 | ~~P56~~ | ✅ **FECHADA 13/08 de madrugada, MEDIDA EM PRODUÇÃO E LOGADO.** Paginação contra o banco de verdade com 30 linhas de teste: total 30 por `count:"exact"`, página 1 com 20 ("1–20 de 30"), página 2 com 10 linhas diferentes, **badge 24** — nem 20 nem 30, que é a prova do conserto. Seleção atravessou páginas (10 + 20 = 30, "Aprovar (24)"), atalho da fila inteira funcionou, expirados saíram riscados com o aviso de preço. **E o cron disparou sozinho:** `jobid 34` `succeeded` às `04:07:00.125637`, com o `expired_at` da isca em `04:07:00.125670` — mesmo instante, não foi chamada à mão. Linhas de teste apagadas; `clone_posts` de volta a 1 linha e 0 pendentes. Registro original abaixo. ~~🟡 **A REVISÃO 43 não foi vista em produção.** Paginação medida com dados em memória — `range()` e `count:"exact"` contra o PostgREST **não foram executados**; e o cron `expirar-clone-posts` (jobid 34, `7 * * * *`) **nunca disparou sozinho**, a função foi chamada à mão. Exige Deploy no EasyPanel e, depois, uma leitura logada com fila de 20+ linhas: conferir que o badge bate com a contagem do banco (era esse o defeito), que a página 2 traz linhas diferentes, e que a rodada automática do cron carimba. ⚠️ **O banco já está mudado** — a migração e o cron foram aplicados antes do frontend subir. Isso é seguro (coluna nova com default, status novo que nenhuma tela antiga escreve), mas significa que **clone pendente já começa a expirar mesmo com o frontend velho no ar**, e o frontend velho não sabe desenhar `expired`: ele cai no `badge[c.status]||c.status` e escreve a palavra crua | 12/08 |
 
 | **P57** | 🟡 **PARCIALMENTE RESOLVIDA NA REVISÃO 48 — o orçamento por loja foi implementado e está no ar (`product-refresh` v21), mas a calibragem ficou sem como ser medida.** O `BATCH = 12` global virou três baldes por regime de custo: `sem_verificador` 20, `mercado_livre` 8, `amazon` 45, cada um com a cota da P34 por dentro, processados nessa ordem para que um corte por `DEADLINE_MS` nunca deixe o ML sem rodada. **Medido na rodada real de 14/08 09:00 UTC:** o balde de ML entregou exatamente os 8 previstos (5 novos + 3 antigos) em 17,1 s, sem corte por tempo, e o log do PostgREST mostra as seis consultas saindo com os filtros e limites certos. ⚠️ **O que continua aberto:** os baldes `amazon` (45) e `sem_verificador` (20) **nunca tiveram um candidato** — a base do Érico (57 Amazon, 49 Shopee) foi apagada por ele em 13/08, e a plataforma hoje tem 41 produtos, todos de ML. Os dois números foram dimensionados contra uma base que não existe mais, então **o formato está provado e a calibragem não**. Falta medir, quando houver Amazon de novo: se 45 leituras cabem nos 70 s (a conta a 1,2 s/leitura dá ~54 s, apertado — a expectativa é corte por tempo em torno de 40, o que é auto-corrigível) e se o volume eleva captcha. 🔴 **E a premissa de captcha da REVISÃO 47 caiu:** medido nos `detalhes` de 9 dias, **zero captchas** — os 2–3 `desconhecidos` diários são dois links de ML ilegíveis, agora na P59. Registro original abaixo. ~~🔴 **A conferência de preço não cobre a base, e o desenho não escala. AGRAVADA NA REVISÃO 46 com a distribuição real** — a média escondia o tamanho: **3 de 107** conferidos nas últimas 24h; **27 nunca**; **32** entre 3 e 7 dias; **28** com mais de 7. Ou seja **87 dos 107** vão pro grupo com preço de 3 dias ou mais. E o `BATCH = 12` é **global**: as consultas de candidatos não filtram por `user_id`, então os 12 diários são repartidos entre os **148** produtos da plataforma — com mais usuários, a cobertura de cada um cai sem nenhum aviso na tela. 🔴 **CORREÇÃO DA REVISÃO 47 — a premissa de custo estava errada:** conferir **não** custa o mesmo em toda loja. A `consultarAmazon` faz `fetch` **direto**, sem Scrape.do, **sem crédito**; só o Mercado Livre consome. Na base do Érico são **57 Amazon, 49 Shopee (sem verificador) e 1 ML** — e ele tem token próprio. Conferir a base inteira dele custaria praticamente nada. Com `DEADLINE_MS = 70000` e rodadas gastando 9,5–27 s, há ~5× de folga de relógio. **O próximo passo é orçamento POR LOJA em vez de um `BATCH` global** (Amazon com lote grande, ML mantendo `MAX_POOL_POR_RODADA = 5`) — combinado com o Érico em 13/08 e **ainda não feito**. Risco a medir junto: mais leituras da Amazon podem elevar a taxa de captcha, que hoje já aparece como 2–3 `desconhecidos` por rodada; o código não afirma nada sem `id="productTitle"`, então falha para o lado seguro. Registro original abaixo. ~~🟠 Medido em 13/08 na conta do Érico: **107 produtos, 27 nunca conferidos, idade média do carimbo 5,3 dias, o mais antigo de 03/08**. A `product-refresh` roda 1x/dia com `BATCH = 12` — varredura completa levaria ~9 dias e produto novo fura a fila. E a **`send-post` não relê a loja**: publica o `price` gravado (varredura na função inteira: nenhuma chamada a loja, Scrape.do, `product-search` ou `resolve-link`). O mecanismo de tirar do ar funciona (`expired` é respeitado, e `never_expires` não isenta dele); o que falta é alcance. ⚠️ **Não tem saída barata:** subir o `BATCH` ou o cron dobra as chamadas de loja, e o Scrape.do é Free (1.000/mês). A REVISÃO 45 escolheu **mostrar em vez de barrar** — a lista agora exibe a idade do preço. Decidir depois, com o número à vista: avisar sem barrar, pular produto muito velho no disparo, ou reler no disparo (o mais caro). Ideia não avaliada: botão "conferir agora" por produto — a `product-refresh` já aceita `productId`, mas exige `CRON_SECRET`/service role, então precisaria de um caminho autenticado no meio (mesma discussão da P2)~~ | 13/08 |
+| **P60** | 🟡 **A prévia do link só é nossa depois do Deploy, e ela congela no momento da criação.** A `redirect` **v16** e as colunas `og_*` de `short_links` estão no ar e provadas com `pg_net` (robô recebe as tags OG certas; gente recebe 302; robô não vira clique). **Falta o Deploy do frontend**, sem o qual o conserto não vale: o gateway do Supabase devolve todo HTML como `text/plain` + `nosniff` + CSP `sandbox` (medido batendo direto no `supabase.co`, server `cloudflare`), e com isso o WhatsApp não lê tag nenhuma — quem desfaz é o `proxy_hide_header`/`add_header` novo no `location /r/`. ⚠️ **Três limites conhecidos e não resolvidos:** (a) a prévia é capturada quando o link é **criado**; se o usuário editar nome ou preço depois, o cartão segue com o valor da busca — consertar exige regravar o `short_link` na edição; (b) só o **Link Rápido** passa os dados, o `send-post` e o `group-blast` chamam o mesmo `encurtarLinkFinal` mas não passam nada, então post de grupo continua dependendo da loja; (c) link antigo não tem `og_title` e cai no 302 de propósito. **E não foi separado** quanto da falha original era bloqueio da Amazon e quanto era cache do WhatsApp | 16/08 |
+| **P61** | 🔵 **Um quarto dos cliques registrados é robô de prévia, e o histórico continua sujo.** Medido em 16/08: **140** cliques em `link_clicks`, **36 de robô (25,7%)**; no código `s2310c5` eram 6 cliques com **5 robô e 1 gente**. A `redirect` v16 parou de gravar robô, então daqui pra frente o número é limpo — mas **todo dado anterior segue inflado**, e é ele que a tela de rastreamento mostra. Recalcular `short_links.clicks` a partir do `link_clicks` sem robô é uma linha de SQL; o Érico ainda não decidiu se quer mexer em dado gravado. Enquanto não decidir, **nenhum número de clique anterior a 16/08 deve embasar decisão** | 16/08 |
 | **P59** | 🟡 **Dois produtos de Mercado Livre ocupam vaga em TODA rodada da `product-refresh`, e um deles há 37 dias.** Medido em 13/08 nos `detalhes` de 9 dias de rodadas: os `desconhecidos` são sempre os mesmos dois, com o mesmo motivo (`MLB ID não encontrado no link`) — "Caixa 10 Máscaras Faciais Skincare Nutri" com `price_checked_at` **nulo desde 08/07**, e "Gloss Fran By Franciny Ehlke Liphoney Mel" parado em `02/08 09:00`. Falha de leitura **não é carimbada** de propósito desde a v17 (erro transitório precisa voltar já), mas link permanentemente ilegível não é transitório: os dois queimavam 2 das 12 vagas do lote global e agora queimam **2 das 8** do balde de ML. **Saída não decidida:** carimbar após N falhas iguais, ou marcar o produto como link inválido e avisar a dona — a segunda é mais honesta com a cliente e mais cara de codar | 14/08 |
 | **P58** | 🔵 **Nenhuma trava de plano é observável na conta do Érico.** `prodMax()` devolve −1 para `IS_ADMIN` ou `is_vip`, e a conta dele é as duas coisas — medido em 13/08: a lista de produtos mostra "sem teto" e o aviso de upgrade nunca aparece. O mesmo vale para qualquer gate que trate admin/VIP como ilimitado. O ramo com teto foi exercitado no bundle servido forçando as flags em memória (saiu "107 de 15" com o bloqueio e o link para Assinatura, e o estado real foi restaurado), mas **isso prova o render, não o fluxo de um cliente**. Enquanto não houver uma **conta de teste num plano baixo**, toda tela com trava de plano é escrita às cegas. ⚠️ Não mexer nas flags da conta do Érico para testar | 13/08 |
 
