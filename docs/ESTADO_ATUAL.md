@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 52 — 17/08/2026 (manhã).** Se o número aqui não for o mais alto que você
+> **REVISÃO 53 — 17/08/2026 (madrugada).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1643,7 +1643,86 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
-**REVISÃO 52 — 17/08/2026 (manhã) — P62 CODADA: o link de afiliado da Shopee passa
+**REVISÃO 53 — 17/08/2026 (madrugada, 00:51 BRT) — só medição. O `sub_id` da P62
+está NO AR e foi medido em produção, com controle negativo. Nenhuma linha de
+código.**
+
+### 🔴 Correção de data da REVISÃO 52
+
+Ela se datou como **"17/08 (manhã)"**. Está errado: o relógio do banco lido na
+mesma sessão dizia `2026-08-17 00:49` em São Paulo — **madrugada**. É o mesmo
+formato da correção da REVISÃO 40 sobre a 39 e da 30 sobre a 29, agora em escala
+de horas em vez de dias. O cabeçalho da 52 foi corrigido para
+"madrugada, ~00:30 BRT". **A regra continua a mesma: não inferir data, ler.**
+
+### ✅ O Deploy pegou — e a prova não é o build
+
+| medida | resultado |
+|---|---|
+| `main` | `60bd5b3` (merge do PR #8). O `frontend/index.html` dele bate por **sha256** com o arquivo local |
+| bundle **servido** pelo domínio, buscado com `cache:'reload'` + query de bust | contém `function shopeeSubId(`, `const destino=shopeeSubId(longUrl,code)` e `destination:destino` |
+| `destination:longUrl` (o código velho) | **ausente** do arquivo servido |
+| controle — `prOgDoProduto` (peça da REVISÃO 49) | **presente**, ou seja o bloco não morreu no meio |
+| `shopeeSubId` executada **no bundle servido**, não no sandbox | `an_redir` → sai com `sub_id`, prefixo intacto · link de ML → **idêntico** |
+
+O `cache:'reload'` é obrigatório aqui e está no aprendizado de 07/08: sem ele,
+"prova no navegador" e "prova do cache do navegador" são a mesma imagem.
+
+### ✅ A prova por comportamento — link real, gerado pelo Érico no Link Rápido
+
+**Baseline registrado ANTES**, às 00:49 BRT: `short_links` tinha **105** linhas de
+`an_redir` e **0** com `sub_id`; a mais recente era de 16/08 21:53 UTC.
+
+| link | `an_redir`? | `sub_id` gravado | bate com o `code`? | `long_url` contaminado? | bytes a mais |
+|---|---|---|---|---|---|
+| **`xzadtgh`** (Shopee, 00:51:50 BRT) | **sim** | **`xzadtgh`** | **sim** | **não** | **+15** — exatamente `&sub_id=xzadtgh` |
+| `d9q7va7` (Amazon, 00:50:33 BRT) | não | — | — | não | **0** — `destination` idêntico ao `long_url` |
+
+🔎 **O `d9q7va7` entrou por engano e virou o melhor controle da medição.** O
+primeiro link gerado foi de **Amazon**, não de Shopee — o ramo do `sub_id` nem é
+alcançado por ele. Lido como "não funcionou" seria a mesma classe de erro do
+"derruba minha previsão" de 01/08: **resultado de um teste que não exercita o
+ramo em questão não é refutação dele.** Como controle negativo ele vale muito:
+loja que não é Shopee passa **intacta**, com `destination = long_url`.
+
+E o `long_url` do `xzadtgh` ficou **sem** `sub_id`, que é a decisão da REVISÃO 52
+valendo na prática — a chave de reuso da `send-post`/`group-blast`/`ml-short-link`
+continua sendo a URL pedida.
+
+### ✅ E o clique chega à Shopee COM o `sub_id` — medido no domínio real
+
+Gravar o campo no banco não prova que quem clica sai com ele. Medido com `pg_net`
+batendo em `https://www.megalinksbr.com.br/r/xzadtgh`:
+
+| medida | resultado |
+|---|---|
+| cabeçalho `Location` da nossa resposta | `s.shopee.com.br/an_redir?…&sub_id=xzadtgh` ✅ |
+| `link_clicks` do `xzadtgh` depois da chamada | **0 linhas** |
+| `short_links.clicks` do `xzadtgh` | **0** |
+
+O user-agent usado foi `facebookexternalhit/1.1` **de propósito**, por dois
+motivos: não sujar o contador de cliques de um link real, e reexercitar de lado o
+filtro de robô da `redirect` v16 — que segurou, 0 de 0.
+
+### ⚠️ O que continua NÃO provado — e é o que fecha a P62
+
+**A Shopee lendo o campo.** Tudo acima é sobre o nosso lado: montamos a URL
+certa, gravamos o valor certo e redirecionamos com ele. Nada disso diz que o
+`sub_id` aparece no relatório de vendas dela. Isso exige um **clique e um pedido
+reais**, com o atraso natural do relatório (dados atualizados diariamente às
+10:30), e depende do Érico. Até essa leitura a **P62 fica 🟡**.
+
+Declarar a P62 fechada por ter visto `sub_id=xzadtgh` no nosso banco seria a
+forma exata do *"status 200 não é prova"*: campo certo do nosso lado não é
+atribuição do outro lado.
+
+⚠️ Também não foi exercitado: plano **sem rastreamento** (Starter/Pro), que cai no
+`ml-short-link`/is.gd e **não tem `code`** — logo não tem `sub_id`. Não é
+regressão, é o mesmo comportamento de antes do patch.
+
+---
+
+**REVISÃO 52 — 17/08/2026 (madrugada, ~00:30 BRT) — P62 CODADA: o link de afiliado da Shopee passa
 a levar `sub_id` com o código do nosso short link. E a "ordem de operações" que o
 bilhete deixou como decisão pendente não existia.**
 
@@ -4244,7 +4323,7 @@ código não relacionado.
 
 | **P57** | 🟡 **PARCIALMENTE RESOLVIDA NA REVISÃO 48 — o orçamento por loja foi implementado e está no ar (`product-refresh` v21), mas a calibragem ficou sem como ser medida.** O `BATCH = 12` global virou três baldes por regime de custo: `sem_verificador` 20, `mercado_livre` 8, `amazon` 45, cada um com a cota da P34 por dentro, processados nessa ordem para que um corte por `DEADLINE_MS` nunca deixe o ML sem rodada. **Medido na rodada real de 14/08 09:00 UTC:** o balde de ML entregou exatamente os 8 previstos (5 novos + 3 antigos) em 17,1 s, sem corte por tempo, e o log do PostgREST mostra as seis consultas saindo com os filtros e limites certos. ⚠️ **O que continua aberto:** os baldes `amazon` (45) e `sem_verificador` (20) **nunca tiveram um candidato** — a base do Érico (57 Amazon, 49 Shopee) foi apagada por ele em 13/08, e a plataforma hoje tem 41 produtos, todos de ML. Os dois números foram dimensionados contra uma base que não existe mais, então **o formato está provado e a calibragem não**. Falta medir, quando houver Amazon de novo: se 45 leituras cabem nos 70 s (a conta a 1,2 s/leitura dá ~54 s, apertado — a expectativa é corte por tempo em torno de 40, o que é auto-corrigível) e se o volume eleva captcha. 🔴 **E a premissa de captcha da REVISÃO 47 caiu:** medido nos `detalhes` de 9 dias, **zero captchas** — os 2–3 `desconhecidos` diários são dois links de ML ilegíveis, agora na P59. Registro original abaixo. ~~🔴 **A conferência de preço não cobre a base, e o desenho não escala. AGRAVADA NA REVISÃO 46 com a distribuição real** — a média escondia o tamanho: **3 de 107** conferidos nas últimas 24h; **27 nunca**; **32** entre 3 e 7 dias; **28** com mais de 7. Ou seja **87 dos 107** vão pro grupo com preço de 3 dias ou mais. E o `BATCH = 12` é **global**: as consultas de candidatos não filtram por `user_id`, então os 12 diários são repartidos entre os **148** produtos da plataforma — com mais usuários, a cobertura de cada um cai sem nenhum aviso na tela. 🔴 **CORREÇÃO DA REVISÃO 47 — a premissa de custo estava errada:** conferir **não** custa o mesmo em toda loja. A `consultarAmazon` faz `fetch` **direto**, sem Scrape.do, **sem crédito**; só o Mercado Livre consome. Na base do Érico são **57 Amazon, 49 Shopee (sem verificador) e 1 ML** — e ele tem token próprio. Conferir a base inteira dele custaria praticamente nada. Com `DEADLINE_MS = 70000` e rodadas gastando 9,5–27 s, há ~5× de folga de relógio. **O próximo passo é orçamento POR LOJA em vez de um `BATCH` global** (Amazon com lote grande, ML mantendo `MAX_POOL_POR_RODADA = 5`) — combinado com o Érico em 13/08 e **ainda não feito**. Risco a medir junto: mais leituras da Amazon podem elevar a taxa de captcha, que hoje já aparece como 2–3 `desconhecidos` por rodada; o código não afirma nada sem `id="productTitle"`, então falha para o lado seguro. Registro original abaixo. ~~🟠 Medido em 13/08 na conta do Érico: **107 produtos, 27 nunca conferidos, idade média do carimbo 5,3 dias, o mais antigo de 03/08**. A `product-refresh` roda 1x/dia com `BATCH = 12` — varredura completa levaria ~9 dias e produto novo fura a fila. E a **`send-post` não relê a loja**: publica o `price` gravado (varredura na função inteira: nenhuma chamada a loja, Scrape.do, `product-search` ou `resolve-link`). O mecanismo de tirar do ar funciona (`expired` é respeitado, e `never_expires` não isenta dele); o que falta é alcance. ⚠️ **Não tem saída barata:** subir o `BATCH` ou o cron dobra as chamadas de loja, e o Scrape.do é Free (1.000/mês). A REVISÃO 45 escolheu **mostrar em vez de barrar** — a lista agora exibe a idade do preço. Decidir depois, com o número à vista: avisar sem barrar, pular produto muito velho no disparo, ou reler no disparo (o mais caro). Ideia não avaliada: botão "conferir agora" por produto — a `product-refresh` já aceita `productId`, mas exige `CRON_SECRET`/service role, então precisaria de um caminho autenticado no meio (mesma discussão da P2)~~ | 13/08 |
 | **P60** | 🟠 **A prévia foi ligada na TELA ERRADA e não funciona onde o Érico usa.** Medido em 17/08: os links gerados depois do Deploy (`mkp7lg5`, `5egzhll`) saíram com os três campos `og_*` **vazios**, e não é cache — o `index.html` servido contém as marcas do código novo. A causa: há dois caminhos que criam short link e a prévia foi ligada só no **Postar Rápido** (`prPreencherStep2`, que tem `PR.produto` em mãos). O Érico usa o **Link Rápido** (`lrGerar` → `encurtarLinkFinal(afil, null)`), que só chama a `resolve-link` e encurta — **essa tela nunca teve título, preço nem foto**, então não é falta de passar parâmetro: não há dado para passar. ⚠️ **A saída não é trivial e não foi decidida:** para o Link Rápido ter prévia ele precisa buscar o produto depois de resolver o link, o que custa uma leitura de loja (crédito no ML, credencial oficial na Shopee, captcha na Amazon). A infraestrutura em si continua **provada** — robô recebe `text/html` com as tags OG nossas, gente recebe 302, robô não vira clique. O que falta é dado na tela certa. Registro original abaixo. ~~🟢 **A infraestrutura da prévia está PROVADA em produção; falta o envio real.** Deploy feito em 17/08 e medido com `pg_net` no domínio real: robô do WhatsApp e `facebookexternalhit` recebem **200 com `content-type: text/html; charset=utf-8`** e as tags OG nossas, sem `nosniff` e sem CSP `sandbox` — os três cabeçalhos que o gateway do Supabase injetava sumiram no nosso domínio. Gente recebe 302, e nenhum dos dois robôs virou clique. **O que ainda não foi observado é o WhatsApp desenhando o cartão** — servimos o certo, mas quem decide é ele, e só um envio de link NOVO do Link Rápido prova (link antigo não tem `og_title` e o WhatsApp ainda tem a prévia vazia em cache). ⚠️ **Três limites conhecidos e não resolvidos:** (a) a prévia é capturada quando o link é **criado**; se o usuário editar nome ou preço depois, o cartão segue com o valor da busca — consertar exige regravar o `short_link` na edição; (b) só o **Link Rápido** passa os dados, o `send-post` e o `group-blast` chamam o mesmo `encurtarLinkFinal` mas não passam nada, então post de grupo continua dependendo da loja; (c) link antigo não tem `og_title` e cai no 302 de propósito. **E não foi separado** quanto da falha original era bloqueio da Amazon e quanto era cache do WhatsApp | 16/08 |
-| **P62** | 🟡 **CODADA EM 17/08 (REVISÃO 52), NÃO DEPLOYADA E NÃO PROVADA.** O `mlEncurtarLink` passa a gravar `destination` com `sub_id=<code>` quando o link é um `s.shopee.com.br/an_redir` — função nova `shopeeSubId`, medida em 9 casos com a função lida do arquivo patchado (1 muda, 8 ficam iguais). **A "ordem de operações" que o bilhete deixou como decisão pendente não existia:** o `gerarCode()` roda na linha anterior ao `insert`, então o `code` já está em mãos antes de o destino ser gravado — sem `UPDATE` depois e sem tocar nenhuma das ~10 chamadas do `prGerarLinkAfil`. Decidido com o Érico em 17/08: vale para **toda tela que encurta** (o patch mora no encurtador) e o `sub_id` leva **só o `code`**. O `long_url` **não** recebe o `sub_id` porque é a chave de reuso da `send-post`/`group-blast`/`ml-short-link`. ⚠️ **Falta: push, Deploy, ler um link novo em `short_links` (baseline: os 10 `an_redir` de 16/08 estão sem `sub_id`) e — a prova que fecha — o `sub_id` aparecer no relatório de vendas da Shopee depois de um clique e um pedido reais.** Registro original abaixo. ~~🔵 **Não dá para saber qual link gerou qual venda na Shopee — só cruzando horário na mão.** Foi o que esta sessão fez para responder ao Érico em 17/08: comparar o `clicked_at` do `link_clicks` com o "Período dos Cliques" do relatório da Shopee, minuto a minuto. Funciona uma vez, não escala, e não serve para abrir chamado com volume. O `s.shopee.com.br/an_redir` aceita `sub_id`; passando o `code` do short link, o próprio relatório da Shopee passa a identificar o link de origem. **Autorizado pelo Érico em 17/08 e adiado de propósito para a próxima sessão.** Mexe no `prGerarLinkAfil` (ramo Shopee) do frontend, logo exige push e Deploy~~ | 17/08 |
+| **P62** | 🟢 **NO AR E MEDIDA EM PRODUÇÃO EM 17/08 (REVISÃO 53) DO NOSSO LADO — segue 🟡 até a Shopee confirmar.** Link real `xzadtgh` gerado pelo Érico no Link Rápido às 00:51:50 BRT: `destination` com **`sub_id=xzadtgh`**, batendo com o `code` da própria linha, `long_url` **sem** `sub_id`, **+15 bytes** exatos. Controle negativo no mesmo lote: `d9q7va7`, de Amazon, saiu **intacto** (`destination = long_url`). E o clique sai com o campo: `pg_net` no domínio real devolveu `Location` apontando para o `an_redir` **com** o `sub_id`, sem gravar clique (user-agent de robô, de propósito). Baseline antes: 105 `an_redir` na base, **0** com `sub_id`. ⚠️ **O que falta é o único pedaço que não é nosso: o `sub_id` aparecer no RELATÓRIO DE VENDAS da Shopee depois de um clique e um pedido reais** (relatório atualizado diariamente às 10:30). Enquanto isso não for lido, a pendência não fecha — campo certo do nosso lado não é atribuição do outro lado. Registro da REVISÃO 52 abaixo. ~~🟡 **CODADA EM 17/08 (REVISÃO 52), NÃO DEPLOYADA E NÃO PROVADA.** O `mlEncurtarLink` passa a gravar `destination` com `sub_id=<code>` quando o link é um `s.shopee.com.br/an_redir` — função nova `shopeeSubId`, medida em 9 casos com a função lida do arquivo patchado (1 muda, 8 ficam iguais). **A "ordem de operações" que o bilhete deixou como decisão pendente não existia:** o `gerarCode()` roda na linha anterior ao `insert`, então o `code` já está em mãos antes de o destino ser gravado — sem `UPDATE` depois e sem tocar nenhuma das ~10 chamadas do `prGerarLinkAfil`. Decidido com o Érico em 17/08: vale para **toda tela que encurta** (o patch mora no encurtador) e o `sub_id` leva **só o `code`**. O `long_url` **não** recebe o `sub_id` porque é a chave de reuso da `send-post`/`group-blast`/`ml-short-link`. ⚠️ **Falta: push, Deploy, ler um link novo em `short_links` (baseline: os 10 `an_redir` de 16/08 estão sem `sub_id`) e — a prova que fecha — o `sub_id` aparecer no relatório de vendas da Shopee depois de um clique e um pedido reais.**~~ Registro original abaixo. ~~🔵 **Não dá para saber qual link gerou qual venda na Shopee — só cruzando horário na mão.** Foi o que esta sessão fez para responder ao Érico em 17/08: comparar o `clicked_at` do `link_clicks` com o "Período dos Cliques" do relatório da Shopee, minuto a minuto. Funciona uma vez, não escala, e não serve para abrir chamado com volume. O `s.shopee.com.br/an_redir` aceita `sub_id`; passando o `code` do short link, o próprio relatório da Shopee passa a identificar o link de origem. **Autorizado pelo Érico em 17/08 e adiado de propósito para a próxima sessão.** Mexe no `prGerarLinkAfil` (ramo Shopee) do frontend, logo exige push e Deploy~~ | 17/08 |
 | **P61** | 🔵 **Um quarto dos cliques registrados é robô de prévia, e o histórico continua sujo.** Medido em 16/08: **140** cliques em `link_clicks`, **36 de robô (25,7%)**; no código `s2310c5` eram 6 cliques com **5 robô e 1 gente**. A `redirect` v16 parou de gravar robô, então daqui pra frente o número é limpo — mas **todo dado anterior segue inflado**, e é ele que a tela de rastreamento mostra. Recalcular `short_links.clicks` a partir do `link_clicks` sem robô é uma linha de SQL; o Érico ainda não decidiu se quer mexer em dado gravado. Enquanto não decidir, **nenhum número de clique anterior a 16/08 deve embasar decisão** | 16/08 |
 | **P59** | 🟡 **Dois produtos de Mercado Livre ocupam vaga em TODA rodada da `product-refresh`, e um deles há 37 dias.** Medido em 13/08 nos `detalhes` de 9 dias de rodadas: os `desconhecidos` são sempre os mesmos dois, com o mesmo motivo (`MLB ID não encontrado no link`) — "Caixa 10 Máscaras Faciais Skincare Nutri" com `price_checked_at` **nulo desde 08/07**, e "Gloss Fran By Franciny Ehlke Liphoney Mel" parado em `02/08 09:00`. Falha de leitura **não é carimbada** de propósito desde a v17 (erro transitório precisa voltar já), mas link permanentemente ilegível não é transitório: os dois queimavam 2 das 12 vagas do lote global e agora queimam **2 das 8** do balde de ML. **Saída não decidida:** carimbar após N falhas iguais, ou marcar o produto como link inválido e avisar a dona — a segunda é mais honesta com a cliente e mais cara de codar | 14/08 |
 | **P58** | 🔵 **Nenhuma trava de plano é observável na conta do Érico.** `prodMax()` devolve −1 para `IS_ADMIN` ou `is_vip`, e a conta dele é as duas coisas — medido em 13/08: a lista de produtos mostra "sem teto" e o aviso de upgrade nunca aparece. O mesmo vale para qualquer gate que trate admin/VIP como ilimitado. O ramo com teto foi exercitado no bundle servido forçando as flags em memória (saiu "107 de 15" com o bloqueio e o link para Assinatura, e o estado real foi restaurado), mas **isso prova o render, não o fluxo de um cliente**. Enquanto não houver uma **conta de teste num plano baixo**, toda tela com trava de plano é escrita às cegas. ⚠️ Não mexer nas flags da conta do Érico para testar | 13/08 |
