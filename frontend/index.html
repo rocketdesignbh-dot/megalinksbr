@@ -8311,6 +8311,35 @@ function prGerarLinkAfil(link,loja){
   }catch(e){return link+"?ref="+id;}
 }
 
+// P62 — sub_id no an_redir da Shopee: e o que faz o relatorio de vendas da
+// Shopee dizer QUAL link gerou o pedido. Ate aqui so dava para cruzar o
+// `clicked_at` do `link_clicks` com o "Periodo dos Cliques" do relatorio, na
+// mao, minuto a minuto (feito em 17/08 no codigo `4h8wmie`) — funciona uma vez
+// e nao escala.
+//
+// O `sub_id` aceita ate 5 valores separados por hifen e cada um vira uma
+// coluna Sub_id1..Sub_id5 no relatorio. Vai so o `code` do nosso short link, no
+// primeiro campo: ele ja amarra em `link_clicks`, no produto e no dono. Um
+// segundo vocabulario (nome de tela, por exemplo) seria a divergencia
+// mercadolivre/mercado_livre da P31 outra vez, agora em nome de tela.
+//
+// ⚠️ NAO reserializa a URL, de proposito. `new URL(...).toString()` reescreveria
+// o `origin_link` com as regras do URLSearchParams (espaco vira `+`), e o
+// `origin_link` foi montado com `encodeURIComponent` la no `prGerarLinkAfil`.
+// O append por string preserva byte a byte o que ja estava la; o `new URL` aqui
+// serve so para PERGUNTAR se e um an_redir, nunca para remontar.
+function shopeeSubId(longUrl,code){
+  if(!longUrl||!code)return longUrl;
+  try{
+    const u=new URL(longUrl);
+    if(u.hostname.replace(/^www\./,"")!=="s.shopee.com.br")return longUrl;
+    if(u.pathname!=="/an_redir")return longUrl;
+  }catch(e){return longUrl;}
+  // Link que ja chegou com sub_id (de terceiro ou nosso) nao e sobrescrito.
+  if(/[?&]sub_id=/.test(longUrl))return longUrl;
+  return longUrl+(longUrl.indexOf("?")>=0?"&":"?")+"sub_id="+encodeURIComponent(code);
+}
+
 // Planos com rastreamento de cliques habilitado
 function planTemRastreamento(){
   return !!(myFeatures().click_tracking);
@@ -8345,10 +8374,19 @@ async function mlEncurtarLink(longUrl, postRef, og){
   if(planTemRastreamento()&&SB&&CURRENT_USER?.id){
     try{
       const code=gerarCode();
+      // P62 — o `code` ja existe AQUI, antes do insert, entao o destino pode
+      // sair com o sub_id sem UPDATE depois e sem mexer em nenhuma das ~10
+      // chamadas do `prGerarLinkAfil`.
+      // So o `destination` recebe o sub_id. O `long_url` fica sendo a URL
+      // pedida porque ele e a CHAVE DE REUSO da `send-post`, da `group-blast` e
+      // da `ml-short-link` (`.eq("long_url", longUrl)`): mudar o valor gravado
+      // ali faria a busca errar e criar linha nova a cada disparo do mesmo
+      // produto. E quem redireciona le `destination || long_url` (redirect v16).
+      const destino=shopeeSubId(longUrl,code);
       const{error}=await SB.from("short_links").insert({
         code,
         long_url:longUrl,
-        destination:longUrl,
+        destination:destino,
         user_id:CURRENT_USER.id,
         post_ref:postRef||null,
         // P60 — a previa que o WhatsApp mostra passa a ser NOSSA. Ate a v15 do
