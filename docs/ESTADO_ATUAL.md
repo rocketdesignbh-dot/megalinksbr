@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 53 — 17/08/2026 (madrugada).** Se o número aqui não for o mais alto que você
+> **REVISÃO 54 — 22/08/2026 (tarde).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,96 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 54 — 22/08/2026 (tarde) — VAZAMENTO DE E-MAIL E TELEFONE DE CLIENTES
+PELA CHAVE ANON, MEDIDO E FECHADO. E a sessão de segurança do Claude Code não
+deixou nada em produção.**
+
+### 🔴 O que estava aberto — e foi provado, não inferido
+
+`public.wa_ociosidade()` é `SECURITY DEFINER` e estava com `EXECUTE` para
+`PUBLIC` (o default do Postgres, que o `anon` herda). Ela devolve
+`user_id`, `phone` e `email` de todas as instâncias de WhatsApp — furando a RLS
+por definição, já que roda como dona.
+
+Medido em 22/08 com `pg_net` batendo em
+`/rest/v1/rpc/wa_ociosidade` com a **chave anon pública** (a mesma que está no
+`frontend/revops.html` e no `supabase/config.js`, e que qualquer visitante lê no
+navegador):
+
+| momento | resposta |
+|---|---|
+| antes | **HTTP 200**, 832 bytes, 3 linhas com telefone e e-mail de clientes |
+| depois do revoke | **HTTP 401** — `permission denied for function wa_ociosidade` |
+
+Mesma URL, mesma chave, mesmo caminho de medição. **Não é status 200 contado como
+prova: é o corpo da resposta com dado de cliente dentro.**
+
+### ✅ O conserto — migration `revoga_rpc_manutencao_de_anon_e_authenticated`
+
+`REVOKE EXECUTE ... FROM public, anon, authenticated` + `GRANT` explícito a
+`service_role` em seis funções `SECURITY DEFINER` de manutenção:
+
+`wa_ociosidade` · `mr_claim_queue` · `mr_expire_queue` · `expirar_clone_posts` ·
+`purgar_product_refresh_runs` · `check_trial_mission_extensions`
+
+**Nenhum chamador legítimo foi quebrado, e isso foi conferido antes:** a
+`wa-idle-reaper` chama `wa_ociosidade` com `SUPABASE_SERVICE_ROLE_KEY`
+(`wa-engine`/Edge Function, linha 45 do `wa-idle-reaper/index.ts`), e as outras
+cinco rodam no `pg_cron` como `postgres` (`expirar-clone-posts`,
+`purgar-product-refresh-runs`, `mega-trial-mission-check` — lidos em `cron.job`).
+
+⚠️ **O que ainda NÃO foi observado:** a rodada real da `wa-idle-reaper` das
+10:00 UTC depois do revoke. Enquanto ela não rodar com sucesso, o conserto está
+provado só do lado do bloqueio, não do lado de quem tem direito de passar.
+
+### 🟢 O que foi medido e está certo (contra a suspeita, não a favor)
+
+- **Nenhuma view `SECURITY DEFINER`.** As 7 views de `public` sem RLS
+  (`profiles_view`, `admin_mrr`, `revops_users_overview`, `revops_user_scores`,
+  `monthly_usage_summary`, `radar_ml_quota_summary`, `v_clicks_by_link`) estão
+  todas com `security_invoker=true`. Controle: `anon` em `/rest/v1/profiles_view`
+  → **401 `permission denied for function is_admin`**. A RLS de baixo vale.
+- **A chave publicada no frontend é a `anon`**, não a `service_role` — JWT
+  decodificado (`"role":"anon"`).
+- **`get_user_email(uid)` checa `auth.uid() = uid or is_admin`** por dentro.
+- Tabelas `mr_*` têm RLS ligada sem policy = negam tudo para anon/authenticated.
+- Nenhum lint de nível ERROR nos advisors do Supabase.
+
+### 🕳️ A sessão de segurança do Claude Code não chegou à produção
+
+O relatório dela dá quatro correções como **concluídas**. Medido no `main`
+(`60bd5b3`, 17/08) hoje:
+
+| item do relatório | estado real no repo |
+|---|---|
+| XSS crítico em `onboarding.js` | `frontend/onboarding.js` **inalterado desde 13/08** (`57a776b`); os 2 `innerHTML` seguem com template literal e sem escape |
+| `sharp` desatualizado no wa-engine | `wa-engine/package.json` segue em **`^0.33.5`** |
+| CORS do wa-engine | `server.js` linha 112 segue **`Access-Control-Allow-Origin: '*'`** |
+| defaults do Supabase no wa-engine | linha 126 segue com **URL do projeto hard-coded como default** |
+
+Nem commit, nem branch, nem deploy de Edge Function, nem migration depois de
+17/08 (última migration: `20260816151919 short_links_og_tags`). **As correções
+existiram em disco na sessão e morreram com ela.**
+
+⚠️ **E a classificação "XSS crítico" não se sustenta como está:** os dois
+`innerHTML` do `onboarding.js` são alimentados por `title`/`content`/`steps` que
+vêm do `onboarding-config.js` **estático**. Não foi achado caminho de dado de
+usuário até lá. É endurecimento, não exploração medida — o que não quer dizer que
+não deva ser feito, quer dizer que não é o que estava sangrando.
+
+### 🟡 O que fica aberto (novo)
+
+| # | o que é |
+|---|---|
+| **P63** | As quatro correções da sessão do Claude Code precisam ser refeitas e empurradas: CORS `*` no `wa-engine` e no `mr-ingest`, defaults de Supabase no `wa-engine`, `sharp`, escape no `onboarding.js`. **O `mr-ingest` (`src/server.js` linha 35) também está com `Access-Control-Allow-Origin: '*'`.** Nada disso está no repo |
+| **P64** | Três funções `SECURITY DEFINER` seguem executáveis por `authenticated` **sem nenhuma checagem de identidade no corpo**: `influencer_monthly_performance`, `mark_whatsapp_activity(p_user_id)`, `recalc_whatsapp_idle_state(p_user_id)`. As duas últimas aceitam `user_id` alheio. Triado por busca de texto (`is_admin`/`auth.uid()`), **não por leitura linha a linha** — a leitura ainda falta |
+| **P65** | Higiene do lint, sem exploração conhecida: 7 funções com `search_path` mutável, extensão `http` no schema `public`, e **proteção contra senha vazada desligada** no Supabase Auth (ação externa, Dashboard) |
+
+**P7 e P2 continuam abertas como estavam** — o revoke desta revisão não toca em
+nenhuma das duas.
+
+---
 
 **REVISÃO 53 — 17/08/2026 (madrugada, 00:51 BRT) — só medição. O `sub_id` da P62
 está NO AR e foi medido em produção, com controle negativo. Nenhuma linha de
@@ -4327,6 +4417,9 @@ código não relacionado.
 | **P61** | 🔵 **Um quarto dos cliques registrados é robô de prévia, e o histórico continua sujo.** Medido em 16/08: **140** cliques em `link_clicks`, **36 de robô (25,7%)**; no código `s2310c5` eram 6 cliques com **5 robô e 1 gente**. A `redirect` v16 parou de gravar robô, então daqui pra frente o número é limpo — mas **todo dado anterior segue inflado**, e é ele que a tela de rastreamento mostra. Recalcular `short_links.clicks` a partir do `link_clicks` sem robô é uma linha de SQL; o Érico ainda não decidiu se quer mexer em dado gravado. Enquanto não decidir, **nenhum número de clique anterior a 16/08 deve embasar decisão** | 16/08 |
 | **P59** | 🟡 **Dois produtos de Mercado Livre ocupam vaga em TODA rodada da `product-refresh`, e um deles há 37 dias.** Medido em 13/08 nos `detalhes` de 9 dias de rodadas: os `desconhecidos` são sempre os mesmos dois, com o mesmo motivo (`MLB ID não encontrado no link`) — "Caixa 10 Máscaras Faciais Skincare Nutri" com `price_checked_at` **nulo desde 08/07**, e "Gloss Fran By Franciny Ehlke Liphoney Mel" parado em `02/08 09:00`. Falha de leitura **não é carimbada** de propósito desde a v17 (erro transitório precisa voltar já), mas link permanentemente ilegível não é transitório: os dois queimavam 2 das 12 vagas do lote global e agora queimam **2 das 8** do balde de ML. **Saída não decidida:** carimbar após N falhas iguais, ou marcar o produto como link inválido e avisar a dona — a segunda é mais honesta com a cliente e mais cara de codar | 14/08 |
 | **P58** | 🔵 **Nenhuma trava de plano é observável na conta do Érico.** `prodMax()` devolve −1 para `IS_ADMIN` ou `is_vip`, e a conta dele é as duas coisas — medido em 13/08: a lista de produtos mostra "sem teto" e o aviso de upgrade nunca aparece. O mesmo vale para qualquer gate que trate admin/VIP como ilimitado. O ramo com teto foi exercitado no bundle servido forçando as flags em memória (saiu "107 de 15" com o bloqueio e o link para Assinatura, e o estado real foi restaurado), mas **isso prova o render, não o fluxo de um cliente**. Enquanto não houver uma **conta de teste num plano baixo**, toda tela com trava de plano é escrita às cegas. ⚠️ Não mexer nas flags da conta do Érico para testar | 13/08 |
+| **P63** | 🔴 **As quatro correções de segurança da sessão do Claude Code (relatadas como concluídas) NÃO estão no repo.** Medido em 22/08 no `main` `60bd5b3`: `frontend/onboarding.js` inalterado desde 13/08, `wa-engine/package.json` ainda em `sharp ^0.33.5`, `wa-engine/server.js` linha 112 ainda com `Access-Control-Allow-Origin: '*'` e linha 126 ainda com a URL do projeto como default hard-coded. Nem commit, nem branch, nem deploy, nem migration depois de 17/08. **O `mr-ingest` (`src/server.js` linha 35) também está com CORS `*`** e nunca foi tocado. Refazer e empurrar. ⚠️ A classificação "XSS crítico" do `onboarding.js` não se sustenta como estava: os dois `innerHTML` são alimentados pelo `onboarding-config.js` estático e nenhum caminho de dado de usuário foi achado até eles — é endurecimento, não exploração medida | 22/08 |
+| **P64** | 🟠 **Três funções `SECURITY DEFINER` executáveis por `authenticated` sem nenhuma checagem de identidade no corpo:** `influencer_monthly_performance`, `mark_whatsapp_activity(p_user_id)` e `recalc_whatsapp_idle_state(p_user_id)` — as duas últimas aceitam `user_id` alheio. ⚠️ **Triado por busca de texto** (`is_admin`/`auth.uid()` no `pg_get_functiondef`), **não por leitura linha a linha** — a leitura ainda falta, e o mesmo método pode ter dado falso positivo nas 18 que passaram | 22/08 |
+| **P65** | 🔵 **Higiene do lint do Supabase, sem exploração conhecida:** 7 funções com `search_path` mutável, extensão `http` no schema `public` e **proteção contra senha vazada desligada** no Auth (esta é ação externa, no Dashboard) | 22/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
