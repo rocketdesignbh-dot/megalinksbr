@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 54 — 22/08/2026 (tarde).** Se o número aqui não for o mais alto que você
+> **REVISÃO 55 — 22/08/2026 (fim de tarde).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,62 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 55 — 22/08/2026 (fim de tarde) — P64 FECHADA: um usuário comum logado
+mexia no WhatsApp de outro usuário. Medido em transação com rollback, consertado
+e remedido.**
+
+### 🔴 O que foi medido — e não foi por leitura de código, foi por execução
+
+Três funções `SECURITY DEFINER` estavam executáveis por `authenticated` sem
+nenhuma checagem de identidade no corpo. Exercitado dentro de `begin ... rollback`,
+com `set local role authenticated` e `request.jwt.claims` de um usuário **comum**
+(não admin), agindo sobre instâncias de **outros** usuários:
+
+| chamada | efeito medido |
+|---|---|
+| `recalc_whatsapp_idle_state(<user_id alheio>)` | `idle_since` do alvo foi de **nulo → agora** — é o carimbo que a `wa-idle-reaper` usa depois para desconectar |
+| `mark_whatsapp_activity(<user_id alheio>)` | `idle_since` do alvo (2026-08-13) foi para **nulo** |
+
+Ou seja: qualquer cliente logado podia **empurrar o WhatsApp de outro cliente
+para a fila de desconexão**, ou tirar de lá. Nada disso aparece em tela; a
+transação foi desfeita com `rollback` e nenhum dado ficou alterado.
+
+A terceira, `influencer_monthly_performance()`, devolvia a **todos os logados**
+nome, e-mail (`coalesce(full_name, email, ...)`) e conversão de todos os
+influenciadores. ⚠️ **Hoje ela vem vazia por falta de dado, não por proteção:**
+há 1 parceiro e **0 resgates**, e o `having count(r.id) > 0` zera o resultado. O
+buraco enchia sozinho no dia do primeiro resgate.
+
+### ✅ O conserto — migration `p64_fecha_rpc_definer_sem_checagem`
+
+- **`mark_whatsapp_activity` e `recalc_whatsapp_idle_state`:** `REVOKE EXECUTE` de
+  `public`, `anon` e `authenticated`. **Único chamador de cada uma é gatilho** —
+  `trg_scheduled_posts_mark_activity` e `trg_niche_groups_recalc_idle`, ambos
+  `SECURITY DEFINER` de dono `postgres` (conferido antes de revogar), então rodam
+  como `postgres` e não dependem do privilégio de quem disparou o gatilho.
+- **`influencer_monthly_performance`:** o `EXECUTE` de `authenticated` **fica** —
+  o painel a chama com a sessão do usuário (`frontend/revops.html` linha 2445) —
+  e entra `where public.is_admin()` no corpo.
+
+### ✅ Remedido depois, pelos mesmos caminhos
+
+| medida | resultado |
+|---|---|
+| mesma chamada de `recalc_whatsapp_idle_state` pelo usuário comum | **`42501 permission denied for function recalc_whatsapp_idle_state`** |
+| `has_function_privilege('authenticated', ...)` nas duas de WhatsApp | **sem EXECUTE** |
+| `influencer_monthly_performance` com **um resgate injetado** (e desfeito): admin logado | **1 linha, com nome** |
+| a mesma consulta, no mesmo instante, com usuário comum logado | **0 linhas** |
+
+O resgate injetado foi necessário porque a tabela está vazia: sem ele, "0 linhas"
+seria o resultado de qualquer coisa, inclusive de nada funcionando. **Controle
+positivo primeiro, senão a medição não distingue proteção de tabela vazia.**
+
+⚠️ **O que isto NÃO prova:** que o painel de influenciadores continua desenhando
+na tela do Érico. A checagem foi feita no banco com o `sub` dele; ninguém abriu o
+`revops.html` logado depois da migration.
+
+---
 
 **REVISÃO 54 — 22/08/2026 (tarde) — VAZAMENTO DE E-MAIL E TELEFONE DE CLIENTES
 PELA CHAVE ANON, MEDIDO E FECHADO. E a sessão de segurança do Claude Code não
@@ -4418,7 +4474,7 @@ código não relacionado.
 | **P59** | 🟡 **Dois produtos de Mercado Livre ocupam vaga em TODA rodada da `product-refresh`, e um deles há 37 dias.** Medido em 13/08 nos `detalhes` de 9 dias de rodadas: os `desconhecidos` são sempre os mesmos dois, com o mesmo motivo (`MLB ID não encontrado no link`) — "Caixa 10 Máscaras Faciais Skincare Nutri" com `price_checked_at` **nulo desde 08/07**, e "Gloss Fran By Franciny Ehlke Liphoney Mel" parado em `02/08 09:00`. Falha de leitura **não é carimbada** de propósito desde a v17 (erro transitório precisa voltar já), mas link permanentemente ilegível não é transitório: os dois queimavam 2 das 12 vagas do lote global e agora queimam **2 das 8** do balde de ML. **Saída não decidida:** carimbar após N falhas iguais, ou marcar o produto como link inválido e avisar a dona — a segunda é mais honesta com a cliente e mais cara de codar | 14/08 |
 | **P58** | 🔵 **Nenhuma trava de plano é observável na conta do Érico.** `prodMax()` devolve −1 para `IS_ADMIN` ou `is_vip`, e a conta dele é as duas coisas — medido em 13/08: a lista de produtos mostra "sem teto" e o aviso de upgrade nunca aparece. O mesmo vale para qualquer gate que trate admin/VIP como ilimitado. O ramo com teto foi exercitado no bundle servido forçando as flags em memória (saiu "107 de 15" com o bloqueio e o link para Assinatura, e o estado real foi restaurado), mas **isso prova o render, não o fluxo de um cliente**. Enquanto não houver uma **conta de teste num plano baixo**, toda tela com trava de plano é escrita às cegas. ⚠️ Não mexer nas flags da conta do Érico para testar | 13/08 |
 | **P63** | 🔴 **As quatro correções de segurança da sessão do Claude Code (relatadas como concluídas) NÃO estão no repo.** Medido em 22/08 no `main` `60bd5b3`: `frontend/onboarding.js` inalterado desde 13/08, `wa-engine/package.json` ainda em `sharp ^0.33.5`, `wa-engine/server.js` linha 112 ainda com `Access-Control-Allow-Origin: '*'` e linha 126 ainda com a URL do projeto como default hard-coded. Nem commit, nem branch, nem deploy, nem migration depois de 17/08. **O `mr-ingest` (`src/server.js` linha 35) também está com CORS `*`** e nunca foi tocado. Refazer e empurrar. ⚠️ A classificação "XSS crítico" do `onboarding.js` não se sustenta como estava: os dois `innerHTML` são alimentados pelo `onboarding-config.js` estático e nenhum caminho de dado de usuário foi achado até eles — é endurecimento, não exploração medida | 22/08 |
-| **P64** | 🟠 **Três funções `SECURITY DEFINER` executáveis por `authenticated` sem nenhuma checagem de identidade no corpo:** `influencer_monthly_performance`, `mark_whatsapp_activity(p_user_id)` e `recalc_whatsapp_idle_state(p_user_id)` — as duas últimas aceitam `user_id` alheio. ⚠️ **Triado por busca de texto** (`is_admin`/`auth.uid()` no `pg_get_functiondef`), **não por leitura linha a linha** — a leitura ainda falta, e o mesmo método pode ter dado falso positivo nas 18 que passaram | 22/08 |
+| ~~P64~~ | ✅ **FECHADA 22/08 (REVISÃO 55), MEDIDA ANTES E DEPOIS.** Provado em transação com rollback que um usuário comum logado alterava `whatsapp_instances` de **outro** usuário pelas duas RPC; migration `p64_fecha_rpc_definer_sem_checagem` revogou o `EXECUTE` de `anon`/`authenticated` nelas (chamador único de cada uma é gatilho `SECURITY DEFINER` de dono `postgres`) e pôs `where public.is_admin()` na `influencer_monthly_performance`, que segue chamável pelo painel. Remedido: `permission denied` nas duas, e 1 linha para admin contra 0 para usuário comum com resgate injetado. ⚠️ **Falta abrir o `revops.html` logado e ver o painel de influenciadores desenhando.** Registro original abaixo. ~~🟠 **Três funções `SECURITY DEFINER` executáveis por `authenticated` sem nenhuma checagem de identidade no corpo:** `influencer_monthly_performance`, `mark_whatsapp_activity(p_user_id)` e `recalc_whatsapp_idle_state(p_user_id)` — as duas últimas aceitam `user_id` alheio. ⚠️ **Triado por busca de texto** (`is_admin`/`auth.uid()` no `pg_get_functiondef`), **não por leitura linha a linha** — a leitura ainda falta, e o mesmo método pode ter dado falso positivo nas 18 que passaram | 22/08~~ | 22/08 |
 | **P65** | 🔵 **Higiene do lint do Supabase, sem exploração conhecida:** 7 funções com `search_path` mutável, extensão `http` no schema `public` e **proteção contra senha vazada desligada** no Auth (esta é ação externa, no Dashboard) | 22/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
