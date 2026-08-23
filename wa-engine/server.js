@@ -1615,6 +1615,15 @@ app.get('/health', (req, res) => {
         uptime: process.uptime(),
         sessions: SESSIONS.size,
         connected,
+        // Versão do que está EXECUTANDO, não do que o package.json pede. Sem
+        // isto, "o sharp subiu no 0.35.x" era dedução do build ter passado —
+        // e build passar não é o mesmo que o binário certo estar carregado
+        // (cache de camada do Docker reusa node_modules).
+        versoes: {
+            node: process.version,
+            sharp: sharp.versions?.sharp || null,
+            vips: sharp.versions?.vips || null
+        },
         timestamp: new Date().toISOString()
     });
 });
