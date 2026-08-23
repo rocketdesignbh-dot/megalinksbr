@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 56 — 22/08/2026 (noite).** Se o número aqui não for o mais alto que você
+> **REVISÃO 57 — 22/08/2026 (noite, depois do Deploy).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,56 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 57 — 22/08/2026 (noite, 22:53 BRT) — só medição. A P63 está NO AR nos
+três serviços e foi medida em produção. Nenhuma linha de código.**
+
+### ✅ `wa-engine` — subiu com o código novo, e o boot é a prova das variáveis
+
+Lido no `/health` do host real logo depois do merge: `uptime` **20 s**,
+**4 sessões, 4 conectadas**. Quatro minutos depois, `uptime` **229 s**, ainda
+**4/4** — as sessões de WhatsApp sobreviveram ao reinício do auto-deploy.
+
+**O `uptime` baixo com `ok:true` é o que prova que `SUPABASE_URL` e
+`SUPABASE_KEY` existem no EasyPanel.** A REVISÃO 56 tirou o default e fez o
+processo sair no boot sem elas; se faltassem, não haveria `/health` para ler.
+É a inversão útil da regra do repo: aqui *não* estar no ar seria a prova
+contrária, e ele está.
+
+### ✅ CORS medido no host real, três requisições iguais mudando só o `Origin`
+
+| `Origin` enviado | `access-control-allow-origin` devolvido |
+|---|---|
+| `https://www.megalinksbr.com.br` | **o próprio domínio** + `Vary: Origin` |
+| `https://megalinksbr.com.br` | **o próprio domínio** + `Vary: Origin` |
+| `https://evil.example.com` | **nenhum cabeçalho** |
+| nenhum (Edge Function, cron, heartbeat) | nenhum cabeçalho, `200` normal |
+
+Vale para o **`wa-engine`** e para o **`mr-ingest`**, medidos separadamente.
+
+⚠️ **O `mr-ingest` NÃO entra no auto-deploy.** Depois do merge ele ainda
+respondia `*` com `uptime` de **11,4 dias** — o auto-deploy da P4/P16 mexe no
+`app` e no `wa-engine`, não nele. Só depois do Deploy manual do serviço
+(`uptime` 40 s) o CORS novo apareceu. **Guardar isto: mudança no `mr-ingest`
+exige Deploy próprio, sempre.**
+
+### ✅ Frontend — o `onboarding.js` servido pelo domínio já é o escapado
+
+Buscado em `https://www.megalinksbr.com.br/onboarding.js` com bust de cache:
+contém `const esc = (v)`, `${esc(title)}` e `${esc(step.title)}`, e **não**
+contém mais o `${step.title}` cru. 11.909 bytes.
+
+### ⚠️ O que continua sem prova
+
+- **A versão do `sharp` em execução.** O container subiu, então o build passou —
+  mas nenhuma rota do engine expõe a versão instalada, então "está no 0.35.3" é
+  dedução. Fecha lendo a linha do `sharp` no log do build, ou expondo a versão
+  no `/health` numa próxima sessão.
+- **O painel logado exercitado.** Conectar/listar sessões pelo navegador, no
+  domínio real, com o console limpo. O `/health` prova o servidor; não prova a
+  tela.
+
+---
 
 **REVISÃO 56 — 22/08/2026 (noite) — P63 CODADA E PROVADA EM BANCADA. Falta o
 Deploy e a medição em produção, então ela NÃO fecha aqui.**
@@ -4524,7 +4574,7 @@ código não relacionado.
 | **P61** | 🔵 **Um quarto dos cliques registrados é robô de prévia, e o histórico continua sujo.** Medido em 16/08: **140** cliques em `link_clicks`, **36 de robô (25,7%)**; no código `s2310c5` eram 6 cliques com **5 robô e 1 gente**. A `redirect` v16 parou de gravar robô, então daqui pra frente o número é limpo — mas **todo dado anterior segue inflado**, e é ele que a tela de rastreamento mostra. Recalcular `short_links.clicks` a partir do `link_clicks` sem robô é uma linha de SQL; o Érico ainda não decidiu se quer mexer em dado gravado. Enquanto não decidir, **nenhum número de clique anterior a 16/08 deve embasar decisão** | 16/08 |
 | **P59** | 🟡 **Dois produtos de Mercado Livre ocupam vaga em TODA rodada da `product-refresh`, e um deles há 37 dias.** Medido em 13/08 nos `detalhes` de 9 dias de rodadas: os `desconhecidos` são sempre os mesmos dois, com o mesmo motivo (`MLB ID não encontrado no link`) — "Caixa 10 Máscaras Faciais Skincare Nutri" com `price_checked_at` **nulo desde 08/07**, e "Gloss Fran By Franciny Ehlke Liphoney Mel" parado em `02/08 09:00`. Falha de leitura **não é carimbada** de propósito desde a v17 (erro transitório precisa voltar já), mas link permanentemente ilegível não é transitório: os dois queimavam 2 das 12 vagas do lote global e agora queimam **2 das 8** do balde de ML. **Saída não decidida:** carimbar após N falhas iguais, ou marcar o produto como link inválido e avisar a dona — a segunda é mais honesta com a cliente e mais cara de codar | 14/08 |
 | **P58** | 🔵 **Nenhuma trava de plano é observável na conta do Érico.** `prodMax()` devolve −1 para `IS_ADMIN` ou `is_vip`, e a conta dele é as duas coisas — medido em 13/08: a lista de produtos mostra "sem teto" e o aviso de upgrade nunca aparece. O mesmo vale para qualquer gate que trate admin/VIP como ilimitado. O ramo com teto foi exercitado no bundle servido forçando as flags em memória (saiu "107 de 15" com o bloqueio e o link para Assinatura, e o estado real foi restaurado), mas **isso prova o render, não o fluxo de um cliente**. Enquanto não houver uma **conta de teste num plano baixo**, toda tela com trava de plano é escrita às cegas. ⚠️ Não mexer nas flags da conta do Érico para testar | 13/08 |
-| **P63** | 🟡 **CODADA E PROVADA EM BANCADA NA REVISÃO 56, NÃO DEPLOYADA.** Os quatro itens foram refeitos (CORS por lista no `wa-engine` e no `mr-ingest`, defaults de Supabase removidos, `sharp` `^0.35.3`, `esc()` no `onboarding.js`), com medição de bancada em cada um — ver REVISÃO 56. O Érico criou `SUPABASE_URL` e `SUPABASE_KEY` no EasyPanel **antes** do push, senão o auto-deploy derrubaria o engine no boot. **Falta Deploy, o log do boot com `[CORS] origens permitidas`, o painel logado exercitado no domínio real e o log do build confirmando o `sharp` no Node 20.** Registro original abaixo. ~~🔴 **As quatro correções de segurança da sessão do Claude Code (relatadas como concluídas) NÃO estão no repo.** Medido em 22/08 no `main` `60bd5b3`: `frontend/onboarding.js` inalterado desde 13/08, `wa-engine/package.json` ainda em `sharp ^0.33.5`, `wa-engine/server.js` linha 112 ainda com `Access-Control-Allow-Origin: '*'` e linha 126 ainda com a URL do projeto como default hard-coded. Nem commit, nem branch, nem deploy, nem migration depois de 17/08. **O `mr-ingest` (`src/server.js` linha 35) também está com CORS `*`** e nunca foi tocado. Refazer e empurrar. ⚠️ A classificação "XSS crítico" do `onboarding.js` não se sustenta como estava: os dois `innerHTML` são alimentados pelo `onboarding-config.js` estático e nenhum caminho de dado de usuário foi achado até eles — é endurecimento, não exploração medida | 22/08~~ | 22/08 |
+| **P63** | 🟢 **NO AR NOS TRÊS SERVIÇOS E MEDIDA EM PRODUÇÃO (REVISÃO 57) — segue 🟡 só pelos dois cabos soltos.** CORS por lista devolvendo o domínio certo e nada para origem estranha, medido no `wa-engine` e no `mr-ingest`; `wa-engine` de pé com 4/4 sessões conectadas depois do reinício, o que prova de quebra que as variáveis novas existem; `onboarding.js` escapado no arquivo servido pelo domínio. ⚠️ **Falta: a versão do `sharp` em execução (nenhuma rota expõe, o build subiu mas isso é dedução) e o painel logado exercitado no navegador.** ⚠️ **E ficou o aprendizado: o `mr-ingest` não entra no auto-deploy — exige Deploy próprio.** Registro anterior abaixo. ~~🟡 **CODADA E PROVADA EM BANCADA NA REVISÃO 56, NÃO DEPLOYADA.** Os quatro itens foram refeitos (CORS por lista no `wa-engine` e no `mr-ingest`, defaults de Supabase removidos, `sharp` `^0.35.3`, `esc()` no `onboarding.js`), com medição de bancada em cada um — ver REVISÃO 56. O Érico criou `SUPABASE_URL` e `SUPABASE_KEY` no EasyPanel **antes** do push, senão o auto-deploy derrubaria o engine no boot. **Falta Deploy, o log do boot com `[CORS] origens permitidas`, o painel logado exercitado no domínio real e o log do build confirmando o `sharp` no Node 20.** Registro original abaixo. ~~🔴 **As quatro correções de segurança da sessão do Claude Code (relatadas como concluídas) NÃO estão no repo.** Medido em 22/08 no `main` `60bd5b3`: `frontend/onboarding.js` inalterado desde 13/08, `wa-engine/package.json` ainda em `sharp ^0.33.5`, `wa-engine/server.js` linha 112 ainda com `Access-Control-Allow-Origin: '*'` e linha 126 ainda com a URL do projeto como default hard-coded. Nem commit, nem branch, nem deploy, nem migration depois de 17/08. **O `mr-ingest` (`src/server.js` linha 35) também está com CORS `*`** e nunca foi tocado. Refazer e empurrar. ⚠️ A classificação "XSS crítico" do `onboarding.js` não se sustenta como estava: os dois `innerHTML` são alimentados pelo `onboarding-config.js` estático e nenhum caminho de dado de usuário foi achado até eles — é endurecimento, não exploração medida | 22/08~~ | 22/08~~ | 22/08 |
 | ~~P64~~ | ✅ **FECHADA 22/08 (REVISÃO 55), MEDIDA ANTES E DEPOIS.** Provado em transação com rollback que um usuário comum logado alterava `whatsapp_instances` de **outro** usuário pelas duas RPC; migration `p64_fecha_rpc_definer_sem_checagem` revogou o `EXECUTE` de `anon`/`authenticated` nelas (chamador único de cada uma é gatilho `SECURITY DEFINER` de dono `postgres`) e pôs `where public.is_admin()` na `influencer_monthly_performance`, que segue chamável pelo painel. Remedido: `permission denied` nas duas, e 1 linha para admin contra 0 para usuário comum com resgate injetado. ⚠️ **Falta abrir o `revops.html` logado e ver o painel de influenciadores desenhando.** Registro original abaixo. ~~🟠 **Três funções `SECURITY DEFINER` executáveis por `authenticated` sem nenhuma checagem de identidade no corpo:** `influencer_monthly_performance`, `mark_whatsapp_activity(p_user_id)` e `recalc_whatsapp_idle_state(p_user_id)` — as duas últimas aceitam `user_id` alheio. ⚠️ **Triado por busca de texto** (`is_admin`/`auth.uid()` no `pg_get_functiondef`), **não por leitura linha a linha** — a leitura ainda falta, e o mesmo método pode ter dado falso positivo nas 18 que passaram | 22/08~~ | 22/08 |
 | **P65** | 🔵 **Higiene do lint do Supabase, sem exploração conhecida:** 7 funções com `search_path` mutável, extensão `http` no schema `public` e **proteção contra senha vazada desligada** no Auth (esta é ação externa, no Dashboard) | 22/08 |
 
