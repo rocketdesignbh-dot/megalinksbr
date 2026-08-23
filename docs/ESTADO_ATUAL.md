@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 64 — 23/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 65 — 23/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1795,6 +1795,30 @@ O `rotaAplicarEntrada()` usa o valor capturado, não o `location` do momento.
 **Aprendizado, para não repetir:** testar uma função de boot chamando-a à mão
 não prova nada sobre o boot. O que prova é reproduzir a ordem em que ela é
 chamada de verdade.
+
+### ✅ REVISÃO 65 — provado em produção, logado, no navegador do Érico
+
+Segundo Deploy feito. Medido na sessão real, no domínio real:
+
+| # | Verificação | Resultado |
+|---|---|---|
+| 1 | `/painel/radar` digitado na barra | abre o **Radar**, com as 120 ofertas reais carregadas — o defeito da REVISÃO 64 está fechado |
+| 2 | Clicar Clone Post → Cupons | `/painel/clone-post` → `/painel/cupons`, aba certa em cada |
+| 3 | **Voltar** duas vezes | `/painel/clone-post` → `/painel/radar` |
+| 4 | **Avançar** | `/painel/clone-post` |
+| 5 | F5 em `/painel/clone-post` | reabre no Clone Post |
+| 6 | `/painel/link-rapido` | abre o Link Rápido |
+| 7 | Console | **nenhum erro** em duas telas |
+| 8 | Cabeçalhos no domínio | `no-cache` em `/`, `/painel`, `/painel/*`, `/guia`; ausente em `/onboarding.js` |
+| 9 | `index.html` servido | 0 caminho relativo, 4 absolutos, 25 navs como `<a>`, splash ausente |
+| 10 | Landing na raiz | título e fontes corretos; topo mostrou "Voltar ao painel" (detecção de sessão) |
+
+**Defeito cosmético achado e corrigido na mesma passada:** os selos do menu
+(`.tag` — NEW, QR, live e contadores) faziam parte do `textContent` do item e
+vazavam para o `<title>`: *"Link RápidoNEW · Mega Links BR"*. Atingia 5 abas
+(Postar Agora, Link Rápido, Mega Results, Conexão WhatsApp, Fila de Posts).
+`rotaTitulo()` passa a clonar o nó e remover os `.tag` antes de ler o texto.
+Medido: as 25 abas devolvem título limpo.
 
 ### ⚠️ O que NÃO foi medido — e é o que fecha esta revisão
 
@@ -4984,7 +5008,7 @@ código não relacionado.
 | **P65** | 🔵 **AS DUAS DE CÓDIGO FECHADAS; A TERCEIRA ESTÁ BLOQUEADA POR PLANO (REVISÃO 61).** A extensão `http` (que era SSRF, não higiene) foi removida e as 7 funções ganharam `search_path` — advisor: 7→0 e 1→0. **A proteção contra senha vazada exige plano Pro; o controle está travado com selo de upgrade e o Érico decidiu em 22/08 adiar até haver upgrade.** Fica como item do checklist do upgrade, não como tarefa a redescobrir. Enquanto isso, senha já vazada em outro site é aceita no cadastro. Registro anterior abaixo. ~~🟡 **DUAS DE TRÊS FECHADAS EM 23/08 (REVISÃO 58) — e a primeira não era higiene.** A extensão `http` no `public` deixava `anon` chamar `http_get` pelo PostgREST: **medido 200 com o corpo da página buscada, e 404 depois do `drop extension http`** — SSRF, não lint. Nada usava a extensão (varredura em `pg_proc` e no repo); o `drop` foi sem `CASCADE` de propósito. As 7 funções sem `search_path` foram fixadas e conferidas rodando (todas `SECURITY INVOKER`, então era endurecimento, não escalada). Advisor: `function_search_path_mutable` 7→0, `extension_in_public` 1→0. ⚠️ **Falta só a proteção contra senha vazada no Supabase Auth — ação externa, botão no Dashboard.** Registro original abaixo. ~~🔵 **Higiene do lint do Supabase, sem exploração conhecida:** 7 funções com `search_path` mutável, extensão `http` no schema `public` e **proteção contra senha vazada desligada** no Auth (esta é ação externa, no Dashboard) | 22/08~~ | 22/08~~ | 22/08 |
 
 | **P66** | 🟡 **`clone_sources_max` do Pro: o código e este arquivo discordam.** O `PLAN_FALLBACK` do `index.html` diz `pro: clone_sources_max: 1, clone_post: true`; a tabela de Planos deste arquivo diz Pro = 0 fontes de clone. A tabela da landing foi escrita a partir do código. Decidir qual é a verdade e alinhar os dois | 23/08 |
-| **P67** | 🔴 **O redesign da REVISÃO 63 não está em produção.** Falta push + Deploy no EasyPanel e, depois, provar por comportamento: recuperação de senha real, login com Google real, sessão logada navegando as abas, e iOS Safari. Nada disso foi medido — só o equivalente em bancada com nginx de verdade | 23/08 |
+| **P67** | 🟡 **NO AR E MEDIDO LOGADO (REVISÃO 65).** Landing, roteamento, Voltar/Avançar/F5, console limpo e cabeçalhos — todos provados no navegador do Érico, na sessão real. **Falta ainda, e só o Érico pode fazer:** clicar num link de recuperação de senha de e-mail de verdade, entrar uma vez com o Google, e conferir em iOS Safari. Registro anterior abaixo. ~~🔴 O redesign da REVISÃO 63 não está em produção~~ | 23/08 |
 | **P68** | 🔵 **`boas-vindas-pc.png` e `boas-vindas-cel.png` (2,8 MB) não são mais referenciados por ninguém**, mas continuam no repo e no `COPY` do `frontend/Dockerfile`. Limpeza opcional | 23/08 |
 | **P69** | 🔵 **Site URL / Redirect URLs do Supabase continuam apontando para a raiz.** Funciona porque a landing encaminha para `/painel`, mas apontar direto para `/painel` elimina um salto. Ação externa, no Dashboard | 23/08 |
 

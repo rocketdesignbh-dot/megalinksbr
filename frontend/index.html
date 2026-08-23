@@ -2752,8 +2752,11 @@ function rotaTitulo(page){
   try{
     const el=document.querySelector('[data-page="'+page+'"]');
     if(!el)return "Mega Links BR";
-    const t=el.textContent.replace(/\s+/g," ").replace(/[^\S ]/g,"").trim()
-             .replace(/^[^\p{L}]+/u,"").replace(/\s*\d+$/,"").trim();
+    // Os selos (.tag: NEW, QR, live, contadores) fazem parte do textContent do
+    // item de menu e vazavam para o <title> — "Link RapidoNEW". Clona e remove.
+    const c=el.cloneNode(true);
+    c.querySelectorAll(".tag").forEach(t=>t.remove());
+    const t=c.textContent.replace(/\s+/g," ").replace(/^[^\p{L}]+/u,"").trim();
     return t?t+" · Mega Links BR":"Mega Links BR";
   }catch(e){return "Mega Links BR";}
 }
