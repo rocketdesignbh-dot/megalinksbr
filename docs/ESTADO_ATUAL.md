@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 58 — 23/08/2026 (madrugada).** Se o número aqui não for o mais alto que você
+> **REVISÃO 59 — 23/08/2026 (madrugada).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,36 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 59 — 23/08/2026 (madrugada) — o `/health` do wa-engine passa a dizer
+qual `sharp` está EXECUTANDO. Três linhas, para trocar dedução por medição.**
+
+### Por que isto existe
+
+A REVISÃO 56 subiu o `sharp` para `^0.35.3` por causa das CVEs do libvips, e a
+57 fechou com um buraco honesto: **o container subiu, logo o build passou — mas
+nenhuma rota expunha a versão carregada.** "Build passou" e "o binário certo está
+em memória" não são a mesma frase: cache de camada do Docker reusa `node_modules`,
+e `package.json` pede, não garante.
+
+O `/health` agora devolve `versoes: { node, sharp, vips }`, lidos de
+`sharp.versions` — quem está em memória, não o que o `package.json` pede.
+
+### O que foi medido em bancada
+
+O trecho novo foi executado com o `sharp` de verdade instalado:
+`{"sharp":"0.35.3","vips":"8.18.3"}`. ⚠️ Isso é o sandbox (Node 22), **não** o
+container. Quem responde de verdade é o `/health` do host real depois do Deploy —
+e é essa leitura que fecha o item.
+
+### O que esperar depois do merge
+
+`GET https://megalinksbr-wa-engine.fwezsn.easypanel.host/health` tem que trazer
+`"sharp":"0.35.x"` e `"node":"v20.x"`. Se vier `0.33.5`, o build reusou
+`node_modules` do cache e a correção da P63 **não** está no ar — o que seria
+exatamente o tipo de coisa que "status 200 não é prova" existe para pegar.
+
+---
 
 **REVISÃO 58 — 23/08/2026 (madrugada) — P65 QUASE FECHADA, e o item que estava
 catalogado como "higiene de lint" era o SEGUNDO buraco mais grave da noite:
