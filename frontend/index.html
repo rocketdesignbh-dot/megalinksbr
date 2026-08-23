@@ -2780,9 +2780,20 @@ window.addEventListener("popstate",function(){
   const p=rotaDaURL();
   go(p||"dashboard",{semURL:true});
 });
+/* A aba pedida na URL é capturada AQUI, na carga do script, e não na hora de
+   aplicar. Motivo, medido em produção em 23/08: o `afterLogin` chama
+   `setRole("afiliado")`, que chama `go("dashboard")`, que já reescreve a URL
+   para /painel/dashboard. Quando `rotaAplicarEntrada()` rodava depois disso e
+   lia `location.pathname`, o pedido original do usuário já tinha sido apagado —
+   entrar em /painel/radar caía no Dashboard. Ler no boot resolve sem precisar
+   mexer na ordem do afterLogin (que precisa vir depois dos deep links). */
+const ROTA_ENTRADA=(function(){
+  const m=location.pathname.match(/^\/painel(?:\/([a-z0-9-]+))?\/?$/i);
+  return m&&m[1]?m[1].toLowerCase():null;
+})();
 /* Aplica a URL de entrada. Chamado no fim do afterLogin. */
 function rotaAplicarEntrada(){
-  const p=rotaDaURL();
+  const p=ROTA_ENTRADA?rotaPaginaValida(ROTA_ENTRADA):null;
   if(p){go(p,{substituir:true});}
   else{rotaEscrever("dashboard",true);}
 }

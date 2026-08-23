@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 63 — 23/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 64 — 23/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1756,6 +1756,45 @@ extraída do `frontend/Dockerfile` — não contra servidor estático.
 | 15 | `node --check` nos 5 blocos inline do `index.html` e nos 2 da landing | todos OK |
 | 16 | Overflow horizontal em 390 / 834 / 1440 px | nenhum, na landing e no painel |
 | 17 | Contraste | `--mut` estava em **3,68:1** (reprovado); subiu para `#828891` = **5,07:1**. Rótulos sobre papel: **4,74:1** |
+
+### 🔴 REVISÃO 64 — o roteador foi ao ar com um defeito, e a sessão real o achou
+
+Deploy feito em 23/08. A landing subiu certa (título, fontes, `Cache-Control:
+no-cache` em todo HTML, assets sem cache, 0 caminho relativo no `index.html`
+servido, 25 navs como `<a>`, splash ausente). **Mas entrar em `/painel/radar`
+logado caía no Dashboard.**
+
+**A causa, lida no código depois de reproduzir:** o `afterLogin` chama
+`setRole("afiliado")`, que chama `go("dashboard")`, que já reescreve a URL para
+`/painel/dashboard`. O `rotaAplicarEntrada()` roda **depois** disso (de
+propósito — precisa vir após os deep links terem lido a query) e lia
+`location.pathname` naquele momento. O pedido original do usuário já tinha sido
+apagado por um `pushState` do próprio roteador.
+
+**Por que os testes da REVISÃO 63 não pegaram:** eles chamavam
+`rotaAplicarEntrada()` à mão, a partir de um estado em que a URL ainda era a de
+entrada. Nunca reproduziram a **ordem real** do `afterLogin`. Era exatamente o
+item "sessão logada de verdade" que a própria REVISÃO 63 listou como não medido.
+
+**O conserto:** a aba pedida passa a ser capturada em `ROTA_ENTRADA`, uma const
+avaliada **na carga do script**, antes de qualquer coisa poder reescrever a URL.
+O `rotaAplicarEntrada()` usa o valor capturado, não o `location` do momento.
+
+**Prova, com baseline.** Teste novo (`rota-real.mjs`) que reproduz a ordem
+`setRole → rotaAplicarEntrada`:
+
+| entrada | URL depois do setRole | final, código ANTIGO | final, código NOVO |
+|---|---|---|---|
+| `/painel/radar` | `/painel/dashboard` | `/painel/dashboard` ❌ | `/painel/radar` ✅ |
+| `/painel/clone-post` | `/painel/dashboard` | `/painel/dashboard` ❌ | `/painel/clone-post` ✅ |
+| `/painel/link-rapido` | `/painel/dashboard` | `/painel/dashboard` ❌ | `/painel/link-rapido` ✅ |
+| `/painel` | `/painel/dashboard` | `/painel/dashboard` ✅ | `/painel/dashboard` ✅ |
+| `/painel/nao-existe` | `/painel/dashboard` | `/painel/dashboard` ✅ | `/painel/dashboard` ✅ |
+| `/painel/adm-usuarios` (não-admin) | `/painel/dashboard` | `/painel/dashboard` ✅ | `/painel/dashboard` ✅ |
+
+**Aprendizado, para não repetir:** testar uma função de boot chamando-a à mão
+não prova nada sobre o boot. O que prova é reproduzir a ordem em que ela é
+chamada de verdade.
 
 ### ⚠️ O que NÃO foi medido — e é o que fecha esta revisão
 
