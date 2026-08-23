@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 60 — 22/08/2026 (noite).** Se o número aqui não for o mais alto que você
+> **REVISÃO 61 — 22/08/2026 (noite).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,26 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 61 — 22/08/2026 (noite, 23:25 BRT) — sem código. A última ponta da P65
+não é esquecimento nem decisão técnica: é PLANO. Registrada e adiada pelo Érico.**
+
+A proteção contra senha vazada (checagem contra o HaveIBeenPwned) fica em
+Authentication → Sign In / Providers → **Email**, e não em "Policies" — anotado
+porque a busca no lugar errado custou tempo. **Só que ela exige plano Pro ou
+acima**, e o projeto está abaixo disso: o Érico abriu a tela em 22/08 e o
+controle veio travado com selo de upgrade.
+
+**Decisão dele, na mesma hora: adiar até haver upgrade.** Não é dívida esquecida,
+é dívida com causa conhecida e fora do nosso alcance — mesma família da P10
+(Scrape.do Hobby quando a receita permitir).
+
+⚠️ **O que isso significa na prática, para ninguém se surpreender depois:** senha
+que já vazou em outro site continua sendo aceita no cadastro do Mega Links.
+Quando o upgrade acontecer, **ligar isto é um passo do checklist do upgrade**, não
+uma tarefa nova a ser redescoberta.
+
+---
 
 **REVISÃO 60 — 22/08/2026 (noite, 23:14 BRT) — só medição. O `sharp` em execução
 foi LIDO do container: `0.35.3`. A P63 fica sem esse cabo solto.**
@@ -4706,7 +4726,7 @@ código não relacionado.
 | **P58** | 🔵 **Nenhuma trava de plano é observável na conta do Érico.** `prodMax()` devolve −1 para `IS_ADMIN` ou `is_vip`, e a conta dele é as duas coisas — medido em 13/08: a lista de produtos mostra "sem teto" e o aviso de upgrade nunca aparece. O mesmo vale para qualquer gate que trate admin/VIP como ilimitado. O ramo com teto foi exercitado no bundle servido forçando as flags em memória (saiu "107 de 15" com o bloqueio e o link para Assinatura, e o estado real foi restaurado), mas **isso prova o render, não o fluxo de um cliente**. Enquanto não houver uma **conta de teste num plano baixo**, toda tela com trava de plano é escrita às cegas. ⚠️ Não mexer nas flags da conta do Érico para testar | 13/08 |
 | **P63** | 🟢 **NO AR E MEDIDA (REVISÕES 57 e 60) — falta só a tela.** O `sharp` em execução foi lido do container pelo `/health`: **0.35.3**, libvips **8.18.3**, Node **v20.20.2** — acima do `<0.35.0` das CVEs, e prova de que o build não reusou `node_modules` do cache. CORS por lista medido nos dois serviços, `onboarding.js` escapado no arquivo servido. ⚠️ **Falta só o painel logado exercitado no navegador** (conectar/listar sessões, console limpo). Registro anterior abaixo. ~~🟢 **NO AR NOS TRÊS SERVIÇOS E MEDIDA EM PRODUÇÃO (REVISÃO 57) — segue 🟡 só pelos dois cabos soltos.** CORS por lista devolvendo o domínio certo e nada para origem estranha, medido no `wa-engine` e no `mr-ingest`; `wa-engine` de pé com 4/4 sessões conectadas depois do reinício, o que prova de quebra que as variáveis novas existem; `onboarding.js` escapado no arquivo servido pelo domínio. ⚠️ **Falta: a versão do `sharp` em execução (nenhuma rota expõe, o build subiu mas isso é dedução) e o painel logado exercitado no navegador.** ⚠️ **E ficou o aprendizado: o `mr-ingest` não entra no auto-deploy — exige Deploy próprio.** Registro anterior abaixo. ~~🟡 **CODADA E PROVADA EM BANCADA NA REVISÃO 56, NÃO DEPLOYADA.** Os quatro itens foram refeitos (CORS por lista no `wa-engine` e no `mr-ingest`, defaults de Supabase removidos, `sharp` `^0.35.3`, `esc()` no `onboarding.js`), com medição de bancada em cada um — ver REVISÃO 56. O Érico criou `SUPABASE_URL` e `SUPABASE_KEY` no EasyPanel **antes** do push, senão o auto-deploy derrubaria o engine no boot. **Falta Deploy, o log do boot com `[CORS] origens permitidas`, o painel logado exercitado no domínio real e o log do build confirmando o `sharp` no Node 20.** Registro original abaixo. ~~🔴 **As quatro correções de segurança da sessão do Claude Code (relatadas como concluídas) NÃO estão no repo.** Medido em 22/08 no `main` `60bd5b3`: `frontend/onboarding.js` inalterado desde 13/08, `wa-engine/package.json` ainda em `sharp ^0.33.5`, `wa-engine/server.js` linha 112 ainda com `Access-Control-Allow-Origin: '*'` e linha 126 ainda com a URL do projeto como default hard-coded. Nem commit, nem branch, nem deploy, nem migration depois de 17/08. **O `mr-ingest` (`src/server.js` linha 35) também está com CORS `*`** e nunca foi tocado. Refazer e empurrar. ⚠️ A classificação "XSS crítico" do `onboarding.js` não se sustenta como estava: os dois `innerHTML` são alimentados pelo `onboarding-config.js` estático e nenhum caminho de dado de usuário foi achado até eles — é endurecimento, não exploração medida | 22/08~~ | 22/08~~ | 22/08~~ | 22/08 |
 | ~~P64~~ | ✅ **FECHADA 22/08 (REVISÃO 55), MEDIDA ANTES E DEPOIS.** Provado em transação com rollback que um usuário comum logado alterava `whatsapp_instances` de **outro** usuário pelas duas RPC; migration `p64_fecha_rpc_definer_sem_checagem` revogou o `EXECUTE` de `anon`/`authenticated` nelas (chamador único de cada uma é gatilho `SECURITY DEFINER` de dono `postgres`) e pôs `where public.is_admin()` na `influencer_monthly_performance`, que segue chamável pelo painel. Remedido: `permission denied` nas duas, e 1 linha para admin contra 0 para usuário comum com resgate injetado. ⚠️ **Falta abrir o `revops.html` logado e ver o painel de influenciadores desenhando.** Registro original abaixo. ~~🟠 **Três funções `SECURITY DEFINER` executáveis por `authenticated` sem nenhuma checagem de identidade no corpo:** `influencer_monthly_performance`, `mark_whatsapp_activity(p_user_id)` e `recalc_whatsapp_idle_state(p_user_id)` — as duas últimas aceitam `user_id` alheio. ⚠️ **Triado por busca de texto** (`is_admin`/`auth.uid()` no `pg_get_functiondef`), **não por leitura linha a linha** — a leitura ainda falta, e o mesmo método pode ter dado falso positivo nas 18 que passaram | 22/08~~ | 22/08 |
-| **P65** | 🟡 **DUAS DE TRÊS FECHADAS EM 23/08 (REVISÃO 58) — e a primeira não era higiene.** A extensão `http` no `public` deixava `anon` chamar `http_get` pelo PostgREST: **medido 200 com o corpo da página buscada, e 404 depois do `drop extension http`** — SSRF, não lint. Nada usava a extensão (varredura em `pg_proc` e no repo); o `drop` foi sem `CASCADE` de propósito. As 7 funções sem `search_path` foram fixadas e conferidas rodando (todas `SECURITY INVOKER`, então era endurecimento, não escalada). Advisor: `function_search_path_mutable` 7→0, `extension_in_public` 1→0. ⚠️ **Falta só a proteção contra senha vazada no Supabase Auth — ação externa, botão no Dashboard.** Registro original abaixo. ~~🔵 **Higiene do lint do Supabase, sem exploração conhecida:** 7 funções com `search_path` mutável, extensão `http` no schema `public` e **proteção contra senha vazada desligada** no Auth (esta é ação externa, no Dashboard) | 22/08~~ | 22/08 |
+| **P65** | 🔵 **AS DUAS DE CÓDIGO FECHADAS; A TERCEIRA ESTÁ BLOQUEADA POR PLANO (REVISÃO 61).** A extensão `http` (que era SSRF, não higiene) foi removida e as 7 funções ganharam `search_path` — advisor: 7→0 e 1→0. **A proteção contra senha vazada exige plano Pro; o controle está travado com selo de upgrade e o Érico decidiu em 22/08 adiar até haver upgrade.** Fica como item do checklist do upgrade, não como tarefa a redescobrir. Enquanto isso, senha já vazada em outro site é aceita no cadastro. Registro anterior abaixo. ~~🟡 **DUAS DE TRÊS FECHADAS EM 23/08 (REVISÃO 58) — e a primeira não era higiene.** A extensão `http` no `public` deixava `anon` chamar `http_get` pelo PostgREST: **medido 200 com o corpo da página buscada, e 404 depois do `drop extension http`** — SSRF, não lint. Nada usava a extensão (varredura em `pg_proc` e no repo); o `drop` foi sem `CASCADE` de propósito. As 7 funções sem `search_path` foram fixadas e conferidas rodando (todas `SECURITY INVOKER`, então era endurecimento, não escalada). Advisor: `function_search_path_mutable` 7→0, `extension_in_public` 1→0. ⚠️ **Falta só a proteção contra senha vazada no Supabase Auth — ação externa, botão no Dashboard.** Registro original abaixo. ~~🔵 **Higiene do lint do Supabase, sem exploração conhecida:** 7 funções com `search_path` mutável, extensão `http` no schema `public` e **proteção contra senha vazada desligada** no Auth (esta é ação externa, no Dashboard) | 22/08~~ | 22/08~~ | 22/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
