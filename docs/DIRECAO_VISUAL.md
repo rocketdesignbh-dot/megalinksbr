@@ -53,10 +53,17 @@ mudou, o canal conectado, a ação principal. Se o amarelo estiver preenchendo
 | `--ln` | `#282C33` | régua no escuro |
 | `--ln2` | `#343941` | régua mais forte |
 | `--ln-p` | `#CFCCC3` | régua no papel |
-| `--y` | `#FFC107` | estado / acento |
+| `--y` / `--volt` | `#FFC107` | **preenchimento** do acento |
+| `--volt-tx` | `#FFC107` no escuro, `#8A6300` no claro | o mesmo acento quando vira **texto ou traço** |
 
 Rótulo sobre papel: `#6A6760` (4,74:1). Nada abaixo de **4,5:1** para texto
 normal. Rótulo em maiúscula de 10-11px conta como texto normal.
+
+🔴 **O amarelo tem dois papéis e eles não podem ser a mesma cor no tema claro.**
+Como preenchimento, `#FFC107` com tinta escura por cima dá 11,11:1. Como texto
+sobre papel, `#FFC107` dá **1,37:1** — ilegível. Por isso existe `--volt-tx`.
+Nenhum amarelo único resolve os dois: medido em seis candidatos, o mais escuro
+que passa como texto (4,56:1) já reprova como fundo (3,33:1).
 
 ### Forma
 
@@ -165,10 +172,13 @@ código segue os dois.
 |---|---|
 | `landing.html` | ✅ completa |
 | Gate de login (`index.html`) | ✅ completa |
-| Menu lateral do painel | ⚠️ só a estrutura (virou `<a>`); visual ainda é o antigo |
-| 27 telas do painel | ❌ ainda no visual antigo: Plus Jakarta Sans, raio 12px, sombra, gradiente rosa/magenta (`--pink #FF4D8D`), emoji como marcador |
+| Menu lateral do painel | ✅ estrutura (`<a>`) e visual |
+| Sistema visual das 26 telas do painel | ✅ tokens, tipografia, forma, sombra, gradiente e acento (REVISÃO 66) |
+| Layout e densidade de informação das telas | ❌ intocados — foi decisão de escopo, não esquecimento |
+| Emoji no texto das telas | ❌ ainda presente (`Boa tarde ⚡`, `🚀 Postar Agora`, botões `⚡ PIX AVULSO`, `💳`, `🔁`) |
 
-**Próxima leva combinada com o Érico:** trocar tokens e componentes globais do
-painel (cor, tipografia, raio, fim da sombra e do gradiente rosa, chips,
-tabelas), sem mexer em layout nem em lógica. O obstáculo conhecido são os
-**1.414 atributos `style=""` inline** do `index.html`, que ignoram os tokens.
+**O que a REVISÃO 66 fez, e o que ela não fez.** Ela trocou o *sistema*: as
+famílias tipográficas, a paleta dos dois temas, 143 raios literais, 20
+gradientes, 15 sombras e o acento inteiro. Ela **não** redesenhou nenhuma tela:
+a hierarquia, a densidade e a ordem da informação são as mesmas de antes. O
+emoji no texto continua lá — é copy, não token, e sai numa passada própria.

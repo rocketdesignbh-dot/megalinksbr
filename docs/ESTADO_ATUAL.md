@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 65 — 23/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 66 — 23/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,96 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 66 — 23/08/2026 — o SISTEMA VISUAL do painel passa a ser o da landing.
+Nenhuma tela foi redesenhada, nenhuma lógica foi tocada.**
+
+Escopo escolhido pelo Érico entre três opções: *só o sistema visual*. Ele foi
+respeitado ao pé da letra — o que mudou foram tokens e componentes globais.
+Hierarquia, densidade e ordem da informação de cada tela estão idênticas.
+
+### O que mudou, medido antes e depois
+
+| Item | Antes | Depois |
+|---|---|---|
+| Display / corpo | Plus Jakarta Sans | **Archivo** / **IBM Plex Sans** |
+| Dado / mono | JetBrains Mono | **IBM Plex Mono** |
+| Raios literais | 148 valores, de 3px a 22px | **143 em 2px**; preservados os 17 `50%` (círculos) e as 4 barras de progresso em `99px` |
+| Tokens de raio | `--r:12px --r-sm:8px --r-xs:6px` | todos **2px** |
+| Sombras | 33 declarações, incluindo 9 ambientes pesadas e 5 glows | **15 removidas**; sobram só anéis de 1px e os `@keyframes` de pulso, que são **estado**, não decoração |
+| `--shadow` / `--glow` | sombra de 32px / glow amarelo de 32px | `none` / anel de 1px |
+| Gradientes | 20 | **2** — só a grade de 1px do fundo. As duas manchas radiais (blobs) e os 13 blocos coloridos de 135° saíram |
+| Acento | 4 cores (`--volt`, `--pink #FF4D8D`, `--sky`, `--violet`) | **1**: o amarelo. As outras três viraram alias de tokens vivos para não quebrar uso esquecido |
+| Selo NEW do menu | rosa, piscando (`animation: pulse-orange 2s infinite`) | chip neutro com régua de 1px, **sem animação** |
+| Pesos tipográficos | 30 usos de `font-weight:800/900` | **700** — Archivo carrega 500/600/700; 800 seria falso-negrito sintetizado |
+
+### 🔴 O amarelo não pode ser uma cor só — medido
+
+`--volt #FFC107` como **texto sobre papel** dá **1,37:1**. Ilegível. Como
+**preenchimento** com tinta escura por cima dá 11,11:1. Testei seis candidatos:
+nenhum amarelo único passa nos dois papéis — o mais escuro que passa como texto
+(`#8A6300`, 4,56:1) já reprova como fundo (3,33:1).
+
+Saída: **`--volt-tx`**, um segundo token para quando o acento vira texto ou
+traço. No escuro é igual ao `--volt`; no claro escurece para `#8A6300`. Foram
+76 usos convertidos (74 `color:`, 2 `stroke:`) — e a conversão foi feita por
+papel, não por busca-e-troca cega: `background:var(--volt)` ficou intacto.
+
+### 🔴 Defeito achado no caminho: marcação dupla nos cards de plano
+
+Cada linha de benefício mostrava **dois** marcadores: o `✓` que o CSS já punha
+por `::before` e um `✅`/`❌` embutido no próprio texto da string. O CSS já tinha
+o mecanismo certo (`.plan ul li` / `li.no` com `✓` e `×`) e ele estava ocioso.
+Agora o emoji sai do texto e o estado vira **classe** — um marcador só, e o item
+não-incluído fica esmaecido. Informação codificada na forma, não repetida.
+
+Junto saiu o **círculo colorido com emoji** de cada plano (⚡🚀🔥👑), que está na
+lista do que não fazer. No lugar, um ladrilho quadrado com o grau do plano em
+mono: **I, II, III, IV** — que carrega informação verdadeira (a ordem dos
+tiers), coisa que o emoji não carregava.
+
+### Contraste da paleta nova
+
+| | escuro | claro |
+|---|---|---|
+| `--tx` sobre `--surf` | 13,82 | 16,49 |
+| `--tx2` sobre `--surf` | 6,49 | 7,52 |
+| `--mut` sobre `--bg` | 5,07 | 4,74 |
+| acento sobre fundo | 11,11 | 4,56 (via `--volt-tx`) |
+
+Tudo acima de 4,5:1.
+
+### O que foi medido
+
+- **26 telas percorridas** uma a uma (17 de afiliado + 9 de admin), nos dois
+  temas: **zero erro de página**.
+- `tools/rota-real.mjs`, `rota-test`, fluxo de recovery, cupom e UTM: **todos
+  passam** — o roteamento não foi afetado.
+- `tools/smoke-index.mjs`: 1 erro, **idêntico ao baseline** (o defeito
+  pré-existente do bloco 2).
+- Sem overflow horizontal em 390 / 834 / 1440, na landing e no painel.
+- Capturas antes/depois de 6 telas, nos dois temas.
+
+### ⚠️ O que NÃO foi medido nesta revisão
+
+- 🔴 **A tipografia não pôde ser vista.** O sandbox não alcança o Google Fonts,
+  então tudo que renderizei usou fonte de fallback. **Archivo e IBM Plex só
+  serão vistas de verdade no navegador do Érico, depois do Deploy.** Se o
+  carregamento falhar, o sintoma é o painel com cara de Arial.
+- Telas com dado real e volume (Radar cheio, fila de clones, tabelas de admin
+  populadas) — o sandbox não tem sessão.
+- iOS Safari.
+
+### O que ficou de propósito
+
+O **emoji no texto** das telas (`Boa tarde ⚡`, `🚀 Postar Agora`, os botões
+`⚡ PIX AVULSO`, `💳 Cartão`, `🔁 Pix recorrente`). É copy, não token, e mexer
+nisso é uma passada própria — fora do escopo que o Érico definiu.
+
+---
+
+### REVISÃO 65 — registro anterior
+
 
 **REVISÃO 63 — 23/08/2026 — REDESIGN. A raiz deixa de ser o painel: nasce uma
 landing pública em `frontend/landing.html`, e cada aba do painel passa a ter URL
@@ -5012,6 +5102,9 @@ código não relacionado.
 | **P67** | 🟡 **NO AR E MEDIDO LOGADO (REVISÃO 65).** Landing, roteamento, Voltar/Avançar/F5, console limpo e cabeçalhos — todos provados no navegador do Érico, na sessão real. **Falta ainda, e só o Érico pode fazer:** clicar num link de recuperação de senha de e-mail de verdade, entrar uma vez com o Google, e conferir em iOS Safari. Registro anterior abaixo. ~~🔴 O redesign da REVISÃO 63 não está em produção~~ | 23/08 |
 | **P68** | 🔵 **`boas-vindas-pc.png` e `boas-vindas-cel.png` (2,8 MB) não são mais referenciados por ninguém**, mas continuam no repo e no `COPY` do `frontend/Dockerfile`. Limpeza opcional | 23/08 |
 | **P69** | 🔵 **Site URL / Redirect URLs do Supabase continuam apontando para a raiz.** Funciona porque a landing encaminha para `/painel`, mas apontar direto para `/painel` elimina um salto. Ação externa, no Dashboard | 23/08 |
+
+| **P70** | 🟡 **Emoji no texto das telas do painel.** `Boa tarde ⚡`, `🚀 Postar Agora`, `⭐ MAIS POPULAR`, botões `⚡ PIX AVULSO` / `💳 Cartão` / `🔁 Pix recorrente`. Está na lista do que não fazer do brief, mas é **copy**, não token — ficou fora do escopo da REVISÃO 66 de propósito. Uma passada própria | 23/08 |
+| **P71** | 🔴 **A tipografia da REVISÃO 66 não foi vista por ninguém.** O sandbox não alcança o Google Fonts; tudo foi renderizado com fallback. Archivo e IBM Plex Sans/Mono só serão conferidas no navegador depois do Deploy. Sintoma de falha: painel com cara de Arial | 23/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.

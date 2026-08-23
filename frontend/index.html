@@ -25,55 +25,64 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta name="twitter:image" content="/banner.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 /* ======================= TOKENS ======================= */
 :root{
-  --volt:#F5C518; --volt-2:#e0b010; --volt-soft:rgba(245,197,24,.13);
-  --gold:#F5C518; --pink:#FF4D8D; --sky:#39C0FF; --violet:#9B7DFF;
-  --red:#FF5168; --green:#22c55e;
-  --r:12px; --r-sm:8px; --r-xs:6px;
-  --disp:"Plus Jakarta Sans",-apple-system,Segoe UI,sans-serif;
-  --body:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,monospace;
+  --volt:#FFC107; --volt-2:#E0AA05; --volt-soft:rgba(255,193,7,.12);
+  /* --volt = preenchimento. --volt-tx = o mesmo acento quando vira TEXTO ou
+     traco. No escuro sao iguais; no claro o de texto escurece para passar em
+     contraste (ver docs/DIRECAO_VISUAL.md). */
+  --volt-tx:#FFC107;
+  --gold:#FFC107;
+  /* --pink/--sky/--violet foram aposentados na REVISAO 66: a direcao de arte
+     (docs/DIRECAO_VISUAL.md) tem UM acento, o amarelo, e ele significa estado.
+     Ficam apontando para tokens vivos para nao quebrar nenhum uso esquecido. */
+  --pink:var(--volt); --sky:var(--tx2); --violet:var(--tx2);
+  --red:#E2705F; --green:#7FB98D;
+  --r:2px; --r-sm:2px; --r-xs:2px;
+  --disp:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --body:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,monospace;
   --rail:232px;
 }
 :root[data-theme="dark"]{
-  --bg:#0c0c0e; --bg2:#111116; --surf:#18181f; --surf2:#1f1f28; --surf3:#26262f;
-  --bd:#2a2a35; --bd2:#333340;
-  --tx:#f0f0f4; --tx2:#9494a8; --mut:#55556a;
-  --shadow:0 8px 32px rgba(0,0,0,.6);
-  --glow:0 0 0 1px rgba(245,197,24,.35),0 0 32px rgba(245,197,24,.15);
-  --topbar:rgba(12,12,14,.85);
-  --grid:rgba(255,255,255,.025);
+  --bg:#14161A; --bg2:#191C21; --surf:#191C21; --surf2:#1F232A; --surf3:#262B33;
+  --bd:#282C33; --bd2:#343941;
+  --tx:#E9E7E2; --tx2:#9BA0A6; --mut:#828891;
+  --shadow:none;
+  --glow:0 0 0 1px rgba(255,193,7,.45);
+  --topbar:#14161A;
+  --grid:rgba(255,255,255,.026);
 }
 :root[data-theme="light"]{
-  --bg:#f4f4f6; --bg2:#ebebef; --surf:#ffffff; --surf2:#f8f8fb; --surf3:#efeff3;
-  --bd:#e0e0e8; --bd2:#d0d0dc;
-  --tx:#111118; --tx2:#555568; --mut:#909098;
-  --shadow:0 4px 20px rgba(0,0,0,.1);
-  --glow:0 0 0 1px rgba(200,160,0,.35),0 0 28px rgba(200,160,0,.12);
-  --topbar:rgba(244,244,246,.88);
-  --grid:rgba(0,0,0,.035);
+  --bg:#EDEBE6; --bg2:#E2DFD7; --surf:#F6F4F0; --surf2:#EAE7E1; --surf3:#DFDBD3;
+  --bd:#CFCCC3; --bd2:#BEBAB0;
+  --tx:#14161A; --tx2:#4A4F55; --mut:#6A6760;
+  --shadow:none;
+  --glow:0 0 0 1px rgba(184,138,0,.5);
+  --volt-tx:#8A6300;
+  --topbar:#EDEBE6;
+  --grid:rgba(0,0,0,.05);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 body{font-family:var(--body);background:var(--bg);color:var(--tx);font-size:13.5px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+/* Fundo: papel milimetrado, nao mancha colorida. As duas manchas radiais
+   (blobs) sairam na REVISAO 66 — ver docs/DIRECAO_VISUAL.md. */
 body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
   background:
-   radial-gradient(600px 300px at 85% -5%,rgba(245,197,24,.07),transparent 60%),
-   radial-gradient(500px 280px at -5% 30%,rgba(57,192,255,.05),transparent 60%),
    linear-gradient(var(--grid) 1px,transparent 1px),
    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-  background-size:auto,auto,40px 40px,40px 40px}
+  background-size:40px 40px,40px 40px}
 :root[data-theme="light"] body::before{opacity:.5}
-h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.025em;font-weight:800}
+h1,h2,h3,.disp{font-family:var(--disp);letter-spacing:-.028em;font-weight:700}
 a{color:inherit;text-decoration:none}
 button{font-family:inherit;cursor:pointer}
 svg{flex:none}
 
 input,select,textarea{font-family:inherit;font-size:13.5px;width:100%;padding:9px 12px;border:1px solid var(--bd2);border-radius:var(--r-sm);background:var(--bg2);color:var(--tx);outline:none;transition:.15s}
-input:focus,select:focus,textarea:focus{border-color:var(--volt);box-shadow:0 0 0 3px rgba(245,197,24,.12)}
+input:focus,select:focus,textarea:focus{border-color:var(--volt-tx);box-shadow:0 0 0 2px rgba(255,193,7,.20)}
 input::placeholder{color:var(--mut)}
 label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:5px;letter-spacing:.02em;text-transform:uppercase}
 .field{margin-bottom:14px}
@@ -82,18 +91,18 @@ label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-botto
 .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .g23{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-.kbd{background:var(--bg2);border:1px solid var(--bd2);border-bottom-width:2px;border-radius:5px;padding:1px 6px;font-family:var(--mono);font-size:10.5px;color:var(--tx2)}
+.kbd{background:var(--bg2);border:1px solid var(--bd2);border-bottom-width:2px;border-radius:2px;padding:1px 6px;font-family:var(--mono);font-size:10.5px;color:var(--tx2)}
 .mono{font-family:var(--mono)}
 
 /* ── SIDEBAR ── */
 .rail{position:fixed;inset:0 auto 0 0;width:var(--rail);background:var(--bg2);border-right:1px solid var(--bd);overflow-y:auto;z-index:50;padding:0;display:flex;flex-direction:column}
-.rail::-webkit-scrollbar{width:4px}.rail::-webkit-scrollbar-track{background:transparent}.rail::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:4px}
+.rail::-webkit-scrollbar{width:4px}.rail::-webkit-scrollbar-track{background:transparent}.rail::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
 
 .brand{display:flex;align-items:center;gap:10px;padding:18px 16px 14px;border-bottom:1px solid var(--bd)}
-.brand .mark{width:32px;height:32px;border-radius:8px;background:var(--volt);display:grid;place-items:center;color:#0c0c0e;font-family:var(--disp);font-weight:800;font-size:16px;flex:none}
+.brand .mark{width:32px;height:32px;border-radius:2px;background:var(--volt);display:grid;place-items:center;color:#0c0c0e;font-family:var(--disp);font-weight:700;font-size:16px;flex:none}
 img.mark{border-radius:50%;background:transparent}
-.brand .wm{font-family:var(--disp);font-weight:800;font-size:14.5px;line-height:1.1;letter-spacing:-.03em}
-.brand .wm i{color:var(--volt);font-style:normal}
+.brand .wm{font-family:var(--disp);font-weight:700;font-size:14.5px;line-height:1.1;letter-spacing:-.03em}
+.brand .wm i{color:var(--volt-tx);font-style:normal}
 .brand .wm small{display:block;font-size:9.5px;font-weight:600;color:var(--mut);letter-spacing:.06em}
 
 .rail-body{flex:1;padding:10px 10px 16px;display:flex;flex-direction:column;gap:2px}
@@ -104,48 +113,48 @@ img.mark{border-radius:50%;background:transparent}
 .nav{display:flex;align-items:center;gap:9px;text-decoration:none;padding:8px 10px;border-radius:var(--r-sm);color:var(--tx2);font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid transparent;position:relative;transition:.12s}
 .nav svg{width:15px;height:15px;flex:none;stroke:currentColor;opacity:.7}
 .nav:hover{background:var(--surf2);color:var(--tx)}
-.nav.active{background:var(--volt-soft) !important;color:var(--volt) !important;font-weight:700;border-color:rgba(245,197,24,.35) !important}
-.nav.active svg{stroke:var(--volt) !important;opacity:1}
+.nav.active{background:var(--volt-soft) !important;color:var(--volt-tx) !important;font-weight:700;border-color:rgba(245,197,24,.35) !important}
+.nav.active svg{stroke:var(--volt-tx) !important;opacity:1}
 .nav.active::before{content:"";position:absolute;left:-10px;top:7px;bottom:7px;width:2.5px;border-radius:2px;background:var(--volt)}
-.nav .tag{margin-left:auto;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px}
+.nav .tag{margin-left:auto;font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px}
 .nav .tag.dot{background:var(--volt);color:#0c0c0e}
 .nav .tag.gold{background:var(--gold);color:#0c0c0e}
-.nav .tag.orange{background:var(--pink);color:#fff;animation:pulse-orange 2s infinite}
+.nav .tag.orange{background:transparent;color:var(--tx2);border:1px solid var(--bd2);font-weight:500}
 @keyframes pulse-orange{0%,100%{opacity:1}50%{opacity:.7}}
 @keyframes pulse-red-bg{0%,100%{background:rgba(255,60,60,.18);box-shadow:0 0 0 0 rgba(255,60,60,.4)}50%{background:rgba(255,60,60,.32);box-shadow:0 0 0 5px rgba(255,60,60,0)}}
 @keyframes blink-green-bg{0%,100%{background:rgba(60,220,120,.18)}50%{background:rgba(60,220,120,.42)}}
 .ml-status-red{color:#ff6b6b !important;border-color:rgba(255,60,60,.45) !important;animation:pulse-red-bg 1.6s infinite}
 .ml-status-green{color:#3fd67a !important;border-color:rgba(60,220,120,.45) !important;animation:blink-green-bg 1.1s infinite}
-.nav-cta{display:flex;align-items:center;gap:10px;text-decoration:none;padding:11px 12px;border-radius:var(--r-sm);cursor:pointer;border:1px solid rgba(255,77,141,.4);position:relative;transition:.15s;background:linear-gradient(135deg,rgba(255,77,141,.15),rgba(255,81,104,.08));font-size:13px;font-weight:700;color:var(--pink);margin-bottom:4px}
-.nav-cta svg{width:17px;height:17px;flex:none;stroke:var(--pink)}
-.nav-cta:hover{background:linear-gradient(135deg,rgba(255,77,141,.25),rgba(255,81,104,.14));transform:translateX(2px)}
-.nav-cta.active{background:linear-gradient(135deg,rgba(255,77,141,.3),rgba(255,81,104,.18)) !important;border-color:rgba(255,77,141,.6) !important;box-shadow:0 0 16px rgba(255,77,141,.15)}
-.nav-cta.active::before{content:"";position:absolute;left:-10px;top:7px;bottom:7px;width:2.5px;border-radius:2px;background:var(--pink)}
+.nav-cta{display:flex;align-items:center;gap:10px;text-decoration:none;padding:11px 12px;border-radius:var(--r-sm);cursor:pointer;border:1px solid rgba(255,193,7,.38);position:relative;transition:.15s;background:var(--volt-soft);font-size:13px;font-weight:700;color:var(--pink);margin-bottom:4px}
+.nav-cta svg{width:17px;height:17px;flex:none;stroke:var(--volt-tx)}
+.nav-cta:hover{background:var(--volt-soft);transform:translateX(2px)}
+.nav-cta.active{background:var(--volt-soft) !important;border-color:rgba(255,193,7,.55) !important;box-shadow:none}
+.nav-cta.active::before{content:"";position:absolute;left:-10px;top:7px;bottom:7px;width:2.5px;border-radius:2px;background:var(--volt)}
 
 .role-switch{display:flex;background:var(--bg);border-radius:var(--r-sm);padding:3px;gap:3px;margin:10px 10px 0}
-.role-switch button{flex:1;padding:6px;border-radius:6px;background:transparent;border:none;color:var(--mut);font-size:11.5px;font-weight:600;transition:.12s;display:flex;align-items:center;justify-content:center;gap:5px}
+.role-switch button{flex:1;padding:6px;border-radius:2px;background:transparent;border:none;color:var(--mut);font-size:11.5px;font-weight:600;transition:.12s;display:flex;align-items:center;justify-content:center;gap:5px}
 .role-switch button svg{width:13px;height:13px}
-.role-switch button.on{background:var(--surf2);color:var(--tx);box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.role-switch button.on{background:var(--surf2);color:var(--tx);box-shadow:none}
 
 .rail-foot{margin:auto 10px 10px;background:var(--volt-soft);border:1px solid rgba(245,197,24,.2);border-radius:var(--r-sm);padding:12px}
-.rail-foot strong{display:block;font-family:var(--disp);font-size:12.5px;font-weight:700;color:var(--volt)}
+.rail-foot strong{display:block;font-family:var(--disp);font-size:12.5px;font-weight:700;color:var(--volt-tx)}
 
 /* ── MAIN ── */
 .main{margin-left:var(--rail);min-height:100vh;display:flex;flex-direction:column;position:relative;z-index:1}
 .top{backdrop-filter:blur(20px);background:var(--topbar);border-bottom:1px solid var(--bd);padding:10px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:40;height:54px}
 .top-r{margin-left:auto;display:flex;align-items:center;gap:8px}
 
-.search{display:flex;align-items:center;gap:8px;background:var(--surf);border:1px solid var(--bd);border-radius:8px;padding:7px 12px;color:var(--mut);font-size:12.5px;cursor:pointer;transition:.12s;max-width:300px}
+.search{display:flex;align-items:center;gap:8px;background:var(--surf);border:1px solid var(--bd);border-radius:2px;padding:7px 12px;color:var(--mut);font-size:12.5px;cursor:pointer;transition:.12s;max-width:300px}
 .search:hover{border-color:var(--bd2);color:var(--tx2)}
-.ibtn{background:var(--surf);border:1px solid var(--bd);border-radius:8px;color:var(--tx2);padding:7px 8px;display:inline-grid;place-items:center;transition:.12s}
+.ibtn{background:var(--surf);border:1px solid var(--bd);border-radius:2px;color:var(--tx2);padding:7px 8px;display:inline-grid;place-items:center;transition:.12s}
 .ibtn:hover{background:var(--surf2);color:var(--tx)}
-.av{width:32px;height:32px;border-radius:8px;background:var(--volt);color:#0c0c0e;font-weight:800;display:grid;place-items:center;border:none;position:relative;font-family:var(--disp);font-size:13px}
+.av{width:32px;height:32px;border-radius:2px;background:var(--volt);color:#0c0c0e;font-weight:700;display:grid;place-items:center;border:none;position:relative;font-family:var(--disp);font-size:13px}
 
 .wrap{padding:22px;max-width:1300px;width:100%}
 .page{display:none;animation:up .22s ease}.page.on{display:block}
 @keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .phead{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;gap:14px;flex-wrap:wrap}
-h1.pt{font-size:20px;font-weight:800;letter-spacing:-.03em}
+h1.pt{font-size:20px;font-weight:700;letter-spacing:-.03em}
 .psub{color:var(--tx2);font-size:13px;margin-top:2px}
 
 /* ── CARDS ── */
@@ -155,25 +164,25 @@ h1.pt{font-size:20px;font-weight:800;letter-spacing:-.03em}
 .r{margin-left:auto;font-size:12px;color:var(--mut)}
 
 /* ── BUTTONS ── */
-.btn{display:inline-flex;align-items:center;gap:7px;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:700;color:#fff;text-decoration:none;transition:.13s;white-space:nowrap;font-family:var(--disp)}
+.btn{display:inline-flex;align-items:center;gap:7px;border:none;border-radius:2px;padding:9px 16px;font-size:13px;font-weight:700;color:#fff;text-decoration:none;transition:.13s;white-space:nowrap;font-family:var(--disp)}
 .btn:hover{filter:brightness(1.08);text-decoration:none;transform:translateY(-1px)}.btn:active{transform:none}
-.btn-volt{background:var(--volt);color:#0c0c0e;box-shadow:0 4px 16px rgba(245,197,24,.28)}
+.btn-volt{background:var(--volt);color:#0c0c0e;box-shadow:none}
 .btn-volt:hover{background:var(--volt-2)}
 .btn-gold{background:var(--gold);color:#0c0c0e}
-.btn-pink{background:var(--pink)}
+.btn-pink{background:var(--volt);color:#14161A}
 .btn-red{background:var(--red)}
 .btn-ghost{background:var(--surf2);color:var(--tx);border:1px solid var(--bd2)}
 .btn-ghost:hover{background:var(--surf3)}
 .btn-sky{background:var(--sky);color:#0c0c0e}
-.btn-sm{padding:6px 12px;font-size:12px;border-radius:6px}
-.btn-lg{padding:12px 26px;font-size:14.5px;border-radius:10px}
+.btn-sm{padding:6px 12px;font-size:12px;border-radius:2px}
+.btn-lg{padding:12px 26px;font-size:14.5px;border-radius:2px}
 
 /* ── PILLS ── */
-.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:2px;font-size:11px;font-weight:600}
 .pill .d{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.7;flex:none}
-.pill.volt{background:rgba(245,197,24,.15);color:var(--volt)}
+.pill.volt{background:rgba(245,197,24,.15);color:var(--volt-tx)}
 .pill.sky{background:rgba(57,192,255,.15);color:var(--sky)}
-.pill.pink{background:rgba(255,77,141,.15);color:var(--pink)}
+.pill.pink{background:var(--volt-soft);color:var(--volt-tx)}
 .pill.red{background:rgba(255,81,104,.15);color:var(--red)}
 .pill.gray{background:var(--surf2);color:var(--mut)}
 .pill.gold{background:rgba(245,197,24,.15);color:var(--gold)}
@@ -183,18 +192,18 @@ h1.pt{font-size:20px;font-weight:800;letter-spacing:-.03em}
 .kpi{background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:16px;position:relative;overflow:hidden}
 .kpi::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--volt);opacity:.4}
 .kl{font-size:11.5px;color:var(--tx2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
-.kv{font-size:24px;font-weight:800;font-family:var(--disp);letter-spacing:-.03em}
+.kv{font-size:24px;font-weight:700;font-family:var(--disp);letter-spacing:-.03em}
 .kd{font-size:11.5px;color:var(--mut);margin-top:4px}
 
 /* ── BAR CHART (mrrChart, irChart, finChart etc.) ── */
 .bar-track{display:flex;align-items:flex-end;gap:6px;height:140px;padding-top:6px}
-.bar,.bar.alt{width:100%;min-height:2px;border-radius:4px 4px 0 0;background:var(--volt);transition:height .4s ease;cursor:default}
+.bar,.bar.alt{width:100%;min-height:2px;border-radius:2px 4px 0 0;background:var(--volt);transition:height .4s ease;cursor:default}
 .bar.alt{background:var(--sky)}
 .bar:hover,.bar.alt:hover{opacity:.8}
 
 /* ── PROGRESS / DISTRIBUTION MINI BAR (planDist, payment method breakdown) ── */
-.prog-mini{height:7px;border-radius:4px;background:var(--bd);overflow:hidden}
-.prog-mini i{display:block;height:100%;border-radius:4px;transition:width .4s ease}
+.prog-mini{height:7px;border-radius:2px;background:var(--bd);overflow:hidden}
+.prog-mini i{display:block;height:100%;border-radius:2px;transition:width .4s ease}
 
 /* ── ALERTS ── */
 .alert{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:var(--r-sm);font-size:13px;margin-bottom:14px}
@@ -213,11 +222,11 @@ tr:hover td{background:var(--surf2)}
 /* ── MODAL ── */
 .mbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:1000;align-items:center;justify-content:center;padding:20px}
 .mbg.on,.mbg.open{display:flex}
-.modal{background:var(--surf);border:1px solid var(--bd2);border-radius:16px;width:100%;max-width:540px;box-shadow:0 32px 80px rgba(0,0,0,.6);max-height:90vh;display:flex;flex-direction:column}
+.modal{background:var(--surf);border:1px solid var(--bd2);border-radius:2px;width:100%;max-width:540px;box-shadow:none;max-height:90vh;display:flex;flex-direction:column}
 .mh{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bd);font-size:14px;font-weight:700}
 .mb{padding:20px;overflow-y:auto;flex:1}
 .mf{padding:14px 20px;border-top:1px solid var(--bd);display:flex;gap:8px;justify-content:flex-end}
-.mx{background:var(--surf2);border:1px solid var(--bd);border-radius:7px;color:var(--mut);width:28px;height:28px;display:grid;place-items:center;font-size:16px;transition:.12s;cursor:pointer}
+.mx{background:var(--surf2);border:1px solid var(--bd);border-radius:2px;color:var(--mut);width:28px;height:28px;display:grid;place-items:center;font-size:16px;transition:.12s;cursor:pointer}
 .mx:hover{background:var(--surf3);color:var(--tx)}
 
 /* ── SPLASH BOAS-VINDAS ── */
@@ -231,17 +240,17 @@ tr:hover td{background:var(--surf2)}
 @media (min-width:940px){.auth-side{display:flex}}
 .auth-side .eb{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:#828891}
 .auth-side h2{font-family:var(--disp);font-weight:700;font-size:34px;line-height:1.05;letter-spacing:-.035em;color:#E9E7E2;margin:22px 0 14px;max-width:15ch}
-.auth-side h2 em{font-style:normal;color:var(--volt)}
+.auth-side h2 em{font-style:normal;color:var(--volt-tx)}
 .auth-side p{font-size:14px;color:#9BA0A6;max-width:38ch;line-height:1.6}
 .auth-log{border:1px solid #282C33;background:#191C21;margin-top:34px}
 .auth-log .lh{padding:8px 13px;border-bottom:1px solid #282C33;font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#828891;display:flex;justify-content:space-between}
-.auth-log .lh i{font-style:normal;color:var(--volt)}
+.auth-log .lh i{font-style:normal;color:var(--volt-tx)}
 .auth-log table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums}
 .auth-log td{padding:9px 13px;border-bottom:1px solid #282C33;color:#BFC3C8;white-space:nowrap}
 .auth-log tr:last-child td{border-bottom:none}
 .auth-log tr:first-child td{color:#E9E7E2}
 .auth-log td:last-child{text-align:right;color:#828891}
-.auth-log tr:first-child td:last-child{color:var(--volt)}
+.auth-log tr:first-child td:last-child{color:var(--volt-tx)}
 .auth-wrap{display:flex;align-items:center;justify-content:center;padding:34px 20px}
 .authcard{background:transparent;border:none;border-radius:0;padding:0;width:100%;max-width:372px;box-shadow:none}
 .login-brand{align-items:flex-start !important;gap:12px !important;padding-bottom:26px !important;flex-direction:row !important;justify-content:flex-start !important}
@@ -254,21 +263,21 @@ tr:hover td{background:var(--surf2)}
 .authbg .btn-volt{box-shadow:none}
 .auth-h{font-size:26px;font-weight:700;font-family:var(--disp);margin:0 0 6px;letter-spacing:-.032em}
 .auth-sub{color:var(--mut);font-size:13px;margin-bottom:18px}
-.auth-tabs{display:flex;background:var(--bg);border-radius:8px;padding:3px;gap:3px;margin-bottom:16px}
-.auth-tabs button{flex:1;padding:7px;background:transparent;border:none;color:var(--mut);font-weight:600;border-radius:6px;font-size:13px;transition:.12s}
-.auth-tabs button.on{background:var(--surf2);color:var(--tx);box-shadow:0 1px 4px rgba(0,0,0,.3)}
-.auth-err{color:var(--red);font-size:12.5px;margin-bottom:10px;display:none;padding:10px 12px;background:rgba(255,81,104,.08);border:1px solid rgba(255,81,104,.2);border-radius:7px}
+.auth-tabs{display:flex;background:var(--bg);border-radius:2px;padding:3px;gap:3px;margin-bottom:16px}
+.auth-tabs button{flex:1;padding:7px;background:transparent;border:none;color:var(--mut);font-weight:600;border-radius:2px;font-size:13px;transition:.12s}
+.auth-tabs button.on{background:var(--surf2);color:var(--tx);box-shadow:none}
+.auth-err{color:var(--red);font-size:12.5px;margin-bottom:10px;display:none;padding:10px 12px;background:rgba(255,81,104,.08);border:1px solid rgba(255,81,104,.2);border-radius:2px}
 .auth-demo{margin-top:14px}
 .hint{font-size:12px;color:var(--mut);margin-top:5px}
 
 /* ── MISC ── */
 .pass-wrap{position:relative}
 .pass-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--mut);font-size:14px;padding:2px;cursor:pointer}
-.tag-new{background:var(--volt);color:#0c0c0e;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;margin-left:4px;letter-spacing:.03em}
+.tag-new{background:var(--volt);color:#0c0c0e;font-size:9px;font-weight:700;padding:1px 5px;border-radius:2px;margin-left:4px;letter-spacing:.03em}
 .seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
-.seg button,.fc{background:var(--surf2);border:1px solid var(--bd2);border-radius:7px;color:var(--tx2);padding:6px 12px;font-size:12.5px;font-weight:600;transition:.12s;cursor:pointer}
-.seg button:hover,.fc:hover{border-color:var(--volt);color:var(--tx)}
-.seg button.on,.fc.on{background:var(--volt-soft);border-color:rgba(245,197,24,.3);color:var(--volt)}
+.seg button,.fc{background:var(--surf2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx2);padding:6px 12px;font-size:12.5px;font-weight:600;transition:.12s;cursor:pointer}
+.seg button:hover,.fc:hover{border-color:var(--volt-tx);color:var(--tx)}
+.seg button.on,.fc.on{background:var(--volt-soft);border-color:rgba(245,197,24,.3);color:var(--volt-tx)}
 .divider{height:1px;background:var(--bd);margin:16px 0}
 .qrow{display:flex;align-items:center;padding:10px 0;border-bottom:1px solid var(--bd);font-size:13px}
 .qrow:last-child{border-bottom:none}
@@ -276,8 +285,8 @@ tr:hover td{background:var(--surf2)}
 .li{font-size:40px;margin-bottom:10px}
 .prod{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--bd)}
 .prod:last-child{border-bottom:none}
-.pimg{width:44px;height:44px;border-radius:8px;background:var(--surf2);display:grid;place-items:center;font-size:20px;flex:none;overflow:hidden}
-.chan-badge{background:var(--volt-soft);color:var(--volt);border:1px solid rgba(245,197,24,.2);border-radius:5px;padding:2px 7px;font-size:10.5px;font-weight:700}
+.pimg{width:44px;height:44px;border-radius:2px;background:var(--surf2);display:grid;place-items:center;font-size:20px;flex:none;overflow:hidden}
+.chan-badge{background:var(--volt-soft);color:var(--volt-tx);border:1px solid rgba(245,197,24,.2);border-radius:2px;padding:2px 7px;font-size:10.5px;font-weight:700}
 
 /* ── RADAR DE OFERTAS — Cards ── */
 .radar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
@@ -300,49 +309,49 @@ tr:hover td{background:var(--surf2)}
    estado "vazio" e o mais facil de ler errado da tela inteira. */
 .cs-lojas{border-top:1px solid var(--bd);padding-top:9px}
 .cs-loja-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-.cs-loja{font-family:inherit;font-size:11.5px;font-weight:600;line-height:1;padding:6px 10px;border-radius:999px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2);transition:.12s}
+.cs-loja{font-family:inherit;font-size:11.5px;font-weight:600;line-height:1;padding:6px 10px;border-radius:2px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2);transition:.12s}
 .cs-loja:hover{border-color:var(--tx2);color:var(--tx)}
-.cs-loja.on{border-color:var(--volt);background:rgba(25,226,125,.14);color:var(--volt)}
+.cs-loja.on{border-color:var(--volt-tx);background:rgba(25,226,125,.14);color:var(--volt-tx)}
 .cs-loja-conta{font-size:11px;color:var(--mut);line-height:1.6;margin-top:7px}
 .cs-loja-conta b{color:var(--tx2)}
-.cs-barrado{font-size:11.5px;color:#F59E0B;line-height:1.6;margin-top:7px;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:7px 9px}
+.cs-barrado{font-size:11.5px;color:#F59E0B;line-height:1.6;margin-top:7px;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.25);border-radius:2px;padding:7px 9px}
 .cs-barrado b{color:#F59E0B}
-.cs-teto-bt{font-family:inherit;font-size:12px;font-weight:700;line-height:1;width:20px;height:20px;margin-left:4px;border-radius:6px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2);vertical-align:middle}
-.cs-teto-bt:hover{border-color:var(--volt);color:var(--volt)}
+.cs-teto-bt{font-family:inherit;font-size:12px;font-weight:700;line-height:1;width:20px;height:20px;margin-left:4px;border-radius:2px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2);vertical-align:middle}
+.cs-teto-bt:hover{border-color:var(--volt-tx);color:var(--volt-tx)}
 /* Paginação da fila de clones */
 .cl-pg{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-top:14px;margin-top:4px}
 .cl-pg-info{font-size:12px;color:var(--mut)}
-.cl-pg-bt{font-family:inherit;font-size:12.5px;font-weight:700;line-height:1;min-width:28px;height:28px;padding:0 8px;border-radius:7px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2)}
-.cl-pg-bt:hover:not(:disabled){border-color:var(--volt);color:var(--volt)}
-.cl-pg-bt.on{background:var(--volt);border-color:var(--volt);color:#0c0c0e}
+.cl-pg-bt{font-family:inherit;font-size:12.5px;font-weight:700;line-height:1;min-width:28px;height:28px;padding:0 8px;border-radius:2px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2)}
+.cl-pg-bt:hover:not(:disabled){border-color:var(--volt-tx);color:var(--volt-tx)}
+.cl-pg-bt.on{background:var(--volt);border-color:var(--volt-tx);color:#0c0c0e}
 .cl-pg-bt:disabled{opacity:.35;cursor:default}
 .cl-pg-el{color:var(--mut);font-size:12px;padding:0 2px}
 .cs-loja-check{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--tx);cursor:pointer}
 .cs-loja-check input{width:auto;margin:0}
 .cs-add{border:1px dashed var(--bd2);background:transparent;border-radius:var(--r-sm);padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:150px;cursor:pointer;color:var(--tx2);font-size:12.5px;text-align:center;transition:border-color .15s,color .15s}
-.cs-add:hover{border-color:var(--volt);color:var(--tx)}
+.cs-add:hover{border-color:var(--volt-tx);color:var(--tx)}
 .cs-add.travado{cursor:not-allowed;opacity:.55}
 .cs-add.travado:hover{border-color:var(--bd2);color:var(--tx2)}
 .cs-add span.mais{font-size:22px;line-height:1}
 /* Carimbo de "quando isto foi lido". Sem ele, clicar em atualizar num painel
    que nao mudou e indistinguivel de clicar num botao morto. */
 .cs-upd{font-size:11px;color:var(--mut);margin-right:10px;font-weight:400}
-.radar-card{background:var(--surf);border:1px solid var(--bd2);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;transition:.15s;position:relative}
-.radar-card:hover{border-color:var(--bd);transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.25)}
-.radar-card.is-new::before{content:"🆕 NOVA";position:absolute;top:8px;left:8px;background:var(--volt);color:#0c0c0e;font-size:9px;font-weight:800;padding:3px 6px;border-radius:4px;letter-spacing:.05em;z-index:2}
+.radar-card{background:var(--surf);border:1px solid var(--bd2);border-radius:2px;overflow:hidden;display:flex;flex-direction:column;transition:.15s;position:relative}
+.radar-card:hover{border-color:var(--bd);transform:translateY(-2px);box-shadow:none}
+.radar-card.is-new::before{content:"🆕 NOVA";position:absolute;top:8px;left:8px;background:var(--volt);color:#0c0c0e;font-size:9px;font-weight:700;padding:3px 6px;border-radius:2px;letter-spacing:.05em;z-index:2}
 .radar-card-img{position:relative;background:#0a0a0c;aspect-ratio:1/1;display:grid;place-items:center;overflow:hidden}
 .radar-card-img img{width:100%;height:100%;object-fit:cover}
 .radar-card-img .fallback{font-size:46px;opacity:.4}
-.radar-card-img .disc{position:absolute;top:8px;right:8px;background:#ff4d6d;color:#fff;padding:4px 9px;border-radius:6px;font-weight:800;font-size:13px;box-shadow:0 2px 8px rgba(255,77,109,.4)}
-.radar-card-img .score{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.7);color:#fff;backdrop-filter:blur(4px);padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:3px}
+.radar-card-img .disc{position:absolute;top:8px;right:8px;background:#ff4d6d;color:#fff;padding:4px 9px;border-radius:2px;font-weight:700;font-size:13px;box-shadow:none}
+.radar-card-img .score{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.7);color:#fff;backdrop-filter:blur(4px);padding:3px 8px;border-radius:2px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:3px}
 .radar-card-body{padding:12px;display:flex;flex-direction:column;gap:8px;flex:1}
 .radar-card-title{font-size:13px;font-weight:600;line-height:1.35;color:var(--tx);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:36px}
 .radar-card-meta{display:flex;gap:8px;flex-wrap:wrap;font-size:10.5px;color:var(--mut);align-items:center}
-.radar-card-meta .loja-tag{background:var(--surf2);padding:2px 7px;border-radius:4px;color:var(--tx2);font-weight:600}
+.radar-card-meta .loja-tag{background:var(--surf2);padding:2px 7px;border-radius:2px;color:var(--tx2);font-weight:600}
 .radar-card-meta .meta-item{display:flex;align-items:center;gap:3px}
 .radar-card-prices{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
 .radar-card-prices .de{font-size:11px;color:var(--mut);text-decoration:line-through}
-.radar-card-prices .por{font-size:17px;font-weight:800;color:var(--volt);font-family:var(--mono)}
+.radar-card-prices .por{font-size:17px;font-weight:700;color:var(--volt-tx);font-family:var(--mono)}
 .radar-card-actions{display:flex;gap:6px;margin-top:auto;padding-top:8px}
 .radar-card-actions .btn{flex:1;justify-content:center;padding:7px 10px;font-size:12px}
 .radar-empty{text-align:center;padding:50px 20px;color:var(--mut)}
@@ -352,17 +361,17 @@ tr:hover td{background:var(--surf2)}
 /* ── TABS (editar grupo) ── */
 .tabs-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .tabs{display:flex;gap:4px;padding:0 0 12px;min-width:max-content}
-.tab{background:var(--surf2);border:1px solid var(--bd2);border-radius:7px;color:var(--tx2);padding:6px 13px;font-size:12px;font-weight:600;transition:.12s;cursor:pointer;white-space:nowrap;outline:none;-webkit-appearance:none;appearance:none;user-select:none}
+.tab{background:var(--surf2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx2);padding:6px 13px;font-size:12px;font-weight:600;transition:.12s;cursor:pointer;white-space:nowrap;outline:none;-webkit-appearance:none;appearance:none;user-select:none}
 .tab:hover{border-color:var(--bd);color:var(--tx)}
 .tab:focus{outline:none;box-shadow:none}
-.tab.active{background:var(--volt-soft);border-color:rgba(245,197,24,.3);color:var(--volt)}
+.tab.active{background:var(--volt-soft);border-color:rgba(245,197,24,.3);color:var(--volt-tx)}
 .tp{display:none}.tp.on{display:block}
 
 /* showLoading/hideLoading movidas para o JS principal (antes ficavam dentro do CSS por engano) */
 
 /* ── TOAST ── */
 #tw{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-.toast{background:var(--surf2);border:1px solid var(--bd2);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:toastIn .2s ease;max-width:340px;pointer-events:auto}
+.toast{background:var(--surf2);border:1px solid var(--bd2);border-radius:2px;padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;box-shadow:none;animation:toastIn .2s ease;max-width:340px;pointer-events:auto}
 @keyframes toastIn{from{opacity:0;transform:scale(.94) translateY(-6px)}to{opacity:1;transform:none}}
 .toast-ico{font-size:16px;flex:none}
 
@@ -381,96 +390,99 @@ tr:hover td{background:var(--surf2)}
 .faq-q{display:flex;align-items:center;justify-content:space-between;padding:14px 0;cursor:pointer;font-weight:600;font-size:13.5px}
 .faq-a{display:none;padding:0 0 14px;color:var(--tx2);font-size:13px;line-height:1.7}
 .faq-item.open .faq-a{display:block}
-.faq-item.open .faq-q{color:var(--volt)}
+.faq-item.open .faq-q{color:var(--volt-tx)}
 
 /* ── PHONE PREVIEW ── */
-.phone{width:200px;background:#0c0c0e;border-radius:22px;border:2px solid var(--bd2);overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.6)}
+.phone{width:200px;background:#0c0c0e;border-radius:2px;border:2px solid var(--bd2);overflow:hidden;box-shadow:none}
 .notch{height:22px;background:#0c0c0e;display:flex;align-items:center;justify-content:center}
-.notch::after{content:"";width:60px;height:8px;background:#1c1c20;border-radius:8px}
+.notch::after{content:"";width:60px;height:8px;background:#1c1c20;border-radius:2px}
 .scr{background:#1b1f2e;min-height:280px;padding:10px}
 .wah{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:#eee;margin-bottom:8px}
-.gp{width:22px;height:22px;border-radius:50%;background:var(--volt);color:#0c0c0e;display:grid;place-items:center;font-size:9px;font-weight:800}
-.bub{background:#2a3142;border-radius:8px;padding:9px 11px;font-size:9.5px;color:#dde;line-height:1.5;white-space:pre-line}
-.bub .lnk{color:var(--volt);display:block;margin-top:5px}
+.gp{width:22px;height:22px;border-radius:50%;background:var(--volt);color:#0c0c0e;display:grid;place-items:center;font-size:9px;font-weight:700}
+.bub{background:#2a3142;border-radius:2px;padding:9px 11px;font-size:9.5px;color:#dde;line-height:1.5;white-space:pre-line}
+.bub .lnk{color:var(--volt-tx);display:block;margin-top:5px}
 .bub .img{font-size:28px;display:block;text-align:center;margin-bottom:6px}
 .bub .tm{display:block;text-align:right;font-size:8.5px;color:#6b7;margin-top:4px}
 
 /* ── HEATMAP ── */
 .heat-grid{display:grid;grid-template-columns:repeat(24,1fr);gap:3px;margin-top:8px}
-.hc{height:24px;border-radius:4px;background:var(--surf2)}
+.hc{height:24px;border-radius:2px;background:var(--surf2)}
 
 /* ── CHARTS (sparkline) ── */
 .sp{display:block}
 
 /* ── DROPDOWNS DO TOPO ── */
-.dd{position:absolute;top:calc(100% + 8px);right:0;background:var(--surf);border:1px solid var(--bd2);border-radius:10px;min-width:260px;box-shadow:0 12px 40px rgba(0,0,0,.5);display:none;z-index:60;overflow:hidden}
+.dd{position:absolute;top:calc(100% + 8px);right:0;background:var(--surf);border:1px solid var(--bd2);border-radius:2px;min-width:260px;box-shadow:none;display:none;z-index:60;overflow:hidden}
 .dd.open{display:block}
 .ddh{padding:12px 14px;border-bottom:1px solid var(--bd);font-size:13px}
 .ddi{display:flex;align-items:flex-start;gap:10px;width:100%;background:transparent;border:none;color:var(--tx);padding:11px 14px;font-size:13px;text-align:left;cursor:pointer;font-family:inherit;line-height:1.4}
 .ddi:hover{background:var(--surf2)}
 .ddi small{display:block;color:var(--mut);font-size:11.5px;margin-top:2px}
 #btnNotif{position:relative}
-#btnNotif .pip{position:absolute;top:5px;right:6px;width:7px;height:7px;background:var(--pink);border-radius:50%;border:2px solid var(--surf)}
+#btnNotif .pip{position:absolute;top:5px;right:6px;width:7px;height:7px;background:var(--volt);border-radius:50%;border:2px solid var(--surf)}
 
 /* ── FOOTER (escondido) ── */
 .foot{display:none}
 
 /* ── PLANOS (cards de assinatura) ── */
-.plan{background:var(--surf);border:1px solid var(--bd);border-radius:14px;padding:24px 22px;display:flex;flex-direction:column;gap:14px;position:relative;transition:.15s}
+.plan{background:var(--surf);border:1px solid var(--bd);border-radius:2px;padding:24px 22px;display:flex;flex-direction:column;gap:14px;position:relative;transition:.15s}
 .plan:hover{border-color:var(--bd2);transform:translateY(-2px)}
-.plan.feat{border-color:var(--volt);box-shadow:0 0 0 1px var(--volt),0 16px 50px rgba(245,197,24,.18)}
+.plan.feat{border-color:var(--volt-tx);box-shadow:0 0 0 1px var(--volt)}
 .plan.cur{border-color:var(--sky);box-shadow:0 0 0 1px var(--sky)}
-.plan .pn{font-family:var(--disp);font-size:18px;font-weight:800;letter-spacing:-.02em}
+.plan-grau{width:44px;height:44px;border-radius:2px;display:grid;place-items:center;flex:none;
+  font-family:var(--mono);font-size:14px;font-weight:500;letter-spacing:.08em}
+.plan-grau.sm{width:38px;height:38px;font-size:12.5px}
+.plan .pn{font-family:var(--disp);font-size:18px;font-weight:700;letter-spacing:-.02em}
 .plan .pp{display:flex;align-items:baseline;gap:5px;margin:6px 0 4px}
-.plan .pp b{font-family:var(--disp);font-size:32px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.plan .pp b{font-family:var(--disp);font-size:32px;font-weight:700;letter-spacing:-.03em;line-height:1}
 .plan .pp small{color:var(--mut);font-size:12px}
 .plan ul{list-style:none;display:flex;flex-direction:column;gap:7px;font-size:12.5px;margin:8px 0 16px;flex:1}
 .plan ul li{display:flex;gap:8px;align-items:flex-start;color:var(--tx2)}
-.plan ul li::before{content:"✓";color:var(--volt);font-weight:800;flex:none}
+.plan ul li::before{content:"✓";color:var(--volt-tx);font-weight:700;flex:none}
 .plan ul li.no{color:var(--mut)}
 .plan ul li.no::before{content:"×";color:var(--mut)}
-.plan-tag{position:absolute;top:-10px;right:18px;background:var(--volt);color:#0c0c0e;font-size:10px;font-weight:800;padding:3px 10px;border-radius:20px;letter-spacing:.05em}
-.plan-cur{position:absolute;top:-10px;left:18px;background:var(--sky);color:#0c0c0e;font-size:10px;font-weight:800;padding:3px 10px;border-radius:20px;letter-spacing:.05em}
+.plan-tag{position:absolute;top:-10px;right:18px;background:var(--volt);color:#0c0c0e;font-size:10px;font-weight:700;padding:3px 10px;border-radius:2px;letter-spacing:.05em}
+.plan-cur{position:absolute;top:-10px;left:18px;background:var(--sky);color:#0c0c0e;font-size:10px;font-weight:700;padding:3px 10px;border-radius:2px;letter-spacing:.05em}
 
-.bill-toggle{display:flex;background:var(--surf2);border-radius:8px;padding:3px;gap:3px;margin:0 auto 24px;max-width:280px}
-.bill-toggle button{flex:1;background:transparent;border:none;color:var(--mut);font-weight:600;padding:7px;border-radius:6px;font-size:12.5px;font-family:inherit;cursor:pointer}
-.bill-toggle button.on{background:var(--surf);color:var(--tx);box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.bill-toggle{display:flex;background:var(--surf2);border-radius:2px;padding:3px;gap:3px;margin:0 auto 24px;max-width:280px}
+.bill-toggle button{flex:1;background:transparent;border:none;color:var(--mut);font-weight:600;padding:7px;border-radius:2px;font-size:12.5px;font-family:inherit;cursor:pointer}
+.bill-toggle button.on{background:var(--surf);color:var(--tx);box-shadow:none}
 
 /* ── ONBOARDING / RING ── */
 .onb-wrap{display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:center}
 .ring{position:relative;width:96px;height:96px;flex:none}
 .ring circle{fill:none;stroke-width:8}
 .ring .bg-c{stroke:var(--surf3)}
-.ring .fg-c{stroke:var(--volt);stroke-linecap:round;transition:stroke-dashoffset .8s ease}
-.ring .ringtx{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--disp);font-size:20px;font-weight:800;color:var(--volt)}
+.ring .fg-c{stroke:var(--volt-tx);stroke-linecap:round;transition:stroke-dashoffset .8s ease}
+.ring .ringtx{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--disp);font-size:20px;font-weight:700;color:var(--volt-tx)}
 .osteps{list-style:none;display:flex;flex-direction:column;gap:10px;flex:1}
 .osteps li{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--tx2)}
 .osteps li.done{color:var(--tx2);text-decoration:line-through;opacity:.6}
-.osteps .ostep{width:18px;height:18px;border-radius:50%;background:var(--surf2);border:2px solid var(--bd2);flex:none;display:grid;place-items:center;font-size:10px;font-weight:800;color:transparent}
-.osteps li.done .ostep{background:var(--volt);border-color:var(--volt);color:#0c0c0e}
+.osteps .ostep{width:18px;height:18px;border-radius:50%;background:var(--surf2);border:2px solid var(--bd2);flex:none;display:grid;place-items:center;font-size:10px;font-weight:700;color:transparent}
+.osteps li.done .ostep{background:var(--volt);border-color:var(--volt-tx);color:#0c0c0e}
 .osteps li.done .ostep::before{content:"✓"}
 
 /* ── HEATMAP MELHOR HORÁRIO ── */
 .heat-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:8px}
 .heat{display:grid;grid-template-columns:60px repeat(24,minmax(20px,1fr));gap:3px;min-width:600px}
 .heat .hd{font-size:10.5px;color:var(--mut);font-weight:600;display:grid;place-items:center;padding:4px 0}
-.heat .hc{height:22px;border-radius:4px;background:var(--surf2);transition:.12s}
+.heat .hc{height:22px;border-radius:2px;background:var(--surf2);transition:.12s}
 .heat .hc:hover{transform:scale(1.18);outline:2px solid var(--volt)}
 .heat-leg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mut);margin-top:10px}
-.heat-leg .sq{width:13px;height:13px;border-radius:3px}
+.heat-leg .sq{width:13px;height:13px;border-radius:2px}
 
 /* ── TABS EDITAR GRUPO — 2 níveis ── */
 .tabs-l1{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
-.tabs-l1 .tl1{background:var(--surf);border:1px solid var(--bd);border-radius:9px;color:var(--tx2);padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:.12s;font-family:var(--disp)}
+.tabs-l1 .tl1{background:var(--surf);border:1px solid var(--bd);border-radius:2px;color:var(--tx2);padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:.12s;font-family:var(--disp)}
 .tabs-l1 .tl1:hover{border-color:var(--bd2);color:var(--tx)}
-.tabs-l1 .tl1.active{background:var(--volt);color:#0c0c0e;border-color:var(--volt);box-shadow:0 4px 14px rgba(245,197,24,.3)}
+.tabs-l1 .tl1.active{background:var(--volt);color:#0c0c0e;border-color:var(--volt-tx);box-shadow:none}
 .tabs-l2{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 14px;margin-bottom:14px;border-bottom:1px solid var(--bd)}
 .tabs-l2 .tab{flex:0 0 auto}
 
 /* ── TABS EDITAR GRUPO — scroll horizontal real ── */
 #tabsBar,.tabs{display:flex !important;flex-wrap:nowrap !important;gap:5px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;padding:0 0 12px;margin-bottom:14px;border-bottom:1px solid var(--bd);scrollbar-width:thin;white-space:nowrap}
 #tabsBar::-webkit-scrollbar,.tabs::-webkit-scrollbar{height:5px}
-#tabsBar::-webkit-scrollbar-thumb,.tabs::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:4px}
+#tabsBar::-webkit-scrollbar-thumb,.tabs::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
 #tabsBar .tab,.tabs .tab{flex:0 0 auto !important}
 
 /* ── PHEAD do editar grupo — botões não esticam ── */
@@ -480,13 +492,13 @@ tr:hover td{background:var(--surf2)}
 .kpi svg.sp{width:100%;margin-top:8px;height:30px}
 
 /* ── PROGRESS BAR ── */
-.prog{height:5px;background:var(--surf2);border-radius:3px;overflow:hidden;margin:6px 0 10px}
-.prog i{display:block;height:100%;background:var(--volt);border-radius:3px;transition:width .4s}
+.prog{height:5px;background:var(--surf2);border-radius:2px;overflow:hidden;margin:6px 0 10px}
+.prog i{display:block;height:100%;background:var(--volt);border-radius:2px;transition:width .4s}
 
 /* ── BUB phone preview — texto mais legível ── */
 .bub b{color:#fff}
 .bub s{color:#8ca}
-.drw{position:fixed;top:0;right:-420px;width:420px;height:100vh;background:var(--surf);border-left:1px solid var(--bd);z-index:500;display:flex;flex-direction:column;transition:.25s cubic-bezier(.4,0,.2,1);box-shadow:-20px 0 60px rgba(0,0,0,.4)}
+.drw{position:fixed;top:0;right:-420px;width:420px;height:100vh;background:var(--surf);border-left:1px solid var(--bd);z-index:500;display:flex;flex-direction:column;transition:.25s cubic-bezier(.4,0,.2,1);box-shadow:none}
 .drw.on,.drw.open{right:0}
 .drwh{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--bd);font-weight:700;font-size:14px;position:relative}
 .ai-status-dot{position:absolute;bottom:-2px;right:-3px;width:8px;height:8px;border-radius:50%;background:var(--volt);border:2px solid var(--surf);box-shadow:0 0 0 0 rgba(245,197,24,.5);animation:pulse 2s infinite}
@@ -494,24 +506,24 @@ tr:hover td{background:var(--surf2)}
 .ai-quick{padding:14px 16px;border-bottom:1px solid var(--bd);background:var(--bg2)}
 .ai-quick-h{font-size:11px;color:var(--mut);font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px}
 .ai-quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.ai-qa{background:var(--surf);border:1px solid var(--bd2);border-radius:9px;color:var(--tx);padding:10px 12px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;text-align:left;transition:.13s;font-family:inherit}
+.ai-qa{background:var(--surf);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);padding:10px 12px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;text-align:left;transition:.13s;font-family:inherit}
 .ai-qa span:first-child{font-size:16px;flex:none}
-.ai-qa:hover{border-color:var(--volt);background:var(--volt-soft);color:var(--volt)}
+.ai-qa:hover{border-color:var(--volt-tx);background:var(--volt-soft);color:var(--volt-tx)}
 .ai-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
-.ai-msg{padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.55;max-width:88%}
+.ai-msg{padding:10px 14px;border-radius:2px;font-size:13px;line-height:1.55;max-width:88%}
 .ai-msg.u,.ai-msg.me{background:var(--volt);color:#0c0c0e;align-self:flex-end;font-weight:500}
 .ai-msg.a,.ai-msg.ai{background:var(--surf2);border:1px solid var(--bd);color:var(--tx);align-self:flex-start}
 .ai-msg-wrap{display:flex;flex-direction:column;align-self:flex-start;max-width:88%}
-.ai-copy-btn{align-self:flex-end;margin-top:4px;background:transparent;border:1px solid var(--bd);color:var(--tx-dim,#999);font-size:11px;padding:4px 9px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:4px;-webkit-tap-highlight-color:transparent}
+.ai-copy-btn{align-self:flex-end;margin-top:4px;background:transparent;border:1px solid var(--bd);color:var(--tx-dim,#999);font-size:11px;padding:4px 9px;border-radius:2px;cursor:pointer;display:flex;align-items:center;gap:4px;-webkit-tap-highlight-color:transparent}
 .ai-copy-btn:active{background:var(--surf2);transform:scale(0.96)}
-.ai-copy-btn.copied{color:var(--volt);border-color:var(--volt)}
+.ai-copy-btn.copied{color:var(--volt-tx);border-color:var(--volt-tx)}
 .ai-suggest{display:flex;gap:6px;padding:8px 14px 0;flex-wrap:wrap}
-.ai-suggest .chip{background:var(--surf2);border:1px solid var(--bd2);color:var(--tx2);padding:6px 11px;border-radius:14px;font-size:11.5px;font-weight:600;cursor:pointer;transition:.12s;font-family:inherit}
-.ai-suggest .chip:hover{border-color:var(--volt);color:var(--volt);background:var(--volt-soft)}
+.ai-suggest .chip{background:var(--surf2);border:1px solid var(--bd2);color:var(--tx2);padding:6px 11px;border-radius:2px;font-size:11.5px;font-weight:600;cursor:pointer;transition:.12s;font-family:inherit}
+.ai-suggest .chip:hover{border-color:var(--volt-tx);color:var(--volt-tx);background:var(--volt-soft)}
 .ai-inp{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--bd)}
-.ai-inp input{border-radius:9px}
+.ai-inp input{border-radius:2px}
 .ai-inp .btn{padding:8px 14px;font-size:14px}
-.fab{position:fixed;bottom:20px;right:20px;z-index:400;background:var(--volt);color:#0c0c0e;border:none;border-radius:10px;padding:10px 16px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:7px;box-shadow:0 4px 20px rgba(245,197,24,.4);transition:.15s;font-family:var(--disp);cursor:pointer;animation:fabBeat 3s ease-in-out infinite}
+.fab{position:fixed;bottom:20px;right:20px;z-index:400;background:var(--volt);color:#0c0c0e;border:none;border-radius:2px;padding:10px 16px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:7px;box-shadow:none;transition:.15s;font-family:var(--disp);cursor:pointer;animation:fabBeat 3s ease-in-out infinite}
 .fab:hover{transform:translateY(-2px);filter:brightness(1.08)}
 @keyframes fabBeat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 
@@ -524,12 +536,12 @@ tr:hover td{background:var(--surf2)}
 /* ── PALETTE ── */
 #palbg{display:none;position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.6);backdrop-filter:blur(4px)}
 #palbg.on,#palbg.open{display:block}
-.pal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surf);border:1px solid var(--bd2);border-radius:14px;width:560px;max-width:94vw;z-index:801;box-shadow:0 40px 100px rgba(0,0,0,.6)}
+.pal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surf);border:1px solid var(--bd2);border-radius:2px;width:560px;max-width:94vw;z-index:801;box-shadow:none}
 .pal-inp{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--bd)}
 .pal-inp input{border:none;background:transparent;font-size:15px;padding:0}
 .pal-inp input:focus{box-shadow:none}
 #pall{max-height:340px;overflow-y:auto;padding:8px}
-.pal-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13px}
+.pal-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:2px;cursor:pointer;font-size:13px}
 .pal-item:hover{background:var(--surf2)}
 .pal-ico{font-size:16px;width:24px;text-align:center}
 
@@ -539,18 +551,18 @@ tr:hover td{background:var(--surf2)}
 @media(max-width:820px){
   .g2,.g3,.g4,.g23{grid-template-columns:1fr}
   .rail{transform:translateX(-100%);transition:transform .25s ease;box-shadow:none;z-index:200}
-  .rail.mob-open{transform:translateX(0);box-shadow:6px 0 32px rgba(0,0,0,.6)}
+  .rail.mob-open{transform:translateX(0);box-shadow:none}
   #mobOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(3px);z-index:199}
   #mobOverlay.on{display:block}
   .main{margin-left:0}
   .top{padding:9px 14px;gap:9px}
   .search{display:none}
-  #mobMenu{display:inline-grid;background:var(--volt);border-color:var(--volt);color:#0c0c0e;width:40px;height:40px}
+  #mobMenu{display:inline-grid;background:var(--volt);border-color:var(--volt-tx);color:#0c0c0e;width:40px;height:40px}
   #mobStats{display:inline-grid}
   .wrap{padding:14px}
   .phead{flex-direction:column;align-items:flex-start;gap:10px}
   h1.pt{font-size:18px}
-  .modal{border-radius:16px 16px 0 0;max-height:92vh;max-width:100%}
+  .modal{border-radius:2px 16px 0 0;max-height:92vh;max-width:100%}
   .mbg{padding:0;align-items:flex-end}
   .drw{width:100%;right:-100%}
   #tw{top:auto!important;bottom:72px;right:auto!important;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:420px;align-items:center}
@@ -760,7 +772,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="dd" id="ddNotif">
           <div class="ddh" style="font-family:var(--disp);font-weight:600;display:flex;justify-content:space-between">Notificações <span class="pill gray">0 novas</span></div>
           <button class="ddi"><span>👋</span><span>Bem-vindo à Mega Links BR!<br><small>Configure seus afiliados para começar.</small></span></button>
-          <button class="ddi" style="color:var(--volt);font-weight:700;justify-content:center" onclick="go('faq')">Ver todas</button>
+          <button class="ddi" style="color:var(--volt-tx);font-weight:700;justify-content:center" onclick="go('faq')">Ver todas</button>
         </div>
       </div>
       <div style="position:relative">
@@ -781,7 +793,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section class="page" id="page-post-relampago">
     <div class="phead">
       <div>
-        <h1 class="pt" style="color:var(--pink)">🚀 Postar Agora</h1>
+        <h1 class="pt" style="color:var(--volt-tx)">🚀 Postar Agora</h1>
         <div class="psub">Viu uma oferta? Cole o link, ajuste e dispare para seus canais em segundos.</div>
       
       <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button></div>
@@ -818,7 +830,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="cb">
               <!-- Foto -->
               <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:16px">
-                <div id="prFotoWrap" style="width:90px;height:90px;border-radius:12px;background:var(--bg2);border:1px solid var(--bd2);overflow:hidden;flex:none;display:grid;place-items:center;font-size:32px">🛍️</div>
+                <div id="prFotoWrap" style="width:90px;height:90px;border-radius:2px;background:var(--bg2);border:1px solid var(--bd2);overflow:hidden;flex:none;display:grid;place-items:center;font-size:32px">🛍️</div>
                 <div style="flex:1">
                   <label style="font-size:11px;color:var(--mut);margin-bottom:4px;display:block">Ou faça upload da foto</label>
                   <input type="file" id="prFotoUpload" accept="image/*" onchange="prUploadFoto(this)" style="font-size:12px;padding:6px">
@@ -840,22 +852,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--bd2)">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
                   <input type="checkbox" id="prChkExtra1" onchange="prToggleExtra('extra1',this.checked)" style="width:auto">
-                  <input id="prExtra1Texto" type="text" placeholder="Ex: Adicione 2 ou mais unidades" oninput="prUpdatePreview()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:6px;color:var(--tx);font-size:13px">
+                  <input id="prExtra1Texto" type="text" placeholder="Ex: Adicione 2 ou mais unidades" oninput="prUpdatePreview()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
                 </label>
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:14px">
                   <input type="checkbox" id="prChkExtra2" onchange="prToggleExtra('extra2',this.checked)" style="width:auto">
-                  <input id="prExtra2Texto" type="text" placeholder="Ex: Frete grátis acima de R$ 79" oninput="prUpdatePreview()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:6px;color:var(--tx);font-size:13px">
+                  <input id="prExtra2Texto" type="text" placeholder="Ex: Frete grátis acima de R$ 79" oninput="prUpdatePreview()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
                 </label>
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
                   <input type="checkbox" id="prChkCupom" onchange="prToggleExtra('cupom',this.checked)" style="width:auto">
                   <span style="font-size:13px">Utilize o cupom:</span>
-                  <select id="prCupomSel" onchange="prUpdatePreview()" style="flex:1;padding:4px 6px;background:var(--bg2);border:1px solid var(--bd2);border-radius:6px;color:var(--tx);font-size:13px">
+                  <select id="prCupomSel" onchange="prUpdatePreview()" style="flex:1;padding:4px 6px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
                     <option value="">— Selecione —</option>
                   </select>
                 </label>
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:14px">
                   <input type="checkbox" id="prChkExtra3" onchange="prToggleExtra('extra3',this.checked)" style="width:auto">
-                  <input id="prExtra3Texto" type="text" placeholder="Insira aqui seu link para compartilhar seu Grupo" oninput="prUpdatePreview()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:6px;color:var(--tx);font-size:13px">
+                  <input id="prExtra3Texto" type="text" placeholder="Insira aqui seu link para compartilhar seu Grupo" oninput="prUpdatePreview()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
                 </label>
               </div>
             </div>
@@ -903,15 +915,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="cb">
           <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
             <span style="font-size:12px;color:var(--mut);font-weight:600">ENVIAR PARA:</span>
-            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;background:var(--bg2);border:1px solid var(--bd2);border-radius:8px;padding:5px 10px">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;padding:5px 10px">
               <input type="checkbox" id="prDestinoGrupos" checked onchange="prToggleDestino('grupos',this.checked)" style="width:auto">
               💬 Grupos WA
             </label>
-            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;background:var(--bg2);border:1px solid var(--bd2);border-radius:8px;padding:5px 10px">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;padding:5px 10px">
               <input type="checkbox" id="prDestinoCanais" onchange="prToggleDestino('canais',this.checked)" style="width:auto">
               📣 Canais WA
             </label>
-            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;background:var(--bg2);border:1px solid var(--bd2);border-radius:8px;padding:5px 10px">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;padding:5px 10px">
               <input type="checkbox" id="prDestinoTelegram" onchange="prToggleDestino('telegram',this.checked)" style="width:auto">
               ✈️ Telegram
             </label>
@@ -945,17 +957,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- Banner de upgrade contextual (injetado via JS) -->
     <div id="upgradeBannerDash"></div>
     <!-- CTA de Postagem — item PRINCIPAL da Dashboard -->
-    <div onclick="go('post-relampago')" style="cursor:pointer;background:linear-gradient(135deg,rgba(255,77,141,.16),rgba(255,81,104,.08));border:1.5px solid rgba(255,77,141,.4);border-radius:var(--r);padding:24px 26px;margin-bottom:20px;display:flex;align-items:center;gap:18px;transition:.15s" onmouseover="this.style.borderColor='rgba(255,77,141,.7)'" onmouseout="this.style.borderColor='rgba(255,77,141,.4)'">
-      <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--pink),var(--red));display:flex;align-items:center;justify-content:center;font-size:28px;flex:none">⚡</div>
+    <div onclick="go('post-relampago')" style="cursor:pointer;background:var(--volt-soft);border:1px solid rgba(255,193,7,.38);border-radius:var(--r);padding:24px 26px;margin-bottom:20px;display:flex;align-items:center;gap:18px;transition:.15s" onmouseover="this.style.borderColor='rgba(255,77,141,.7)'" onmouseout="this.style.borderColor='rgba(255,77,141,.4)'">
+      <div style="width:56px;height:56px;border-radius:2px;background:var(--volt);display:flex;align-items:center;justify-content:center;font-size:28px;flex:none">⚡</div>
       <div style="flex:1">
-        <div style="font-family:var(--disp);font-weight:800;font-size:18px;color:var(--pink)">Postar Agora</div>
+        <div style="font-family:var(--disp);font-weight:700;font-size:18px;color:var(--volt-tx)">Postar Agora</div>
         <div style="font-size:13px;color:var(--tx2);margin-top:3px">Viu uma oferta? Cole o link, ajuste e dispare para seus canais em segundos.</div>
       </div>
-      <svg viewBox="0 0 24 24" fill="none" stroke="var(--pink)" stroke-width="2" width="22" style="flex:none"><path d="M9 18l6-6-6-6"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--volt-tx)" stroke-width="2" width="22" style="flex:none"><path d="M9 18l6-6-6-6"/></svg>
     </div>
     <!-- Comece por aqui — só aparece enquanto o onboarding não estiver 100% completo -->
     <div class="card" id="onbCard" style="display:none">
-      <div class="ch">🚀 Configure sua conta <span class="r" id="onbPct" style="font-size:12px;color:var(--volt);font-weight:700"></span></div>
+      <div class="ch">🚀 Configure sua conta <span class="r" id="onbPct" style="font-size:12px;color:var(--volt-tx);font-weight:700"></span></div>
       <div class="cb">
         <div style="font-size:13px;color:var(--tx2);margin-bottom:14px">Siga os passos abaixo para começar a postar ofertas e ganhar comissões. Clique em qualquer item para ir direto à configuração.</div>
         <div class="onb-wrap">
@@ -967,7 +979,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
         <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--bd);display:flex;align-items:center;gap:10px">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;color:var(--mut);user-select:none">
-            <input type="checkbox" id="onbDismissCheck" onchange="onbCheckDismiss(this)" style="accent-color:var(--volt);width:15px;height:15px;cursor:pointer">
+            <input type="checkbox" id="onbDismissCheck" onchange="onbCheckDismiss(this)" style="accent-color:var(--volt-tx);width:15px;height:15px;cursor:pointer">
             Não mostrar mais este guia
           </label>
         </div>
@@ -1095,7 +1107,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
         <div id="lrStatus" style="display:none;margin-top:14px"></div>
         <div style="margin-top:12px;font-size:11.5px;color:var(--tx2);line-height:1.6">
-          Funciona com Shopee, Mercado Livre, Amazon, AliExpress, Magalu, Shein, Natura e TerabyteShop — desde que a credencial da loja esteja em <a href="#" onclick="go('config-afiliados');return false" style="color:var(--volt)">Config Afiliados</a>.
+          Funciona com Shopee, Mercado Livre, Amazon, AliExpress, Magalu, Shein, Natura e TerabyteShop — desde que a credencial da loja esteja em <a href="#" onclick="go('config-afiliados');return false" style="color:var(--volt-tx)">Config Afiliados</a>.
         </div>
       </div>
     </div>
@@ -1219,10 +1231,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div id="radarScrapeBanner"></div>
 
     <!-- Grid de ofertas -->
-    <div id="radarStarterBanner" style="display:none;background:linear-gradient(135deg,rgba(245,197,24,.12),rgba(57,192,255,.08));border:1px solid rgba(245,197,24,.3);border-radius:10px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <div id="radarStarterBanner" style="display:none;background:var(--volt-soft);border:1px solid rgba(245,197,24,.3);border-radius:2px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <span style="font-size:20px">🔒</span>
       <div style="flex:1;min-width:180px">
-        <div style="font-size:13px;font-weight:700;color:var(--volt)">Radar limitado ao plano Starter</div>
+        <div style="font-size:13px;font-weight:700;color:var(--volt-tx)">Radar limitado ao plano Starter</div>
         <div style="font-size:12px;color:var(--tx2)">Você está vendo ofertas da Shopee e do Mercado Livre. Faça upgrade para acessar Amazon e os demais marketplaces.</div>
       </div>
       <button class="btn btn-gold btn-sm" onclick="setRole('afiliado');go('assinatura')">⬆️ Ver planos</button>
@@ -1243,8 +1255,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <textarea id="shMassaLinks" rows="8" placeholder="https://shopee.com.br/produto-1&#10;https://shopee.com.br/produto-2&#10;https://s.shopee.com.br/abc123&#10;..." style="width:100%;font-family:var(--mono);font-size:12px;resize:vertical"></textarea>
         </div>
         <div id="shMassaProgress" style="display:none">
-          <div style="height:4px;background:var(--surf2);border-radius:4px;overflow:hidden;margin-bottom:8px">
-            <div id="shMassaBar" style="height:100%;background:var(--volt);width:0%;transition:width .3s;border-radius:4px"></div>
+          <div style="height:4px;background:var(--surf2);border-radius:2px;overflow:hidden;margin-bottom:8px">
+            <div id="shMassaBar" style="height:100%;background:var(--volt);width:0%;transition:width .3s;border-radius:2px"></div>
           </div>
           <div id="shMassaStatus" style="font-size:12px;color:var(--mut);text-align:center"></div>
         </div>
@@ -1292,16 +1304,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <!-- Cards de ação rápida — sempre visíveis -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-      <div onclick="btnAddGrupo.click()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px 18px;background:rgba(37,185,79,.06);border:1px solid rgba(37,185,79,.25);border-radius:12px;transition:.15s" onmouseover="this.style.borderColor='#25b94f'" onmouseout="this.style.borderColor='rgba(37,185,79,.25)'">
-        <div style="width:42px;height:42px;border-radius:10px;background:rgba(37,185,79,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none">📱</div>
+      <div onclick="btnAddGrupo.click()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px 18px;background:rgba(37,185,79,.06);border:1px solid rgba(37,185,79,.25);border-radius:2px;transition:.15s" onmouseover="this.style.borderColor='#25b94f'" onmouseout="this.style.borderColor='rgba(37,185,79,.25)'">
+        <div style="width:42px;height:42px;border-radius:2px;background:rgba(37,185,79,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none">📱</div>
         <div style="flex:1">
           <div style="font-weight:700;font-size:13px">Adicionar grupo WhatsApp</div>
           <div style="font-size:12px;color:var(--mut)">Selecione de seus grupos conectados</div>
         </div>
         <span style="color:rgba(37,185,79,.7);font-size:16px">→</span>
       </div>
-      <div onclick="btnAddGrupo.click()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px 18px;background:rgba(41,159,217,.06);border:1px solid rgba(41,159,217,.25);border-radius:12px;transition:.15s" onmouseover="this.style.borderColor='#299fd9'" onmouseout="this.style.borderColor='rgba(41,159,217,.25)'">
-        <div style="width:42px;height:42px;border-radius:10px;background:rgba(41,159,217,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none">✈️</div>
+      <div onclick="btnAddGrupo.click()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px 18px;background:rgba(41,159,217,.06);border:1px solid rgba(41,159,217,.25);border-radius:2px;transition:.15s" onmouseover="this.style.borderColor='#299fd9'" onmouseout="this.style.borderColor='rgba(41,159,217,.25)'">
+        <div style="width:42px;height:42px;border-radius:2px;background:rgba(41,159,217,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none">✈️</div>
         <div style="flex:1">
           <div style="font-weight:700;font-size:13px">Adicionar grupo Telegram</div>
           <div style="font-size:12px;color:var(--mut)">Veja como vincular via bot</div>
@@ -1309,8 +1321,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <span style="color:rgba(41,159,217,.7);font-size:16px">→</span>
       </div>
     </div>
-    <div id="grupoLimiteAlert" style="display:none;background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.4);border-radius:10px;padding:12px 16px;margin-bottom:12px;align-items:center;gap:12px;font-size:13px"></div>
-    <div id="grupoStarterBanner" style="display:none;background:linear-gradient(135deg,rgba(245,197,24,.1),rgba(57,192,255,.05));border:1px solid rgba(245,197,24,.3);border-radius:12px;padding:14px 18px;margin-bottom:14px;align-items:center;gap:14px;font-size:13px">
+    <div id="grupoLimiteAlert" style="display:none;background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.4);border-radius:2px;padding:12px 16px;margin-bottom:12px;align-items:center;gap:12px;font-size:13px"></div>
+    <div id="grupoStarterBanner" style="display:none;background:var(--volt-soft);border:1px solid rgba(245,197,24,.3);border-radius:2px;padding:14px 18px;margin-bottom:14px;align-items:center;gap:14px;font-size:13px">
       <span style="font-size:24px">📦</span>
       <div style="flex:1"><strong>Seu grupo pode estar postando produto que já acabou.</strong><div style="color:var(--tx2);margin-top:3px;line-height:1.5">Do plano Pro em diante, conferimos seus anúncios todo dia: o que sair de estoque é retirado do rodízio automaticamente e você recebe um aviso no WhatsApp — antes dos seus membros clicarem num link que não vende.</div></div>
       <button class="btn btn-gold btn-sm" onclick="go('assinatura')" style="flex:none">Ativar monitoramento</button>
@@ -1436,7 +1448,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="TerabyteShop" onclick="cupomFiltrar('TerabyteShop',this)">💻 Terabyte</button>
         </div>
         <div style="margin-top:10px">
-          <input id="cupomBusca" placeholder="🔍 Buscar por código ou descrição…" oninput="cupomRenderLista()" style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:8px;border:1px solid var(--bdr,rgba(255,255,255,.12));background:var(--bg2);color:var(--tx);font-size:13px;outline:none">
+          <input id="cupomBusca" placeholder="🔍 Buscar por código ou descrição…" oninput="cupomRenderLista()" style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:2px;border:1px solid var(--bdr,rgba(255,255,255,.12));background:var(--bg2);color:var(--tx);font-size:13px;outline:none">
         </div>
       </div>
     </div>
@@ -1556,12 +1568,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="alert b">ℹ️ Seu CPF é usado para reconhecimento automático da assinatura e faturamento. Mantenha-o atualizado.</div>
     
     <!-- Seu ID de usuário -->
-    <div class="card" style="max-width:780px;background:linear-gradient(135deg,rgba(245,197,24,.08),rgba(57,192,255,.05));border:1px solid rgba(245,197,24,.15);margin-bottom:16px">
+    <div class="card" style="max-width:780px;background:var(--volt-soft);border:1px solid rgba(245,197,24,.15);margin-bottom:16px">
       <div class="cb">
         <div style="display:flex;align-items:center;gap:12;flex-wrap:wrap">
           <div>
             <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Seu ID de usuário</div>
-            <div style="font-family:var(--mono);font-size:16px;font-weight:600;color:var(--volt);letter-spacing:.1em" id="displayUserId">—</div>
+            <div style="font-family:var(--mono);font-size:16px;font-weight:600;color:var(--volt-tx);letter-spacing:.1em" id="displayUserId">—</div>
             <div style="font-size:12px;color:var(--tx2);margin-top:4px">Use este código ao entrar em contato com suporte</div>
           </div>
           <button class="btn btn-ghost" onclick="copyToClipboard(document.getElementById('displayUserId').textContent)" style="margin-left:auto;flex-shrink:0">📋 Copiar</button>
@@ -1596,7 +1608,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- Toggle Mensal/Anual -->
     <div class="bill-toggle">
       <button class="on" data-bill="m">Mensal</button>
-      <button data-bill="a">Anual <span style="background:var(--volt);color:#0c0c0e;font-size:9px;font-weight:800;padding:2px 5px;border-radius:5px;margin-left:5px">-20%</span></button>
+      <button data-bill="a">Anual <span style="background:var(--volt);color:#0c0c0e;font-size:9px;font-weight:700;padding:2px 5px;border-radius:2px;margin-left:5px">-20%</span></button>
     </div>
 
     <!-- Grid de planos -->
@@ -1675,20 +1687,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="card" style="margin-top:16px">
       <div class="ch">ℹ️ Informações úteis</div>
       <div class="cb" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
-        <div style="background:var(--bg2);border-radius:8px;padding:14px">
+        <div style="background:var(--bg2);border-radius:2px;padding:14px">
           <div style="font-size:20px;margin-bottom:6px">🕐</div>
           <div style="font-size:12px;font-weight:700;color:var(--tx1);margin-bottom:4px">Horário de atendimento</div>
           <div style="font-size:12px;color:var(--tx2)">Seg–Sex · 9h às 18h<br>(horário de Brasília)</div>
         </div>
-        <div style="background:var(--bg2);border-radius:8px;padding:14px">
+        <div style="background:var(--bg2);border-radius:2px;padding:14px">
           <div style="font-size:20px;margin-bottom:6px">📋</div>
           <div style="font-size:12px;font-weight:700;color:var(--tx1);margin-bottom:4px">Seu ID de usuário</div>
           <div style="font-size:12px;color:var(--tx2)">Inclua seu ID ao entrar em contato:<br><span id="sptUserId" style="font-family:monospace;color:var(--gold);font-size:11px">—</span></div>
         </div>
-        <div style="background:var(--bg2);border-radius:8px;padding:14px">
+        <div style="background:var(--bg2);border-radius:2px;padding:14px">
           <div style="font-size:20px;margin-bottom:6px">📚</div>
           <div style="font-size:12px;font-weight:700;color:var(--tx1);margin-bottom:4px">Antes de abrir chamado</div>
-          <div style="font-size:12px;color:var(--tx2)">Consulte o <span style="color:var(--volt);cursor:pointer" onclick="go('faq')">FAQ</span> — muitas dúvidas já têm resposta lá.</div>
+          <div style="font-size:12px;color:var(--tx2)">Consulte o <span style="color:var(--volt-tx);cursor:pointer" onclick="go('faq')">FAQ</span> — muitas dúvidas já têm resposta lá.</div>
         </div>
       </div>
     </div>
@@ -1816,7 +1828,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;padding:12px;background:var(--bg2);border-radius:var(--r-sm)">
           <div>
             <div style="font-size:10px;font-weight:600;color:var(--tx2);text-transform:uppercase;letter-spacing:.02em;margin-bottom:4px">ID do usuário</div>
-            <div id="vipUserIdDisplay" style="font-family:var(--mono);font-size:13px;color:var(--volt);min-height:20px">—</div>
+            <div id="vipUserIdDisplay" style="font-family:var(--mono);font-size:13px;color:var(--volt-tx);min-height:20px">—</div>
             <input id="vipUserId" type="hidden">
           </div>
           <div>
@@ -1863,11 +1875,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <span id="mtCat" style="font-size:12px;color:var(--mut);align-self:center"></span>
           <span id="mtAgo" style="font-size:12px;color:var(--mut);align-self:center"></span>
         </div>
-        <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:14px">
+        <div style="background:var(--bg);border-radius:2px;padding:12px;margin-bottom:14px">
           <div style="font-size:11px;color:var(--mut);margin-bottom:6px">MENSAGEM</div>
           <div id="mtMessage" style="font-size:14px;line-height:1.6;white-space:pre-wrap"></div>
         </div>
-        <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:16px">
+        <div style="background:var(--bg);border-radius:2px;padding:12px;margin-bottom:16px">
           <div style="font-size:11px;color:var(--mut);margin-bottom:6px">USUÁRIO</div>
           <div style="display:flex;align-items:center;justify-content:space-between">
             <div><strong id="mtNome">—</strong><br><small id="mtEmail" style="color:var(--mut)">—</small></div>
@@ -1939,7 +1951,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="field"><label>Verificação Google Search Console</label><input id="mktGsc" placeholder="conteúdo da meta tag de verificação"></div><div style="font-size:11px;color:var(--mut);margin:-6px 0 8px">Alternativa mais simples: no Search Console, escolha o método de verificação "Google Tag Manager" — como o GTM já está instalado, verifica na hora, sem precisar preencher esse campo.</div>
         <div class="field"><label>Verificação Bing Webmaster</label><input id="mktBing" placeholder=""></div>
         <button class="btn btn-volt" id="btnSalvarMkt">Salvar Tracking</button>
-        <div style="margin-top:10px;font-size:11.5px;color:var(--mut)">Esses IDs ficam salvos no banco pra referência/documentação. Como o rastreamento passa pelo GTM, ative-os direto no <a href="https://tagmanager.google.com" target="_blank" style="color:var(--volt)">painel do GTM</a>.</div>
+        <div style="margin-top:10px;font-size:11.5px;color:var(--mut)">Esses IDs ficam salvos no banco pra referência/documentação. Como o rastreamento passa pelo GTM, ative-os direto no <a href="https://tagmanager.google.com" target="_blank" style="color:var(--volt-tx)">painel do GTM</a>.</div>
       </div></div>
     </div>
 
@@ -1982,8 +1994,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <span class="ai-status-dot" title="Online"></span>
       </div>
       <div>
-        <div style="font-family:var(--disp);font-weight:800">MegaIA</div>
-        <div style="font-size:11px;color:var(--volt);font-weight:600">● online · pronta para ajudar</div>
+        <div style="font-family:var(--disp);font-weight:700">MegaIA</div>
+        <div style="font-size:11px;color:var(--volt-tx);font-weight:600">● online · pronta para ajudar</div>
       </div>
     </div>
     <span class="pill volt" style="margin-left:auto;margin-right:8px">BETA</span>
@@ -2041,7 +2053,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- ===== MODAL CHECKOUT PIX ===== -->
 <div class="mbg" id="modalPerfilIncompleto" data-bloqueante="1"><div class="modal" style="max-width:420px">
-  <div style="font-weight:800;font-size:18px;margin-bottom:6px">Complete seu cadastro</div>
+  <div style="font-weight:700;font-size:18px;margin-bottom:6px">Complete seu cadastro</div>
   <div style="color:#999;font-size:13px;margin-bottom:16px">Precisamos desses dados para enviar confirmações, alertas de pagamento e ofertas — eles não aparecem publicamente.</div>
   <div class="field" id="cpiNameField" style="display:none"><label>Nome completo</label><input id="cpiName" placeholder="Seu nome"></div>
   <div class="field"><label>WhatsApp <span style="color:var(--red)">*</span> <span style="color:var(--tx2);font-weight:400;font-size:11px">— só DDD + número, o +55 é automático</span></label><input id="cpiPhone" placeholder="(11) 99999-0000" maxlength="16" oninput="let v=this.value.replace(/\D/g,'').substring(0,11);if(v.length>10)this.value=v.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3');else this.value=v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3');"></div>
@@ -2081,15 +2093,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div style="margin-top:8px;padding-top:12px;border-top:1px dashed var(--bd2)">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
             <input type="checkbox" id="rgChkExtra1" onchange="rgUpdatePreview()" style="width:auto">
-            <input id="rgExtra1Texto" type="text" placeholder="Ex: Adicione 2 ou mais unidades" oninput="rgUpdatePreview()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:6px;color:var(--tx);font-size:13px">
+            <input id="rgExtra1Texto" type="text" placeholder="Ex: Adicione 2 ou mais unidades" oninput="rgUpdatePreview()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
           </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
             <input type="checkbox" id="rgChkExtra2" onchange="rgUpdatePreview()" style="width:auto">
-            <input id="rgExtra2Texto" type="text" placeholder="Ex: Frete grátis acima de R$ 79" oninput="rgUpdatePreview()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:6px;color:var(--tx);font-size:13px">
+            <input id="rgExtra2Texto" type="text" placeholder="Ex: Frete grátis acima de R$ 79" oninput="rgUpdatePreview()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
           </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:12px">
             <input type="checkbox" id="rgChkExtra3" onchange="rgUpdatePreview()" style="width:auto">
-            <input id="rgExtra3Texto" type="text" placeholder="Insira aqui seu link para compartilhar seu Grupo" oninput="rgUpdatePreview()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:6px;color:var(--tx);font-size:13px">
+            <input id="rgExtra3Texto" type="text" placeholder="Insira aqui seu link para compartilhar seu Grupo" oninput="rgUpdatePreview()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
           </label>
         </div>
         <div class="field"><label>CTA (chamada para ação)</label>
@@ -2345,7 +2357,7 @@ function cupomRenderLista(){
           const minStr=c.minimo?`mínimo R$ ${c.minimo}`:"";
           const validadeStr=c.validade?new Date(c.validade).toLocaleDateString("pt-BR"):"";
           return `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;${i>0?"border-top:1px solid var(--bd)":""}${vencido?";opacity:.5":""}">
-            <div style="background:var(--bg2);border:1px solid var(--bd2);border-radius:8px;padding:6px 14px;font-family:var(--mono);font-weight:700;font-size:15px;letter-spacing:1px;flex:none;color:var(--volt)">${esc(c.code)}</div>
+            <div style="background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;padding:6px 14px;font-family:var(--mono);font-weight:700;font-size:15px;letter-spacing:1px;flex:none;color:var(--volt-tx)">${esc(c.code)}</div>
             <div style="flex:1;min-width:0">
               ${c.label?`<div style="font-size:13px;font-weight:600">${esc(c.label)}</div>`:""}
               <div style="font-size:11.5px;color:var(--mut);margin-top:2px;display:flex;gap:10px;flex-wrap:wrap">
@@ -2969,15 +2981,15 @@ async function loadPostAutomatico(){
       if(!(dbGrupos||[]).length){
         paLista.innerHTML=`<div style="text-align:center;padding:34px 20px">
           <div style="font-size:44px;line-height:1;margin-bottom:10px">📢</div>
-          <div style="font-size:16px;font-weight:800;margin-bottom:6px">Você ainda não tem Grupos de Ofertas</div>
+          <div style="font-size:16px;font-weight:700;margin-bottom:6px">Você ainda não tem Grupos de Ofertas</div>
           <div style="color:var(--mut);font-size:13px;max-width:520px;margin:0 auto 16px;line-height:1.7">
             O Post Automático publica os produtos de um <strong>Grupo de Ofertas</strong> nos seus grupos e canais.<br>
             Para começar, siga estes 3 passos:
           </div>
           <div style="max-width:460px;margin:0 auto 18px;text-align:left;display:grid;gap:8px">
-            <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--volt);color:#111;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">1</span><span><strong>Crie um Grupo de Ofertas</strong> — ex.: "Achados de Casa", "Eletrônicos".</span></div>
-            <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--volt);color:#111;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">2</span><span><strong>Adicione produtos</strong> — manualmente, por link ou direto do Radar de Ofertas.</span></div>
-            <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--volt);color:#111;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">3</span><span><strong>Vincule os destinos</strong> (grupos/canais) e ative a automação aqui.</span></div>
+            <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--volt);color:#111;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">1</span><span><strong>Crie um Grupo de Ofertas</strong> — ex.: "Achados de Casa", "Eletrônicos".</span></div>
+            <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--volt);color:#111;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">2</span><span><strong>Adicione produtos</strong> — manualmente, por link ou direto do Radar de Ofertas.</span></div>
+            <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--volt);color:#111;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">3</span><span><strong>Vincule os destinos</strong> (grupos/canais) e ative a automação aqui.</span></div>
           </div>
           <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
             <button class="btn btn-volt" onclick="paCriarGrupoOferta()">➕ Criar Grupo de Ofertas</button>
@@ -3007,13 +3019,13 @@ async function loadPostAutomatico(){
 
           return `<div style="background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column">
             <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--bd)">
-              <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:18px;flex:none">📢</div>
+              <div style="width:40px;height:40px;border-radius:50%;background:var(--surf2);display:flex;align-items:center;justify-content:center;font-size:18px;flex:none">📢</div>
               <div style="flex:1;min-width:0">
                 <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(db.name)}</div>
                 <div style="font-size:11px;font-weight:600;color:${autoColor};margin-top:2px">${autoLabel}</div>
               </div>
               <div style="text-align:right">
-                <div style="font-size:24px;font-weight:700;color:var(--volt)">${pg.total}</div>
+                <div style="font-size:24px;font-weight:700;color:var(--volt-tx)">${pg.total}</div>
                 <div style="font-size:10px;color:var(--mut)">posts hoje</div>
               </div>
             </div>
@@ -3025,7 +3037,7 @@ async function loadPostAutomatico(){
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">🕐 Último post</span><strong style="font-size:11px">${ultimo}</strong></div>
               ${pg.total>0?`<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">✅ Sucesso</span><strong style="color:${pg.ok===pg.total?"#19E27D":"#f59e0b"}">${pg.ok}/${pg.total}</strong></div>`:""}
             </div>
-            ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 14px 10px;padding:5px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:6px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
+            ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 14px 10px;padding:5px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:2px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
             <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bd)">
               ${btnAuto}
               <button class="btn btn-ghost btn-sm" style="padding:0 12px" onclick="editarGrupo('${gid}')" title="Editar grupo">✏️</button>
@@ -3517,7 +3529,7 @@ function rgUpdatePreview(){
   const grupo=S.grupos.find(g=>String(g.id)===String(gid));
   const gNomeEl=document.getElementById("rgGrupoNomePreview");
   if(gNomeEl)gNomeEl.textContent=grupo?.nome||"Grupo de Afiliados";
-  const fotoHtml=img?`<img src="${img}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:6px">`:'<span class="img">🛍️</span>';
+  const fotoHtml=img?`<img src="${img}" style="width:100%;height:80px;object-fit:cover;border-radius:2px;margin-bottom:6px">`:'<span class="img">🛍️</span>';
   const deHtml=de?`<s>De R$ ${esc(de)}</s> por `:"";
   const cupomId=document.getElementById("rgCupomSel")?.value;
   const cupom=COUPONS.find(c=>c.id===cupomId);
@@ -3624,10 +3636,10 @@ function rrow(o){
           <div class="radar-card-prices"><span class="por">R$ ${por.toFixed(2).replace(".",",")}</span></div>
         </div>
       </div>
-      <div style="position:absolute;inset:0;background:rgba(12,12,14,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border-radius:12px;padding:12px;text-align:center">
+      <div style="position:absolute;inset:0;background:rgba(12,12,14,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border-radius:2px;padding:12px;text-align:center">
         <span style="font-size:26px">🔒</span>
         <div style="font-size:12px;font-weight:700;color:#fff">${o.loja}</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.65);line-height:1.4">Disponível no plano<br><strong style="color:var(--volt)">Pro e superior</strong></div>
+        <div style="font-size:11px;color:rgba(255,255,255,.65);line-height:1.4">Disponível no plano<br><strong style="color:var(--volt-tx)">Pro e superior</strong></div>
         <button class="btn btn-gold btn-sm" style="margin-top:4px" onclick="setRole('afiliado');go('assinatura')">⬆️ Fazer upgrade</button>
       </div>
     </div>`;
@@ -3649,7 +3661,7 @@ function rrow(o){
         ${(o.de&&o.de>por)?`<span class="de">R$ ${o.de.toFixed(2).replace(".",",")}</span>`:""}
         <span class="por">R$ ${por.toFixed(2).replace(".",",")}</span>
       </div>
-      ${!temCred?`<div style="font-size:11px;color:#ef4444;background:rgba(239,68,68,.1);border-radius:6px;padding:5px 8px;line-height:1.4">⚠️ Sem credencial para <strong>${o.loja}</strong>. Postar agora não vai gerar comissão. <a href="#" onclick="setRole('afiliado');go('config-afiliados');return false" style="color:#ef4444;font-weight:700;text-decoration:underline">Configurar</a></div>`:""}
+      ${!temCred?`<div style="font-size:11px;color:#ef4444;background:rgba(239,68,68,.1);border-radius:2px;padding:5px 8px;line-height:1.4">⚠️ Sem credencial para <strong>${o.loja}</strong>. Postar agora não vai gerar comissão. <a href="#" onclick="setRole('afiliado');go('config-afiliados');return false" style="color:#ef4444;font-weight:700;text-decoration:underline">Configurar</a></div>`:""}
       <div class="radar-card-actions">
         ${temCred
           ?`<button class="btn btn-volt btn-sm" ${dataAttr} onclick="postarOferta(JSON.parse(this.dataset.oferta.replace(/&#39;/g,&quot;'&quot;)))">⚡ Postar</button>`
@@ -4118,7 +4130,7 @@ function lojaLogoImg(nome,fallback,size){
   const dom=LOJA_DOMINIO[nome];
   const fb=(fallback||"").replace(/'/g,"\\'");
   if(!dom)return fallback||"";
-  return `<img src="https://www.google.com/s2/favicons?domain=${dom}&sz=128" alt="${nome}" width="${size}" height="${size}" style="object-fit:contain;border-radius:5px;vertical-align:-4px;flex:none" loading="lazy" onerror="this.outerHTML='${fb}'">`;
+  return `<img src="https://www.google.com/s2/favicons?domain=${dom}&sz=128" alt="${nome}" width="${size}" height="${size}" style="object-fit:contain;border-radius:2px;vertical-align:-4px;flex:none" loading="lazy" onerror="this.outerHTML='${fb}'">`;
 }
 
 const LOJAS=[
@@ -4126,23 +4138,23 @@ const LOJAS=[
     {k:"APP KEY",pwd:false,ph:"Sua App Key do AliExpress"},
     {k:"APP SECRET",pwd:true,ph:"Sua App Secret"},
     {k:"TRACKING ID",pwd:false,ph:"ID de rastreamento"}
-  ],dica:`<p>Para encontrar suas credenciais:</p><ol><li>Acesse <a href="https://portals.aliexpress.com" target="_blank" style="color:var(--volt)">portals.aliexpress.com</a></li><li>Vá em <strong>Tools → API Access</strong></li><li>Copie o <strong>App Key</strong> e <strong>App Secret</strong></li></ol>`},
+  ],dica:`<p>Para encontrar suas credenciais:</p><ol><li>Acesse <a href="https://portals.aliexpress.com" target="_blank" style="color:var(--volt-tx)">portals.aliexpress.com</a></li><li>Vá em <strong>Tools → API Access</strong></li><li>Copie o <strong>App Key</strong> e <strong>App Secret</strong></li></ol>`},
   {n:"Amazon",e:"📦",img:"",f:[
     {k:"ID de Associado",pwd:false,ph:"Ex: megalinks-20"},
     {k:"ACCESS KEY",pwd:false,ph:"Sua Access Key ID",optional:true,advanced:true},
     {k:"SECRET KEY",pwd:true,ph:"Sua Secret Access Key",optional:true,advanced:true}
-  ],dica:`<div>✅ <strong>Não tem Access Key/Secret Key? Sem problema!</strong> Preenchendo só o <strong>ID de Associado</strong> abaixo, o sistema já gera sozinho um link comissionado (parâmetro <code>tag=</code>) — é o código escolhido ao criar sua conta em <a href="https://associados.amazon.com.br" target="_blank" style="color:var(--volt)">associados.amazon.com.br</a> (formato "seusite-20"), disponível em <strong>Configuração da conta → IDs de Rastreamento</strong>.</div><p style="margin-top:8px">As <strong>Opções avançadas</strong> abaixo (Access Key/Secret Key) só são necessárias se você quiser busca automática de produtos via PA-API. Gere em <strong>Portal de Associados → aba "API de Divulgação de Produtos" → Gerenciar credenciais</strong>. A Amazon costuma liberar essa API só depois de registrar vendas qualificadas pelo programa — até lá, o ID de Associado sozinho já funciona normalmente.</p>`},
+  ],dica:`<div>✅ <strong>Não tem Access Key/Secret Key? Sem problema!</strong> Preenchendo só o <strong>ID de Associado</strong> abaixo, o sistema já gera sozinho um link comissionado (parâmetro <code>tag=</code>) — é o código escolhido ao criar sua conta em <a href="https://associados.amazon.com.br" target="_blank" style="color:var(--volt-tx)">associados.amazon.com.br</a> (formato "seusite-20"), disponível em <strong>Configuração da conta → IDs de Rastreamento</strong>.</div><p style="margin-top:8px">As <strong>Opções avançadas</strong> abaixo (Access Key/Secret Key) só são necessárias se você quiser busca automática de produtos via PA-API. Gere em <strong>Portal de Associados → aba "API de Divulgação de Produtos" → Gerenciar credenciais</strong>. A Amazon costuma liberar essa API só depois de registrar vendas qualificadas pelo programa — até lá, o ID de Associado sozinho já funciona normalmente.</p>`},
   {n:"AWIN",e:"🔗",img:"",f:[
     {k:"ID do Publisher",pwd:false,ph:"Seu Publisher ID numérico"},
     {k:"API TOKEN",pwd:true,ph:"Token de acesso à API"}
-  ],dica:`<p>Para encontrar suas credenciais:</p><ol><li>Acesse <a href="https://ui.awin.com" target="_blank" style="color:var(--volt)">ui.awin.com</a></li><li>Vá em <strong>Account → API Credentials</strong></li><li>Copie o <strong>Publisher ID</strong> e gere um <strong>Token</strong></li></ol>`},
+  ],dica:`<p>Para encontrar suas credenciais:</p><ol><li>Acesse <a href="https://ui.awin.com" target="_blank" style="color:var(--volt-tx)">ui.awin.com</a></li><li>Vá em <strong>Account → API Credentials</strong></li><li>Copie o <strong>Publisher ID</strong> e gere um <strong>Token</strong></li></ol>`},
   {n:"Shopee",e:"🧡",img:"",f:[
     {k:"ID de Afiliado",label:"AppID / ID de Afiliado",altKey:"App Key",mirrorTo:["App Key"],pwd:false,ph:"Ex: 18344180897"},
     {k:"App Secret",label:"Senha (App Secret)",pwd:true,ph:"Senha exibida no painel Abrir API",optional:true,advanced:true}
-  ],dica:`<div>O painel da Shopee te mostra <strong>dois dados</strong> — e são exatamente os dois campos abaixo.</div><div class="alert g" style="margin-top:8px;font-size:12.5px"><div style="line-height:1.7;min-width:0"><strong>AppID</strong> → campo <strong>AppID / ID de Afiliado</strong>. É o mesmo número que aparece em <strong>Configurações da Conta</strong> como "ID de Afiliado" — não são dois valores diferentes.<br><strong>Senha</strong> → é a <strong>App Secret</strong>, dentro de Opções avançadas.</div></div><p style="margin-top:8px">Só o <strong>AppID</strong> já habilita seus links comissionados. A <strong>Senha</strong> é opcional e serve apenas para o Radar buscar produtos Shopee automaticamente.</p><p style="margin-top:8px;color:var(--mut);font-size:12px">Onde achar: <a href="https://affiliate.shopee.com.br" target="_blank" style="color:var(--volt)">affiliate.shopee.com.br</a> → <strong>Abrir API</strong> (AppID + Senha).</p>`},
+  ],dica:`<div>O painel da Shopee te mostra <strong>dois dados</strong> — e são exatamente os dois campos abaixo.</div><div class="alert g" style="margin-top:8px;font-size:12.5px"><div style="line-height:1.7;min-width:0"><strong>AppID</strong> → campo <strong>AppID / ID de Afiliado</strong>. É o mesmo número que aparece em <strong>Configurações da Conta</strong> como "ID de Afiliado" — não são dois valores diferentes.<br><strong>Senha</strong> → é a <strong>App Secret</strong>, dentro de Opções avançadas.</div></div><p style="margin-top:8px">Só o <strong>AppID</strong> já habilita seus links comissionados. A <strong>Senha</strong> é opcional e serve apenas para o Radar buscar produtos Shopee automaticamente.</p><p style="margin-top:8px;color:var(--mut);font-size:12px">Onde achar: <a href="https://affiliate.shopee.com.br" target="_blank" style="color:var(--volt-tx)">affiliate.shopee.com.br</a> → <strong>Abrir API</strong> (AppID + Senha).</p>`},
   {n:"Magalu",e:"💙",img:"",f:[
     {k:"Nome da Loja",pwd:false,ph:"Slug da sua loja no Magalu"}
-  ],dica:`<p>Para encontrar:</p><ol><li>Acesse <a href="https://www.magazinevoce.com.br" target="_blank" style="color:var(--volt)">magazinevoce.com.br</a></li><li>Copie o <strong>nome/slug</strong> da sua loja</li></ol>`},
+  ],dica:`<p>Para encontrar:</p><ol><li>Acesse <a href="https://www.magazinevoce.com.br" target="_blank" style="color:var(--volt-tx)">magazinevoce.com.br</a></li><li>Copie o <strong>nome/slug</strong> da sua loja</li></ol>`},
   {n:"Mercado Livre",e:"💛",img:"",f:[
     {k:"Link de Afiliado",pwd:false,ph:"https://mercadolivre.com/affiliate/...",optional:true}
   ],oauth:true,dica:`<p>Conecte sua conta do Mercado Livre com 1 clique via login oficial.</p><p style="color:var(--mut);font-size:12px">O acesso é seguro e pode ser revogado a qualquer momento.</p>`},
@@ -4151,10 +4163,10 @@ const LOJAS=[
   ],dica:`<p>Para encontrar:</p><ol><li>Acesse seu painel de Consultora Natura</li><li>Copie o link do seu <strong>Espaço Digital</strong></li></ol>`},
   {n:"Shein",e:"🖤",img:"",f:[
     {k:"ID de Afiliado",pwd:false,ph:"Seu ID numérico de afiliado Shein"}
-  ],dica:`<p>Para encontrar seu ID de afiliado:</p><ol><li>Acesse <a href="https://m.shein.com/br/affiliate/my-account/personal" target="_blank" style="color:var(--volt)">m.shein.com/br/affiliate/my-account/personal</a></li><li>Copie o <strong>ID de afiliado</strong> (são apenas números)</li></ol><div class="alert y" style="margin-top:8px;font-size:12px">⚠️ Não confunda com o código de indicação — o ID de afiliado é composto apenas por números.</div>`},
+  ],dica:`<p>Para encontrar seu ID de afiliado:</p><ol><li>Acesse <a href="https://m.shein.com/br/affiliate/my-account/personal" target="_blank" style="color:var(--volt-tx)">m.shein.com/br/affiliate/my-account/personal</a></li><li>Copie o <strong>ID de afiliado</strong> (são apenas números)</li></ol><div class="alert y" style="margin-top:8px;font-size:12px">⚠️ Não confunda com o código de indicação — o ID de afiliado é composto apenas por números.</div>`},
   {n:"TerabyteShop",e:"🖥️",img:"",f:[
     {k:"ID de Parceiro",pwd:false,ph:"Seu ID de parceiro Terabyte"}
-  ],dica:`<p>Para encontrar:</p><ol><li>Acesse o painel de afiliados da <a href="https://www.terabyteshop.com.br" target="_blank" style="color:var(--volt)">TerabyteShop</a></li><li>Copie seu <strong>ID de Parceiro</strong></li></ol>`}
+  ],dica:`<p>Para encontrar:</p><ol><li>Acesse o painel de afiliados da <a href="https://www.terabyteshop.com.br" target="_blank" style="color:var(--volt-tx)">TerabyteShop</a></li><li>Copie seu <strong>ID de Parceiro</strong></li></ol>`}
 ];
 
 function lojaConectada(n){
@@ -4170,7 +4182,7 @@ function renderLojas(){
     const con=lojaConectada(l.n);
     return `<div class="card" style="margin:0" id="loja-card-${li}">
       <div class="cb" style="display:flex;align-items:center;gap:12px;padding:16px">
-        <div style="width:44px;height:44px;border-radius:10px;background:var(--bg3);display:grid;place-items:center;font-size:24px;flex:none;overflow:hidden">${lojaLogoImg(l.n,l.e,30)}</div>
+        <div style="width:44px;height:44px;border-radius:2px;background:var(--bg3);display:grid;place-items:center;font-size:24px;flex:none;overflow:hidden">${lojaLogoImg(l.n,l.e,30)}</div>
         <div style="flex:1">
           <div style="font-weight:700;font-size:14px">${l.n}</div>
           <span class="pill ${con?"volt":"gray"}" style="margin-top:4px;font-size:11px"><span class="d"></span>${con?"Conectado":"Não configurado"}</span>
@@ -4209,7 +4221,7 @@ function abrirModalLoja(li){
   document.getElementById("modalLojaConteudo").innerHTML=`
     <!-- Cabeçalho loja -->
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
-      <div style="width:52px;height:52px;border-radius:12px;background:var(--bg3);display:grid;place-items:center;font-size:28px;flex:none">${l.e}</div>
+      <div style="width:52px;height:52px;border-radius:2px;background:var(--bg3);display:grid;place-items:center;font-size:28px;flex:none">${l.e}</div>
       <div>
         <div style="font-weight:700;font-size:16px">${l.n}</div>
         <span class="pill ${con?"volt":"gray"}" style="font-size:11px"><span class="d"></span>${con?"Conectado":"Não configurado"}</span>
@@ -4231,12 +4243,12 @@ function mlAbrirOAuth(l,li,con,saved){
   const uid=CURRENT_USER?.id||"";
   document.getElementById("modalLojaConteudo").innerHTML=`
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
-      <div style="width:52px;height:52px;border-radius:12px;background:#fff3cd;display:grid;place-items:center;font-size:28px;flex:none">💛</div>
+      <div style="width:52px;height:52px;border-radius:2px;background:#fff3cd;display:grid;place-items:center;font-size:28px;flex:none">💛</div>
       <div><div style="font-weight:700;font-size:16px">Mercado Livre</div>
       <span class="pill ${con?"volt":"gray"}" style="font-size:11px"><span class="d"></span>${con?"Conectado":"Não configurado"}</span></div>
     </div>
     <div class="alert b" style="font-size:12.5px;margin-bottom:16px"><div>${l.dica}</div></div>
-    ${con?`<div style="background:var(--bg3);border:1px solid var(--bd2);border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px">
+    ${con?`<div style="background:var(--bg3);border:1px solid var(--bd2);border-radius:2px;padding:14px;margin-bottom:16px;font-size:13px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:18px">✅</span><strong>Conta conectada</strong></div>
       <div style="color:var(--mut);font-size:12px">User ID ML: <code>${saved.ml_user_id||"—"}</code></div>
       <div style="color:var(--mut);font-size:12px;margin-top:2px">Token: ${saved.token_obtained_at?new Date(saved.token_obtained_at).toLocaleString("pt-BR"):"—"}</div>
@@ -4446,7 +4458,7 @@ async function renderInstCard(){
         pill.className="pill red";pill.innerHTML='<span class="d"></span> OFFLINE';
         waStatus.innerHTML='<span class="pill red"><span class="d"></span> offline</span>';
         if(acts)acts.innerHTML=`
-          <div style="width:100%;margin-bottom:8px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.6;display:flex;gap:8px;align-items:flex-start">
+          <div style="width:100%;margin-bottom:8px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.3);border-radius:2px;padding:10px 12px;font-size:12px;line-height:1.6;display:flex;gap:8px;align-items:flex-start">
             <span style="font-size:18px">⚠️</span>
             <div>
               <strong style="color:#ef4444">Sessão derrubada?</strong><br>
@@ -4462,7 +4474,7 @@ async function renderInstCard(){
         pill.className="pill" ;pill.style.background="var(--volt)";pill.style.color="#000";pill.innerHTML='⟳ VERIFICANDO';
         waStatus.innerHTML='<span class="pill" style="background:var(--volt);color:#000">⟳ verificando</span>';
         if(acts)acts.innerHTML=`
-          <div style="width:100%;margin-bottom:8px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.6;display:flex;gap:8px;align-items:flex-start">
+          <div style="width:100%;margin-bottom:8px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.3);border-radius:2px;padding:10px 12px;font-size:12px;line-height:1.6;display:flex;gap:8px;align-items:flex-start">
             <span style="font-size:18px">⚠️</span>
             <div>
               <strong style="color:#ef4444">Sessão derrubada?</strong><br>
@@ -4696,7 +4708,7 @@ function mostraQR(qr,statusTexto,statusCor){
   const cor = statusCor==="red" ? "var(--red,#ef4444)" : statusCor==="volt" ? "var(--volt,#10B981)" : "var(--mut)";
   qrMsg.innerHTML=`
     <div style="text-align:center">
-      <img src="${qr}" alt="QR Code" style="width:240px;height:240px;border-radius:12px;background:#fff;padding:8px"/>
+      <img src="${qr}" alt="QR Code" style="width:240px;height:240px;border-radius:2px;background:#fff;padding:8px"/>
       <p id="qrStatusLine" style="color:${cor};font-size:14px;font-weight:600;margin-top:12px">${statusTexto}</p>
       <p style="color:var(--mut);font-size:12px;margin-top:6px;line-height:1.6">
         WhatsApp → <strong>Aparelhos conectados</strong> →<br><strong>Conectar um aparelho</strong> → aponte a câmera
@@ -4792,7 +4804,7 @@ function renderGrupos(){const has=S.grupos.length>0;
     return `<div style="background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;transition:.15s" onmouseover="this.style.borderColor='var(--volt)'" onmouseout="this.style.borderColor='var(--bd)'">
       <!-- Cabeçalho do card -->
       <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--bd)">
-        <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none">📢</div>
+        <div style="width:42px;height:42px;border-radius:50%;background:var(--surf2);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none">📢</div>
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.nome}</div>
           <div style="font-size:11px;color:var(--mut);font-family:var(--mono)">ID: ${(g.db_id||g.id||"").toString().slice(0,8)}…</div>
@@ -4836,8 +4848,8 @@ function renderGrupos(){const has=S.grupos.length>0;
           <span style="font-size:11px;font-weight:700;color:var(--tx)">${(()=>{const c=COUPONS.find(x=>x.id===g.defaultCouponId);return c?esc(c.code):"—";})()}</span>
         </div>
       </div>
-      ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
-      ${(foraRodizio||g.prodAgendados)?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:8px;font-size:11px;color:#f59e0b;cursor:pointer" onclick="editarGrupo('${g.id}')" title="Estes produtos continuam cadastrados, mas não estão sendo postados agora. Clique para abrir o grupo.">⏳ Fora do rodízio: ${detalhesFora}</div>`:""}
+      ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:2px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
+      ${(foraRodizio||g.prodAgendados)?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:2px;font-size:11px;color:#f59e0b;cursor:pointer" onclick="editarGrupo('${g.id}')" title="Estes produtos continuam cadastrados, mas não estão sendo postados agora. Clique para abrir o grupo.">⏳ Fora do rodízio: ${detalhesFora}</div>`:""}
       <!-- Botões de ação — só Editar e Apagar aqui; automação fica em Visão Post Aut. -->
       <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bd)">
         <button class="btn btn-volt btn-sm" style="flex:1;justify-content:center" onclick="editarGrupo('${g.id}')">✏️ Editar</button>
@@ -4927,7 +4939,7 @@ function dispararGrupoMostrarErros(nomeGrupo,d){
   const destinosComFalha=(d.destinos||[]).filter(x=>x.failed>0);
   const listaHtml=destinosComFalha.map(x=>{
     const tipoLabel=x.type==="wa_grupo"?"💬 Grupo WA":x.type==="wa_canal"?"📣 Canal WA":"✈️ Telegram";
-    return `<div style="padding:8px 10px;border:1px solid var(--bd);border-radius:8px;margin-bottom:6px">
+    return `<div style="padding:8px 10px;border:1px solid var(--bd);border-radius:2px;margin-bottom:6px">
       <div style="font-weight:700;font-size:12.5px">${tipoLabel} — ${esc(x.label)}</div>
       <div style="font-size:11.5px;color:var(--mut)">${x.sent} enviado(s), ${x.failed} falha(s)${x.last_error?` — ${esc(x.last_error)}`:""}</div>
     </div>`;
@@ -5007,7 +5019,7 @@ geral:`
     <div class="card" style="margin:0"><div class="ch">⚙️ Postagem automática</div><div class="cb">
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:10px"><input type="checkbox" id="pgAuto" style="width:auto"> Post Automático</label>
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgLoop" style="width:auto"> Post em Loop <small style="color:var(--mut);font-weight:400">(reinicia a lista ao fim)</small></label>
-      <div style="border:1px solid var(--bd);border-radius:10px;padding:11px 12px;margin-bottom:14px;background:rgba(139,92,246,.07)">
+      <div style="border:1px solid var(--bd);border-radius:2px;padding:11px 12px;margin-bottom:14px;background:rgba(139,92,246,.07)">
         <label style="display:flex;gap:9px;align-items:center;font-weight:600"><input type="checkbox" id="pgSmart" style="width:auto" onchange="pgSmartAplicar()"> 🧠 Horários Inteligentes <span class="pill" style="background:rgba(139,92,246,.18);color:#A78BFA;flex:none;font-size:10px;padding:1px 7px">ELITE+</span></label>
         <div style="font-size:12px;color:var(--tx2);margin-top:7px;line-height:1.65">Posta só nas janelas de maior audiência, dividindo seus produtos entre elas. <strong>Substitui intervalo e horário.</strong><br>${SMART_JANELAS.map(j=>j.rot).join(" · ")} <small style="color:var(--mut)">(a última é a melhor)</small><br>Até ${SMART_MAX_DIA} posts/dia, no mínimo ${SMART_PISO_MIN} min entre um e outro. O que não couber hoje entra amanhã.</div>
         <label id="pgSmartFdsBox" style="display:none;gap:9px;align-items:center;margin-top:10px;font-size:13px"><input type="checkbox" id="pgSmartFds" style="width:auto"> Aplicar também no fim de semana <small style="color:var(--mut)">(sem isso, sáb e dom não postam)</small></label>
@@ -5053,7 +5065,7 @@ geral:`
   <div style="display:flex;gap:10px;align-items:center">
     <button class="btn btn-volt" onclick="salvarGeral()">💾 Salvar configurações</button>
     <button class="btn btn-ghost" onclick="pgResetGeral()" style="color:var(--red,#ef4444);border-color:var(--red,#ef4444)">🗑️ Limpar tudo</button>
-    <span id="pgSalvoMsg" style="font-size:12px;color:var(--volt);display:none">✅ Configurações salvas!</span>
+    <span id="pgSalvoMsg" style="font-size:12px;color:var(--volt-tx);display:none">✅ Configurações salvas!</span>
   </div>`,
 wacanais:`
   <div class="alert ${"b"}" id="wcAlert">ℹ️ Vincule um <strong>Canal do WhatsApp</strong> a este grupo. O número conectado precisa ser <strong>Dono</strong> ou <strong>Admin</strong> do canal.</div>
@@ -5073,7 +5085,7 @@ layout:`
           <div class="alert b" style="font-size:12px;margin-bottom:12px">💡 <span class="kbd">*negrito*</span> <span class="kbd">_itálico_</span> <span class="kbd">~riscado~</span></div>
           <!-- Foto + upload -->
           <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:16px">
-            <div id="lpFotoWrap" style="width:90px;height:90px;border-radius:12px;background:var(--bg2);border:1px solid var(--bd2);overflow:hidden;flex:none;display:grid;place-items:center;font-size:32px">🛍️</div>
+            <div id="lpFotoWrap" style="width:90px;height:90px;border-radius:2px;background:var(--bg2);border:1px solid var(--bd2);overflow:hidden;flex:none;display:grid;place-items:center;font-size:32px">🛍️</div>
             <div style="flex:1">
               <label style="font-size:11px;color:var(--mut);margin-bottom:4px;display:block">Ou faça upload da foto</label>
               <input type="file" id="lpFotoUpload" accept="image/*" onchange="lpUploadFoto(this)" style="font-size:12px;padding:6px">
@@ -5097,22 +5109,22 @@ layout:`
           <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--bd2)">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
               <input type="checkbox" id="lpChkExtra1" onchange="lpToggleExtra('extra1',this.checked)" style="width:auto">
-              <input id="lpExtra1Texto" type="text" placeholder="Ex: Adicione 2 ou mais unidades" oninput="rp()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:6px;color:var(--tx);font-size:13px">
+              <input id="lpExtra1Texto" type="text" placeholder="Ex: Adicione 2 ou mais unidades" oninput="rp()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
             </label>
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
               <input type="checkbox" id="lpChkExtra2" onchange="lpToggleExtra('extra2',this.checked)" style="width:auto">
-              <input id="lpExtra2Texto" type="text" placeholder="Ex: Frete grátis acima de R$ 79" oninput="rp()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:6px;color:var(--tx);font-size:13px">
+              <input id="lpExtra2Texto" type="text" placeholder="Ex: Frete grátis acima de R$ 79" oninput="rp()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
             </label>
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
               <input type="checkbox" id="lpChkCupom" onchange="lpToggleExtra('cupom',this.checked)" style="width:auto">
               <span style="font-size:13px;white-space:nowrap">Utilize o cupom:</span>
-              <select id="lpCupomSel" onchange="rp()" style="flex:1;padding:4px 6px;background:var(--bg2);border:1px solid var(--bd2);border-radius:6px;color:var(--tx);font-size:13px">
+              <select id="lpCupomSel" onchange="rp()" style="flex:1;padding:4px 6px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
                 <option value="">— Nenhum cadastrado —</option>
               </select>
             </label>
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
               <input type="checkbox" id="lpChkExtra3" onchange="lpToggleExtra('extra3',this.checked)" style="width:auto">
-              <input id="lpExtra3Texto" type="text" placeholder="Insira aqui seu link para compartilhar seu Grupo" oninput="rp()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:6px;color:var(--tx);font-size:13px">
+              <input id="lpExtra3Texto" type="text" placeholder="Insira aqui seu link para compartilhar seu Grupo" oninput="rp()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
             </label>
           </div>
         </div>
@@ -5139,7 +5151,7 @@ layout:`
       </div>
 
       <button class="btn btn-volt" onclick="lpSalvarLayout()">💾 Salvar layout do grupo</button>
-      <span id="lpSalvoMsg" style="display:none;font-size:12px;color:var(--volt);margin-left:10px">✅ Salvo!</span>
+      <span id="lpSalvoMsg" style="display:none;font-size:12px;color:var(--volt-tx);margin-left:10px">✅ Salvo!</span>
     </div>
 
     <!-- Coluna direita: preview -->
@@ -5155,7 +5167,7 @@ layout:`
 ia:`
   <div class="alert y">🧪 <strong>MegaIA — BETA.</strong> Reescreve e formata suas mensagens automaticamente para converter mais.</div>
   <div class="g2"><div class="card" style="margin:0"><div class="ch">Antes</div><div class="cb"><div class="msg ai" style="max-width:100%">fone bluetooth barato 9,99 link https://loja.com aproveita</div></div></div>
-  <div class="card" style="margin:0"><div class="ch" style="color:var(--volt)">Depois (com IA)</div><div class="cb"><div class="msg ai" style="max-width:100%;border-color:rgba(25,226,125,.4)">🎧 <b>FONE BLUETOOTH XYZ</b>\n💸 Apenas <b>R$ 9,99 no Pix</b>\n⚡ Estoque limitado!\n👉 shope.ee/abc</div></div></div></div>
+  <div class="card" style="margin:0"><div class="ch" style="color:var(--volt-tx)">Depois (com IA)</div><div class="cb"><div class="msg ai" style="max-width:100%;border-color:rgba(25,226,125,.4)">🎧 <b>FONE BLUETOOTH XYZ</b>\n💸 Apenas <b>R$ 9,99 no Pix</b>\n⚡ Estoque limitado!\n👉 shope.ee/abc</div></div></div></div>
   <div style="display:flex;gap:10px;margin-top:12px"><button class="btn btn-volt" onclick="toast('Preferência de IA salva!')">Ativar IA</button><button class="btn btn-ghost" onclick="openDrawer()">✨ Abrir MegaIA</button></div>`,
 site:`<div class="card"><div class="cb locked"><div class="li">🚀</div><h3 style="margin-bottom:6px">Site de ofertas — upgrade necessário</h3><p style="color:var(--tx2);max-width:430px;margin:0 auto 16px">Publique seus produtos em um site próprio. A partir do plano PRO.</p><button class="btn btn-gold" onclick="setRole('afiliado');go('assinatura')">Fazer upgrade</button></div></div>`,
 wagrupos:`<div id="wagruposPane"></div>`,
@@ -5251,7 +5263,7 @@ manual:`
       <div class="card" style="margin:0;border-color:rgba(100,200,100,.3);background:rgba(100,200,100,.05)">
         <div class="ch" style="font-size:12px;padding:10px 14px">📊 Produtos ideais para este grupo</div>
         <div class="cb" style="padding-top:0;text-align:center">
-          <div id="prodIdeaisNum" style="font-size:36px;font-weight:900;font-family:var(--disp);color:var(--volt)">—</div>
+          <div id="prodIdeaisNum" style="font-size:36px;font-weight:700;font-family:var(--disp);color:var(--volt-tx)">—</div>
           <div id="prodIdeaisDesc" style="font-size:12px;color:var(--mut);margin-bottom:8px">Configure o intervalo e horário na aba Automação</div>
           <div id="prodIdeaisAtual" style="font-size:12px"></div>
         </div>
@@ -5378,7 +5390,7 @@ async function impBuscarLink(id){
     const body=document.getElementById(`imp_${id}_body`);
     const prev=document.getElementById(`imp_${id}_preview`);
     if(body)body.innerHTML=`<div class="prod" style="align-items:center">
-      <div class="pimg">${window._impData[id].image_url?`<img src="${window._impData[id].image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:"🛒"}</div>
+      <div class="pimg">${window._impData[id].image_url?`<img src="${window._impData[id].image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:2px">`:"🛒"}</div>
       <div style="flex:1"><strong>${window._impData[id].title}</strong><br>
       <small style="color:var(--mut)">${precoOrigNum?`De R$ ${String(precoOrigNum).replace(".",",")} · `:""}${precoAtualNum?`Por R$ ${String(precoAtualNum).replace(".",",")}`:""} ${window._impData[id].discount_pct?" · "+window._impData[id].discount_pct+"% OFF":""}</small></div>
     </div>`;
@@ -5445,7 +5457,7 @@ function buildTabs(){
     const grupo=TAB_GROUPS.find(g=>g.id===_currentTabL1)||TAB_GROUPS[0];
     tabsBar.innerHTML=grupo.tabs.map((t,i)=>{
       const count=_tabProdCounts[t.id]||0;
-      const countBadge=count>0?`<span style="margin-left:4px;font-size:10px;background:var(--volt);color:#0c0c0e;padding:1px 5px;border-radius:6px;font-weight:700">${count}</span>`:"";
+      const countBadge=count>0?`<span style="margin-left:4px;font-size:10px;background:var(--volt);color:#0c0c0e;padding:1px 5px;border-radius:2px;font-weight:700">${count}</span>`:"";
       return `<button class="tab${i===0?" active":""}" data-tab="${t.id}">${t.label}${t.novo?'<span class="tag-new">NEW</span>':""}${countBadge}</button>`;
     }).join("");
     // mostra só a primeira pane da categoria; esconde todas
@@ -5516,10 +5528,10 @@ function buildTabs(){
     if(!hasAuto){
       pgAuto.disabled=true;pgAuto.title="Disponível a partir do plano Pro";
       if(lbl){lbl.style.opacity="0.45";lbl.style.cursor="not-allowed";
-        if(!lbl.querySelector(".gate-chip")){const chip=document.createElement("span");chip.className="gate-chip";chip.style.cssText="margin-left:6px;font-size:10px;background:var(--gold);color:#3a2600;padding:2px 6px;border-radius:6px;font-weight:700";chip.textContent="🔒 Pro+";lbl.appendChild(chip);}
+        if(!lbl.querySelector(".gate-chip")){const chip=document.createElement("span");chip.className="gate-chip";chip.style.cssText="margin-left:6px;font-size:10px;background:var(--gold);color:#3a2600;padding:2px 6px;border-radius:2px;font-weight:700";chip.textContent="🔒 Pro+";lbl.appendChild(chip);}
       }
       const gp=document.getElementById("pane-geral");
-      if(gp&&!gp.querySelector(".gate-banner")){const b=document.createElement("div");b.className="gate-banner";b.style.cssText="background:rgba(255,176,32,.12);border:1px solid rgba(255,176,32,.4);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:14px;font-size:13px";b.innerHTML=`<span style="font-size:20px">🔒</span><span style="flex:1">Automação de posts disponível a partir do plano <strong>Pro (R$\u00a099,90/mês)</strong>.</span><button class="btn btn-gold btn-sm" onclick="go('assinatura')">Ver planos</button>`;gp.prepend(b);}
+      if(gp&&!gp.querySelector(".gate-banner")){const b=document.createElement("div");b.className="gate-banner";b.style.cssText="background:rgba(255,176,32,.12);border:1px solid rgba(255,176,32,.4);border-radius:2px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:14px;font-size:13px";b.innerHTML=`<span style="font-size:20px">🔒</span><span style="flex:1">Automação de posts disponível a partir do plano <strong>Pro (R$\u00a099,90/mês)</strong>.</span><button class="btn btn-gold btn-sm" onclick="go('assinatura')">Ver planos</button>`;gp.prepend(b);}
     }else{
       pgAuto.disabled=false;pgAuto.title="";
       if(lbl){lbl.style.opacity="";lbl.style.cursor="";const c=lbl.querySelector(".gate-chip");if(c)c.remove();}
@@ -5635,7 +5647,7 @@ function pgRenderPresets(){
   const presets=JSON.parse(localStorage.getItem("mlbr_presets")||"[]");
   if(!presets.length){el.innerHTML='<p style="color:var(--mut);font-size:13px">Nenhuma configuração salva ainda.</p>';return;}
   el.innerHTML=presets.map((p,i)=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:8px">
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:2px">
       <div style="flex:1">
         <strong style="font-size:13px">${p.nome}</strong>
         <div style="font-size:11px;color:var(--mut)">${p.auto?"▶ Auto":"Manual"} · ${p.intervalo}min · ${p.ini}h–${p.fim}h</div>
@@ -5821,7 +5833,7 @@ function renderWgDisp(grupos,filtro){
   st.innerHTML=`<div style="margin-bottom:12px">
     <input id="wgBusca" type="text" placeholder="🔍 Buscar grupo…" value="${termAtual.replace(/"/g,'&quot;')}"
       oninput="renderWgDisp(wgTodosGrupos,this.value)"
-      style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:8px;border:1px solid var(--bdr,rgba(255,255,255,.12));background:var(--bg2,rgba(255,255,255,.05));color:var(--tx,#fff);font-size:13px;outline:none">
+      style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:2px;border:1px solid var(--bdr,rgba(255,255,255,.12));background:var(--bg2,rgba(255,255,255,.05));color:var(--tx,#fff);font-size:13px;outline:none">
   </div>
   <div style="margin-bottom:10px;font-size:13px;color:var(--mut)">${gruposFiltrados.length} de ${grupos.length} grupo${grupos.length>1?"s":""}</div>`+
     gruposFiltrados.map(g=>{
@@ -5830,7 +5842,7 @@ function renderWgDisp(grupos,filtro){
       const gid=g.id||g.jid||"";
       const vinculado=jaVinc.has(gid);
       const vincIdx=vinculado?wgVinculados.findIndex(v=>v.id===gid):-1;
-      return `<div class="prod" style="${vinculado?'background:rgba(245,197,24,.06);border-radius:8px;padding:8px':''}">
+      return `<div class="prod" style="${vinculado?'background:rgba(245,197,24,.06);border-radius:2px;padding:8px':''}">
         <div class="pimg">💬</div>
         <div style="flex:1"><strong>${nome}</strong><br>
           <small style="color:var(--mut)">${part} participantes · ${gid.split("@")[0]}</small>
@@ -5885,11 +5897,11 @@ function renderMn(){
   if(!el)return;
   el.innerHTML=mnProds.length?mnProds.map((p,i)=>`
     <div class="prod">
-      <div class="pimg">${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:"📦"}</div>
+      <div class="pimg">${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:2px">`:"📦"}</div>
       <div style="flex:1">
         <strong>${p.nome}</strong><br>
         <small style="color:var(--mut)">${p.preco?`R$ ${p.preco} · `:""}${p.desc||""}</small><br>
-        <small class="mono" style="color:var(--volt);font-size:11px">${(p.link||"").slice(0,40)}${p.link&&p.link.length>40?"…":""}</small>
+        <small class="mono" style="color:var(--volt-tx);font-size:11px">${(p.link||"").slice(0,40)}${p.link&&p.link.length>40?"…":""}</small>
       </div>
       <button class="btn btn-red btn-sm" onclick="rmMn(${i})">✕</button>
     </div>`).join("")
@@ -5987,7 +5999,7 @@ function prodIdeaisCalc(){
     numEl.textContent=SMART_MAX_DIA;
     descEl.textContent=`posts/dia no máximo · ${SMART_JANELAS.length} janelas, mín. ${SMART_PISO_MIN} min entre posts`;
     atualEl.innerHTML=atual>=SMART_MAX_DIA
-      ? `<span style="color:var(--volt)">✅ ${atual} produtos. O dia enche os ${SMART_MAX_DIA} e o resto entra amanhã pelo rodízio.</span>`
+      ? `<span style="color:var(--volt-tx)">✅ ${atual} produtos. O dia enche os ${SMART_MAX_DIA} e o resto entra amanhã pelo rodízio.</span>`
       : `<span style="color:var(--tx2)">Você tem ${atual} produto${atual!==1?"s":""} — eles se espalham pelas janelas com folga. Não falta nada.</span>`;
     return;
   }
@@ -6002,7 +6014,7 @@ function prodIdeaisCalc(){
   if(atual<ideal){
     atualEl.innerHTML=`<span style="color:var(--red,#ef4444)">⚠️ Você tem ${atual} produto${atual!==1?"s":""}. Adicione mais ${ideal-atual} para cobrir o dia todo.</span>`;
   }else{
-    atualEl.innerHTML=`<span style="color:var(--volt)">✅ Você tem ${atual} produto${atual!==1?"s":""} — suficiente para ${Math.floor(atual*intervMins/60)}h de posts.</span>`;
+    atualEl.innerHTML=`<span style="color:var(--volt-tx)">✅ Você tem ${atual} produto${atual!==1?"s":""} — suficiente para ${Math.floor(atual*intervMins/60)}h de posts.</span>`;
   }
 }
 
@@ -6100,7 +6112,7 @@ async function wireProdLista(){
     const{count,error:e2}=await SB.from("products").select("id",{count:"exact",head:true}).eq("user_id",CURRENT_USER.id);
     if(!e2&&typeof count==="number")totalConta=count;
   }
-  loadTabProdCounts().then(()=>{const grupo=TAB_GROUPS.find(g=>g.id===_currentTabL1)||TAB_GROUPS[0];tabsBar.innerHTML=grupo.tabs.map((t,i)=>{const count=_tabProdCounts[t.id]||0;const countBadge=count>0?`<span style="margin-left:4px;font-size:10px;background:var(--volt);color:#0c0c0e;padding:1px 5px;border-radius:6px;font-weight:700">${count}</span>`:"";return `<button class="tab${tabsBar.querySelector('.tab.active')?.dataset.tab===t.id?" active":""}" data-tab="${t.id}">${t.label}${t.novo?'<span class="tag-new">NEW</span>':""}${countBadge}</button>`;}).join(""); tabsBar.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{tabsBar.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".tp").forEach(p=>p.classList.toggle("on",p.id==="pane-"+b.dataset.tab));if(b.dataset.tab==="wagrupos")wireWaGrupos();if(b.dataset.tab==="prod-meus")wireProdLista();if(MARKET_STORES.some(s=>s.id===b.dataset.tab))impRenderAlert(b.dataset.tab);if(b.dataset.tab==="prod-add"){wireProdAdd();prodIdeaisCalc();prodCupomTipoChange();}});});
+  loadTabProdCounts().then(()=>{const grupo=TAB_GROUPS.find(g=>g.id===_currentTabL1)||TAB_GROUPS[0];tabsBar.innerHTML=grupo.tabs.map((t,i)=>{const count=_tabProdCounts[t.id]||0;const countBadge=count>0?`<span style="margin-left:4px;font-size:10px;background:var(--volt);color:#0c0c0e;padding:1px 5px;border-radius:2px;font-weight:700">${count}</span>`:"";return `<button class="tab${tabsBar.querySelector('.tab.active')?.dataset.tab===t.id?" active":""}" data-tab="${t.id}">${t.label}${t.novo?'<span class="tag-new">NEW</span>':""}${countBadge}</button>`;}).join(""); tabsBar.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{tabsBar.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".tp").forEach(p=>p.classList.toggle("on",p.id==="pane-"+b.dataset.tab));if(b.dataset.tab==="wagrupos")wireWaGrupos();if(b.dataset.tab==="prod-meus")wireProdLista();if(MARKET_STORES.some(s=>s.id===b.dataset.tab))impRenderAlert(b.dataset.tab);if(b.dataset.tab==="prod-add"){wireProdAdd();prodIdeaisCalc();prodCupomTipoChange();}});});
   if(!data.length){el.innerHTML='<p style="color:var(--mut);text-align:center;padding:28px">Nenhum produto cadastrado ainda.<br>Use a aba <strong>➕ Adicionar</strong> para começar.</p>';return;}
 
   // ─── Cabeçalho: quantos, de quanto, e o que está velho ───
@@ -6175,11 +6187,11 @@ async function wireProdLista(){
     <div class="prod" style="align-items:center${fora?";opacity:.6":""}">
       <input type="checkbox" class="prod-chk" value="${p.id}" onchange="prodSelAtualizar()" title="Selecionar para apagar" style="width:auto;margin:0 2px 0 0;flex:none;cursor:pointer">
       <span style="color:var(--mut);font-size:11.5px;font-variant-numeric:tabular-nums;min-width:34px;text-align:right;flex:none">${i+1}.</span>
-      <div class="pimg">${p.image_url?`<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px${fora?";filter:grayscale(1)":""}">`:"📦"}</div>
+      <div class="pimg">${p.image_url?`<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:2px${fora?";filter:grayscale(1)":""}">`:"📦"}</div>
       <div style="flex:1;min-width:0">
         <strong${fora?' style="text-decoration:line-through"':""}>${p.title||"Sem título"}</strong>
         ${fora?'<span class="pill" style="background:rgba(255,81,104,.12);color:var(--red);margin-left:6px">fora do ar na loja</span>':""}<br>
-        <small style="color:var(--mut)">${p.price?`R$ ${Number(p.price).toFixed(2).replace(".",",")} · `:""}${p.discount_pct?p.discount_pct+"% OFF · ":""}<span class="mono" style="color:var(--volt);font-size:10px">${(p.affiliate_url||"").slice(0,60)}${(p.affiliate_url||"").length>60?"…":""}</span></small>
+        <small style="color:var(--mut)">${p.price?`R$ ${Number(p.price).toFixed(2).replace(".",",")} · `:""}${p.discount_pct?p.discount_pct+"% OFF · ":""}<span class="mono" style="color:var(--volt-tx);font-size:10px">${(p.affiliate_url||"").slice(0,60)}${(p.affiliate_url||"").length>60?"…":""}</span></small>
         <div style="font-size:11px;color:${idade.cor};margin-top:2px">${idade.semConferencia?"🔍 ":(idade.nunca?"⚠️ ":(idade.velho?"🕐 ":""))}${idade.txt}</div>
       </div>
       <button class="btn btn-red btn-sm" onclick="prodRemover('${p.id}')">✕</button>
@@ -6243,7 +6255,7 @@ async function prodImportarLink(){
     const prev=document.getElementById("prodImportPreview");
     if(body)body.innerHTML=`
       <div class="prod" style="align-items:center">
-        <div class="pimg">${_prodImportData.image_url?`<img src="${_prodImportData.image_url}" onerror="_prodImgFallback(this)" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:"📦"}</div>
+        <div class="pimg">${_prodImportData.image_url?`<img src="${_prodImportData.image_url}" onerror="_prodImgFallback(this)" style="width:100%;height:100%;object-fit:cover;border-radius:2px">`:"📦"}</div>
         <div style="flex:1"><strong>${_prodImportData.title}</strong><br>
           <small style="color:var(--mut)">${_prodImportData.price?`R$ ${_prodImportData.price} · `:""}${_prodImportData.discount_pct?_prodImportData.discount_pct+"% OFF":""}</small></div>
       </div>`;
@@ -6522,7 +6534,7 @@ function rp(){
   txt+=`\n${esc(ctaTexto)}\n`;
   txt+=`<span class="lnk">👉 shope.ee/abc</span><span class="tm">14:32 ✓✓</span>`;
   const foto=LP.fotoDataUrl;
-  const imgHtml=foto?`<img src="${foto}" style="width:100%;border-radius:6px;margin-bottom:6px">`:'<span class="img">🛍️</span>';
+  const imgHtml=foto?`<img src="${foto}" style="width:100%;border-radius:2px;margin-bottom:6px">`:'<span class="img">🛍️</span>';
   g("lpBub").innerHTML=imgHtml+txt;
 }
 function lpToggleExtra(tipo,on){LP.extras[tipo]=on;rp();}
@@ -6547,7 +6559,7 @@ function lpTogglePainelCor(on){
   const p=document.getElementById("lpPainelCor");if(!p)return;
   p.style.display=on?"flex":"none";
   if(on&&!p.children.length){
-    p.innerHTML=PR_CORES.map((c,i)=>`<button onclick="lpSelecionarCor(${i})" style="padding:4px 10px;border-radius:6px;border:2px solid ${i===LP.corIdx?"var(--volt)":"transparent"};background:${c.bg||"var(--surf)"};color:${c.tx||"var(--tx)"};font-size:12px;cursor:pointer" id="lpCorBtn${i}">${c.nome}</button>`).join("");
+    p.innerHTML=PR_CORES.map((c,i)=>`<button onclick="lpSelecionarCor(${i})" style="padding:4px 10px;border-radius:2px;border:2px solid ${i===LP.corIdx?"var(--volt)":"transparent"};background:${c.bg||"var(--surf)"};color:${c.tx||"var(--tx)"};font-size:12px;cursor:pointer" id="lpCorBtn${i}">${c.nome}</button>`).join("");
   }
 }
 function lpSelecionarCor(i){
@@ -6630,10 +6642,10 @@ function buildPlansFromFeatures(){
 }
 function brl(v){return v.toFixed(2).replace(".",",");}
 const PLAN_VIS={
-  starter:{ico:"⚡",grad:"linear-gradient(135deg,#8B95FF,#5B68FF)",sub:"Para quem está começando"},
-  pro:    {ico:"🚀",grad:"linear-gradient(135deg,#FF6CBF,#9B7DFF)",sub:"Automação + IA para escalar"},
-  elite:  {ico:"🔥",grad:"linear-gradient(135deg,#FFB020,#FF6B6B)",sub:"Rastreamento + escala total"},
-  premium:{ico:"👑",grad:"linear-gradient(135deg,#F5C518,#FF8A00)",sub:"O melhor da plataforma"}
+  starter:{ico:"I",  grad:"var(--surf3)",sub:"Para quem está começando"},
+  pro:    {ico:"II", grad:"var(--surf3)",sub:"Automação + IA para escalar"},
+  elite:  {ico:"III",grad:"var(--volt)", sub:"Rastreamento + escala total"},
+  premium:{ico:"IV", grad:"var(--volt)", sub:"O melhor da plataforma"}
 };
 function renderPlans(){
   const PLANS=buildPlansFromFeatures();
@@ -6645,10 +6657,10 @@ function renderPlans(){
     const statusLabel={active:"Ativo",trial:"Trial",past_due:"Em atraso",canceled:"Cancelado"}[f.sub_status||"active"]||"Ativo";
     const statusColor={active:"volt",trial:"sky",past_due:"gold",canceled:"red"}[f.sub_status||"active"]||"volt";
     mpc.innerHTML=`<div class="card" style="margin:0"><div class="cb" style="display:flex;align-items:center;gap:16px;padding:20px;flex-wrap:wrap">
-      <div style="width:56px;height:56px;border-radius:50%;background:${vis.grad};display:grid;place-items:center;font-size:28px;flex:none">${vis.ico}</div>
+      <div class="plan-grau sm" style="background:${vis.grad};color:${vis.grad==="var(--volt)"?"#14161A":"var(--tx)"}">${vis.ico}</div>
       <div style="flex:1;min-width:180px">
         <div style="font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Seu plano atual</div>
-        <div style="font-family:var(--disp);font-size:22px;font-weight:800">${f.label||MY_PLAN.toUpperCase()}</div>
+        <div style="font-family:var(--disp);font-size:22px;font-weight:700">${f.label||MY_PLAN.toUpperCase()}</div>
         <div style="font-size:12.5px;color:var(--tx2);margin-top:3px" id="myPlanInfo">R$ ${brl(Number(f.price_month))}/mês</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -6661,19 +6673,19 @@ function renderPlans(){
   plansGrid.innerHTML=PLANS.map(p=>{
     const a=S.bill==="a",v=a?p.m*0.8:p.m;
     const atual=p.key===MY_PLAN;
-    const vis=PLAN_VIS[p.key]||{ico:"✨",grad:"linear-gradient(135deg,#F5C518,#FF8A00)",sub:""};
+    const vis=PLAN_VIS[p.key]||{ico:"✨",grad:"var(--volt)",sub:""};
     return `<div class="plan ${p.pop?"feat":""} ${atual?"cur":""}">
       ${p.pop?'<span class="plan-tag">⭐ MAIS POPULAR</span>':""}
       ${atual?'<span class="plan-cur">SEU PLANO</span>':""}
       <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px">
-        <div style="width:64px;height:64px;border-radius:50%;background:${vis.grad};display:grid;place-items:center;font-size:30px;box-shadow:0 8px 24px rgba(0,0,0,.3)">${vis.ico}</div>
+        <div class="plan-grau" style="background:${vis.grad};color:${vis.grad==="var(--volt)"?"#14161A":"var(--tx)"}">${vis.ico}</div>
         <div class="pn">${p.n}</div>
         <div class="pp"><small>R$</small><b>${brl(v)}</b><small>/mês</small></div>
         <div style="font-size:12px;color:var(--tx2)">${vis.sub}</div>
-        ${a?`<div style="font-size:11px;color:var(--volt);font-weight:700;margin-top:2px">economize R$ ${brl(p.m*12*0.2)}/ano</div>`:""}
+        ${a?`<div style="font-size:11px;color:var(--volt-tx);font-weight:700;margin-top:2px">economize R$ ${brl(p.m*12*0.2)}/ano</div>`:""}
       </div>
-      <ul>${p.f.map(f=>`<li>${f}</li>`).join("")}</ul>
-      ${p.key==="premium"?`<div style="font-size:11px;color:var(--tx2);background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.25);border-radius:8px;padding:8px 10px;margin:4px 0 8px;text-align:center">⚠️ Sujeito à política de uso justo — limites podem ser ajustados em caso de uso muito acima da média.</div>`:""}
+      <ul>${p.f.map(f=>{const nao=f.startsWith("\u274C");return `<li class="${nao?"no":""}">${f.replace(/^[\u2705\u274C]\s*/,"")}</li>`;}).join("")}</ul>
+      ${p.key==="premium"?`<div style="font-size:11px;color:var(--tx2);background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.25);border-radius:2px;padding:8px 10px;margin:4px 0 8px;text-align:center">⚠️ Sujeito à política de uso justo — limites podem ser ajustados em caso de uso muito acima da média.</div>`:""}
       ${atual
         ?`<button class="btn btn-ghost btn-lg" disabled style="width:100%;justify-content:center;opacity:.7">✅ SEU PLANO ATUAL</button>`
         :`<div style="display:flex;flex-direction:column;gap:8px;width:100%">
@@ -6802,9 +6814,9 @@ async function confirmarCheckout(planKey,valor){
     document.getElementById("ckBody").innerHTML=`
       <div style="text-align:center">
         <div style="font-size:13px;color:var(--tx2);margin-bottom:14px">${recurring?"Assinatura Pix recorrente criada! Escaneie o QR Code ou copie o código da primeira cobrança:":"Escaneie o QR Code ou copie o código Pix abaixo:"}</div>
-        ${d.pix_qr_code_image?`<img src="data:image/png;base64,${d.pix_qr_code_image}" style="width:180px;height:180px;border-radius:12px;margin-bottom:14px;border:1px solid var(--bd)" alt="QR Code Pix">`:""}
+        ${d.pix_qr_code_image?`<img src="data:image/png;base64,${d.pix_qr_code_image}" style="width:180px;height:180px;border-radius:2px;margin-bottom:14px;border:1px solid var(--bd)" alt="QR Code Pix">`:""}
         ${d.pix_copy_paste?`
-          <div style="background:var(--surf2);border-radius:10px;padding:12px;font-size:11px;word-break:break-all;margin-bottom:12px;font-family:monospace;color:var(--tx2);text-align:left">${d.pix_copy_paste}</div>
+          <div style="background:var(--surf2);border-radius:2px;padding:12px;font-size:11px;word-break:break-all;margin-bottom:12px;font-family:monospace;color:var(--tx2);text-align:left">${d.pix_copy_paste}</div>
           <button class="btn btn-volt btn-sm" style="width:100%;justify-content:center;margin-bottom:10px" onclick="navigator.clipboard.writeText('${d.pix_copy_paste}').then(()=>toast('Código Pix copiado!','✅'))">📋 Copiar código Pix</button>
         `:""}
         ${d.invoice_url?`<a href="${d.invoice_url}" target="_blank" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-bottom:12px;display:flex">🔗 Abrir fatura completa</a>`:""}
@@ -6828,7 +6840,7 @@ async function tgCarregarCanais(){
     <div class="prod" style="align-items:center">
       <div class="pimg">📣</div>
       <div style="flex:1"><strong>${c.name||c.chat_id}</strong><br>
-        <small style="color:var(--mut)">${c.chat_id}${c.niche_group_id?' · grupo vinculado':''} · <span style="color:var(--volt)">ativo</span></small></div>
+        <small style="color:var(--mut)">${c.chat_id}${c.niche_group_id?' · grupo vinculado':''} · <span style="color:var(--volt-tx)">ativo</span></small></div>
       <button class="btn btn-red btn-sm" onclick="tgRemoverCanal('${c.id}')">Remover</button>
     </div>`).join("");
   if(testeSelect){testeSelect.innerHTML='<option value="">— selecione —</option>'+TG_CANAIS.map(c=>`<option value="${c.chat_id}">${c.name||c.chat_id}</option>`).join("");}
@@ -7549,7 +7561,7 @@ async function renderQueue(){
       const grupo=l.niche_groups?.name||"—";
       const prod=l.products?.title?` · ${esc(l.products.title)}`:"";
       const detalhe=ok?`${esc(grupo)}${prod} → ${esc(quem)}`:`${esc(grupo)}${prod} → ${esc(quem)} (${esc(l.error||"falha")})`;
-      const lupa=ok?"":` <span class="mono" style="color:var(--volt);cursor:pointer;text-decoration:underline" onclick="abrirErroLog(${i})">ver detalhe</span>`;
+      const lupa=ok?"":` <span class="mono" style="color:var(--volt-tx);cursor:pointer;text-decoration:underline" onclick="abrirErroLog(${i})">ver detalhe</span>`;
       return `<div style="font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--bd)"><span class="mono" style="color:var(--mut)">${time}</span> ${ok?"✅":"❌"} ${detalhe}${lupa}</div>`;
     }).join(""):'<div style="font-size:12.5px;padding:6px 0;color:var(--mut)">Nenhum disparo registrado ainda.</div>';
   }catch(e){
@@ -7770,7 +7782,7 @@ function renderVip(){
       <td class="mono" style="font-size:11px;color:var(--mut)">${(v.userId||"").slice(0,16)}…</td>
       <td><span class="pill sky">${planF.label.toUpperCase()}</span></td>
       <td style="color:var(--mut)">${v.tipo==="vitalicio"?"♾️ Vitalício":"📅 Com expiração"}</td>
-      <td style="color:${st==="expirado"?"var(--pink)":"var(--tx2)"}">${expTxt}</td>
+      <td style="color:${st==="expirado"?"var(--red)":"var(--tx2)"}">${expTxt}</td>
       <td>${vipStatusPill(v)}</td>
       <td style="text-align:right">
         <button class="btn btn-ghost btn-sm" onclick="editarVip(${i})">Editar</button>
@@ -8586,12 +8598,12 @@ async function lrGerar(){
     const loja=d.store_label||detectLojaLabel(d.url)||"";
     const lojaSafe=lrEsc(loja||"a loja");
     if(!temCredencialLoja(loja)){
-      lrMsg("y",'<span><strong>⚠️ Link resolvido ('+lojaSafe+'), mas falta a sua credencial dessa loja.</strong><br>Sem o seu ID de afiliado o link sairia <strong>sem comissão nenhuma</strong>. <a href="#" onclick="go(\'config-afiliados\');return false" style="color:var(--volt);font-weight:700">Configurar '+lojaSafe+' agora</a></span>');
+      lrMsg("y",'<span><strong>⚠️ Link resolvido ('+lojaSafe+'), mas falta a sua credencial dessa loja.</strong><br>Sem o seu ID de afiliado o link sairia <strong>sem comissão nenhuma</strong>. <a href="#" onclick="go(\'config-afiliados\');return false" style="color:var(--volt-tx);font-weight:700">Configurar '+lojaSafe+' agora</a></span>');
       return;
     }
     const afil=prGerarLinkAfil(d.url,loja)||d.url;
     if(afil===d.url){
-      lrMsg("y",'<span><strong>⚠️ Não consegui injetar o seu ID nesse link de '+lojaSafe+'.</strong><br>Confira em <a href="#" onclick="go(\'config-afiliados\');return false" style="color:var(--volt);font-weight:700">Config Afiliados</a> se o campo do ID de afiliado dessa loja está preenchido.</span>');
+      lrMsg("y",'<span><strong>⚠️ Não consegui injetar o seu ID nesse link de '+lojaSafe+'.</strong><br>Confira em <a href="#" onclick="go(\'config-afiliados\');return false" style="color:var(--volt-tx);font-weight:700">Config Afiliados</a> se o campo do ID de afiliado dessa loja está preenchido.</span>');
       return;
     }
     lrMsg("b","✅ Seu ID entrou. Encurtando…");
@@ -8798,10 +8810,10 @@ function cloneRenderPreview(){
   if(!c||!st)return;
   const d=c.resolve;
   const semCred=!temCredencialLoja(c.lojaLabel);
-  const avisoCred=semCred?`<div class="alert y" style="margin:10px 0 0"><span>⚠️ Você não tem credencial de <strong>${c.lojaLabel||"loja"}</strong> configurada — o link vai sair <strong>sem a sua comissão</strong>. <a href="#" onclick="go('config-afiliados');return false" style="color:var(--volt)">Configurar agora</a></span></div>`:"";
+  const avisoCred=semCred?`<div class="alert y" style="margin:10px 0 0"><span>⚠️ Você não tem credencial de <strong>${c.lojaLabel||"loja"}</strong> configurada — o link vai sair <strong>sem a sua comissão</strong>. <a href="#" onclick="go('config-afiliados');return false" style="color:var(--volt-tx)">Configurar agora</a></span></div>`:"";
   const avisoBusca=c.buscaErro?`<div class="alert y" style="margin:10px 0 0"><span>A loja não devolveu os dados automáticos (${c.buscaErro}). Dá pra clonar assim mesmo — confira título e preço antes de aprovar.</span></div>`:"";
   const removidos=(d.stripped||[]).length
-    ?`<span style="color:var(--volt)">removido: ${d.stripped.join(", ")}</span>`
+    ?`<span style="color:var(--volt-tx)">removido: ${d.stripped.join(", ")}</span>`
     :'<span style="color:var(--tx2)">o link original não tinha parâmetro de afiliado</span>';
   const esc=s=>String(s||"").replace(/"/g,"&quot;");
   st.style.display="block";
@@ -8810,7 +8822,7 @@ function cloneRenderPreview(){
     <div class="ch">🧬 Pronto pra clonar</div>
     <div class="cb">
       <div style="display:flex;gap:14px;flex-wrap:wrap">
-        ${c.prod.image?`<img src="${c.prod.image}" style="width:96px;height:96px;object-fit:contain;border-radius:10px;background:#fff" onerror="this.style.display='none'">`:""}
+        ${c.prod.image?`<img src="${c.prod.image}" style="width:96px;height:96px;object-fit:contain;border-radius:2px;background:#fff" onerror="this.style.display='none'">`:""}
         <div style="flex:1;min-width:220px">
           <label>Título</label>
           <input id="cloneTitulo" value="${esc(c.prod.title)}" placeholder="Título do produto" style="width:100%">
@@ -8823,7 +8835,7 @@ function cloneRenderPreview(){
       <div style="margin-top:12px;font-size:12px;color:var(--tx2);line-height:1.8">
         <div>Loja: <strong style="color:var(--tx)">${c.lojaLabel||d.store}</strong> · saltos até o link real: ${d.hops}</div>
         <div>Afiliado de origem: ${removidos}</div>
-        <div style="word-break:break-all">Seu link: <span style="color:var(--volt)">${c.linkAfiliado}</span></div>
+        <div style="word-break:break-all">Seu link: <span style="color:var(--volt-tx)">${c.linkAfiliado}</span></div>
       </div>
       ${avisoCred}${avisoBusca}
       <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
@@ -9097,7 +9109,7 @@ function cloneRenderFila(){
   const escAtt=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   const badge={
     pending:'<span class="pill" style="background:rgba(245,197,24,.15);color:var(--gold)">aguardando revisão</span>',
-    approved:'<span class="pill" style="background:rgba(25,226,125,.15);color:var(--volt)">publicado</span>',
+    approved:'<span class="pill" style="background:rgba(25,226,125,.15);color:var(--volt-tx)">publicado</span>',
     rejected:'<span class="pill" style="background:rgba(255,81,104,.12);color:var(--red)">descartado</span>',
     failed:'<span class="pill" style="background:rgba(255,81,104,.2);color:var(--red)">falhou</span>',
     expired:'<span class="pill" style="background:rgba(255,255,255,.08);color:var(--tx2)">expirou sem revisão</span>'
@@ -9108,7 +9120,7 @@ function cloneRenderFila(){
   const doTexto='<span class="pill" title="Titulo e preco foram lidos do texto da mensagem capturada, nao conferidos na loja. Confira antes de aprovar." style="background:rgba(245,197,24,.12);color:var(--gold);margin-left:6px">📋 do texto da mensagem</span>';
   const faltaPagina=CLONE_FILA_TOTAL>CLONE_FILA_DATA.length;
   const barra=CLONE_SEL_MODO?`
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border:1px solid var(--bd2);border-radius:8px;background:var(--bg2)">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border:1px solid var(--bd2);border-radius:2px;background:var(--bg2)">
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;margin:0">
         <input type="checkbox" id="cloneSelAll" onchange="cloneSelTodos(this.checked)" style="width:auto">
         <span>Selecionar todos${faltaPagina?" desta página":""}</span>
@@ -9128,7 +9140,7 @@ function cloneRenderFila(){
     return `
     <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--bd)${vencido?";opacity:.55":""}">
       ${CLONE_SEL_MODO?`<input type="checkbox" class="clone-chk" data-id="${c.id}" ${CLONE_SEL.has(c.id)?"checked":""} onchange="cloneSelItem('${c.id}',this.checked)" style="width:auto;flex:none;margin-top:4px">`:""}
-      ${c.image_url?`<img src="${escAtt(c.image_url)}" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#fff;flex:none${vencido?";filter:grayscale(1)":""}" onerror="this.style.display='none'">`:""}
+      ${c.image_url?`<img src="${escAtt(c.image_url)}" style="width:56px;height:56px;object-fit:contain;border-radius:2px;background:#fff;flex:none${vencido?";filter:grayscale(1)":""}" onerror="this.style.display='none'">`:""}
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:13.5px${vencido?";text-decoration:line-through":""}">${esc(c.title||"(sem título)")}</div>
         <div style="font-size:12px;color:var(--tx2);margin-top:3px">${esc(c.store_label||c.store||"")} · ${esc(nomeGrupo(c.niche_group_id))} · ${c.price?("R$ "+esc(String(c.price))):"sem preço"}${c.coupon_code?` · 🏷️ ${esc(c.coupon_code)}`:""} ${badge[c.status]||esc(c.status)}${c.data_source==="message"?doTexto:""}</div>
@@ -9470,7 +9482,7 @@ function csRender(){
       <div style="display:flex;gap:8px;align-items:flex-start">
         <h4 style="flex:1">${esc(f.source_label||f.source_jid)}</h4>
         ${f.active
-          ?'<span class="pill" style="background:rgba(25,226,125,.15);color:var(--volt);flex:none">ativa</span>'
+          ?'<span class="pill" style="background:rgba(25,226,125,.15);color:var(--volt-tx);flex:none">ativa</span>'
           :'<span class="pill" style="background:rgba(255,255,255,.08);color:var(--tx2);flex:none">pausada</span>'}
       </div>
       <div class="cs-dest">\u2192 ${esc(nomeGrupo(f.niche_group_id))}</div>
@@ -9877,7 +9889,7 @@ function prRenderGruposDestino(){
     PR.gruposSel=new Set(S.grupos.map(g=>g.id)); // seleciona todos por padrão
   }
   el.innerHTML=S.grupos.map(g=>`
-    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--bd2);border-radius:10px;cursor:pointer;font-weight:500">
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;cursor:pointer;font-weight:500">
       <input type="checkbox" id="prGr${g.id}" ${PR.gruposSel.has(g.id)?"checked":""} style="width:auto"
         onchange="prToggleGrupo(${g.id},this.checked)">
       <span style="flex:1">${g.nome}</span>
@@ -9984,7 +9996,7 @@ function prUpdatePreview(){
   const grupoSel=S.grupos.find(g=>PR.gruposSel.has(g.id));
   const gNome=document.getElementById("prGrupoNome");
   if(gNome)gNome.textContent=grupoSel?.nome||"Grupo de Afiliados";
-  const fotoHtml=PR.fotoDataUrl?`<img src="${PR.fotoDataUrl}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:6px">`:'<span class="img">🛍️</span>';
+  const fotoHtml=PR.fotoDataUrl?`<img src="${PR.fotoDataUrl}" style="width:100%;height:80px;object-fit:cover;border-radius:2px;margin-bottom:6px">`:'<span class="img">🛍️</span>';
   const{before,after}=prMontarTexto({nome,de,por,cta,link,htmlMode:true});
   const bub=document.getElementById("prPreviewBub");
   if(bub){
@@ -10491,19 +10503,19 @@ async function enterApp(profile){
       document.body.innerHTML=`<div style="min-height:100vh;background:#0c0c0e;display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;padding:20px">
         <div style="max-width:480px;width:100%;text-align:center">
           <img src="/icon.png" style="width:72px;border-radius:50%;margin-bottom:20px">
-          <h1 style="color:#FFD33F;font-size:24px;font-weight:800;margin:0 0 12px">Seu trial encerrou</h1>
+          <h1 style="color:#FFD33F;font-size:24px;font-weight:700;margin:0 0 12px">Seu trial encerrou</h1>
           <p style="color:#aaa;font-size:15px;line-height:1.6;margin:0 0 28px">Seus 7 dias gratuitos chegaram ao fim. Escolha um plano para continuar automatizando suas vendas na Mega Links BR.</p>
           <div style="display:grid;gap:12px;margin-bottom:24px">
-            <div style="background:#111118;border:1px solid #222;border-radius:12px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+            <div style="background:#111118;border:1px solid #222;border-radius:2px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
               <div style="text-align:left"><div style="color:#10B981;font-weight:700;font-size:13px">⚡ STARTER</div><div style="color:#aaa;font-size:12px;margin-top:2px">Shopee · Postar Agora</div></div>
-              <button onclick="location.href='/'" style="background:#10B981;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">R$ 57,90/mês</button>
+              <button onclick="location.href='/'" style="background:#10B981;color:#fff;border:none;padding:8px 18px;border-radius:2px;font-weight:700;cursor:pointer;font-size:13px">R$ 57,90/mês</button>
             </div>
-            <div style="background:#111118;border:1px solid #8B5CF6;border-radius:12px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+            <div style="background:#111118;border:1px solid #8B5CF6;border-radius:2px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
               <div style="text-align:left"><div style="color:#8B5CF6;font-weight:700;font-size:13px">🔥 ELITE — MAIS POPULAR</div><div style="color:#aaa;font-size:12px;margin-top:2px">Automação 24/7 · MegaIA · Rastreamento</div></div>
-              <button onclick="location.href='/'" style="background:#8B5CF6;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">R$ 157,90/mês</button>
+              <button onclick="location.href='/'" style="background:#8B5CF6;color:#fff;border:none;padding:8px 18px;border-radius:2px;font-weight:700;cursor:pointer;font-size:13px">R$ 157,90/mês</button>
             </div>
           </div>
-          <button onclick="SB.auth.signOut().then(()=>location.reload())" style="background:transparent;border:1px solid #333;color:#666;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:13px">Sair da conta</button>
+          <button onclick="SB.auth.signOut().then(()=>location.reload())" style="background:transparent;border:1px solid #333;color:#666;padding:10px 24px;border-radius:2px;cursor:pointer;font-size:13px">Sair da conta</button>
         </div>
       </div>`;
       return;
@@ -10644,10 +10656,10 @@ function renderUpgradeBanner(){
   else if(plan==="starter")
     motivo="Automatize, use IA e escale — por R$ ${prox.preco}/mês.";
 
-  el.innerHTML=`<div style="background:linear-gradient(135deg,rgba(155,125,255,.12),rgba(57,192,255,.08));border:1px solid rgba(155,125,255,.35);border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:14px;margin-bottom:20px;flex-wrap:wrap">
+  el.innerHTML=`<div style="background:var(--surf2);border:1px solid rgba(155,125,255,.35);border-radius:2px;padding:14px 18px;display:flex;align-items:center;gap:14px;margin-bottom:20px;flex-wrap:wrap">
     <div style="font-size:22px;flex:none">🚀</div>
     <div style="flex:1;min-width:180px">
-      <div style="font-size:13px;font-weight:700;margin-bottom:2px">Upgrade para <span style="color:var(--volt)">${prox.label}</span> — R$ ${prox.preco}/mês</div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:2px">Upgrade para <span style="color:var(--volt-tx)">${prox.label}</span> — R$ ${prox.preco}/mês</div>
       <div style="font-size:12px;color:var(--tx2)">${motivo||prox.beneficio}</div>
     </div>
     <div style="display:flex;gap:8px;flex:none">
@@ -10659,7 +10671,7 @@ function renderUpgradeBanner(){
   // Pill no botão MegaIA se Starter
   const btnIA=document.getElementById("btnDashIA");
   if(btnIA&&!f.mega_ia){
-    btnIA.innerHTML='🔒 MegaIA <span style="background:var(--gold);color:#0c0c0e;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;margin-left:4px">PRO+</span>';
+    btnIA.innerHTML='🔒 MegaIA <span style="background:var(--gold);color:#0c0c0e;font-size:9px;font-weight:700;padding:1px 5px;border-radius:2px;margin-left:4px">PRO+</span>';
   }
 }
 // Atualiza o rodapé do menu lateral com o plano real
@@ -10685,7 +10697,7 @@ function applyPlanGating(){
     const existing=el.querySelector(".gate-banner");if(existing)existing.remove();
     if(msg){
       const d=document.createElement("div");d.className="gate-banner";
-      d.style.cssText="background:rgba(255,176,32,.12);border:1px solid rgba(255,176,32,.4);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:14px;font-size:13px";
+      d.style.cssText="background:rgba(255,176,32,.12);border:1px solid rgba(255,176,32,.4);border-radius:2px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:14px;font-size:13px";
       d.innerHTML=`<span style="font-size:20px">⚠️</span><span style="flex:1">${msg}</span><button class="btn btn-gold btn-sm" onclick="go('assinatura')" style="flex:none">Ver planos</button>`;
       el.prepend(d);
     }
@@ -11065,7 +11077,7 @@ function createDisclaimerModal() {
         
         <div style="font-size:32px;margin-bottom:12px">⚠️</div>
         
-        <h2 style="font-family:var(--disp);font-size:18px;font-weight:800;margin-bottom:14px;color:var(--tx)">
+        <h2 style="font-family:var(--disp);font-size:18px;font-weight:700;margin-bottom:14px;color:var(--tx)">
           Política de Segurança Contra Banimentos
         </h2>
         
@@ -11128,7 +11140,7 @@ function createRateLimitStatusBar() {
       </div>
       
       <!-- Timer de penalidade (se penalizado) -->
-      <div id="rateLimitPenaltyTimer" style="display:none;background:var(--red);background:rgba(255,81,104,.1);border:1px solid rgba(255,81,104,.3);border-radius:6px;padding:8px;text-align:center">
+      <div id="rateLimitPenaltyTimer" style="display:none;background:var(--red);background:rgba(255,81,104,.1);border:1px solid rgba(255,81,104,.3);border-radius:2px;padding:8px;text-align:center">
         <div style="color:var(--red);font-weight:700;font-size:13px;margin-bottom:4px">
           🚫 PENALIZADO
         </div>
