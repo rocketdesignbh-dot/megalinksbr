@@ -15,6 +15,19 @@ const OnboardingManager = (() => {
   let useLocalStorage = true;
 
   /**
+   * Escapa texto antes de entrar em innerHTML.
+   *
+   * Hoje título, conteúdo e rótulos de botão vêm de literais escritos por nós,
+   * não de dado de usuário — então isto não corrige um vazamento observado, é
+   * a trava que impede o dia em que alguém passar o nome do produto ou o
+   * apelido do grupo para cá. Os textos são texto puro (emoji + frase); nenhum
+   * passo do guia depende de marcação HTML.
+   */
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+
+  /**
    * Verifica se localStorage está disponível
    */
   const isLocalStorageAvailable = () => {
@@ -157,11 +170,11 @@ const OnboardingManager = (() => {
     tooltip.innerHTML = `
       <div class="tooltip-card">
         <div class="tooltip-header">
-          <h3 class="tooltip-title">${title}</h3>
+          <h3 class="tooltip-title">${esc(title)}</h3>
           <button class="tooltip-close" aria-label="Fechar">×</button>
         </div>
         <div class="tooltip-content">
-          ${content}
+          ${esc(content)}
         </div>
         <div class="tooltip-footer">
           <label class="tooltip-checkbox">
@@ -169,8 +182,8 @@ const OnboardingManager = (() => {
             <span>Não mostrar novamente</span>
           </label>
           <div class="tooltip-actions">
-            ${actions.primary ? `<button class="btn btn-volt btn-sm tooltip-btn-primary">${actions.primary.text}</button>` : ''}
-            ${actions.secondary ? `<button class="btn btn-ghost btn-sm tooltip-btn-secondary">${actions.secondary.text}</button>` : ''}
+            ${actions.primary ? `<button class="btn btn-volt btn-sm tooltip-btn-primary">${esc(actions.primary.text)}</button>` : ''}
+            ${actions.secondary ? `<button class="btn btn-ghost btn-sm tooltip-btn-secondary">${esc(actions.secondary.text)}</button>` : ''}
           </div>
         </div>
       </div>
@@ -295,8 +308,8 @@ const OnboardingManager = (() => {
             <span class="guide-counter">${currentStep + 1} de ${steps.length}</span>
             <button class="guide-close">✕</button>
           </div>
-          <h2 class="guide-title">${step.title}</h2>
-          <p class="guide-content">${step.content}</p>
+          <h2 class="guide-title">${esc(step.title)}</h2>
+          <p class="guide-content">${esc(step.content)}</p>
           <div class="guide-progress">
             <div class="guide-progress-bar" style="width: ${((currentStep + 1) / steps.length) * 100}%"></div>
           </div>
