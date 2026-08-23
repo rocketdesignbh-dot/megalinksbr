@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 55 — 22/08/2026 (fim de tarde).** Se o número aqui não for o mais alto que você
+> **REVISÃO 56 — 22/08/2026 (noite).** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,57 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 56 — 22/08/2026 (noite) — P63 CODADA E PROVADA EM BANCADA. Falta o
+Deploy e a medição em produção, então ela NÃO fecha aqui.**
+
+### O que mudou, nos quatro arquivos
+
+| arquivo | mudança |
+|---|---|
+| `wa-engine/server.js` | CORS deixa de ser `*`: lista vinda de `ALLOWED_ORIGINS`, com `https://www.megalinksbr.com.br` e `https://megalinksbr.com.br` como padrão. Origem recusada vira `console.warn` |
+| `wa-engine/server.js` | `SUPABASE_URL` e `SUPABASE_KEY` perdem o default hard-coded e passam a ser exigidos no boot, igual ao `WA_ENGINE_TOKEN` |
+| `wa-engine/package.json` | `sharp` de `^0.33.5` para `^0.35.3` |
+| `mr-ingest/src/server.js` | mesmo tratamento de CORS |
+| `frontend/onboarding.js` | `esc()` em título, conteúdo e rótulos de botão dos dois `innerHTML` |
+
+⚠️ **Pré-requisito já cumprido, e ele era a parte perigosa:** o Environment do
+`wa-engine` no EasyPanel tinha **só** `WA_ENGINE_TOKEN`, `PORT` e
+`SCRAPE_DO_TOKEN` — conferido pelo Érico em 22/08. Sem criar as duas variáveis
+antes, o merge sozinho derrubaria o engine no boot (P4/P16: todo push reinicia o
+container). Ele criou `SUPABASE_URL` e `SUPABASE_KEY` **antes** deste push.
+
+### O que foi medido — em bancada, não em produção
+
+- **CORS:** o bloco foi lido **do próprio arquivo** e executado com requisições
+  falsas. Painel com e sem `www` recebe `Access-Control-Allow-Origin` de volta;
+  `evil.example.com` não recebe nada e o preflight dele leva **403**; requisição
+  **sem `Origin`** (Edge Function, cron, heartbeat) segue adiante intacta —
+  CORS só existe no navegador, e é por isso que nada de servidor quebra.
+- **`sharp`:** `npm audit` com lockfile gerado para o `wa-engine` acusa
+  `sharp <0.35.0` **high**, quatro CVEs herdadas do libvips
+  (GHSA-f88m-g3jw-g9cj). Com `0.35.3` instalado, o pipeline exato do
+  `conteudoDeImagem` (resize contain → flatten → jpeg 85 → buffer) devolveu
+  `jpeg 800x800`. O `sharp` 0.35 exige **Node ≥ 20.9** e o Dockerfile é
+  `node:20-slim` — isso foi **lido, não medido**; quem confirma é o log do build.
+- **`onboarding.js`:** rodado com jsdom nos dois lados. Com o arquivo de **antes**,
+  `<img src=x onerror=…>` vira **nó real no DOM**; com o de agora, nenhum `img`
+  entra e o título aparece como texto literal. ⚠️ O `onerror` **não disparou em
+  nenhum dos dois** porque o jsdom não busca imagem: a **injeção** está provada,
+  a **execução** não. E segue valendo que hoje esses textos são nossos, não do
+  usuário — é trava preventiva, não vazamento observado.
+
+### O que falta, e é o que fecha a P63
+
+1. **Deploy** do `wa-engine` e do frontend (e do `mr-ingest`, se estiver no ar).
+2. **Ler o log do boot do `wa-engine`:** tem que aparecer
+   `[CORS] origens permitidas: …` e **nenhum** `SUPABASE_URL não configurado`.
+   Se o container sair no boot, é variável faltando — não é o código.
+3. **Exercitar o painel logado:** conectar/listar sessões de WhatsApp continua
+   funcionando do domínio real, e o console sem erro de CORS.
+4. **Ler o log do build** para confirmar que o `sharp 0.35.3` compilou no Node 20.
+
+---
 
 **REVISÃO 55 — 22/08/2026 (fim de tarde) — P64 FECHADA: um usuário comum logado
 mexia no WhatsApp de outro usuário. Medido em transação com rollback, consertado
@@ -4473,7 +4524,7 @@ código não relacionado.
 | **P61** | 🔵 **Um quarto dos cliques registrados é robô de prévia, e o histórico continua sujo.** Medido em 16/08: **140** cliques em `link_clicks`, **36 de robô (25,7%)**; no código `s2310c5` eram 6 cliques com **5 robô e 1 gente**. A `redirect` v16 parou de gravar robô, então daqui pra frente o número é limpo — mas **todo dado anterior segue inflado**, e é ele que a tela de rastreamento mostra. Recalcular `short_links.clicks` a partir do `link_clicks` sem robô é uma linha de SQL; o Érico ainda não decidiu se quer mexer em dado gravado. Enquanto não decidir, **nenhum número de clique anterior a 16/08 deve embasar decisão** | 16/08 |
 | **P59** | 🟡 **Dois produtos de Mercado Livre ocupam vaga em TODA rodada da `product-refresh`, e um deles há 37 dias.** Medido em 13/08 nos `detalhes` de 9 dias de rodadas: os `desconhecidos` são sempre os mesmos dois, com o mesmo motivo (`MLB ID não encontrado no link`) — "Caixa 10 Máscaras Faciais Skincare Nutri" com `price_checked_at` **nulo desde 08/07**, e "Gloss Fran By Franciny Ehlke Liphoney Mel" parado em `02/08 09:00`. Falha de leitura **não é carimbada** de propósito desde a v17 (erro transitório precisa voltar já), mas link permanentemente ilegível não é transitório: os dois queimavam 2 das 12 vagas do lote global e agora queimam **2 das 8** do balde de ML. **Saída não decidida:** carimbar após N falhas iguais, ou marcar o produto como link inválido e avisar a dona — a segunda é mais honesta com a cliente e mais cara de codar | 14/08 |
 | **P58** | 🔵 **Nenhuma trava de plano é observável na conta do Érico.** `prodMax()` devolve −1 para `IS_ADMIN` ou `is_vip`, e a conta dele é as duas coisas — medido em 13/08: a lista de produtos mostra "sem teto" e o aviso de upgrade nunca aparece. O mesmo vale para qualquer gate que trate admin/VIP como ilimitado. O ramo com teto foi exercitado no bundle servido forçando as flags em memória (saiu "107 de 15" com o bloqueio e o link para Assinatura, e o estado real foi restaurado), mas **isso prova o render, não o fluxo de um cliente**. Enquanto não houver uma **conta de teste num plano baixo**, toda tela com trava de plano é escrita às cegas. ⚠️ Não mexer nas flags da conta do Érico para testar | 13/08 |
-| **P63** | 🔴 **As quatro correções de segurança da sessão do Claude Code (relatadas como concluídas) NÃO estão no repo.** Medido em 22/08 no `main` `60bd5b3`: `frontend/onboarding.js` inalterado desde 13/08, `wa-engine/package.json` ainda em `sharp ^0.33.5`, `wa-engine/server.js` linha 112 ainda com `Access-Control-Allow-Origin: '*'` e linha 126 ainda com a URL do projeto como default hard-coded. Nem commit, nem branch, nem deploy, nem migration depois de 17/08. **O `mr-ingest` (`src/server.js` linha 35) também está com CORS `*`** e nunca foi tocado. Refazer e empurrar. ⚠️ A classificação "XSS crítico" do `onboarding.js` não se sustenta como estava: os dois `innerHTML` são alimentados pelo `onboarding-config.js` estático e nenhum caminho de dado de usuário foi achado até eles — é endurecimento, não exploração medida | 22/08 |
+| **P63** | 🟡 **CODADA E PROVADA EM BANCADA NA REVISÃO 56, NÃO DEPLOYADA.** Os quatro itens foram refeitos (CORS por lista no `wa-engine` e no `mr-ingest`, defaults de Supabase removidos, `sharp` `^0.35.3`, `esc()` no `onboarding.js`), com medição de bancada em cada um — ver REVISÃO 56. O Érico criou `SUPABASE_URL` e `SUPABASE_KEY` no EasyPanel **antes** do push, senão o auto-deploy derrubaria o engine no boot. **Falta Deploy, o log do boot com `[CORS] origens permitidas`, o painel logado exercitado no domínio real e o log do build confirmando o `sharp` no Node 20.** Registro original abaixo. ~~🔴 **As quatro correções de segurança da sessão do Claude Code (relatadas como concluídas) NÃO estão no repo.** Medido em 22/08 no `main` `60bd5b3`: `frontend/onboarding.js` inalterado desde 13/08, `wa-engine/package.json` ainda em `sharp ^0.33.5`, `wa-engine/server.js` linha 112 ainda com `Access-Control-Allow-Origin: '*'` e linha 126 ainda com a URL do projeto como default hard-coded. Nem commit, nem branch, nem deploy, nem migration depois de 17/08. **O `mr-ingest` (`src/server.js` linha 35) também está com CORS `*`** e nunca foi tocado. Refazer e empurrar. ⚠️ A classificação "XSS crítico" do `onboarding.js` não se sustenta como estava: os dois `innerHTML` são alimentados pelo `onboarding-config.js` estático e nenhum caminho de dado de usuário foi achado até eles — é endurecimento, não exploração medida | 22/08~~ | 22/08 |
 | ~~P64~~ | ✅ **FECHADA 22/08 (REVISÃO 55), MEDIDA ANTES E DEPOIS.** Provado em transação com rollback que um usuário comum logado alterava `whatsapp_instances` de **outro** usuário pelas duas RPC; migration `p64_fecha_rpc_definer_sem_checagem` revogou o `EXECUTE` de `anon`/`authenticated` nelas (chamador único de cada uma é gatilho `SECURITY DEFINER` de dono `postgres`) e pôs `where public.is_admin()` na `influencer_monthly_performance`, que segue chamável pelo painel. Remedido: `permission denied` nas duas, e 1 linha para admin contra 0 para usuário comum com resgate injetado. ⚠️ **Falta abrir o `revops.html` logado e ver o painel de influenciadores desenhando.** Registro original abaixo. ~~🟠 **Três funções `SECURITY DEFINER` executáveis por `authenticated` sem nenhuma checagem de identidade no corpo:** `influencer_monthly_performance`, `mark_whatsapp_activity(p_user_id)` e `recalc_whatsapp_idle_state(p_user_id)` — as duas últimas aceitam `user_id` alheio. ⚠️ **Triado por busca de texto** (`is_admin`/`auth.uid()` no `pg_get_functiondef`), **não por leitura linha a linha** — a leitura ainda falta, e o mesmo método pode ter dado falso positivo nas 18 que passaram | 22/08~~ | 22/08 |
 | **P65** | 🔵 **Higiene do lint do Supabase, sem exploração conhecida:** 7 funções com `search_path` mutável, extensão `http` no schema `public` e **proteção contra senha vazada desligada** no Auth (esta é ação externa, no Dashboard) | 22/08 |
 
