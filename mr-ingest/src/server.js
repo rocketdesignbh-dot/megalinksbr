@@ -31,11 +31,32 @@ const upsert = require('./upsert');
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 
+// CORS — lista de origens em vez de '*'. Vale so para navegador: a Edge
+// Function e o cron chamam sem cabecalho `Origin` e nao sao afetados. Quem
+// manda e ALLOWED_ORIGINS (lista separada por virgula) no EasyPanel; sem ela
+// valem os dominios do painel abaixo.
+const ORIGENS_PADRAO = [
+  'https://www.megalinksbr.com.br',
+  'https://megalinksbr.com.br'
+];
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || ORIGENS_PADRAO.join(','))
+  .split(',').map((s) => s.trim()).filter(Boolean);
+console.log(`[CORS] origens permitidas: ${ALLOWED_ORIGINS.join(', ')}`);
+
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  const origin = req.headers.origin;
+  const permitida = !!origin && ALLOWED_ORIGINS.includes(origin);
+  if (permitida) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  } else if (origin) {
+    // Nao derruba a requisicao: so nao devolve o cabecalho, e o navegador barra
+    // sozinho. O log existe para medir se alguma origem legitima ficou de fora.
+    console.warn(`[CORS] origem recusada: ${origin} (${req.method} ${req.path})`);
+  }
+  if (req.method === 'OPTIONS') return res.sendStatus(permitida ? 200 : 403);
   next();
 });
 
