@@ -1818,7 +1818,8 @@ Segundo Deploy feito. Medido na sessão real, no domínio real:
 vazavam para o `<title>`: *"Link RápidoNEW · Mega Links BR"*. Atingia 5 abas
 (Postar Agora, Link Rápido, Mega Results, Conexão WhatsApp, Fila de Posts).
 `rotaTitulo()` passa a clonar o nó e remover os `.tag` antes de ler o texto.
-Medido: as 25 abas devolvem título limpo.
+**Deployado e reconferido em produção, logado:** as 25 abas devolvem título
+limpo e a aba do navegador mostra `Link Rápido · Mega Links BR`. Console limpo.
 
 ### ⚠️ O que NÃO foi medido — e é o que fecha esta revisão
 
