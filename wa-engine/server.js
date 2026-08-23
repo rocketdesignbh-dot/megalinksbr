@@ -107,12 +107,35 @@ async function conteudoDeImagem(url) {
     return { image: { url } };
 }
 
-// CORS
+// CORS — lista de origens em vez de '*'.
+//
+// Vale só para navegador: chamada sem cabeçalho `Origin` (Edge Function, cron,
+// curl, o próprio heartbeat) não é afetada por CORS e continua passando pelo
+// `verifyToken` como sempre. Quem manda é ALLOWED_ORIGINS (lista separada por
+// vírgula) no EasyPanel; sem ela valem os domínios do painel abaixo.
+const ORIGENS_PADRAO = [
+    'https://www.megalinksbr.com.br',
+    'https://megalinksbr.com.br'
+];
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || ORIGENS_PADRAO.join(','))
+    .split(',').map(s => s.trim()).filter(Boolean);
+console.log(`[CORS] origens permitidas: ${ALLOWED_ORIGINS.join(', ')}`);
+
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    const origin = req.headers.origin;
+    const permitida = !!origin && ALLOWED_ORIGINS.includes(origin);
+    if (permitida) {
+        res.header('Access-Control-Allow-Origin', origin);
+        res.header('Vary', 'Origin');
+        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    } else if (origin) {
+        // Não derruba a requisição: só não devolve o cabeçalho, e o navegador
+        // barra sozinho. O log existe para medir se alguma origem legítima
+        // ficou de fora da lista — sem ele, a falha seria silenciosa.
+        console.warn(`[CORS] origem recusada: ${origin} (${req.method} ${req.path})`);
+    }
+    if (req.method === 'OPTIONS') return res.sendStatus(permitida ? 200 : 403);
     next();
 });
 
@@ -123,8 +146,18 @@ if (!WA_ENGINE_TOKEN) {
     console.error('❌ WA_ENGINE_TOKEN não configurado nas variáveis de ambiente. Configure no EasyPanel antes de iniciar.');
     process.exit(1);
 }
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://nxlfezpagporealqqbfj.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_KEY || 'sb_publishable_FQTFJaF46KfwSnODD5UjPA_nOagscIu';
+// Sem default. Projeto e chave em código faziam o container subir apontando
+// para o lugar certo por acidente: trocar de projeto exigia lembrar de mudar o
+// código, e um deploy num ambiente novo falharia escrevendo no banco de
+// produção em vez de recusar. Mesmo padrão do WA_ENGINE_TOKEN acima.
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
+for (const [nome, valor] of [['SUPABASE_URL', SUPABASE_URL], ['SUPABASE_KEY', SUPABASE_KEY]]) {
+    if (!valor) {
+        console.error(`❌ ${nome} não configurado nas variáveis de ambiente. Configure no EasyPanel antes de iniciar.`);
+        process.exit(1);
+    }
+}
 
 // ─── RATE LIMITING ───
 const rateLimiter = new RateLimitValidator(SUPABASE_URL, SUPABASE_KEY);
