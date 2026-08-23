@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 62 — 22/08/2026 (noite).** Se o número aqui não for o mais alto que você
+> **REVISÃO 63 — 23/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,161 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 63 — 23/08/2026 — REDESIGN. A raiz deixa de ser o painel: nasce uma
+landing pública em `frontend/landing.html`, e cada aba do painel passa a ter URL
+própria em `/painel/<aba>`.**
+
+### O que estava no ar, medido antes de mexer
+
+- A home de `megalinksbr.com.br` era **uma imagem**: `boas-vindas-pc.png`,
+  **1,35 MB** (2,8 MB somando a versão de celular), exibida como splash em cima
+  do gate de login. Todo o texto de venda — título, benefícios, marketplaces,
+  oferta de 7 dias — era pixel: nada indexável, nada redimensionável, nada
+  editável sem abrir editor de imagem. O botão "Criar minha Conta" cobria a
+  frase de fechamento (medido em Chromium 1440×900).
+- Na **segunda visita** o splash não aparecia mais (`ml_splash_visto` no
+  `localStorage`) e a raiz servia um card de login solto no escuro. Não havia
+  página de produto, de preço, de recurso ou de caso de uso.
+- `sitemap.xml` tinha **3 URLs**: raiz, termos, privacidade.
+- `go(page)` só ligava/desligava a classe `.on` nas `<section class="page">`.
+  **A URL nunca mudava** → o histórico tinha uma entrada só, Voltar saía do site
+  e nenhuma tela era favoritável.
+- Os **25 itens de menu eram `<div>`** com `addEventListener("click")`: sem
+  foco, sem Enter, sem abrir em nova aba. **2** atributos `aria-` em 11.576
+  linhas.
+- A imagem afirmava *"Milhares de usuários confiam e aprovam a MegaLinks"* —
+  prova social que ninguém mediu.
+
+### O que mudou
+
+1. **`frontend/landing.html` (novo).** Landing pública em HTML, servida na raiz.
+   Sem Supabase, sem o bundle do painel. Direção de arte escolhida pelo Érico
+   ("Sala de Despacho"): grafite como tinta, papel claro entrando como banda
+   editorial, régua de 1px, raio 2px, **zero sombra e zero glow**, amarelo só
+   como estado. Tipografia **Archivo + IBM Plex Sans + IBM Plex Mono** (não
+   Inter). Conteúdo: hero com registro de despacho, a rotina manual em 7 passos,
+   o diagrama de rota, as seis peças da operação, a tabela de planos com os
+   preços reais do `PLAN_FALLBACK`, FAQ e CTA.
+2. **Roteador de URL no `index.html`.** `go()` foi **envolvido**, não reescrito:
+   continua fazendo exatamente o que fazia e passou a escrever
+   `/painel/<aba>` no histórico. Novos: `rotaDaURL`, `rotaEscrever`,
+   `rotaTitulo`, `rotaAplicarEntrada`, `rotaClique` e um listener de `popstate`.
+   **History API, não hash** — o hash é do Supabase (recovery e OAuth) e
+   colidiria.
+3. **Os 25 `<div class="nav">` viraram `<a href="/painel/…">`.** Ctrl/Cmd/Shift
+   e botão do meio abrem em aba nova de verdade; Tab e Enter funcionam.
+4. **O splash em PNG foi removido** do `index.html` (markup, CSS e boot). O
+   conteúdo dele agora é texto na landing. As duas imagens continuam no repo e
+   no `COPY` do Dockerfile, mas ninguém mais as referencia — remover é limpeza
+   opcional de 2,8 MB.
+5. **Gate de login redesenhado** na mesma linguagem: duas colunas em ≥940px
+   (registro de despacho à esquerda, formulário à direita), `banner.jpg`
+   trocado por lockup tipográfico, raio 2px, sem glow, e link "← Voltar ao
+   site". `authGate.style.display` passou de `"flex"` para `"grid"` nos 5
+   pontos onde aparece.
+6. **nginx:** `location = /` serve `landing.html`; `location /painel` serve o
+   `index.html` para qualquer sub-caminho.
+7. **P49 endereçada:** `Cache-Control: no-cache, must-revalidate` em toda
+   location de HTML. Os assets seguem cacheáveis.
+8. **Caminhos relativos viraram absolutos** — ver o defeito abaixo.
+
+### 🔴 O defeito que a mudança de URL criou, e que foi pego medindo
+
+`index.html` carregava `onboarding.css`, `onboarding.js`,
+`exemplo-postagens.js` e `exemplo-configuracao.js` por caminho **relativo**. Em
+`/painel/radar` o navegador resolvia para `/painel/onboarding.js`, que o nginx
+devolve como `index.html` — e o console enchia de
+`Uncaught SyntaxError: Unexpected token '<'`. **O onboarding inteiro quebraria
+em qualquer URL profunda.** Os quatro viraram absolutos (`/onboarding.js`…).
+Medido: em `/painel/radar`, os 7 recursos voltam 200 e a página fica com **zero
+erro**.
+
+### 🔴 Duas regressões de atribuição, evitadas antes de irem ao ar
+
+Com a raiz deixando de ser o `index.html`, dois caminhos que dependiam dela
+morreriam calados:
+
+- **`?cupom=CODIGO`** (link de influencer) era capturado por um IIFE no
+  `index.html` e gravado em `ml_cupom_pendente`. A captura foi **replicada na
+  landing** — mesma chave, mesmo `localStorage`, mesma origem. Medido: entrar em
+  `/?cupom=maria10`, clicar no CTA e o campo "Código do cupom" já chega
+  preenchido com `MARIA10`.
+- **`utm_*`** só é gravado no perfil **no momento do cadastro**, que acontece
+  dentro do painel. Se a landing não repassasse, todo tráfego de campanha
+  chegaria sem origem. A landing agora **anexa `utm_*`, `cupom`, `gclid` e
+  `fbclid` a todo link `/painel…`**. Medido ponta a ponta.
+
+Além disso, `rotaAplicarEntrada()` **limpa a query** ao escrever `/painel/<aba>`
+— por isso ela é chamada **no fim** do `afterLogin`, depois do deep link
+`?admin=vip` ter lido `location.search`. Inverter essa ordem quebra o atalho do
+Cadastro VIP.
+
+### O que foi medido, e como
+
+Tudo em Chromium (Playwright), contra **nginx de verdade** rodando a config
+extraída do `frontend/Dockerfile` — não contra servidor estático.
+
+| # | Verificação | Resultado |
+|---|---|---|
+| 1 | `nginx -t` na config do Dockerfile | sintaxe ok |
+| 2 | `/` serve a landing, `/painel` e `/painel/radar` servem o painel | 200 nos três, títulos corretos |
+| 3 | `Cache-Control` | `no-cache` em `/`, `/painel`, `/painel/radar`, `/guia`, `/termos.html`; ausente em `.js` e `.png` |
+| 4 | Entrar por `/painel/radar` | abre `page-radar`, título "Radar de Ofertas · Mega Links BR" |
+| 5 | Dois cliques no menu → **Voltar** duas vezes | `/painel/cupons` → `/painel/clone-post` → `/painel/radar`, com a aba certa em cada passo |
+| 6 | **Avançar** | volta para `/painel/clone-post` |
+| 7 | **F5** em `/painel/clone-post` | reabre na mesma aba |
+| 8 | Rota inexistente e rota `adm-` sem `IS_ADMIN` | caem em `/painel/dashboard` |
+| 9 | Tab + Enter no menu | navega |
+| 10 | Recovery na raiz (`#access_token`, `?code=&type=recovery`) | encaminhado para `/painel` com query e hash preservados |
+| 11 | `?utm_source=insta` sozinho | **não** encaminha — fica na landing |
+| 12 | `?cupom=maria10` ponta a ponta | campo preenchido no cadastro |
+| 13 | Erros de página em `/painel/radar` | **0** |
+| 14 | `tools/smoke-index.mjs` | 1 erro, **idêntico ao baseline** antes das mudanças (`String.prototype.includes` com regex, defeito pré-existente no bloco 2) |
+| 15 | `node --check` nos 5 blocos inline do `index.html` e nos 2 da landing | todos OK |
+| 16 | Overflow horizontal em 390 / 834 / 1440 px | nenhum, na landing e no painel |
+| 17 | Contraste | `--mut` estava em **3,68:1** (reprovado); subiu para `#828891` = **5,07:1**. Rótulos sobre papel: **4,74:1** |
+
+### ⚠️ O que NÃO foi medido — e é o que fecha esta revisão
+
+- **Nada disso está em produção.** Falta o push e o **Deploy** no EasyPanel.
+- **Recuperação de senha real.** O encaminhamento raiz → `/painel` foi provado
+  com URL sintética. Falta um e-mail de reset de verdade, clicado pelo Érico.
+- **Login com Google real.** Mesmo caso: o retorno do OAuth cai na raiz.
+- **Sessão logada de verdade.** Todos os testes de rota rodaram com o gate
+  escondido à mão, porque não há sessão no sandbox. Falta um login real e
+  navegar as abas.
+- **Site URL / Redirect URLs no Dashboard do Supabase.** Continuam apontando
+  para a raiz e a landing encaminha — mas trocar para `/painel` seria mais
+  direto. **Ação externa: decisão do Érico.**
+- **iOS Safari.**
+- **Peso real com o gzip do nginx.**
+
+### 📐 `docs/DIRECAO_VISUAL.md` (novo) — a fonte de verdade de design
+
+Tokens, tipografia, forma, composição, motion e a lista do que não fazer. Quem
+for mexer em tela lê esse arquivo antes. Ele registra também **onde o guia
+`coding/prompting_for_frontend_aesthetics.ipynb` do cookbook e o brief do Érico
+discordam, e quem vence** (fundo com gradiente e tipografia em extremos: o brief
+vence). E registra o estado da migração: landing e gate prontos, as 27 telas do
+painel ainda no visual antigo.
+
+Depois de ler o guia do cookbook, duas coisas foram aplicadas à landing:
+**entrada orquestrada do hero** (as linhas do log entram uma a uma — é o produto
+acontecendo, não enfeite) e **profundidade sem gradiente colorido** (réguas
+verticais de 1px com máscara, papel milimetrado).
+
+### 🟡 Conflito encontrado no caminho — `clone_sources_max` do Pro
+
+O `PLAN_FALLBACK` do `index.html` diz **`pro: clone_sources_max: 1`** e
+`clone_post: true`. A tabela de Planos deste arquivo diz **Pro = 0 fontes de
+clone**. Os dois não podem estar certos. A tabela de planos da landing foi
+escrita a partir do **código**, que é o que o usuário efetivamente recebe. Fica
+aberto como **P66**.
+
+---
+
+### REVISÃO 62 — registro anterior
 
 **REVISÃO 62 — 22/08/2026 (noite, 23:29 BRT) — sem código. A P63 FECHA: o painel
 logado buscou o wa-engine do domínio real, atravessando o CORS novo.**
@@ -4403,7 +4558,7 @@ EasyPanel.
 
 | Camada | Tecnologia | Onde roda |
 |---|---|---|
-| Frontend | SPA em arquivo único (`index.html`, ~8.900 linhas) | nginx, EasyPanel (Hostinger VPS) |
+| Frontend | Landing pública (`landing.html`, servida em `/`) + painel SPA (`index.html`, ~11.600 linhas, servido em `/painel/<aba>`) | nginx, EasyPanel (Hostinger VPS) |
 | Backend | Supabase `nxlfezpagporealqqbfj` (sa-east-1) — Postgres, RLS, Edge Functions, pg_cron, pg_net | Supabase Cloud |
 | Motor WhatsApp | Node.js/Baileys (`wa-engine/server.js`) | EasyPanel, mesma VPS |
 | Scraping ML | Scrape.do (proxy residencial) | Chamado pelo wa-engine |
@@ -4425,7 +4580,10 @@ Nenhum arquivo da raiz era exclusivo; todos tinham par em `frontend/`.
 **Editar só `frontend/`.**
 
 ### URLs
-- Site: `https://www.megalinksbr.com.br`
+- Site (landing pública): `https://www.megalinksbr.com.br/` → `landing.html`
+- Painel: `https://www.megalinksbr.com.br/painel` e `/painel/<aba>` → `index.html`
+  (a aba é escolhida pelo roteador do front; `/painel/radar`, `/painel/clone-post`, …)
+- Guia: `https://www.megalinksbr.com.br/guia`
 - RevOps: `https://www.megalinksbr.com.br/revops.html`
 - wa-engine: `https://megalinksbr-wa-engine.fwezsn.easypanel.host`
 - Supabase: `https://nxlfezpagporealqqbfj.supabase.co`
@@ -4590,6 +4748,25 @@ na "Última alteração" da REVISÃO 32.
 - O listener do Clone Post **vê** as mensagens de todos os grupos e descarta os não
   cadastrados em `if (!CLONE_JIDS.has(jid)) continue`. O inventário que falta é
   barato de construir a partir daí — é a **P40**, adiada de propósito.
+
+---
+
+### Landing pública e roteamento por URL (REVISÃO 63 — NÃO MEDIDO EM PRODUÇÃO)
+
+- `frontend/landing.html` é servido em `/` por `location = /`. Não carrega
+  Supabase nem o bundle do painel.
+- O painel vive em `/painel` e `/painel/<aba>` (`location /painel` →
+  `index.html`). A aba é resolvida no front por `rotaDaURL()`, que só aceita
+  slug que corresponda a uma `<section id="page-…">` existente e barra `adm-*`
+  para quem não é `IS_ADMIN`.
+- **Não usar `#hash` para rota.** O hash é do Supabase (recovery e OAuth).
+- **Todo asset novo no `index.html` precisa de caminho absoluto** (`/arquivo.js`).
+  Caminho relativo resolve para dentro de `/painel/` e o nginx devolve HTML.
+- A landing é responsável por: capturar `?cupom=`, repassar `utm_*`/`cupom`/
+  `gclid`/`fbclid` para os links do painel, e encaminhar fluxos de auth que
+  caem na raiz para `/painel`. Mexer nela sem isso quebra atribuição calada.
+- `rotaAplicarEntrada()` limpa a query string. Ela é chamada **no fim** do
+  `afterLogin`, depois dos deep links (`?admin=vip`) terem lido `location.search`.
 
 ---
 
@@ -4766,6 +4943,11 @@ código não relacionado.
 | ~~P63~~ | ✅ **FECHADA 22/08 (REVISÃO 62), MEDIDA EM PRODUÇÃO DOS DOIS LADOS.** Os quatro itens no ar: CORS por lista (medido no `wa-engine` e no `mr-ingest`, com origem estranha sem cabeçalho), Supabase sem default no engine (o boot é a prova), `sharp` **0.35.3** lido do container pelo `/health`, `onboarding.js` escapado no arquivo servido. **A tela fechou o resto:** o painel logado listou as 4 sessões buscando `/sessions` do navegador, cross-origin — e o caminho de falha dessa função escreve o erro na tabela, então quatro linhas com telefone e status só aparecem se o CORS deixou passar. ⚠️ Não exercitados: parear número novo, desconectar sessão e as telas do `mr-ingest`. Registro anterior abaixo. ~~🟢 **NO AR E MEDIDA (REVISÕES 57 e 60) — falta só a tela.** O `sharp` em execução foi lido do container pelo `/health`: **0.35.3**, libvips **8.18.3**, Node **v20.20.2** — acima do `<0.35.0` das CVEs, e prova de que o build não reusou `node_modules` do cache. CORS por lista medido nos dois serviços, `onboarding.js` escapado no arquivo servido. ⚠️ **Falta só o painel logado exercitado no navegador** (conectar/listar sessões, console limpo). Registro anterior abaixo. ~~🟢 **NO AR NOS TRÊS SERVIÇOS E MEDIDA EM PRODUÇÃO (REVISÃO 57) — segue 🟡 só pelos dois cabos soltos.** CORS por lista devolvendo o domínio certo e nada para origem estranha, medido no `wa-engine` e no `mr-ingest`; `wa-engine` de pé com 4/4 sessões conectadas depois do reinício, o que prova de quebra que as variáveis novas existem; `onboarding.js` escapado no arquivo servido pelo domínio. ⚠️ **Falta: a versão do `sharp` em execução (nenhuma rota expõe, o build subiu mas isso é dedução) e o painel logado exercitado no navegador.** ⚠️ **E ficou o aprendizado: o `mr-ingest` não entra no auto-deploy — exige Deploy próprio.** Registro anterior abaixo. ~~🟡 **CODADA E PROVADA EM BANCADA NA REVISÃO 56, NÃO DEPLOYADA.** Os quatro itens foram refeitos (CORS por lista no `wa-engine` e no `mr-ingest`, defaults de Supabase removidos, `sharp` `^0.35.3`, `esc()` no `onboarding.js`), com medição de bancada em cada um — ver REVISÃO 56. O Érico criou `SUPABASE_URL` e `SUPABASE_KEY` no EasyPanel **antes** do push, senão o auto-deploy derrubaria o engine no boot. **Falta Deploy, o log do boot com `[CORS] origens permitidas`, o painel logado exercitado no domínio real e o log do build confirmando o `sharp` no Node 20.** Registro original abaixo. ~~🔴 **As quatro correções de segurança da sessão do Claude Code (relatadas como concluídas) NÃO estão no repo.** Medido em 22/08 no `main` `60bd5b3`: `frontend/onboarding.js` inalterado desde 13/08, `wa-engine/package.json` ainda em `sharp ^0.33.5`, `wa-engine/server.js` linha 112 ainda com `Access-Control-Allow-Origin: '*'` e linha 126 ainda com a URL do projeto como default hard-coded. Nem commit, nem branch, nem deploy, nem migration depois de 17/08. **O `mr-ingest` (`src/server.js` linha 35) também está com CORS `*`** e nunca foi tocado. Refazer e empurrar. ⚠️ A classificação "XSS crítico" do `onboarding.js` não se sustenta como estava: os dois `innerHTML` são alimentados pelo `onboarding-config.js` estático e nenhum caminho de dado de usuário foi achado até eles — é endurecimento, não exploração medida | 22/08~~ | 22/08~~ | 22/08~~ | 22/08~~ | 22/08 |
 | ~~P64~~ | ✅ **FECHADA 22/08 (REVISÃO 55), MEDIDA ANTES E DEPOIS.** Provado em transação com rollback que um usuário comum logado alterava `whatsapp_instances` de **outro** usuário pelas duas RPC; migration `p64_fecha_rpc_definer_sem_checagem` revogou o `EXECUTE` de `anon`/`authenticated` nelas (chamador único de cada uma é gatilho `SECURITY DEFINER` de dono `postgres`) e pôs `where public.is_admin()` na `influencer_monthly_performance`, que segue chamável pelo painel. Remedido: `permission denied` nas duas, e 1 linha para admin contra 0 para usuário comum com resgate injetado. ⚠️ **Falta abrir o `revops.html` logado e ver o painel de influenciadores desenhando.** Registro original abaixo. ~~🟠 **Três funções `SECURITY DEFINER` executáveis por `authenticated` sem nenhuma checagem de identidade no corpo:** `influencer_monthly_performance`, `mark_whatsapp_activity(p_user_id)` e `recalc_whatsapp_idle_state(p_user_id)` — as duas últimas aceitam `user_id` alheio. ⚠️ **Triado por busca de texto** (`is_admin`/`auth.uid()` no `pg_get_functiondef`), **não por leitura linha a linha** — a leitura ainda falta, e o mesmo método pode ter dado falso positivo nas 18 que passaram | 22/08~~ | 22/08 |
 | **P65** | 🔵 **AS DUAS DE CÓDIGO FECHADAS; A TERCEIRA ESTÁ BLOQUEADA POR PLANO (REVISÃO 61).** A extensão `http` (que era SSRF, não higiene) foi removida e as 7 funções ganharam `search_path` — advisor: 7→0 e 1→0. **A proteção contra senha vazada exige plano Pro; o controle está travado com selo de upgrade e o Érico decidiu em 22/08 adiar até haver upgrade.** Fica como item do checklist do upgrade, não como tarefa a redescobrir. Enquanto isso, senha já vazada em outro site é aceita no cadastro. Registro anterior abaixo. ~~🟡 **DUAS DE TRÊS FECHADAS EM 23/08 (REVISÃO 58) — e a primeira não era higiene.** A extensão `http` no `public` deixava `anon` chamar `http_get` pelo PostgREST: **medido 200 com o corpo da página buscada, e 404 depois do `drop extension http`** — SSRF, não lint. Nada usava a extensão (varredura em `pg_proc` e no repo); o `drop` foi sem `CASCADE` de propósito. As 7 funções sem `search_path` foram fixadas e conferidas rodando (todas `SECURITY INVOKER`, então era endurecimento, não escalada). Advisor: `function_search_path_mutable` 7→0, `extension_in_public` 1→0. ⚠️ **Falta só a proteção contra senha vazada no Supabase Auth — ação externa, botão no Dashboard.** Registro original abaixo. ~~🔵 **Higiene do lint do Supabase, sem exploração conhecida:** 7 funções com `search_path` mutável, extensão `http` no schema `public` e **proteção contra senha vazada desligada** no Auth (esta é ação externa, no Dashboard) | 22/08~~ | 22/08~~ | 22/08 |
+
+| **P66** | 🟡 **`clone_sources_max` do Pro: o código e este arquivo discordam.** O `PLAN_FALLBACK` do `index.html` diz `pro: clone_sources_max: 1, clone_post: true`; a tabela de Planos deste arquivo diz Pro = 0 fontes de clone. A tabela da landing foi escrita a partir do código. Decidir qual é a verdade e alinhar os dois | 23/08 |
+| **P67** | 🔴 **O redesign da REVISÃO 63 não está em produção.** Falta push + Deploy no EasyPanel e, depois, provar por comportamento: recuperação de senha real, login com Google real, sessão logada navegando as abas, e iOS Safari. Nada disso foi medido — só o equivalente em bancada com nginx de verdade | 23/08 |
+| **P68** | 🔵 **`boas-vindas-pc.png` e `boas-vindas-cel.png` (2,8 MB) não são mais referenciados por ninguém**, mas continuam no repo e no `COPY` do `frontend/Dockerfile`. Limpeza opcional | 23/08 |
+| **P69** | 🔵 **Site URL / Redirect URLs do Supabase continuam apontando para a raiz.** Funciona porque a landing encaminha para `/painel`, mas apontar direto para `/painel` elimina um salto. Ação externa, no Dashboard | 23/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.

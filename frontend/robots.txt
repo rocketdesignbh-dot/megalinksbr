@@ -1,5 +1,6 @@
 User-agent: *
 Allow: /
 Disallow: /r/
+Disallow: /painel
 
 Sitemap: https://www.megalinksbr.com.br/sitemap.xml

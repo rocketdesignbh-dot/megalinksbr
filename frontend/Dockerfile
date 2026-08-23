@@ -2,6 +2,7 @@
 FROM nginx:alpine
 RUN echo "2026-07-07T00:00:00Z" > /dev/null
 COPY index.html /usr/share/nginx/html/index.html
+COPY landing.html /usr/share/nginx/html/landing.html
 COPY revops.html /usr/share/nginx/html/revops.html
 COPY privacidade.html /usr/share/nginx/html/privacidade.html
 COPY termos.html /usr/share/nginx/html/termos.html
@@ -28,8 +29,35 @@ server {
   listen 80;
   root /usr/share/nginx/html;
 
+  # P49 — HTML nao fica em cache do navegador. Sem isto, depois de um Deploy
+  # quem ja estava logado continua rodando o bundle antigo por tempo
+  # indeterminado, sem nada na tela dizendo isso. Os assets (png, js, css)
+  # seguem cacheaveis: so o HTML revalida. O mesmo cabecalho esta repetido em
+  # cada location de HTML abaixo porque add_header NAO e herdado quando a
+  # location filha declara os seus proprios, e porque `= /` e `/painel` nao
+  # casam com esta regex (a URI deles nao termina em .html).
+  location ~* \.html$ {
+    add_header Cache-Control "no-cache, must-revalidate" always;
+  }
+
+  # Raiz — landing pública. O painel NAO mora mais aqui: mora em /painel.
+  # Fluxos de auth do Supabase (recuperacao de senha, retorno de OAuth) caem
+  # na raiz e sao reencaminhados para /painel pelo script da propria landing.
+  location = / {
+    add_header Cache-Control "no-cache, must-revalidate" always;
+    try_files /landing.html =404;
+  }
+
+  # Painel — uma URL por aba (/painel, /painel/radar, /painel/clone-post, ...).
+  # Todas servem o mesmo index.html; quem escolhe a aba e o roteador do front.
+  location /painel {
+    add_header Cache-Control "no-cache, must-revalidate" always;
+    try_files /index.html =404;
+  }
+
   # Guia do novo usuário — URL limpa /guia
   location = /guia {
+    add_header Cache-Control "no-cache, must-revalidate" always;
     try_files /guia.html =404;
   }
 

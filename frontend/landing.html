@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mega Links BR · Automação de despacho de ofertas para afiliados</title>
+<meta name="description" content="Plataforma brasileira que lê o preço no marketplace, refaz o link com o seu ID de afiliado, encurta com rastreio e despacha nos seus grupos e canais de WhatsApp e Telegram, na hora que você definir.">
+<link rel="canonical" href="https://www.megalinksbr.com.br/">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/icon.png">
+<meta property="og:title" content="Mega Links BR · Automação de despacho de ofertas">
+<meta property="og:description" content="Do marketplace ao grupo, sem você no meio. Preço lido, link refeito com o seu ID, rastreio próprio e agendamento.">
+<meta property="og:image" content="https://www.megalinksbr.com.br/banner.jpg">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.megalinksbr.com.br/">
+<meta property="og:locale" content="pt_BR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Mega Links BR · Automação de despacho de ofertas">
+<meta name="twitter:description" content="Do marketplace ao grupo, sem você no meio.">
+<meta name="twitter:image" content="https://www.megalinksbr.com.br/banner.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Mega Links BR","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://www.megalinksbr.com.br/","inLanguage":"pt-BR","description":"Automação de despacho de ofertas de marketplaces para grupos e canais de WhatsApp e Telegram, com link de afiliado refeito, encurtador com rastreio e agendamento.","offers":{"@type":"Offer","price":"57.90","priceCurrency":"BRL"}}
+</script>
+<script>document.documentElement.className+=" js";</script>
+<style>
+/* ================= TOKENS ================= */
+:root{
+  --bg:#14161A; --bg2:#191C21; --bg3:#1F232A;
+  --paper:#EDEBE6; --paper2:#E2DFD7;
+  --tx:#E9E7E2; --tx2:#9BA0A6; --mut:#828891;
+  --ink:#14161A; --ink2:#4A4F55;
+  --ln:#282C33; --ln2:#343941; --ln-p:#CFCCC3;
+  --y:#FFC107; --y-2:#E0AA05; --y-dim:rgba(255,193,7,.13);
+  --r:2px;
+  --disp:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --body:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,monospace;
+  --pad:clamp(20px,4vw,40px);
+  --maxw:1180px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{
+  background:var(--bg); color:var(--tx);
+  font-family:var(--body); font-size:16px; line-height:1.6;
+  -webkit-font-smoothing:antialiased; overflow-x:hidden;
+}
+img{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--y);outline-offset:3px}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 var(--pad)}
+
+h1,h2,h3,h4{font-family:var(--disp);font-weight:700;letter-spacing:-.028em;line-height:1.03;text-wrap:balance}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--mut)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.y{color:var(--y)}
+
+/* ---------- botões ---------- */
+.btn{
+  display:inline-flex;align-items:center;gap:9px;
+  font-family:var(--body);font-size:14px;font-weight:600;
+  padding:13px 20px;border:1px solid transparent;border-radius:var(--r);
+  cursor:pointer;transition:background .14s,color .14s,border-color .14s,transform .14s;
+}
+.btn-y{background:var(--y);color:#14161A}
+.btn-y:hover{background:#FFCE33;transform:translateY(-1px)}
+.btn-line{border-color:var(--ln2);color:var(--tx)}
+.btn-line:hover{border-color:var(--tx2);background:var(--bg2)}
+.btn-ink{background:var(--ink);color:var(--paper)}
+.btn-ink:hover{background:#25292F}
+.lnk{border-bottom:1px solid var(--ln2);padding-bottom:2px;font-size:14px;font-weight:500;transition:border-color .14s,color .14s}
+.lnk:hover{border-color:var(--y);color:var(--y)}
+
+/* ---------- topo ---------- */
+.top{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--ln)}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:20px;height:62px}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.02em}
+.logo img{width:26px;height:26px;border-radius:50%;object-fit:cover}
+.logo small{font-family:var(--mono);font-size:9.5px;letter-spacing:.22em;color:var(--mut);font-weight:400}
+.topnav{display:flex;align-items:center;gap:26px}
+.topnav a{font-size:13.5px;color:var(--tx2);transition:color .14s}
+.topnav a:hover{color:var(--tx)}
+.topact{display:flex;align-items:center;gap:14px}
+@media (max-width:860px){.topnav{display:none}}
+@media (max-width:560px){
+  .top .wrap{gap:12px}
+  .topact{gap:12px}
+  .topact .btn{padding:10px 13px;font-size:12.5px}
+  .topact .lnk{font-size:13px}
+  .cta-full{display:none}
+}
+.cta-curto{display:none}
+@media (max-width:560px){.cta-curto{display:inline}}
+
+/* ---------- hero ---------- */
+.hero{border-bottom:1px solid var(--ln);position:relative;overflow:hidden}
+.hero::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(to right,rgba(255,255,255,.026) 1px,transparent 1px);
+  background-size:52px 100%;
+  -webkit-mask-image:linear-gradient(to bottom,#000 0%,rgba(0,0,0,.5) 55%,transparent 88%);
+  mask-image:linear-gradient(to bottom,#000 0%,rgba(0,0,0,.5) 55%,transparent 88%);
+}
+.hero .wrap{position:relative}
+.hero .wrap{display:grid;grid-template-columns:minmax(0,.86fr) minmax(0,1.14fr);gap:clamp(28px,5vw,64px);
+  padding-top:clamp(48px,7vw,86px);padding-bottom:clamp(40px,5vw,62px);align-items:start}
+@media (max-width:900px){.hero .wrap{grid-template-columns:minmax(0,1fr);gap:36px}}
+.hero h1{font-size:clamp(34px,5.1vw,58px);letter-spacing:-.038em;margin-bottom:20px}
+.hero p.sub{font-size:clamp(15px,1.5vw,17px);color:var(--tx2);max-width:38ch;margin-bottom:28px;line-height:1.55}
+.hero .acts{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.hero .note{margin-top:20px;font-family:var(--mono);font-size:11.5px;color:var(--mut);letter-spacing:.04em}
+
+/* ---------- log de despacho ---------- */
+.log{border:1px solid var(--ln);background:var(--bg2)}
+.log-h{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid var(--ln);
+  font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--mut)}
+.live{display:inline-flex;align-items:center;gap:7px;color:var(--y)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--y);animation:bat 2.4s ease-in-out infinite}
+@keyframes bat{0%,100%{opacity:1}50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.dot{animation:none}}
+.log-scroll{overflow-x:auto}
+table.dsp{width:100%;min-width:520px;border-collapse:collapse;font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
+table.dsp th{text-align:left;font-weight:500;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);
+  padding:10px 14px;border-bottom:1px solid var(--ln);white-space:nowrap}
+table.dsp td{padding:11px 14px;border-bottom:1px solid var(--ln);color:#BFC3C8;white-space:nowrap}
+table.dsp tr:last-child td{border-bottom:none}
+table.dsp tr.now td{color:var(--tx);background:rgba(255,193,7,.045)}
+table.dsp td.st{color:var(--mut)}
+table.dsp tr.now td.st{color:var(--y)}
+@media (max-width:620px){
+  table.dsp{min-width:0;font-size:11.5px}
+  table.dsp th,table.dsp td{padding:10px 10px}
+  table.dsp th:nth-child(3),table.dsp td:nth-child(3),
+  table.dsp th:nth-child(5),table.dsp td:nth-child(5){display:none}
+  table.dsp td:nth-child(2){white-space:normal}
+}
+.log-f{display:grid;grid-template-columns:repeat(3,1fr);background:var(--paper);color:var(--ink)}
+.log-f div{padding:14px 16px;border-right:1px solid var(--ln-p)}
+.log-f div:last-child{border-right:none}
+.log-f b{font-family:var(--disp);font-size:26px;letter-spacing:-.035em;display:block;line-height:1;margin-bottom:4px}
+.log-f span{font-size:11.5px;color:var(--ink2);line-height:1.35;display:block}
+@media (max-width:620px){
+  .log-f div{padding:12px}
+  .log-f b{font-size:22px}
+  .log-f span{font-size:10.5px}
+}
+
+/* ---------- tira de marketplaces ---------- */
+.strip{border-bottom:1px solid var(--ln);background:var(--bg)}
+.strip .wrap{display:flex;align-items:center;gap:14px 30px;flex-wrap:wrap;padding-top:16px;padding-bottom:16px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;color:var(--tx2)}
+.strip .lbl{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--mut)}
+.strip s{text-decoration:none;color:var(--ln2)}
+
+/* ---------- seções ---------- */
+section{border-bottom:1px solid var(--ln)}
+.sec{padding-top:clamp(52px,7vw,90px);padding-bottom:clamp(52px,7vw,90px)}
+.sec-h{display:grid;grid-template-columns:82px minmax(0,1fr);gap:22px;margin-bottom:38px}
+@media (max-width:700px){.sec-h{grid-template-columns:minmax(0,1fr);gap:8px}}
+.sec-h .num{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--mut);padding-top:9px}
+.sec-h h2{font-size:clamp(25px,3.4vw,38px);margin-bottom:12px}
+.sec-h p{color:var(--tx2);max-width:56ch;font-size:15.5px}
+
+/* ---------- problema ---------- */
+.cols{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:clamp(28px,5vw,60px);align-items:start}
+@media (max-width:860px){.cols{grid-template-columns:minmax(0,1fr)}}
+ol.rotina{list-style:none;counter-reset:r}
+ol.rotina li{counter-increment:r;display:grid;grid-template-columns:34px minmax(0,1fr);gap:14px;
+  padding:13px 0;border-top:1px solid var(--ln);font-size:14.5px;color:var(--tx2)}
+ol.rotina li:last-child{border-bottom:1px solid var(--ln)}
+ol.rotina li::before{content:counter(r,decimal-leading-zero);font-family:var(--mono);font-size:11px;color:var(--mut);padding-top:3px}
+ol.rotina b{color:var(--tx);font-weight:600}
+.quote{background:var(--paper);color:var(--ink);padding:clamp(22px,3vw,30px)}
+.quote p{font-family:var(--disp);font-weight:600;font-size:clamp(19px,2.3vw,25px);line-height:1.24;letter-spacing:-.025em;margin-bottom:16px}
+.quote span{font-size:14px;color:var(--ink2);display:block;line-height:1.55}
+.quote hr{border:none;border-top:1px solid var(--ln-p);margin:18px 0}
+
+/* ---------- rota (banda clara) ---------- */
+.rota{background:var(--paper);color:var(--ink);border-bottom:1px solid var(--ln-p)}
+.rota .sec-h .num{color:#6A6760}
+.rota .sec-h p{color:var(--ink2)}
+.flow{display:grid;grid-template-columns:minmax(0,1fr) 26px minmax(0,1.12fr) 26px minmax(0,1fr);gap:16px;
+  border-top:1px solid var(--ln-p);border-bottom:1px solid var(--ln-p);padding:26px 0}
+@media (max-width:860px){
+  .flow{grid-template-columns:minmax(0,1fr);gap:0}
+  .flow .arr{transform:rotate(90deg);padding:10px 0}
+  .flow .node{border-top:1px solid var(--ln-p);padding-top:16px}
+  .flow .node:first-child{border-top:none;padding-top:0}
+}
+.node .cap{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#6A6760;margin-bottom:10px}
+.node h3{font-size:19px;margin-bottom:10px;letter-spacing:-.02em}
+.node.core h3{background:var(--y);display:inline-block;padding:2px 8px}
+.node ul{list-style:none;font-family:var(--mono);font-size:12px;line-height:2;color:var(--ink2)}
+.node ul li::before{content:"—  ";color:#8C8981}
+.arr{font-family:var(--mono);font-size:16px;color:var(--ink);align-self:center;text-align:center}
+.rota-foot{display:flex;gap:12px 40px;flex-wrap:wrap;padding-top:22px;font-size:14px;color:var(--ink2)}
+.rota-foot b{color:var(--ink);font-weight:600}
+
+/* ---------- operação ---------- */
+.op{border-top:1px solid var(--ln)}
+.op:first-of-type{border-top:none}
+.op-row{display:grid;grid-template-columns:150px minmax(0,1fr) minmax(0,1fr);gap:clamp(18px,3vw,40px);padding:26px 0;align-items:start}
+@media (max-width:860px){.op-row{grid-template-columns:minmax(0,1fr);gap:14px}}
+.op-row .tag{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);padding-top:5px}
+.op-row h3{font-size:19px;margin-bottom:8px;letter-spacing:-.02em}
+.op-row p{font-size:14.5px;color:var(--tx2);line-height:1.6}
+.frag{border:1px solid var(--ln);background:var(--bg2);font-family:var(--mono);font-size:11.5px;color:var(--tx2)}
+.frag .fh{padding:7px 12px;border-bottom:1px solid var(--ln);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--mut)}
+.frag .fb{padding:12px;line-height:1.9;overflow-x:auto}
+.frag i{font-style:normal;color:var(--y)}
+.frag b{font-weight:400;color:var(--tx)}
+.frag .arrow{color:var(--mut)}
+.op-larga{border-top:1px solid var(--ln);padding:30px 0 6px}
+.op-larga .tag{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);margin-bottom:14px}
+.op-larga h3{font-size:clamp(21px,2.6vw,29px);letter-spacing:-.03em;margin-bottom:12px;max-width:22ch}
+.op-larga p{font-size:15.5px;color:var(--tx2);max-width:60ch;line-height:1.62}
+.op-linha{display:flex;gap:12px 34px;flex-wrap:wrap;margin-top:20px;padding-top:16px;border-top:1px solid var(--ln);
+  font-family:var(--mono);font-size:12px;color:var(--tx);font-variant-numeric:tabular-nums}
+.op-linha .arrow{color:var(--mut)}
+.op-linha i{font-style:normal;color:var(--y)}
+
+/* ---------- planos ---------- */
+.tbl-scroll{overflow-x:auto;border:1px solid var(--ln)}
+table.pl{width:100%;min-width:680px;border-collapse:collapse;font-size:14px}
+table.pl th,table.pl td{text-align:left;padding:14px 18px;border-bottom:1px solid var(--ln);vertical-align:top}
+table.pl thead th{background:var(--bg2);border-bottom:1px solid var(--ln2)}
+table.pl thead .nm{font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:-.02em;display:block;margin-bottom:4px}
+table.pl thead .pr{font-family:var(--mono);font-size:13px;color:var(--y);font-variant-numeric:tabular-nums;display:block}
+table.pl thead .pr s{text-decoration:none;color:var(--mut);font-size:11px}
+table.pl tbody th{font-weight:500;color:var(--tx2);font-size:13.5px;width:34%}
+table.pl td{font-family:var(--mono);font-size:12.5px;color:var(--tx);font-variant-numeric:tabular-nums}
+table.pl td.no{color:var(--mut)}
+table.pl tr:last-child td,table.pl tr:last-child th{border-bottom:none}
+.pl-note{margin-top:16px;font-size:13px;color:var(--mut);max-width:70ch}
+
+/* ---------- faq ---------- */
+.faq{border-top:1px solid var(--ln)}
+.faq details{border-bottom:1px solid var(--ln)}
+.faq summary{padding:18px 0;cursor:pointer;font-weight:600;font-size:15.5px;list-style:none;
+  display:flex;justify-content:space-between;gap:20px;align-items:baseline;transition:color .14s}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary:hover{color:var(--y)}
+.faq summary::after{content:"+";font-family:var(--mono);color:var(--mut);font-size:16px;flex:none}
+.faq details[open] summary::after{content:"–"}
+.faq .ans{padding:0 0 20px;color:var(--tx2);font-size:14.5px;max-width:66ch}
+
+/* ---------- cta ---------- */
+.cta{background:var(--paper);color:var(--ink)}
+.cta .wrap{padding-top:clamp(48px,6vw,78px);padding-bottom:clamp(48px,6vw,78px);
+  display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:clamp(24px,4vw,54px);align-items:end}
+@media (max-width:800px){.cta .wrap{grid-template-columns:minmax(0,1fr);align-items:start;gap:26px}}
+.cta h2{font-size:clamp(28px,4.2vw,46px);letter-spacing:-.035em;margin-bottom:14px}
+.cta p{color:var(--ink2);font-size:15.5px;max-width:44ch}
+.cta .acts{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.cta .fine{font-family:var(--mono);font-size:11.5px;color:#6A6760;margin-top:14px;letter-spacing:.03em}
+
+/* ---------- rodapé ---------- */
+footer{background:var(--bg)}
+footer .wrap{padding:34px 0 46px;display:flex;justify-content:space-between;gap:22px;flex-wrap:wrap;
+  font-size:13px;color:var(--mut)}
+footer nav{display:flex;gap:22px;flex-wrap:wrap}
+footer a:hover{color:var(--tx)}
+
+/* ---------- motion ---------- */
+/* Entrada do hero: uma sequência só, escalonada, em CSS. Nada depois dela se
+   move sozinho — o resto da página revela ao rolar e para. */
+@keyframes surge{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:no-preference){
+  .js .hero .col-tese>*{animation:surge .58s cubic-bezier(.22,.61,.36,1) both}
+  .js .hero .col-tese>*:nth-child(1){animation-delay:.04s}
+  .js .hero .col-tese>*:nth-child(2){animation-delay:.11s}
+  .js .hero .col-tese>*:nth-child(3){animation-delay:.19s}
+  .js .hero .col-tese>*:nth-child(4){animation-delay:.27s}
+  .js .hero .col-tese>*:nth-child(5){animation-delay:.34s}
+  .js .hero .log{animation:surge .72s cubic-bezier(.22,.61,.36,1) both;animation-delay:.24s}
+  .js .hero .log tbody tr{animation:surge .5s ease both}
+  .js .hero .log tbody tr:nth-child(1){animation-delay:.52s}
+  .js .hero .log tbody tr:nth-child(2){animation-delay:.60s}
+  .js .hero .log tbody tr:nth-child(3){animation-delay:.68s}
+  .js .hero .log tbody tr:nth-child(4){animation-delay:.76s}
+  .js .hero .log tbody tr:nth-child(5){animation-delay:.84s}
+}
+
+.js .rv{opacity:0;transform:translateY(8px);transition:opacity .5s ease,transform .5s ease}
+.js .rv.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.js .rv{opacity:1;transform:none;transition:none}}
+.skip{position:absolute;left:-9999px}
+.skip:focus{left:12px;top:12px;z-index:99;background:var(--y);color:#14161A;padding:10px 14px;border-radius:2px}
+</style>
+</head>
+<body>
+<a href="#conteudo" class="skip">Pular para o conteúdo</a>
+
+<header class="top">
+  <div class="wrap">
+    <a href="/" class="logo" aria-label="Mega Links BR — início">
+      <img src="/icon.png" alt="">
+      <span>Mega Links <small>BRASIL</small></span>
+    </a>
+    <nav class="topnav" aria-label="Navegação principal">
+      <a href="#problema">O problema</a>
+      <a href="#rota">Como funciona</a>
+      <a href="#operacao">A operação</a>
+      <a href="#planos">Planos</a>
+      <a href="/guia">Guia</a>
+    </nav>
+    <div class="topact">
+      <a href="/painel" class="lnk" id="lnkEntrar">Entrar</a>
+      <a href="/painel?signup=1" class="btn btn-y"><span class="cta-full">Começar 7 dias grátis</span><span class="cta-curto">7 dias grátis</span></a>
+    </div>
+  </div>
+</header>
+
+<main id="conteudo">
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="wrap">
+    <div class="col-tese">
+      <p class="eyebrow" style="margin-bottom:20px">Automação de despacho · Afiliados</p>
+      <h1>Suas ofertas saem na hora certa, no <span class="y">grupo certo</span>.</h1>
+      <p class="sub">Você cadastra a origem e o destino uma vez. A partir daí é a plataforma que lê o preço no marketplace, refaz o link com o seu ID de afiliado, encurta com rastreio e despacha.</p>
+      <div class="acts">
+        <a href="/painel?signup=1" class="btn btn-y">Começar 7 dias grátis</a>
+        <a href="#rota" class="lnk">Ver como funciona</a>
+      </div>
+      <p class="note">Sem cartão de crédito. Sem instalar nada.</p>
+    </div>
+
+    <div class="log">
+      <div class="log-h">
+        <span>Registro de despacho</span>
+        <span class="live"><i class="dot" aria-hidden="true"></i> exemplo</span>
+      </div>
+      <div class="log-scroll">
+        <table class="dsp">
+          <thead><tr><th scope="col">Hora</th><th scope="col">Produto</th><th scope="col">Loja</th><th scope="col">Destino</th><th scope="col">Estado</th></tr></thead>
+          <tbody>
+            <tr class="now"><td>14:02:11</td><td>Fone TWS QCY T13</td><td>Shopee</td><td>Achadinhos #34</td><td class="st">enviando</td></tr>
+            <tr><td>13:47:03</td><td>Air Fryer 5L Mondial</td><td>Merc. Livre</td><td>Ofertas Top</td><td class="st">entregue</td></tr>
+            <tr><td>13:30:00</td><td>Cadeira Gamer TX</td><td>Amazon</td><td>Canal Telegram</td><td class="st">entregue</td></tr>
+            <tr><td>13:12:55</td><td>Kit Skincare</td><td>Natura</td><td>Promo BH</td><td class="st">entregue</td></tr>
+            <tr><td>12:58:40</td><td>Conjunto Fitness</td><td>Shein</td><td>Achadinhos #34</td><td class="st">entregue</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="log-f">
+        <div><b>8</b><span>marketplaces com link de afiliado</span></div>
+        <div><b>2</b><span>canais de saída: WhatsApp e Telegram</span></div>
+        <div><b>7</b><span>dias grátis, sem cartão</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="strip">
+  <div class="wrap">
+    <span class="lbl">Lojas integradas</span>
+    <span>Shopee</span><s>·</s><span>Mercado Livre</span><s>·</s><span>Amazon</span><s>·</s><span>AliExpress</span><s>·</s><span>Shein</span><s>·</s><span>Magalu</span><s>·</s><span>Natura</span><s>·</s><span>TerabyteShop</span>
+  </div>
+</div>
+
+<!-- ============ 01 PROBLEMA ============ -->
+<section id="problema">
+  <div class="wrap sec">
+    <div class="sec-h rv">
+      <div class="num">01</div>
+      <div>
+        <h2>O trabalho não é achar a oferta.<br>É tudo o que vem depois dela.</h2>
+        <p>Achar um bom preço leva um minuto. O que consome a sua noite é a repetição — e ela acontece uma vez por oferta, multiplicada por cada grupo em que você publica.</p>
+      </div>
+    </div>
+    <div class="cols">
+      <ol class="rotina rv">
+        <li><span>Abrir o app da loja e <b>conferir o preço de hoje</b>, porque o de ontem já mudou.</span></li>
+        <li><span>Copiar o link, <b>abrir o painel de afiliado</b> e gerar de novo com o seu ID.</span></li>
+        <li><span>Encurtar em algum serviço de terceiro — e <b>perder o dado de clique</b>.</span></li>
+        <li><span>Escrever a legenda, baixar a foto, <b>ajustar o tamanho</b> para não sair cortada.</span></li>
+        <li><span>Escolher o horário e <b>lembrar de voltar</b> exatamente nele.</span></li>
+        <li><span>Colar em cada grupo. <b>Um por um.</b></span></li>
+        <li><span>Descobrir dias depois que <b>o produto acabou</b> e o link continua circulando.</span></li>
+      </ol>
+      <div class="quote rv">
+        <p>Nada disso é o seu trabalho. É o custo de fazer o seu trabalho.</p>
+        <span>O MegaLinksBR não te ajuda a fazer esses sete passos mais rápido. Ele executa os sete por você, na ordem, no horário, e registra cada um deles numa linha que você pode conferir depois.</span>
+        <hr>
+        <span><b>O que continua sendo seu:</b> escolher a oferta, escrever do seu jeito e decidir para quem vai.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 02 ROTA ============ -->
+<section id="rota" class="rota">
+  <div class="wrap sec">
+    <div class="sec-h rv">
+      <div class="num">02</div>
+      <div>
+        <h2>Do marketplace ao grupo, sem você no meio</h2>
+        <p>Uma rota é configurada uma vez e executada quantas vezes você quiser. Estes são os três pontos dela.</p>
+      </div>
+    </div>
+
+    <div class="flow rv">
+      <div class="node">
+        <div class="cap">Origem</div>
+        <h3>De onde vem</h3>
+        <ul>
+          <li>Radar de ofertas</li>
+          <li>Link colado à mão</li>
+          <li>Grupo-fonte clonado</li>
+        </ul>
+      </div>
+      <div class="arr" aria-hidden="true">→</div>
+      <div class="node core">
+        <div class="cap">Tratamento</div>
+        <h3>MegaLinksBR</h3>
+        <ul>
+          <li>Lê o preço atual na loja</li>
+          <li>Refaz o link com o seu ID</li>
+          <li>Encurta e passa a contar clique</li>
+          <li>Padroniza a foto e a legenda</li>
+          <li>Agenda o horário</li>
+        </ul>
+      </div>
+      <div class="arr" aria-hidden="true">→</div>
+      <div class="node">
+        <div class="cap">Destino</div>
+        <h3>Para onde vai</h3>
+        <ul>
+          <li>Grupos de WhatsApp</li>
+          <li>Canais de WhatsApp</li>
+          <li>Canais de Telegram</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="rota-foot rv">
+      <span><b>Conexão:</b> por QR code, como no WhatsApp Web. Nada é instalado no seu celular.</span>
+      <span><b>Comissão:</b> o link sai sempre com o seu ID de afiliado — não com o nosso.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 03 OPERAÇÃO ============ -->
+<section id="operacao">
+  <div class="wrap sec">
+    <div class="sec-h rv">
+      <div class="num">03</div>
+      <div>
+        <h2>A operação, peça por peça</h2>
+        <p>Não são recursos soltos numa lista: são as etapas da mesma rota, cada uma podendo ser usada sozinha.</p>
+      </div>
+    </div>
+
+    <div class="op">
+      <div class="op-row rv">
+        <div class="tag">Origem</div>
+        <div>
+          <h3>Radar de Ofertas</h3>
+          <p>Varredura periódica de Mercado Livre e Shopee por categoria e palavra-chave. O que aparece já vem com preço, desconto e foto — pronto para virar post em um clique.</p>
+        </div>
+        <div class="frag">
+          <div class="fh">Radar · fila de hoje</div>
+          <div class="fb">
+            <div><b>Air Fryer 5L</b> &nbsp;<span class="arrow">R$</span> 289,90 &nbsp;<i>−32%</i></div>
+            <div><b>Fone TWS</b> &nbsp;&nbsp;&nbsp;<span class="arrow">R$</span> 79,90 &nbsp;<i>−45%</i></div>
+            <div><b>Cadeira Gamer</b> <span class="arrow">R$</span> 899,00 &nbsp;<i>−18%</i></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="op-row rv">
+        <div class="tag">Tratamento</div>
+        <div>
+          <h3>Link Rápido</h3>
+          <p>Cole qualquer link de marketplace — inclusive um que já é de outro afiliado. A plataforma desfaz o encaminhamento, tira o ID de origem e devolve o link com o seu, encurtado.</p>
+        </div>
+        <div class="frag">
+          <div class="fh">Link Rápido</div>
+          <div class="fb">
+            <div class="arrow">colado</div>
+            <div>shopee.com.br/…?af_id=<i>outro</i></div>
+            <div class="arrow" style="padding-top:6px">devolvido</div>
+            <div><b>megalinksbr.com.br/r/xzadtgh</b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="op-row rv">
+        <div class="tag">Tratamento</div>
+        <div>
+          <h3>Clone Post</h3>
+          <p>Cadastre um grupo-fonte de terceiro. Quando uma oferta aparece lá, ela chega na sua fila já refeita com o seu ID — e você aprova, edita ou descarta antes de qualquer coisa sair.</p>
+        </div>
+        <div class="frag">
+          <div class="fh">Fila de clones</div>
+          <div class="fb">
+            <div><b>3</b> aguardando revisão</div>
+            <div><span class="arrow">aprovar em lote</span> · <span class="arrow">descartar</span></div>
+            <div style="padding-top:6px"><i>nada é publicado sem o seu ok</i></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="op-row rv">
+        <div class="tag">Despacho</div>
+        <div>
+          <h3>Postar Agora e Post Automático</h3>
+          <p>Um envio imediato para os grupos que você marcar, ou uma programação que roda sozinha em intervalo definido. Nos planos Elite e Premium, os horários são sugeridos a partir do seu próprio histórico de cliques.</p>
+        </div>
+        <div class="frag">
+          <div class="fh">Programação</div>
+          <div class="fb">
+            <div>09:00 &nbsp;<span class="arrow">→</span>&nbsp; Achadinhos #34</div>
+            <div>13:30 &nbsp;<span class="arrow">→</span>&nbsp; Ofertas Top</div>
+            <div>20:15 &nbsp;<span class="arrow">→</span>&nbsp; Canal Telegram</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="op-row rv">
+        <div class="tag">Controle</div>
+        <div>
+          <h3>Rastreio próprio de cliques</h3>
+          <p>Nos planos Elite e Premium o link curto é nosso, em <span class="mono">/r/</span>. Isso significa que o clique é contado antes de ir para a loja, e você vê qual grupo e qual horário realmente trazem gente — não uma estimativa.</p>
+        </div>
+        <div class="frag">
+          <div class="fh">Analítico · últimos 7 dias</div>
+          <div class="fb">
+            <div>Achadinhos #34 &nbsp;<b>412</b> cliques</div>
+            <div>Ofertas Top &nbsp;&nbsp;&nbsp;<b>287</b> cliques</div>
+            <div>Canal Telegram &nbsp;<b>96</b> cliques</div>
+            <div style="padding-top:6px"><i>melhor faixa: 20h–22h</i></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="op-larga rv">
+        <div class="tag">Controle</div>
+        <h3>O preço que você anuncia é o preço que está na loja</h3>
+        <p>Antes de publicar, o valor é reconferido na origem. Depois de publicado, os produtos monitorados são revisitados — quando o preço sobe ou o item some, você fica sabendo em vez de descobrir pelo grupo.</p>
+        <div class="op-linha">
+          <span><span class="arrow">Air Fryer 5L</span> R$ 289,90 <span class="arrow">→</span> <i>R$ 319,00</i></span>
+          <span class="arrow">alerta enviado · post pausado</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 04 PLANOS ============ -->
+<section id="planos">
+  <div class="wrap sec">
+    <div class="sec-h rv">
+      <div class="num"></div>
+      <div>
+        <h2>Planos</h2>
+        <p>Todos começam com 7 dias grátis, sem cartão. O que muda entre eles é quanta operação cabe dentro — quantos grupos, quantos produtos e quanto da rota roda sozinha.</p>
+      </div>
+    </div>
+
+    <div class="tbl-scroll rv">
+      <table class="pl">
+        <thead>
+          <tr>
+            <th scope="col"><span class="nm">Plano</span><span class="pr"><s>por mês</s></span></th>
+            <th scope="col"><span class="nm">Starter</span><span class="pr">R$ 57,90</span></th>
+            <th scope="col"><span class="nm">Pro</span><span class="pr">R$ 97,90</span></th>
+            <th scope="col"><span class="nm">Elite</span><span class="pr">R$ 157,90</span></th>
+            <th scope="col"><span class="nm">Premium</span><span class="pr">R$ 297,90</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Grupos de WhatsApp</th><td>1</td><td>3</td><td>8</td><td>20</td></tr>
+          <tr><th scope="row">Canais de WhatsApp</th><td>2</td><td>6</td><td>20</td><td>50</td></tr>
+          <tr><th scope="row">Canais de Telegram</th><td>1</td><td>4</td><td>12</td><td>30</td></tr>
+          <tr><th scope="row">Conexões de WhatsApp</th><td>1</td><td>1</td><td>3</td><td>10</td></tr>
+          <tr><th scope="row">Produtos cadastrados</th><td>15</td><td>50</td><td>150</td><td>300</td></tr>
+          <tr><th scope="row">Radar de Ofertas</th><td>sim</td><td>sim</td><td>sim</td><td>sim</td></tr>
+          <tr><th scope="row">Post automático</th><td>1 por dia</td><td>sem teto</td><td>sem teto</td><td>sem teto</td></tr>
+          <tr><th scope="row">Clone Post</th><td class="no">—</td><td>sim</td><td>sim</td><td>sim</td></tr>
+          <tr><th scope="row">Rastreio de cliques próprio</th><td class="no">—</td><td class="no">—</td><td>sim</td><td>sim</td></tr>
+          <tr><th scope="row">Horários inteligentes</th><td class="no">—</td><td class="no">—</td><td>sim</td><td>sim</td></tr>
+          <tr><th scope="row">Monitoramento de preço</th><td class="no">—</td><td>sim</td><td>sim</td><td>sim</td></tr>
+          <tr><th scope="row">Suporte</th><td>comunidade</td><td>e-mail</td><td>prioritário</td><td>VIP</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="pl-note">Premium tem aviso de uso justo. Os limites exatos do seu plano aparecem dentro do painel, na aba Assinatura, e são os que valem.</p>
+  </div>
+</section>
+
+<!-- ============ 05 PERGUNTAS ============ -->
+<section id="perguntas">
+  <div class="wrap sec">
+    <div class="sec-h rv">
+      <div class="num"></div>
+      <div><h2>Antes de você perguntar</h2></div>
+    </div>
+    <div class="faq rv">
+      <details>
+        <summary>Preciso instalar alguma coisa no celular?</summary>
+        <div class="ans">Não. A conexão com o WhatsApp é feita por QR code, do mesmo jeito que o WhatsApp Web. Você lê o código uma vez e a sessão fica de pé.</div>
+      </details>
+      <details>
+        <summary>A comissão vai para vocês?</summary>
+        <div class="ans">Não. Os IDs de afiliado são seus e ficam cadastrados na sua conta. Todo link despachado sai com o seu ID. No caso da Shopee, inclusive as credenciais de API usadas na busca são as suas.</div>
+      </details>
+      <details>
+        <summary>Preciso de cartão para testar?</summary>
+        <div class="ans">Não. São 7 dias com a plataforma inteira liberada, sem cadastro de cartão. Se você não continuar, nada é cobrado.</div>
+      </details>
+      <details>
+        <summary>O Clone Post publica sozinho o que vem de outro grupo?</summary>
+        <div class="ans">Só se você mandar. Por padrão a oferta capturada entra numa fila e espera a sua aprovação — você edita, aprova ou descarta antes de qualquer coisa sair para os seus grupos.</div>
+      </details>
+      <details>
+        <summary>Quais lojas funcionam hoje?</summary>
+        <div class="ans">Shopee, Mercado Livre, Amazon, AliExpress, Shein, Magalu, Natura e TerabyteShop para refazer link de afiliado. A leitura automática de preço e foto é mais completa em Shopee, Mercado Livre e Amazon; nas demais, alguns campos podem precisar de preenchimento manual.</div>
+      </details>
+      <details>
+        <summary>Dá para cancelar quando eu quiser?</summary>
+        <div class="ans">Sim, pelo próprio painel, na aba Assinatura. Sem ligação, sem retenção.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA ============ -->
+<section class="cta">
+  <div class="wrap">
+    <div>
+      <h2>Sete dias para ver a sua própria operação rodando sozinha.</h2>
+      <p>Conecte um grupo, cadastre um marketplace e mande a primeira oferta. Se em uma semana você não tiver economizado mais tempo do que gastou configurando, é só não continuar.</p>
+    </div>
+    <div>
+      <div class="acts">
+        <a href="/painel?signup=1" class="btn btn-ink">Começar 7 dias grátis</a>
+        <a href="/guia" class="lnk" style="color:#4A4F55;border-color:#CFCCC3">Ler o guia primeiro</a>
+      </div>
+      <p class="fine">Sem cartão · Cancelamento pelo painel</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Mega Links BR · Plataforma de automação para afiliados</span>
+    <nav aria-label="Rodapé">
+      <a href="/painel">Entrar</a>
+      <a href="/guia">Guia</a>
+      <a href="/termos.html">Termos</a>
+      <a href="/privacidade.html">Privacidade</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+/* ---- Encaminhamento de fluxos de autenticação que caem na raiz ----
+   O Supabase manda recuperação de senha e retorno de OAuth para a Site URL,
+   que é a raiz. A raiz agora é esta landing, e quem sabe tratar esses
+   parâmetros é o painel. Encaminha preservando query e hash. */
+(function(){
+  try{
+    var qs = new URLSearchParams(location.search);
+    var h  = location.hash || "";
+    var ehAuth = qs.has("code") || qs.get("type") === "recovery" ||
+                 h.indexOf("access_token") > -1 || h.indexOf("type=recovery") > -1 ||
+                 h.indexOf("error_description") > -1;
+    if (ehAuth) { location.replace("/painel" + location.search + h); }
+  }catch(e){}
+})();
+
+/* ---- Cupom de influencer (?cupom=CODIGO) ----
+   Antes esta captura vivia no index.html, que era servido na raiz. A raiz
+   agora e a landing, entao ela precisa acontecer aqui: o painel le a chave
+   ml_cupom_pendente quando a aba "Criar conta" abre. */
+(function(){
+  try{
+    var c = new URLSearchParams(location.search).get("cupom");
+    if (c && c.trim()) localStorage.setItem("ml_cupom_pendente", c.trim().toUpperCase());
+  }catch(e){}
+})();
+
+/* ---- Atribuicao: leva utm_* e cupom adiante para o painel ----
+   O UTM e gravado no perfil no momento do cadastro, que acontece dentro do
+   painel. Sem repassar aqui, todo trafego de campanha chegaria sem origem. */
+(function(){
+  try{
+    var vindos = new URLSearchParams(location.search), levar = new URLSearchParams();
+    vindos.forEach(function(v,k){
+      if (k.indexOf("utm_") === 0 || k === "cupom" || k === "gclid" || k === "fbclid") levar.set(k,v);
+    });
+    var extra = levar.toString();
+    if (!extra) return;
+    document.querySelectorAll('a[href^="/painel"]').forEach(function(a){
+      a.href = a.href + (a.href.indexOf("?") > -1 ? "&" : "?") + extra;
+    });
+  }catch(e){}
+})();
+
+/* ---- Quem já tem sessão vê "Voltar ao painel" no lugar de "Entrar" ---- */
+(function(){
+  try{
+    for (var i = 0; i < localStorage.length; i++){
+      var k = localStorage.key(i);
+      if (k && k.indexOf("sb-") === 0 && k.indexOf("auth-token") > -1){
+        var el = document.getElementById("lnkEntrar");
+        if (el){ el.textContent = "Voltar ao painel"; }
+        break;
+      }
+    }
+  }catch(e){}
+})();
+
+/* ---- Entrada progressiva dos blocos ---- */
+(function(){
+  var alvos = document.querySelectorAll(".rv");
+  if (!("IntersectionObserver" in window) ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+    for (var i = 0; i < alvos.length; i++) alvos[i].classList.add("in");
+    return;
+  }
+  var obs = new IntersectionObserver(function(entradas){
+    entradas.forEach(function(e){
+      if (e.isIntersecting){ e.target.classList.add("in"); obs.unobserve(e.target); }
+    });
+  }, { rootMargin: "0px 0px -8% 0px", threshold: 0.06 });
+  alvos.forEach(function(a){ obs.observe(a); });
+})();
+</script>
+</body>
+</html>
