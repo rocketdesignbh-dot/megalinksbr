@@ -1,3 +1,20 @@
+// product-search v28 — a Shein passa a ser lida no Postar Agora (P44, parte 1 de 5)
+// v28 (25/08): ate aqui a Shein caia no generico "Loja sem integracao automatica.
+//   Preencha manualmente.", junto com AliExpress, Magalu, Natura e Terabyte (P44).
+//   CONSERTO, saida (a) da P44: leitor generico por og:title/og:image + preco do
+//   JSON-LD (schema.org Product/offers.price) que a pagina do produto expõe pra
+//   SEO/compartilhamento social — NAO e scraping de layout especifico, e o mesmo
+//   par de tags que qualquer robo de previa (WhatsApp, Facebook) ja le.
+//   Duas tentativas, em ordem: (1) fetch direto da pagina, UA de navegador —
+//   pode falhar se a Shein bloquear o IP do Supabase, o que NAO foi medido
+//   ainda; (2) Microlink como reforco, mesmo fallback ja usado no Mercado Livre.
+//   Preco e OPCIONAL: se o JSON-LD nao trouxer numero valido, devolve titulo e
+//   foto sem preco — nao inventa numero, mesma regra do "de" da Shopee (P32).
+//   ⚠️ NAO MEDIDO EM PRODUCAO — precisa de um link real de produto da Shein
+//   aberto pelo Postar Agora depois do deploy. Ver P44 no ESTADO_ATUAL.md.
+//   AliExpress, Magalu, Natura e Terabyte continuam SEM leitor — a P44 fecha só
+//   quando as 5 estiverem cobertas; esta e a primeira.
+//
 // product-search v27 — a Shopee volta a ser lida no Postar Agora
 // v27 (04/08, noite): o leitor da Shopee so conhecia /product/LOJA/ITEM. Ver o
 //   comentario de urlLimpaPelaResolveLink. Junto: shp.ee no detectStore e motivo
@@ -501,18 +518,134 @@ async function consultarAmazonDireto(url: string): Promise<any> {
   } finally { clearTimeout(t); }
 }
 
+// ── Shein — leitor generico por og:title/og:image + JSON-LD (v28 · P44) ────
+//
+// NAO e leitor especifico de layout, como o da Amazon acima. E o par de tags
+// que a propria pagina expõe para robo de previa social (og:*) mais o preco do
+// schema.org Product que ela embute para SEO — os mesmos dados que o WhatsApp
+// le quando alguem cola um link da Shein no chat. Por isso serve tambem, no
+// futuro, de base para AliExpress/Magalu/Natura/Terabyte — mas HOJE so a
+// Shein chama isto, e cada loja tem que ser medida com link real antes de
+// entrar aqui (P44 pede as 5, nao decidiu tratar todas iguais sem medir).
+const SHEIN_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
+const SHEIN_TIMEOUT_MS = 12000;
+
+function decodeEntidadesHtml(s: string): string {
+  return s
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+}
+
+// Le uma meta tag OG/Twitter aceitando as duas ordens de atributo
+// (property antes ou depois de content) — paginas de loja variam nisso.
+function metaTag(html: string, prop: string): string {
+  const re1 = new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]+content=["']([^"']*)["']`, "i");
+  const m1 = html.match(re1);
+  if (m1) return decodeEntidadesHtml(m1[1]).trim();
+  const re2 = new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${prop}["']`, "i");
+  const m2 = html.match(re2);
+  return m2 ? decodeEntidadesHtml(m2[1]).trim() : "";
+}
+
+// Preco do bloco <script type="application/ld+json">, formato schema.org
+// Product/Offer. NAO deduz nada: so devolve numero se achar `price` valido em
+// algum node do JSON — mesma regra do "de" da Shopee, undefined em vez de
+// palpite quando a pagina nao afirma o preco neste formato.
+function precoJsonLd(html: string): number | null {
+  const blocos = html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
+  for (const bloco of blocos) {
+    const corpo = bloco.replace(/^<script[^>]*>/i, "").replace(/<\/script>$/i, "");
+    let data: any;
+    try { data = JSON.parse(corpo); } catch { continue; }
+    const nodes = Array.isArray(data) ? data : (Array.isArray(data?.["@graph"]) ? data["@graph"] : [data]);
+    for (const node of nodes) {
+      const offers = node?.offers;
+      const candidatos = Array.isArray(offers) ? offers : [offers];
+      for (const of of candidatos) {
+        const raw = of?.price ?? of?.lowPrice;
+        if (raw === undefined || raw === null || raw === "") continue;
+        const n = Number(String(raw).replace(",", "."));
+        if (Number.isFinite(n) && n > 0) return n;
+      }
+    }
+  }
+  return null;
+}
+
+async function consultarSheinDireto(url: string): Promise<any> {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), SHEIN_TIMEOUT_MS);
+  try {
+    const r = await fetch(url, {
+      signal: c.signal,
+      headers: { "User-Agent": SHEIN_UA, "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.5" },
+    });
+    if (!r.ok) { console.warn(`[shein] pagina direta respondeu HTTP ${r.status}`); return null; }
+    const html = await r.text();
+    const titulo = metaTag(html, "og:title") || metaTag(html, "twitter:title");
+    if (!titulo) { console.warn("[shein] pagina direta sem og:title — provavel bloqueio ou SPA sem SSR de meta"); return null; }
+    const imagem = metaTag(html, "og:image") || metaTag(html, "twitter:image");
+    const preco = precoJsonLd(html);
+    return {
+      success: true, source: "shein-pagina", store: "shein",
+      name: titulo, title: titulo,
+      image: imagem, thumbnail: imagem,
+      price_to: preco !== null ? preco : undefined,
+      affiliate_url: url,
+    };
+  } catch (e) {
+    console.warn(`[shein] fetch direto falhou: ${(e as Error).message}`);
+    return null;
+  } finally { clearTimeout(t); }
+}
+
+// Reforco: se o fetch direto nao trouxe og:title (bloqueio de IP e a hipotese
+// mais provavel, NAO medida ainda), tenta o Microlink — mesmo fallback do
+// Mercado Livre. Sem os filtros de idioma/dominio de la porque a Shein nao tem
+// o historico de pagina errada em espanhol que o ML tinha; se isso aparecer
+// medido, adicionar o mesmo filtro aqui.
+async function consultarSheinMicrolink(url: string): Promise<any> {
+  try {
+    const r = await fw(`https://api.microlink.io/?url=${encodeURIComponent(url)}`, {}, 8000);
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (d.status !== "success" || !d.data?.title) return null;
+    const titulo = String(d.data.title).slice(0, 120);
+    return {
+      success: true, source: "shein-microlink", store: "shein",
+      name: titulo, title: titulo,
+      image: d.data.image?.url || "", thumbnail: d.data.image?.url || "",
+      affiliate_url: url,
+    };
+  } catch (e) {
+    console.warn(`[shein] Microlink falhou: ${(e as Error).message}`);
+    return null;
+  }
+}
+
+async function consultarShein(url: string): Promise<any> {
+  const direto = await consultarSheinDireto(url);
+  if (direto) return direto;
+  const via_microlink = await consultarSheinMicrolink(url);
+  if (via_microlink) return via_microlink;
+  return {
+    success: false, store: "shein", motivo: "leitura_falhou",
+    error: "Não consegui ler os dados desse produto na Shein agora. Preencha manualmente — título, preço e foto.",
+  };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   try {
     const { url, credentials = {} } = await req.json();
-    console.log(`[product-search v27] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
+    console.log(`[product-search v28] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
     if (!url || !/^https?:\/\//i.test(url))
       return new Response(JSON.stringify({ success: false, error: "URL inválida" }), { status: 400, headers: { ...CORS, "Content-Type": "application/json" } });
 
     const store = detectStore(url);
     const authHeader = req.headers.get("authorization");
     const userId = getUserIdFromJwt(authHeader);
-    console.log(`[product-search v27] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
+    console.log(`[product-search v28] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
 
     const waEngineUrl = Deno.env.get("WA_ENGINE_URL") || "https://megalinksbr-wa-engine.fwezsn.easypanel.host";
     const waEngineToken = Deno.env.get("WA_ENGINE_TOKEN") || "";
@@ -536,6 +669,10 @@ Deno.serve(async (req: Request) => {
         success: false, store: "shopee", motivo: "credenciais_incompletas", faltando,
         error: `Shopee — faltam dados da sua conta de afiliado: ${faltando.join(" e ")}.`,
       };
+    } else if (store === "shein") {
+      // v28/P44: leitor generico og:title/og:image + JSON-LD. Ver o bloco
+      // `consultarShein` acima — NAO MEDIDO EM PRODUCAO ainda.
+      result = await consultarShein(url);
     } else if (store === "amazon") {
       // Le a pagina publica: nao depende das chaves da PA-API, que a maioria dos
       // usuarios nao tem (a aprovacao exige vendas). E o mesmo caminho que o
@@ -547,7 +684,7 @@ Deno.serve(async (req: Request) => {
       result = result || { success: false, source: "none", store, motivo: "loja_sem_integracao", error: "Loja sem integração automática. Preencha manualmente." };
     }
 
-    console.log(`[product-search v27] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
+    console.log(`[product-search v28] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
     return new Response(JSON.stringify(result), { headers: { ...CORS, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ success: false, error: (e as Error).message }), { status: 500, headers: { ...CORS, "Content-Type": "application/json" } });
