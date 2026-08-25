@@ -1,3 +1,24 @@
+// product-search v29 — Shein: Microlink genérico mentia "success" (P44)
+// v29 (25/08, mesma sessão, MEDIDO): Érico testou a v28 com link real de
+//   produto (216706267.html) e o resultado veio ERRADO — nome e imagem da
+//   HOME da Shein, não do produto, com success:true. Log real conferido por
+//   `query_logs`: o fetch direto NUNCA acha og:title (SPA sem SSR de meta —
+//   confirmado, não é bloqueio de IP como a v28 supôs) e cai sempre no
+//   Microlink, que devolve a página genérica em vez de renderizar o JS da
+//   página de produto — mesmo defeito de fundo da P25 (Shopee avulsa).
+//   CONSERTO: `consultarSheinMicrolink` agora reprova o resultado quando (a)
+//   o id do produto ("-p-<digitos>.html") na URL pedida não bate com o da
+//   URL que o Microlink resolveu, ou (b) o título é um dos genéricos
+//   conhecidos da Shein. Imagem em `data:` (o placeholder de "sem imagem" do
+//   Microlink) também é descartada. Sem essas defesas, "success:true" com
+//   nome da loja no lugar do produto é PIOR que falha — o usuário não
+//   percebe e posta errado.
+//   ⚠️ NÃO RESOLVIDO: com o fetch direto sempre vazio e o Microlink sempre
+//   genérico para produto real, a Shein PROVAVELMENTE fica sem leitura
+//   nenhuma na prática — só sem mentir sobre isso agora. Ler de verdade exige
+//   renderizar o JS da página (Scrape.do com render, ou equivalente), que é
+//   decisão de custo, não só código. P44 parte 1 continua ABERTA.
+//
 // product-search v28 — a Shein passa a ser lida no Postar Agora (P44, parte 1 de 5)
 // v28 (25/08): ate aqui a Shein caia no generico "Loja sem integracao automatica.
 //   Preencha manualmente.", junto com AliExpress, Magalu, Natura e Terabyte (P44).
@@ -599,11 +620,34 @@ async function consultarSheinDireto(url: string): Promise<any> {
   } finally { clearTimeout(t); }
 }
 
-// Reforco: se o fetch direto nao trouxe og:title (bloqueio de IP e a hipotese
-// mais provavel, NAO medida ainda), tenta o Microlink — mesmo fallback do
-// Mercado Livre. Sem os filtros de idioma/dominio de la porque a Shein nao tem
-// o historico de pagina errada em espanhol que o ML tinha; se isso aparecer
-// medido, adicionar o mesmo filtro aqui.
+// v28.1 (25/08, MEDIDO): o fetch direto nunca traz og:title — a Shein serve
+// SPA sem SSR de meta tag pro fetch de servidor (200, sem bloqueio, so sem a
+// tag). Log real: "[shein] pagina direta sem og:title". O fallback Microlink
+// RESPONDIA "success" mas devolvia o titulo/imagem GENERICOS do site
+// ("Roupas Femininas & Masculinas, Loja de Moda Online | SHEIN", imagem
+// placeholder em data:image/svg) em vez do produto pedido — mesmo defeito de
+// fundo da P25 (Shopee avulsa: Microlink nao executa o JS que monta a pagina
+// de produto, e a Shein tem esse historico com o ML tambem, ver v20).
+// Sem este filtro, "success:true" mentia: o usuario postaria o nome da LOJA
+// como se fosse o do PRODUTO. Falso positivo e pior que falha — falha o
+// usuario ve e preenche a mao; falso positivo ele nao percebe.
+// Duas defesas, qualquer uma reprova o resultado:
+//  (1) a URL da Shein carrega o ID do produto em "-p-<digitos>.html" — se a
+//      URL final que o Microlink resolveu nao contiver esse MESMO id, nao e
+//      a pagina do produto.
+//  (2) o titulo generico da home/categoria e conhecido e fixo — compara
+//      direto. Cobre o caso de a URL final nao vir preenchida.
+function idProdutoShein(url: string): string | null {
+  const m = url.match(/-p-(\d+)\.html/i);
+  return m ? m[1] : null;
+}
+
+const SHEIN_TITULOS_GENERICOS = [
+  "roupas femininas & masculinas, loja de moda online | shein",
+  "shein brasil",
+  "shein",
+];
+
 async function consultarSheinMicrolink(url: string): Promise<any> {
   try {
     const r = await fw(`https://api.microlink.io/?url=${encodeURIComponent(url)}`, {}, 8000);
@@ -611,10 +655,25 @@ async function consultarSheinMicrolink(url: string): Promise<any> {
     const d = await r.json();
     if (d.status !== "success" || !d.data?.title) return null;
     const titulo = String(d.data.title).slice(0, 120);
+
+    const idPedido = idProdutoShein(url);
+    const idResolvido = idProdutoShein(String(d.data.url || ""));
+    const urlNaoBate = !!idPedido && idResolvido !== idPedido;
+    const tituloGenerico = SHEIN_TITULOS_GENERICOS.includes(titulo.toLowerCase().trim());
+    if (urlNaoBate || tituloGenerico) {
+      console.warn(`[shein] Microlink devolveu pagina generica, nao o produto — id_pedido=${idPedido} id_resolvido=${idResolvido} titulo="${titulo}"`);
+      return null;
+    }
+
+    // Imagem placeholder do Microlink (SVG inline em data:) nao e foto real —
+    // melhor sem foto do que com o icone de "sem imagem".
+    const imgUrl = String(d.data.image?.url || "");
+    const imagem = imgUrl.startsWith("data:") ? "" : imgUrl;
+
     return {
       success: true, source: "shein-microlink", store: "shein",
       name: titulo, title: titulo,
-      image: d.data.image?.url || "", thumbnail: d.data.image?.url || "",
+      image: imagem, thumbnail: imagem,
       affiliate_url: url,
     };
   } catch (e) {
@@ -638,14 +697,14 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   try {
     const { url, credentials = {} } = await req.json();
-    console.log(`[product-search v28] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
+    console.log(`[product-search v29] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
     if (!url || !/^https?:\/\//i.test(url))
       return new Response(JSON.stringify({ success: false, error: "URL inválida" }), { status: 400, headers: { ...CORS, "Content-Type": "application/json" } });
 
     const store = detectStore(url);
     const authHeader = req.headers.get("authorization");
     const userId = getUserIdFromJwt(authHeader);
-    console.log(`[product-search v28] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
+    console.log(`[product-search v29] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
 
     const waEngineUrl = Deno.env.get("WA_ENGINE_URL") || "https://megalinksbr-wa-engine.fwezsn.easypanel.host";
     const waEngineToken = Deno.env.get("WA_ENGINE_TOKEN") || "";
@@ -684,7 +743,7 @@ Deno.serve(async (req: Request) => {
       result = result || { success: false, source: "none", store, motivo: "loja_sem_integracao", error: "Loja sem integração automática. Preencha manualmente." };
     }
 
-    console.log(`[product-search v28] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
+    console.log(`[product-search v29] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
     return new Response(JSON.stringify(result), { headers: { ...CORS, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ success: false, error: (e as Error).message }), { status: 500, headers: { ...CORS, "Content-Type": "application/json" } });
