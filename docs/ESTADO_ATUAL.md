@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 66 — 23/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 67 — 25/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,41 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 67 — 25/08/2026 — Shein passa a ter leitor no Postar Agora
+(P44, parte 1 de 5). CODADO E DEPLOYADO — NÃO MEDIDO EM PRODUÇÃO.**
+
+Érico pediu pra ver a parte da Shein hoje. Ela não tinha nenhum leitor no
+`product-search` (a Edge Function do Postar Agora) — caía direto em "Loja sem
+integração automática. Preencha manualmente." (P44, aberta 04/08). O resto do
+caminho (afiliação de link, credencial em Config Afiliados, cadastro) já
+funcionava genericamente, então o buraco era só esse.
+
+**O que foi feito:** `product-search` v28, deployada no Supabase (`deploy_edge_function`,
+versão 54 do projeto — confirmado lendo o código publicado com `get_edge_function`,
+bate byte a byte com o commit). Branch novo `store === "shein"`: leitor genérico
+por `og:title`/`og:image` (as mesmas tags que o robô de prévia do WhatsApp lê)
+mais preço do JSON-LD (`schema.org Product/offers.price`) quando a página
+expõe. Preço é opcional — se o JSON-LD não afirmar um número, devolve título e
+foto sem preço, mesma regra do "de" da Shopee (P32): não inventa. Se o fetch
+direto não trouxer `og:title`, cai num fallback pelo Microlink, igual ao que o
+Mercado Livre já usa.
+
+⚠️ **NÃO MEDIDO EM PRODUÇÃO.** A hipótese não testada é a Shein bloquear o IP
+do Supabase (não é raro em loja grande) — se bloquear, o fetch direto falha e
+sobra só o Microlink, que também pode falhar se a página for montada por
+JavaScript sem SSR das meta tags (foi exatamente o caso que fechou a Shopee
+avulsa na P25). **Falta abrir o Postar Agora com um link real de produto da
+Shein e ler o resultado na tela** — é a prova que fecha ou reabre a P44 parte 1.
+Só backend mexido (Supabase Edge Function); não precisou de rebuild no
+EasyPanel.
+
+Commit `ad22026` no `main`. Push feito com PAT fornecido pelo Érico nesta sessão.
+
+AliExpress, Magalu, Natura e TerabyteShop continuam SEM leitor — a P44 só
+fecha quando as 5 estiverem cobertas e medidas.
+
+---
 
 **REVISÃO 66 — 23/08/2026 — o SISTEMA VISUAL do painel passa a ser o da landing.
 Nenhuma tela foi redesenhada, nenhuma lógica foi tocada.**
@@ -4882,6 +4917,7 @@ pública queimar cota alheia**. Decisão pendente (P2).
 | Click tracking | Construído (`short_links`, `link_clicks`, Edge Function `redirect`, links rastreados para Elite/Premium). Ativação completa não confirmada |
 | RevOps / IA Insights | Construído. Bloqueado aguardando créditos OpenAI para o GPT-4o mini. `revops_automation_log` registra `trigger_type`, `fired_at`, `user_id`, `status`, `details` |
 | Amazon / AliExpress | Pausado aguardando aprovações externas |
+| Shein (leitura no Postar Agora) | 🟡 **DEPLOYADO 25/08 (REVISÃO 67, P44), NÃO MEDIDO.** Leitor genérico og:title/og:image + JSON-LD na `product-search` v28. Afiliação de link já funcionava (genérica, via `prGerarLinkAfil`); o que faltava era só a leitura de produto. Falta testar com link real |
 | ~~InstaResp (Instagram)~~ | ❌ **REMOVIDO POR COMPLETO.** Tabelas `instagram_accounts`, `comment_automations`, `automation_links` dropadas; Edge Functions `instagram` e `instagram-webhook` deletadas. Ignorar toda referência anterior |
 
 ---
@@ -5074,7 +5110,7 @@ código não relacionado.
 | **P41** | 🟡 **Ser removido do grupo-fonte é o risco operacional do Clone Post, e hoje ninguém percebe.** O admin da "TáNaMão – Promoções #02" removeu o Érico do grupo em 03/08 — provavelmente por notar a clonagem. Do lado do painel isso é indistinguível de grupo parado: a fonte segue `active`, sem erro, sem aviso. Junta-se à **P39** (fonte em grupo onde a sessão não está): as duas terminam na mesma tela e pedem o mesmo remédio — **sinalizar no card a fonte que passou N dias sem nenhuma linha em `clone_ingest_log`**. Vale considerar também espaçar/limitar a clonagem por fonte, porque republicar rápido demais é o que denuncia | 04/08 |
 | **P42** | 🔴 **Provar a padronização da foto com imagem real.** O teste de 04/08 usou 6 imagens sintéticas geradas pelo próprio `sharp` — prova que o pipeline redimensiona, **não** que a foto de um anúncio real chega bonita no grupo. Depois do deploy: postar uma oferta de cada loja (Amazon `._AC_SL1500_`, Shopee, ML) e **olhar no WhatsApp**. Conferir também o log `[IMG] nao consegui padronizar` — se aparecer com frequência, alguma CDN está recusando o download do engine e os posts estão caindo no caminho antigo sem ninguém notar | 04/08 |
 | **P43** | 🟡 **O leitor de Amazon existe em DOIS arquivos.** `consultarAmazonDireto` e as cinco funções de que depende estão duplicadas na `clone-ingest` e na `product-search`. Foi decisão consciente em 04/08: extrair para módulo compartilhado exigiria reemitir os 72 KB da `clone-ingest`, que é a operação que a P36 adiou justamente por risco de transcrição. **Enquanto durar, mudança em uma tem que ser repetida na outra** — o aviso está escrito nos dois lugares. Unificar em sessão limpa, com as duas funções abertas lado a lado, e provar depois em ambos os caminhos (Postar Agora e captura automática) | 04/08 |
-| **P44** | 🔵 **Postar Agora ainda não lê AliExpress, Magalu, Shein, Natura e TerabyteShop.** Continuam no "preencha manualmente" — e a mensagem não diz ao usuário QUAL loja não tem leitura nem por quê. Duas frentes possíveis: leitor genérico por `og:title`/`og:image` (traz título e foto; preço em og:tag quase nunca é confiável) ou melhorar só o texto da recusa. Nenhuma decidida | 04/08 |
+| **P44** | 🟡 **PARTE 1/5 (Shein) CODADA E DEPLOYADA EM 25/08 (REVISÃO 67) — NÃO MEDIDA EM PRODUÇÃO.** `product-search` v28: leitor genérico por `og:title`/`og:image` + preço do JSON-LD, com fallback Microlink. Deploy confirmado lendo o código publicado (`get_edge_function`), bate com o commit `ad22026`. ⚠️ **Falta abrir o Postar Agora com um link real de produto da Shein** — a hipótese não testada é a Shein bloquear o IP do Supabase, o que derrubaria o fetch direto e deixaria só o Microlink (que falha se a página for montada por JS sem SSR das meta tags, como aconteceu com a Shopee avulsa na P25). AliExpress, Magalu, Natura e TerabyteShop continuam no "preencha manualmente", sem leitor — a P44 só fecha quando as 5 estiverem cobertas e medidas. Ver "Última alteração" | 04/08 |
 
 | ~~P48~~ | ❌ **RETIRADA EM 07/08 — nunca foi real.** Aberta a partir de UMA rodada lida como estado permanente, num dia em que outras três já existiam. O La Roche foi carimbado (`07/08 06:00`) e o `pulados` das rodadas seguintes é 4, 4, 3 — o carimbo nos pulos funciona. Fica como registro do erro, não como pendência. ~~🟡 O ramo `desconhecido` do `product-refresh` não carimba `price_checked_at`.** Variante viva da P29, agora no outro ramo: o produto reenche a fila de antigos em toda rodada e ocupa vaga da `RESERVA_ANTIGOS`. Medido em 04/08 com o La Roche — **lido** (`? pagina de produto sem botao e sem outOfStock`) e **não carimbado**, parado em `30/07 14:16:02.187`, o carimbo mais antigo da base. Hoje custa 1 das 4 vagas; se mais páginas vierem nesse formato, come a reserva inteira e o backlog para de andar | 04/08 |
 | **P49** | 🟠 **O frontend não tem cache-busting.** Depois de cada Deploy, quem está logado continua rodando o bundle antigo por tempo indeterminado, sem nada na tela dizendo isso — é por isso que o Érico digita `?v=` na mão. Pior: **toda "prova no navegador" pode estar medindo o cache**. Em 04/08 isso quase reabriu a P46, que estava certa. Saídas: `?v=` gerado no build, ou header de cache no nginx | 04/08 |
