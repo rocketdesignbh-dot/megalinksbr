@@ -828,6 +828,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="card" style="margin:0 0 20px">
             <div class="ch">2️⃣ Dados do produto <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="prStep2Reset()">↩ Trocar link</button></div>
             <div class="cb">
+              <div id="prStep2Alert" style="display:none;margin-bottom:16px"></div>
               <!-- Foto -->
               <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:16px">
                 <div id="prFotoWrap" style="width:90px;height:90px;border-radius:2px;background:var(--bg2);border:1px solid var(--bd2);overflow:hidden;flex:none;display:grid;place-items:center;font-size:32px">🛍️</div>
@@ -8155,12 +8156,18 @@ function prIsShallowData(produto,link){
   return false;
 }
 
-// Dica específica por loja quando a busca falha
-function prDicaLoja(link,store){
+// Dica específica por loja quando a busca falha.
+// Se o backend informou um motivo real (d.error/d.motivo), ele tem prioridade sobre o
+// "chute" feito a partir da URL (ver P50 em ESTADO_ATUAL.md).
+function prDicaLoja(link,store,backendErro){
   const url=(link||"").toLowerCase();
+  if(url.includes("shein")||store==="shein"){
+    return `🩷 <strong>Shein</strong> não permite leitura automática do produto (a página não expõe os dados para leitura direta nem para nosso serviço de apoio). Preencha manualmente — o link de afiliado já foi gerado.${backendErro?`<br><small style="opacity:.65">Detalhe técnico: ${backendErro}</small>`:""}`;
+  }
   if(url.includes("shopee"))return "🟠 <strong>Shopee</strong> requer credenciais oficiais (App Key + App Secret) configuradas em Config Afiliados. Por enquanto, preencha manualmente.";
   if(url.includes("amazon"))return "🟡 <strong>Amazon</strong> requer integração com a PA-API (Access Key + Secret Key + Partner Tag). Por enquanto, preencha manualmente.";
   if(url.includes("aliexpress"))return "🔴 <strong>AliExpress</strong> requer credenciais da API de afiliados. Por enquanto, preencha manualmente.";
+  if(backendErro)return `ℹ️ Esta loja não retornou os dados automaticamente (${backendErro}). Preencha manualmente — o link de afiliado já foi gerado.`;
   return "ℹ️ Esta loja não retornou os dados automaticamente. Preencha manualmente — o link de afiliado já foi gerado.";
 }
 
@@ -8202,6 +8209,8 @@ async function prBuscarProduto(){
   const st=document.getElementById("prBuscarStatus");
   const btn=document.getElementById("prBtnBuscar");
   if(btn?.disabled){toast("Já buscando esse produto, aguarde…","⏳");return;}
+  const st2reset=document.getElementById("prStep2Alert");
+  if(st2reset){st2reset.style.display="none";st2reset.innerHTML="";}
   st.style.display="block";
   st.innerHTML='<div class="alert b" style="margin:0">🔍 Buscando dados do produto… <small style="opacity:.7">(máx 15s)</small></div>';
   btn.disabled=true;
@@ -8210,6 +8219,7 @@ async function prBuscarProduto(){
   let viaAPI=false;
   let storeDetected="outras";
   let commissionInfo=null;
+  let backendErro=""; // motivo real vindo do backend (d.error/d.motivo), nunca inventado no front
   PR.shortLinkAfil=null; // limpa link oficial de busca anterior (evita usar link de outro produto)
 
   try{
@@ -8236,6 +8246,9 @@ async function prBuscarProduto(){
       const d=await r.json();
       console.log("[product-search] resposta:",JSON.stringify(d));
       storeDetected=d.store||"outras";
+      if(!d.success){
+        backendErro=[d.motivo,d.error].filter(Boolean).join(" — ");
+      }
       if(d.success){
         produto.nome=(d.name||"").slice(0,120);
         produto.foto=d.image||"";
@@ -8272,11 +8285,17 @@ async function prBuscarProduto(){
     }else if(lojaDetect==="Mercado Livre"){
       dica=`🟡 <strong>Mercado Livre</strong> bloqueia a leitura automática de produtos (proteção antibot). <strong>Preencha o nome, preços e foto abaixo</strong> — seu link de afiliado já foi gerado e está pronto para postar. 💡 Dica: copie o nome e a foto direto da página do produto. Quer buscas automáticas mais confiáveis? <a href="#" onclick="setRole('afiliado');go('config-afiliados');return false">Conecte seu token do Scrape.do</a>.`;
     }else{
-      dica=prDicaLoja(link,storeDetected);
+      dica=prDicaLoja(link,storeDetected,backendErro);
     }
-    st.style.display="block";
-    st.innerHTML=`<div class="alert y" style="margin:12px 0 0">⚠️ ${dica}<br><small style="opacity:.7">✅ Link de afiliado: ${PR.linkAfil||"—"}</small></div>`;
-    setTimeout(()=>{if(st)st.style.display="none";},14000);
+    // O div de status do Passo 1 (prBuscarStatus) fica invisível assim que prPreencherStep2()
+    // troca a tela para o Passo 2 — por isso o alerta real precisa ir para dentro do Passo 2
+    // (prStep2Alert), que é o container que o usuário efetivamente está vendo.
+    st.style.display="none";
+    const st2=document.getElementById("prStep2Alert");
+    if(st2){
+      st2.style.display="block";
+      st2.innerHTML=`<div class="alert y" style="margin:0">⚠️ ${dica}<br><small style="opacity:.7">✅ Link de afiliado: ${PR.linkAfil||"—"}</small></div>`;
+    }
   }else if(viaAPI){
     // 🎉 Sucesso via API oficial — mostra dados extras (comissão, etc.)
     let msg="Produto encontrado via API oficial! ✨";
