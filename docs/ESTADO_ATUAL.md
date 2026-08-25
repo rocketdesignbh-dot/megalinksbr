@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 71 — 25/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 72 — 25/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,80 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 72 — 25/08/2026 — REVISÕES 70 e 71 CONFIRMADAS NO AR, POR MEDIÇÃO.
+E o Source do EasyPanel teve que sair de "Github" para "Git" — o token do
+painel expirou.**
+
+**O incidente do deploy.** O primeiro Deploy depois da REVISÃO 70 subiu só ela
+(o commit da 71 ainda não existia). O segundo Deploy falhou com:
+```
+Cannot find public repository and your Github token is invalid
+```
+Diagnóstico medido antes de mexer em qualquer coisa: `git ls-remote` **sem
+credencial nenhuma** contra o repo funcionou e devolveu `main = c867c1a` — ou
+seja, **o repo está público e acessível anonimamente**; o problema era só o
+token do GitHub guardado dentro do EasyPanel, que expirou (o PAT clássico da
+sessão continuava válido — os dois pushes passaram com ele).
+
+**Conserto (ação externa, feita pelo Érico no painel):** no serviço `app`, aba
+**Source**, trocado o tipo de **Github** (que depende do token guardado) para
+**Git** (clone direto por URL, sem autenticação):
+- Repository: `https://github.com/rocketdesignbh-dot/megalinksbr.git`
+- Branch: `main` · Build Path: `/frontend`
+- Card **Build** não foi tocado (segue Dockerfile / arquivo `Dockerfile`).
+
+**Consequência a lembrar:** como o repo é público, esse modo não precisa de
+token e essa classe de falha não volta. Em compensação, se o auto-deploy por
+webhook do GitHub dependia da conexão "Github" do EasyPanel, ele
+**provavelmente parou** — o que na prática não muda nada, porque o fluxo do
+projeto já era Deploy manual (ver "Auto-deploy / CI" no RESUMO histórico, que
+já registrava o auto-deploy como não confirmado). **Não medido** se o webhook
+ainda dispara.
+
+**MEDIÇÃO do que está no ar** (fetch com `cache:'no-store'` em
+`https://www.megalinksbr.com.br/painel/`, feito via navegador, não via status
+de build):
+
+| marcador | antes do 2º deploy | depois |
+|---|---|---|
+| tamanho do arquivo servido | 690.560 B | **694.767 B** |
+| `id="prStep2Alert"` (REV 70) | ✅ | ✅ |
+| `backendErro` (REV 70) | ✅ | ✅ |
+| `prDicaLoja(link,store,backendErro)` (REV 70) | ✅ | ✅ |
+| `cloneExtrairDoTexto` (REV 71) | ❌ | ✅ |
+| `function _cloneNum` (REV 71) | ❌ | ✅ |
+| `veioDoTexto` (REV 71) | ❌ | ✅ |
+| aviso "lendo a mensagem que você colou" (REV 71) | ❌ | ✅ |
+
+**Prova de comportamento, não só de presença:** a `cloneExtrairDoTexto` foi
+**executada dentro da página servida em produção** (console do navegador em
+`/painel/`), com 6 casos. Todos com o resultado pretendido, idênticos ao teste
+isolado em Node da REVISÃO 71:
+
+| caso | saída em produção |
+|---|---|
+| `De R$ 399 por R$ 249` | `AIR FRYER MONDIAL 4L` · 249 / 399 |
+| Shein, um preço só | `Balão Calça Jeans Masculina Denim Streetwear` · 129,90 |
+| preço + `frete grátis acima de R$ 79` | 249 (frete descartado) |
+| dois preços ambíguos | **recusa** — `price: null` |
+| CTA "CORRE QUE ACABA" na 1ª linha | pula o CTA, pega `Cafeteira Nespresso Inissia` |
+| `De R$ 100 por R$ 200` (invertido) | só 200, recusa o "original" |
+
+**O que continua NÃO medido** (não afirmar que funciona):
+- O alerta amarelo da REVISÃO 70 aparecendo **na tela** num fluxo real de
+  Postar Agora com link de Shein — o código está no ar e a função existe, mas
+  ninguém rodou o fluxo ponta a ponta ainda.
+- O Clone Post real ponta a ponta (colar mensagem → resolver → preview
+  preenchido → aprovar).
+- Se `prGerarLinkAfil` carimba o ID na Shein quando há credencial configurada
+  (buraco conhecido desde a REVISÃO 70).
+
+**Pendência de segurança criada nesta sessão:** o PAT clássico usado nos pushes
+foi colado no chat e deve ser **revogado e rotacionado** no GitHub. Não foi
+feito ainda.
+
+---
 
 **REVISÃO 71 — 25/08/2026 — Clone Post ganhou fallback que lê título e preço do
 TEXTO COLADO quando a loja não devolve os dados. Contorna a P44 pelo lado do
@@ -5345,6 +5419,9 @@ código não relacionado.
 
 | **P70** | 🟡 **Emoji no texto das telas do painel.** `Boa tarde ⚡`, `🚀 Postar Agora`, `⭐ MAIS POPULAR`, botões `⚡ PIX AVULSO` / `💳 Cartão` / `🔁 Pix recorrente`. Está na lista do que não fazer do brief, mas é **copy**, não token — ficou fora do escopo da REVISÃO 66 de propósito. Uma passada própria | 23/08 |
 | **P71** | 🔴 **A tipografia da REVISÃO 66 não foi vista por ninguém.** O sandbox não alcança o Google Fonts; tudo foi renderizado com fallback. Archivo e IBM Plex Sans/Mono só serão conferidas no navegador depois do Deploy. Sintoma de falha: painel com cara de Arial | 23/08 |
+| **P72** | 🔴 **O PAT clássico do GitHub usado nos pushes de 25/08 foi colado no chat e precisa ser REVOGADO e rotacionado.** Enquanto não for, qualquer pessoa com acesso ao histórico daquela conversa pode dar push no repo. Ação do Érico no GitHub → Settings → Developer settings → Personal access tokens | 25/08 |
+| **P73** | 🟡 **Auto-deploy por webhook do EasyPanel provavelmente parou.** Na REVISÃO 72 o Source do serviço `app` saiu de **Github** (token expirado) para **Git** (clone anônimo por URL, repo é público). Isso resolveu o build, mas se o webhook dependia da conexão "Github" do painel, ele não dispara mais. **Não medido.** Na prática o fluxo já era Deploy manual, então o impacto é baixo — mas convém confirmar em vez de supor | 25/08 |
+| **P74** | 🟡 **REVISÕES 70 e 71 estão no ar e medidas no ARQUIVO SERVIDO, mas o FLUXO ponta a ponta nunca foi rodado.** Falta: (a) Postar Agora com link de Shein → o alerta amarelo aparece mesmo na tela do Passo 2? (b) Clone Post com mensagem real de grupo → preview vem preenchido e o clone salva certo? (c) `prGerarLinkAfil` carimba o ID na Shein quando há credencial configurada? | 25/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
