@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 70 — 25/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 71 — 25/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,73 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 71 — 25/08/2026 — Clone Post ganhou fallback que lê título e preço do
+TEXTO COLADO quando a loja não devolve os dados. Contorna a P44 pelo lado do
+Clone Post (não pelo lado do Postar Agora).**
+
+Érico perguntou se, com a Shein sem leitura automática, a única saída seria o
+Clone Post. Fui ler o código antes de responder: **não seria** — o
+`cloneResolver()` chama a **mesma** `product-search` que já medimos que falha
+na Shein. O que o Clone Post faz de único é resolver o link e trocar o ID de
+afiliado da origem pelo do usuário (isso funciona na Shein, que já está no
+`MARKETPLACE_HOSTS` da `resolve-link`); título/preço/imagem vinham vazios
+igual ao Postar Agora.
+
+**A oportunidade que apareceu na leitura:** no Clone Post o usuário cola a
+**mensagem inteira do grupo de origem**, que já traz título e preço escritos
+ali em texto. O código ignorava isso completamente — só procurava o link
+dentro do texto. Érico autorizou implementar.
+
+**Conserto (commit `9b19570`):**
+1. Nova função `cloneExtrairDoTexto(texto)` + helper `_cloneNum(s)` (formato BR:
+   ponto = milhar, vírgula = decimal).
+2. `cloneResolver()` chama o fallback **depois** da `product-search` e preenche
+   **só o que ficou vazio** — dado vindo da loja nunca é sobrescrito, porque a
+   loja é a fonte melhor. Registra em `veioDoTexto` quais campos vieram do texto.
+3. O aviso amarelo do preview agora diz **quais** campos foram lidos do texto e
+   pede conferência explícita contra a página do produto (o texto do grupo de
+   origem pode estar errado ou desatualizado — risco real, assumido e avisado).
+
+**Disciplina anti-invenção aplicada** (mesma regra do preço da Shein/P32):
+- Preço só sai de padrão explícito: `de X por Y` (e **só** aceita o par se
+  `X > Y`), `por (apenas) R$ X`, ou **um único** valor em R$ no texto.
+- Antes de contar "valor único", descarta linhas com ruído conhecido
+  (frete/parcela/sem juros/acima de/mínimo/cupom/cashback/economize).
+- **Com dois ou mais valores ambíguos restantes, não chuta** — devolve vazio.
+- Título: primeira linha de conteúdo real (sem link, sem ser linha de preço,
+  ≥3 letras), com emoji/pontuação decorativa removidos das pontas e linhas de
+  CTA (corre/aproveite/clique/oferta/frete/cupom…) puladas.
+
+**MEDIDO** — extrator rodado isoladamente em Node contra 13 casos, todos com o
+resultado pretendido:
+
+| caso | resultado |
+|---|---|
+| `De R$ 399 por R$ 249` | título + 249 / 399 ✅ |
+| `De:` e `Por:` em linhas separadas | 179,90 / 299,90 ✅ |
+| um preço só (`R$ 89,90`) | 89,90, original vazio ✅ |
+| `Por apenas R$ 1.899,00` | 1899 ✅ |
+| preço + `frete grátis acima de R$ 79` | 249 (frete descartado) ✅ |
+| preço + `10x sem juros de R$ 249,90` | 2499 (parcela descartada) ✅ |
+| dois preços soltos genuinamente ambíguos | **recusa, vazio** ✅ |
+| CTA "CORRE QUE ACABA" na 1ª linha | pula CTA, pega o título real ✅ |
+| `De R$ 100 por R$ 200` (invertido/errado) | só 200, recusa o "original" ✅ |
+| sem preço nenhum | título ✅, preços vazios ✅ |
+
+**Não medido em produção ainda** — falta rebuild do EasyPanel e um teste real
+do Érico com mensagem de grupo de Shein. Também **não medido**: se
+`prGerarLinkAfil` carimba o ID na Shein quando há credencial configurada (o
+fallback genérico usa o primeiro campo preenchido como `?ref=`) — segue como
+buraco conhecido, ver Última alteração da REVISÃO 70.
+
+**O que isto NÃO resolve:** o Postar Agora continua sem leitura automática de
+Shein (lá não existe texto colado pra ler — só o link). A P44 segue aberta
+para AliExpress, Magalu, Natura e TerabyteShop no Postar Agora; o que mudou é
+que **no Clone Post** essas 5 lojas agora têm uma via de preenchimento
+automático que não depende de renderizar JavaScript.
+
+---
 
 **REVISÃO 70 — 25/08/2026 — o alerta de "leitura falhou, preencha manual" era
 ESCRITO NUM CONTAINER QUE JÁ ESTAVA OCULTO. Corrigido: alerta agora aparece
@@ -5247,7 +5314,7 @@ código não relacionado.
 | **P41** | 🟡 **Ser removido do grupo-fonte é o risco operacional do Clone Post, e hoje ninguém percebe.** O admin da "TáNaMão – Promoções #02" removeu o Érico do grupo em 03/08 — provavelmente por notar a clonagem. Do lado do painel isso é indistinguível de grupo parado: a fonte segue `active`, sem erro, sem aviso. Junta-se à **P39** (fonte em grupo onde a sessão não está): as duas terminam na mesma tela e pedem o mesmo remédio — **sinalizar no card a fonte que passou N dias sem nenhuma linha em `clone_ingest_log`**. Vale considerar também espaçar/limitar a clonagem por fonte, porque republicar rápido demais é o que denuncia | 04/08 |
 | **P42** | 🔴 **Provar a padronização da foto com imagem real.** O teste de 04/08 usou 6 imagens sintéticas geradas pelo próprio `sharp` — prova que o pipeline redimensiona, **não** que a foto de um anúncio real chega bonita no grupo. Depois do deploy: postar uma oferta de cada loja (Amazon `._AC_SL1500_`, Shopee, ML) e **olhar no WhatsApp**. Conferir também o log `[IMG] nao consegui padronizar` — se aparecer com frequência, alguma CDN está recusando o download do engine e os posts estão caindo no caminho antigo sem ninguém notar | 04/08 |
 | **P43** | 🟡 **O leitor de Amazon existe em DOIS arquivos.** `consultarAmazonDireto` e as cinco funções de que depende estão duplicadas na `clone-ingest` e na `product-search`. Foi decisão consciente em 04/08: extrair para módulo compartilhado exigiria reemitir os 72 KB da `clone-ingest`, que é a operação que a P36 adiou justamente por risco de transcrição. **Enquanto durar, mudança em uma tem que ser repetida na outra** — o aviso está escrito nos dois lugares. Unificar em sessão limpa, com as duas funções abertas lado a lado, e provar depois em ambos os caminhos (Postar Agora e captura automática) | 04/08 |
-| **P44** | 🔵 **PARTE 1/5 (Shein) FECHADA EM 25/08 (REVISÃO 69) — SEM LEITURA AUTOMÁTICA, POR DECISÃO TÉCNICA MEDIDA.** A v28 (leitor og:title/JSON-LD) devolvia dado errado com link real (título/imagem da HOME da Shein, não do produto — falso positivo). Causa lida em `query_logs`: a Shein serve a página de produto como SPA sem SSR de meta tag, e o fallback Microlink não executa o JS que monta a página — mesmo defeito de fundo da P25 (Shopee avulsa). `product-search` v29 (commit `8f64734`) reprova esse caso em vez de mentir sucesso, e a REVISÃO 69 mediu de novo: `{"success":false,"motivo":"leitura_falhou"}`, sem dado inventado. **Não há conserto barato** — ler de verdade exigiria renderizar JavaScript (Scrape.do com render ou equivalente), decisão de custo não tomada. Shein cai em "preencha manualmente" com mensagem própria. AliExpress, Magalu, Natura e TerabyteShop **restam abertas**, ainda sem nenhuma tentativa de leitor — a P44 original (as 5 lojas) não fecha aqui, só a parte da Shein | 04/08 |
+| **P44** | 🔵 **PARTE 1/5 (Shein) FECHADA EM 25/08 (REVISÃO 69) — SEM LEITURA AUTOMÁTICA, POR DECISÃO TÉCNICA MEDIDA.** A v28 (leitor og:title/JSON-LD) devolvia dado errado com link real (título/imagem da HOME da Shein, não do produto — falso positivo). Causa lida em `query_logs`: a Shein serve a página de produto como SPA sem SSR de meta tag, e o fallback Microlink não executa o JS que monta a página — mesmo defeito de fundo da P25 (Shopee avulsa). `product-search` v29 (commit `8f64734`) reprova esse caso em vez de mentir sucesso, e a REVISÃO 69 mediu de novo: `{"success":false,"motivo":"leitura_falhou"}`, sem dado inventado. **Não há conserto barato** — ler de verdade exigiria renderizar JavaScript (Scrape.do com render ou equivalente), decisão de custo não tomada. Shein cai em "preencha manualmente" com mensagem própria. AliExpress, Magalu, Natura e TerabyteShop **restam abertas**, ainda sem nenhuma tentativa de leitor — a P44 original (as 5 lojas) não fecha aqui, só a parte da Shein. **ATUALIZAÇÃO 25/08 (REVISÃO 71):** no **Clone Post** (não no Postar Agora) as 5 lojas passaram a ter preenchimento automático por outra via — `cloneExtrairDoTexto()` lê título e preço da mensagem colada do grupo de origem, sem depender de renderizar JS. Não fecha a P44 (o Postar Agora, que só tem o link, continua sem saída), mas reduz muito o impacto prático dela | 04/08 |
 
 | ~~P48~~ | ❌ **RETIRADA EM 07/08 — nunca foi real.** Aberta a partir de UMA rodada lida como estado permanente, num dia em que outras três já existiam. O La Roche foi carimbado (`07/08 06:00`) e o `pulados` das rodadas seguintes é 4, 4, 3 — o carimbo nos pulos funciona. Fica como registro do erro, não como pendência. ~~🟡 O ramo `desconhecido` do `product-refresh` não carimba `price_checked_at`.** Variante viva da P29, agora no outro ramo: o produto reenche a fila de antigos em toda rodada e ocupa vaga da `RESERVA_ANTIGOS`. Medido em 04/08 com o La Roche — **lido** (`? pagina de produto sem botao e sem outOfStock`) e **não carimbado**, parado em `30/07 14:16:02.187`, o carimbo mais antigo da base. Hoje custa 1 das 4 vagas; se mais páginas vierem nesse formato, come a reserva inteira e o backlog para de andar | 04/08 |
 | **P49** | 🟠 **O frontend não tem cache-busting.** Depois de cada Deploy, quem está logado continua rodando o bundle antigo por tempo indeterminado, sem nada na tela dizendo isso — é por isso que o Érico digita `?v=` na mão. Pior: **toda "prova no navegador" pode estar medindo o cache**. Em 04/08 isso quase reabriu a P46, que estava certa. Saídas: `?v=` gerado no build, ou header de cache no nginx | 04/08 |
