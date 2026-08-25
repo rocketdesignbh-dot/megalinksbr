@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 69 — 25/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 70 — 25/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,69 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 70 — 25/08/2026 — o alerta de "leitura falhou, preencha manual" era
+ESCRITO NUM CONTAINER QUE JÁ ESTAVA OCULTO. Corrigido: alerta agora aparece
+de fato no Passo 2, com o motivo real do backend em vez de chute por URL.**
+
+Érico reportou, depois do teste da v29 (REVISÃO 69): "Problema que não vi
+escrito como Alerta, para o usuario preencher manualmente". Investiguei o
+`frontend/index.html` e encontrei um bug real de DOM, não um problema de
+texto/copy:
+
+- `prBuscarProduto()` monta o alerta de falha dentro de `#prBuscarStatus`,
+  que vive dentro do card `#prStep1`.
+- Mas a chamada a `prPreencherStep2()` — que troca a tela pro `#prStep2` e
+  esconde o `#prStep1` — acontece **antes** do bloco que escreve o alerta.
+  Resultado: o alerta era escrito dentro de um container que a própria
+  função já tinha acabado de esconder. Nunca aparecia na tela, para
+  nenhuma loja, não só Shein. O `setTimeout` de 14s escondendo o alerta era
+  irrelevante — ele já estava invisível desde o instante em que era escrito.
+- Bug secundário (pré-existente, pendência **P50**): mesmo se o alerta
+  aparecesse, o texto vinha de `prDicaLoja(link, store)`, que **chuta o
+  motivo a partir da URL** (substring match) em vez de ler o `error`/`motivo`
+  real que o backend manda em `d.error`/`d.motivo`. Para Shein, isso caía no
+  texto genérico "Esta loja não retornou os dados automaticamente" — nunca
+  nomeava a Shein.
+
+**Conserto (commit `c7ca7c2`):**
+1. Novo `<div id="prStep2Alert">` dentro do card "2️⃣ Dados do produto" do
+   Passo 2 (`frontend/index.html`, dentro de `#prStep2 .cb`, antes do bloco
+   de foto) — este é o container que o usuário efetivamente vê depois da
+   troca de tela.
+2. `prBuscarProduto()` agora escreve o alerta de falha em `#prStep2Alert`
+   (não mais em `#prBuscarStatus`, que continua existindo só para os avisos
+   do Passo 1, ex: "buscando…", "loja detectada").
+3. `prBuscarProduto()` captura `d.motivo`/`d.error` da resposta do
+   `product-search` em uma variável `backendErro` e passa pra
+   `prDicaLoja(link, store, backendErro)`.
+4. `prDicaLoja()` ganhou um branch específico pra Shein (nomeia a loja
+   explicitamente) e, pra qualquer outra loja sem branch dedicado, agora
+   anexa o `backendErro` real ao texto genérico em vez de inventar/omitir.
+5. O alerta do Passo 2 fica visível até a próxima busca (não some sozinho
+   depois de N segundos) — é limpo no início de toda nova chamada a
+   `prBuscarProduto()`.
+
+**Sobre o link encurtado com ID do afiliado** (segundo pedido de Érico no
+mesmo recado): confirmado por leitura de código que isso **já funciona
+independente de sucesso/falha da leitura** — `prPreencherStep2()` roda
+`PR.linkAfil = PR.shortLinkAfil || prGerarLinkAfil(link, PR.loja)` seguido de
+`mlEncurtarLink(...)` incondicionalmente, e isso já apareceu correto no
+próprio print que Érico mandou (`.../r/b33sdbm`) mesmo com a leitura
+automática falhando. **Não medido** o caso extremo: usuário sem nenhuma
+credencial/ID configurado pra Shein em Config Afiliados — nesse caso
+`prGerarLinkAfil()` cai no fallback genérico que devolve o link **sem**
+`ref` nenhum (não gera link "quebrado", mas também não fica com o ID
+carimbado). Não é regressão desta sessão; é comportamento pré-existente do
+fallback genérico, não verificado especificamente pra Shein.
+
+**Não testado em produção ainda** (sandbox não tem acesso de rede pra
+simular o clique real, e a mudança é só frontend — não precisa de redeploy
+de Edge Function, só rebuild do EasyPanel). Pendente: Érico rodar o rebuild
+no EasyPanel e repetir o teste com o mesmo link da Shein pra confirmar que o
+alerta amarelo aparece de fato no Passo 2 com o texto novo.
+
+---
 
 **REVISÃO 69 — 25/08/2026 — a v29 da Shein foi MEDIDA: agora falha limpo em
 vez de mentir sucesso. P44 parte 1 fecha como "sem leitura automática viável
@@ -5188,7 +5251,7 @@ código não relacionado.
 
 | ~~P48~~ | ❌ **RETIRADA EM 07/08 — nunca foi real.** Aberta a partir de UMA rodada lida como estado permanente, num dia em que outras três já existiam. O La Roche foi carimbado (`07/08 06:00`) e o `pulados` das rodadas seguintes é 4, 4, 3 — o carimbo nos pulos funciona. Fica como registro do erro, não como pendência. ~~🟡 O ramo `desconhecido` do `product-refresh` não carimba `price_checked_at`.** Variante viva da P29, agora no outro ramo: o produto reenche a fila de antigos em toda rodada e ocupa vaga da `RESERVA_ANTIGOS`. Medido em 04/08 com o La Roche — **lido** (`? pagina de produto sem botao e sem outOfStock`) e **não carimbado**, parado em `30/07 14:16:02.187`, o carimbo mais antigo da base. Hoje custa 1 das 4 vagas; se mais páginas vierem nesse formato, come a reserva inteira e o backlog para de andar | 04/08 |
 | **P49** | 🟠 **O frontend não tem cache-busting.** Depois de cada Deploy, quem está logado continua rodando o bundle antigo por tempo indeterminado, sem nada na tela dizendo isso — é por isso que o Érico digita `?v=` na mão. Pior: **toda "prova no navegador" pode estar medindo o cache**. Em 04/08 isso quase reabriu a P46, que estava certa. Saídas: `?v=` gerado no build, ou header de cache no nginx | 04/08 |
-| **P50** | 🟡 **A tela inventa o motivo do erro em vez de ler o do servidor.** `prBuscarProduto` (linha 7891) ignora `d.error` e monta a explicação a partir da URL — por isso o Érico, que **tem** App Key e App Secret, recebeu "Shopee requer credenciais oficiais" quando o defeito era o formato do link. A `product-search` v27 já devolve `motivo` em campo próprio (`credenciais_incompletas` · `link_nao_reconhecido` · `loja_sem_integracao`) e a lista do que falta. Falta a tela consumir isso, com botão para Config Afiliados. **Mensagem já aprovada pelo Érico em 07/08.** Exige push | 07/08 |
+| **P50** | 🔵 **PARCIALMENTE FECHADA EM 25/08 (REVISÃO 70).** `prBuscarProduto` agora captura `d.motivo`/`d.error` do backend numa variável `backendErro` e repassa pra `prDicaLoja(link, store, backendErro)`, que anexa esse texto real ao invés de só chutar pela URL (branch dedicado pra Shein incluído). Ainda falta: usar `backendErro` para os casos que já têm branch fixo (Shopee/Amazon/AliExpress/Mercado Livre) — hoje esses continuam com texto fixo, ignorando o `motivo` específico do backend quando ele existir; e não há botão direto pra Config Afiliados no alerta novo. Ligado à mesma REVISÃO 70: o alerta em si não aparecia na tela por um bug de DOM separado (ver Última alteração) — sem esse conserto, a mensagem certa não adiantava nada por ser invisível | 07/08 |
 | **P51** | 🟠 **Duas contas com `connected = true` e credencial inútil.** **duas contas de clientes** (identificadas na consulta, não nomeadas aqui — este repo é público, e é a mesma preocupação da P7) têm `App Key` e `App Secret` **vazios** em `affiliate_credentials`, só o `ID de Afiliado` preenchido (medido em 04/08). Para elas a busca automática de Shopee falha sempre e o painel diz que está tudo certo. O `connected` está medindo "a linha existe", não "dá para usar" — o padrão de sempre: mecanismo que parece existir e não executa nada | 07/08 |
 | ~~P52~~ | ❌ **RETIRADA EM 07/08 — nunca foi real.** Os relógios batem: sandbox `07/08 10:46:34`, banco `07/08 10:46:35`, Érico "10:45". O que não batia era um carimbo de log de sexta comparado com uma leitura de banco de terça, dentro da mesma conversa, tratadas as duas como "agora". ~~🔴 Os relógios do log e do banco não batem.~~ Ao converter os carimbos de `get_logs` para conferir a hora de uma chamada, a data saiu com **dias** de diferença do `now()` do Postgres. Não afeta medição de versão/status, mas **afeta qualquer medição por janela de tempo** — inclusive a leitura do `[pre-filtro]` da P36. **Resolver ANTES de qualquer prova que dependa de intervalo** | 04/08 |
 
