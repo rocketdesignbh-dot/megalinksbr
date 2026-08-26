@@ -2225,6 +2225,7 @@ async function loadGroups(){
       smartSchedule:!!r.smart_schedule,
       smartWeekend:!!r.smart_weekend,
       validadeDias:r.default_validity_days??null,
+      loopEnabled:!!r.loop_enabled,
     }));
     // ─── Buscar contagens reais de grupos WA, canais e produtos vinculados ───
     try{
@@ -5059,7 +5060,7 @@ geral:`
   <div class="g2">
     <div class="card" style="margin:0"><div class="ch">⚙️ Postagem automática</div><div class="cb">
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:10px"><input type="checkbox" id="pgAuto" style="width:auto"> Post Automático</label>
-      <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgLoop" style="width:auto"> Post em Loop <small style="color:var(--mut);font-weight:400">(reinicia a lista ao fim)</small></label>
+      <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgLoop" style="width:auto"> Post em Loop <small style="color:var(--mut);font-weight:400">(ordem aleatória a cada disparo — desmarcado posta na ordem em que os produtos foram cadastrados)</small></label>
       <div style="border:1px solid var(--bd);border-radius:2px;padding:11px 12px;margin-bottom:14px;background:rgba(139,92,246,.07)">
         <label style="display:flex;gap:9px;align-items:center;font-weight:600"><input type="checkbox" id="pgSmart" style="width:auto" onchange="pgSmartAplicar()"> 🧠 Horários Inteligentes <span class="pill" style="background:rgba(139,92,246,.18);color:#A78BFA;flex:none;font-size:10px;padding:1px 7px">ELITE+</span></label>
         <div style="font-size:12px;color:var(--tx2);margin-top:7px;line-height:1.65">Posta só nas janelas de maior audiência, dividindo seus produtos entre elas. <strong>Substitui intervalo e horário.</strong><br>${SMART_JANELAS.map(j=>j.rot).join(" · ")} <small style="color:var(--mut)">(a última é a melhor)</small><br>Até ${SMART_MAX_DIA} posts/dia, no mínimo ${SMART_PISO_MIN} min entre um e outro. O que não couber hoje entra amanhã.</div>
@@ -5534,6 +5535,8 @@ function buildTabs(){
     const g=S.grupoAtual;if(!g)return;
     const pgAuto=document.getElementById("pgAuto");
     if(pgAuto)pgAuto.checked=!!g.postAuto;
+    const pgLoop=document.getElementById("pgLoop");
+    if(pgLoop)pgLoop.checked=!!g.loopEnabled;
     const pgInt=document.getElementById("pgInt");
     if(pgInt&&g.intervalo){const mins=String(g.intervalo).replace(/\D/g,"");const opt=[...pgInt.options].find(o=>o.value===mins);if(opt)pgInt.value=mins;}
     const pgIni=document.getElementById("pgIni");
@@ -5609,6 +5612,7 @@ async function salvarGeral(){
   // basta ler. A trava de verdade é a do send-post, que confere o plano.
   g.smartSchedule=!!document.getElementById("pgSmart")?.checked&&smartTemPlano();
   g.smartWeekend=!!document.getElementById("pgSmartFds")?.checked;
+  g.loopEnabled=!!document.getElementById("pgLoop")?.checked;
   g.defaultCouponId=document.getElementById("pgCupomPadrao")?.value||null;
   const validadeSel=document.getElementById("pgValidade")?.value||"";
   g.validadeDias=validadeSel?Number(validadeSel):null;
@@ -5645,6 +5649,7 @@ async function salvarGeral(){
         end_hour:g.endHour,
         smart_schedule:!!g.smartSchedule,
         smart_weekend:!!g.smartWeekend,
+        loop_enabled:!!g.loopEnabled,
         default_coupon_id:g.defaultCouponId||null,
         default_validity_days:g.validadeDias||null,
       }).eq("id",g.db_id);
@@ -5662,7 +5667,7 @@ async function salvarGeral(){
 function pgResetGeral(){
   if(!confirm("Limpar todas as configurações deste grupo?"))return;
   const g=S.grupoAtual;
-  g.postAuto=false;g.intervalo="10 min";g.startHour=8;g.endHour=22;
+  g.postAuto=false;g.intervalo="10 min";g.startHour=8;g.endHour=22;g.loopEnabled=false;
   buildTabs();
   toast("Configurações limpas.","🗑️");
 }
