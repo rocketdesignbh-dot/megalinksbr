@@ -11665,12 +11665,18 @@ async function mrUpload(force){
   mrProgresso({ stage: 'enviando' });
 
   const fd = new FormData();
-  fd.append('file', file);
+  // ORDEM IMPORTA, e nao e estilo. O mr-ingest le `fields` DENTRO do evento
+  // `file` do Busboy, e o Busboy entrega as partes do multipart na ordem em que
+  // elas chegam no corpo da requisicao. Com o arquivo em primeiro lugar,
+  // connectionId e store ainda nao foram lidos quando o handler roda, e o
+  // servidor responde 400 "ownerId, connectionId e store sao obrigatorios" —
+  // medido em producao em 26/08. Os campos vao ANTES do arquivo.
   // ownerId NAO vai: para chamada de usuario o servidor usa o dono do token e
   // ignora o do formulario. Mandar daqui so daria a ilusao de que decide algo.
   fd.append('connectionId', conn.id);
   fd.append('store', conn.store);
   if(force) fd.append('force', '1');
+  fd.append('file', file);
 
   try{
     const res  = await fetch(`${MR_INGEST_URL}/import`, {
