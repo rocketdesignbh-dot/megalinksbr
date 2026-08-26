@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 78 — 26/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 79 — 26/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,54 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 79 — 26/08/2026 — ✅ P80 FECHADA NA TELA. O Mega Results está
+funcionando ponta a ponta em produção, sem nenhuma injeção.**
+
+### A prova, no navegador logado do Érico
+
+Deploy do `app` feito; medido no `index.html` **servido pelo domínio**:
+`mrAcompanhar` presente e chamada, `await mrStream(body.importId` **ausente**,
+campos antes do arquivo. Página recarregada, código limpo do servidor.
+
+Importação do mesmo `WebsiteClickReport202608260015.csv`: a tela abriu o
+**card "⚠️ Este arquivo já foi importado"**, com a data **26/08/2026**, o texto
+explicando que nada foi duplicado, e os botões *Importar mesmo assim* /
+*Cancelar*. **Console limpo.**
+
+Isso fecha as três camadas de uma vez: o `POST` autenticou (P78), os campos
+chegaram (P79), e o resultado apareceu na tela (P80) — sem o SSE, lendo
+`import_batch`.
+
+### O placar da noite — três defeitos encadeados, nenhum deles óbvio
+
+| # | defeito | onde estava | como foi achado |
+|---|---|---|---|
+| 1 | `<` e `>` em volta dos segredos | Environment do EasyPanel | **medindo** o campo (tamanho, 1º e último caractere) — nenhum log diria isso |
+| 2 | arquivo antes dos campos no multipart | `frontend/index.html` | o erro **mudou de forma** (500 → 400) quando o 1 foi consertado |
+| 3 | SSE não atravessa o proxy | `frontend/index.html` | instrumentar o `fetch` + controle com id inexistente (425 ms vs. pendente) |
+
+**Cada um escondia o próximo.** É o padrão que este documento já registrou
+outras vezes: o erro que muda de forma é sinal de progresso, não de fracasso.
+
+### ⚠️ Pendências que esta sessão deixa
+
+- **P74 — a tela de métricas continua não existindo.** Agora existe dado real
+  (40 cliques) e a Edge Function `mega-results` está pronta e ativa desde 08/08,
+  sem chamador. É o que falta para o módulo cumprir o que a própria aba promete.
+- **P75 — falta um relatório grande.** 40 linhas não exercitam nem um lote
+  (`BATCH_SIZE` 5000).
+- **🔴 Um relatório de cliques foi commitado por engano em
+  `frontend/WebsiteClickReport202608260015.csv`, e o repo é PÚBLICO.** Conteúdo
+  de baixo risco (id de clique, data, região, referenciador — sem dado pessoal),
+  mas **apagar**. Fica no histórico do git mesmo depois.
+- **O `mr_expire_queue`** — reconferir se ainda dá 401 agora que a chave e o
+  `MR_INGEST_TOKEN` estão corretos.
+- **Push continua manual.** O sandbox de nuvem não empurra para este repo, e a
+  liberação exige plano Team/Enterprise. O fluxo desta sessão foi: commit local,
+  arquivo entregue ao Érico, upload pelo GitHub web, Deploy pelo EasyPanel.
+
+---
 
 **REVISÃO 78 — 26/08/2026 — P79 NO AR E MEDIDA EM PRODUÇÃO. E o terceiro
 defeito da noite apareceu logo atrás: o SSE de progresso NÃO atravessa o proxy
@@ -5891,7 +5939,8 @@ código não relacionado.
 | ~~P76~~ | ✅ **RESPONDIDA 26/08 (REVISÃO 74) — e virou a P78.** O `mr-ingest` responde, mas com a `SUPABASE_SERVICE_ROLE_KEY` inválida: 500 "Nao foi possivel verificar sua sessao" medido na tentativa real do Érico, com o `/auth/v1/user` 401 no mesmo minuto no `query_logs`. Ver REVISÃO 74 | 26/08 |
 | ~~P78~~ | ✅ **FECHADA 26/08 (REVISÃO 77) — MEDIDA EM PRODUÇÃO.** A causa final não era qual chave, era **como ela estava colada**: `SUPABASE_SERVICE_ROLE_KEY` e `MR_INGEST_TOKEN` estavam no Environment do EasyPanel envolvidos em `<` e `>` (a notação de "preencha aqui" do README veio junto). Medido no campo: 219 e 64 caracteres sem as bordas — os tamanhos exatos da `service_role` legada e de um `openssl rand -hex 32`. Removidos os sinais, a autenticação passou e o erro mudou para o 400 da P79. Prova final: `WebsiteClickReport202608260015.csv` importado `completed`, 40/40 linhas, 40 linhas em `fact_click`. Registro anterior abaixo. ~~🟡 **CAUSA ISOLADA POR EXPERIMENTO EM 26/08 (REVISÃO 76) — falta só colar a chave certa e dar Deploy.** A chave que o `mr-ingest` precisa é a **`service_role` LEGADA** (JWT `eyJ…`, 219 chars, aba "Legacy anon, service_role API keys" do Dashboard), **não** a `sb_secret_…` nova que está lá hoje. Medido no navegador do Érico chamando `POST /rest/v1/rpc/mr_expire_queue` com cada uma: legada **200** (corpo `0`), a atual recusada com `Invalid API key`. Prova depois do Deploy: log do `mr-ingest` sem `SUPABASE_SERVICE_ROLE_KEY parece invalida`, e o 401-por-minuto de `mr_expire_queue` virando 200 no `query_logs`. Node 22 já confirmado no build de 03:33. Registro original abaixo. ~~🔴 **`SUPABASE_SERVICE_ROLE_KEY` do serviço `mr-ingest` no EasyPanel está inválida — bloqueia toda importação real.** Medido em produção: tentativa real do Érico com `WebsiteClickReport…csv` devolveu 500 "Nao foi possivel verificar sua sessao"; `query_logs` do mesmo minuto confirma `GET /auth/v1/user` 401. Ação: conferir a chave em Supabase → Settings → API, corrigir no Environment do `mr-ingest` no EasyPanel, Deploy manual (não é automático), reimportar para confirmar. **Junto:** há uma chamada a `public.mr_expire_queue` toda a cada minuto recebendo 401 desde antes do teste do Érico — não localizada em nenhum arquivo deste repo nem em `cron.job` do Postgres; suspeita de processo/container órfão do `mr-ingest` usando a mesma chave quebrada. Ver REVISÃO 74~~ | 26/08 |
 | ~~P79~~ | ✅ **FECHADA 26/08 (REVISÃO 78) — NO AR E MEDIDA.** Deploy do `app` às 04:43 UTC; o `index.html` servido pelo domínio traz os campos antes do arquivo. Duas tentativas reais do Érico chegaram ao `DUPLICATE_FILE`, que só é alcançável depois de autenticação, trava do piloto, campos e checksum. Registro original abaixo. ~~🔴 **CORRIGIDA NO REPO, NÃO DEPLOYADA — ordem dos campos do multipart no upload do Mega Results.** O `frontend/index.html` mandava `fd.append('file', …)` **antes** de `connectionId` e `store`; o `mr-ingest` lê `fields` dentro do handler do arquivo (`src/server.js` linha 161) e o Busboy entrega as partes na ordem do corpo, então os dois campos chegavam vazios e a resposta era 400 `ownerId, connectionId e store sao obrigatorios`. Consertado no repo (campos antes do arquivo). **Provado por comportamento ANTES do deploy**, com a função corrigida injetada na sessão logada do Érico: a importação completou com 40/40 linhas. **Falta push + Deploy do `app`** — sem isso, um F5 desfaz e a tela volta a falhar. ⚠️ Fica em aberto endurecer o backend para não depender da ordem do cliente | 26/08 |
-| **P80** | 🟡 **CORRIGIDA NO REPO E PROVADA EM BANCADA — FALTA PUSH + DEPLOY. O SSE de progresso não atravessa o proxy do EasyPanel.** `GET /import/:id/stream` fica pendente para sempre quando o lote existe; com id inexistente responde em 425 ms (o servidor fecha a conexão nesse caminho). A tela ficava em "Enviando arquivo…" mesmo com a importação concluída. Conserto: `mrAcompanhar()` lê `megaresults.import_batch` a cada 1,5 s em vez de depender do stream — a fonte durável, como o próprio `mr-ingest` documenta. Três estados renderizados contra lotes reais. **Falta**: upload do `index.html`, Deploy do `app` e uma importação real para fechar. ⚠️ Alternativa de servidor, não feita: `X-Accel-Buffering: no` no `mr-ingest` (exige Deploy próprio dele) | 26/08 |
+| ~~P80~~ | ✅ **FECHADA 26/08 (REVISÃO 79) — NO AR E MEDIDA NA TELA.** Com o Deploy, a importação do mesmo arquivo abriu o card "⚠️ Este arquivo já foi importado" com a data, console limpo. Arquivo servido confere: `mrAcompanhar` chamada, `mrStream` fora do fluxo. Registro original abaixo. ~~🟡 **CORRIGIDA NO REPO E PROVADA EM BANCADA — FALTA PUSH + DEPLOY. O SSE de progresso não atravessa o proxy do EasyPanel.** `GET /import/:id/stream` fica pendente para sempre quando o lote existe; com id inexistente responde em 425 ms (o servidor fecha a conexão nesse caminho). A tela ficava em "Enviando arquivo…" mesmo com a importação concluída. Conserto: `mrAcompanhar()` lê `megaresults.import_batch` a cada 1,5 s em vez de depender do stream — a fonte durável, como o próprio `mr-ingest` documenta. Três estados renderizados contra lotes reais. **Falta**: upload do `index.html`, Deploy do `app` e uma importação real para fechar. ⚠️ Alternativa de servidor, não feita: `X-Accel-Buffering: no` no `mr-ingest` (exige Deploy próprio dele) | 26/08 |
+| **P81** | 🔴 **Relatório de cliques commitado por engano em repo PÚBLICO:** `frontend/WebsiteClickReport202608260015.csv`, no commit `26e05c5` de 26/08. Conteúdo de baixo risco (ID do clique, data, região "Brazil", Sub_id, referenciador — sem dado pessoal de terceiro), mas é dado comercial e o repo é aberto. **Apagar do `main`**; permanece no histórico do git de qualquer forma. Reescrever histórico não se justifica pelo conteúdo | 26/08 |
 | **P77** | 🔵 **Só Shopee tem `field_mapping` em `megaresults`.** Se o Érico quiser importar relatório de outra loja (Mercado Livre, Amazon, etc.), falta cadastrar o mapeamento de campos dela antes — sem isso `mrLoadStores()` nem oferece a opção na tela | 26/08 |
 | **P74** | 🟡 **REVISÕES 70 e 71 estão no ar e medidas no ARQUIVO SERVIDO, mas o FLUXO ponta a ponta nunca foi rodado.** Falta: (a) Postar Agora com link de Shein → o alerta amarelo aparece mesmo na tela do Passo 2? (b) Clone Post com mensagem real de grupo → preview vem preenchido e o clone salva certo? (c) `prGerarLinkAfil` carimba o ID na Shein quando há credencial configurada? | 25/08 |
 
