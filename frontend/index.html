@@ -2766,6 +2766,13 @@ function go(page){
   if(page==="cupons")setTimeout(()=>{if(typeof loadCuponsPage==="function")loadCuponsPage();},120);
   if(page==="clone-post")setTimeout(()=>{if(typeof cloneAbrirPagina==="function")cloneAbrirPagina();},120);
   if(page==="post-automatico")setTimeout(()=>{if(typeof SB!=="undefined"&&SB&&CURRENT_USER?.id)loadPostAutomatico();},120);
+  // Hook: ao entrar no Mega Results, inicializa (P83, 26/08). Antes só um
+  // addEventListener('click', mrInit) direto no item de menu chamava isto —
+  // funcionava ao clicar, mas ficava mudo em URL direta, F5 e Voltar/Avançar,
+  // porque nenhum desses caminhos passa pelo clique: todos chamam go() sem
+  // disparar o listener. O hook aqui cobre os quatro caminhos de uma vez, como
+  // já é o padrão das outras abas (analitico, clone-post, post-automatico…).
+  if(page==="mega-results")setTimeout(()=>{if(typeof mrInit==="function")mrInit();},120);
   // Hook: ao entrar em Assinatura, re-renderiza com dados frescos do plano
   if(page==="assinatura")setTimeout(()=>renderPlans(),80);
   if(page==="adm-seo")setTimeout(()=>renderSeoMarketing(),50);
@@ -12039,7 +12046,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.querySelectorAll('#mrPerBtns [data-preset]').forEach(b=>{
     b.addEventListener('click', ()=> mrMetricsLoad(b.dataset.preset));
   });
-  document.querySelector('[data-page="mega-results"]')?.addEventListener('click', mrInit);
+  // O clique no menu não chama mrInit() diretamente mais (P83, 26/08): virou
+  // hook dentro de go(), que cobre clique, URL direta, F5 e Voltar/Avançar de
+  // uma vez. Ver o hook "page==='mega-results'" perto do fim de go().
 });
 </script>
 <img src="https://tracker.metricool.com/c3po.jpg?hash=44f262a1022a6b3e770377853802b39a" style="display:none" alt=""/>

@@ -30,6 +30,13 @@
 > código da sessão, **e incrementar o número da REVISÃO lá em cima**. Um push de
 > código sem atualizar este arquivo é um push incompleto.
 >
+> **Exceção, decidida pelo Érico em 26/08 (REVISÃO 86):** não atualizar este
+> arquivo depois de cada mudança pequena dentro de uma sessão — o volume de
+> trabalho é grande e cada write custa tempo. Só atualizar quando a sessão
+> estiver ficando longa (várias mudanças acumuladas) ou quando o Érico pedir
+> explicitamente. Múltiplas mudanças da mesma sessão podem virar uma única
+> entrada de revisão no fim.
+>
 > **Regra de ouro do projeto:** *status 200 não é prova, número de versão não é
 > prova.* O que prova é comportamento observável. Não escreva nada aqui que não
 > tenha sido medido.
