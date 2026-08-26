@@ -3099,13 +3099,12 @@ Depois de ler o guia do cookbook, duas coisas foram aplicadas à landing:
 acontecendo, não enfeite) e **profundidade sem gradiente colorido** (réguas
 verticais de 1px com máscara, papel milimetrado).
 
-### 🟡 Conflito encontrado no caminho — `clone_sources_max` do Pro
+### ~~🟡 Conflito encontrado no caminho~~ — `clone_sources_max` do Pro — FECHADO (P66, 26/08)
 
-O `PLAN_FALLBACK` do `index.html` diz **`pro: clone_sources_max: 1`** e
-`clone_post: true`. A tabela de Planos deste arquivo diz **Pro = 0 fontes de
-clone**. Os dois não podem estar certos. A tabela de planos da landing foi
-escrita a partir do **código**, que é o que o usuário efetivamente recebe. Fica
-aberto como **P66**.
+O `PLAN_FALLBACK` do `index.html` dizia **`pro: clone_sources_max: 1`** e
+`clone_post: true`; a tabela de Planos deste arquivo dizia **Pro = 0 fontes de
+clone**. Conferido contra o banco de produção (`plan_features`), não só o
+código: o banco confirma 1. O erro era só nesta tabela — corrigido.
 
 ---
 
@@ -5912,7 +5911,7 @@ antigos; hoje é **Premium**).
 |---|---|---|---|---|
 | Grupos | 1 | 3 | 8 | 20 |
 | Produtos | 15 | 50 | 150 | 300 |
-| Fontes de clone (`clone_sources_max`) | 0 | 0 | 3 | 10 |
+| Fontes de clone (`clone_sources_max`) | 0 | 1 | 3 | 10 |
 | Marketplaces (Radar / Postar Agora) | todos | todos | todos | todos |
 | Post Automático | só Shopee | todos | todos | todos |
 
@@ -6293,7 +6292,7 @@ código não relacionado.
 | ~~P64~~ | ✅ **FECHADA 22/08 (REVISÃO 55), MEDIDA ANTES E DEPOIS.** Provado em transação com rollback que um usuário comum logado alterava `whatsapp_instances` de **outro** usuário pelas duas RPC; migration `p64_fecha_rpc_definer_sem_checagem` revogou o `EXECUTE` de `anon`/`authenticated` nelas (chamador único de cada uma é gatilho `SECURITY DEFINER` de dono `postgres`) e pôs `where public.is_admin()` na `influencer_monthly_performance`, que segue chamável pelo painel. Remedido: `permission denied` nas duas, e 1 linha para admin contra 0 para usuário comum com resgate injetado. ⚠️ **Falta abrir o `revops.html` logado e ver o painel de influenciadores desenhando.** Registro original abaixo. ~~🟠 **Três funções `SECURITY DEFINER` executáveis por `authenticated` sem nenhuma checagem de identidade no corpo:** `influencer_monthly_performance`, `mark_whatsapp_activity(p_user_id)` e `recalc_whatsapp_idle_state(p_user_id)` — as duas últimas aceitam `user_id` alheio. ⚠️ **Triado por busca de texto** (`is_admin`/`auth.uid()` no `pg_get_functiondef`), **não por leitura linha a linha** — a leitura ainda falta, e o mesmo método pode ter dado falso positivo nas 18 que passaram | 22/08~~ | 22/08 |
 | **P65** | 🔵 **AS DUAS DE CÓDIGO FECHADAS; A TERCEIRA ESTÁ BLOQUEADA POR PLANO (REVISÃO 61).** A extensão `http` (que era SSRF, não higiene) foi removida e as 7 funções ganharam `search_path` — advisor: 7→0 e 1→0. **A proteção contra senha vazada exige plano Pro; o controle está travado com selo de upgrade e o Érico decidiu em 22/08 adiar até haver upgrade.** Fica como item do checklist do upgrade, não como tarefa a redescobrir. Enquanto isso, senha já vazada em outro site é aceita no cadastro. Registro anterior abaixo. ~~🟡 **DUAS DE TRÊS FECHADAS EM 23/08 (REVISÃO 58) — e a primeira não era higiene.** A extensão `http` no `public` deixava `anon` chamar `http_get` pelo PostgREST: **medido 200 com o corpo da página buscada, e 404 depois do `drop extension http`** — SSRF, não lint. Nada usava a extensão (varredura em `pg_proc` e no repo); o `drop` foi sem `CASCADE` de propósito. As 7 funções sem `search_path` foram fixadas e conferidas rodando (todas `SECURITY INVOKER`, então era endurecimento, não escalada). Advisor: `function_search_path_mutable` 7→0, `extension_in_public` 1→0. ⚠️ **Falta só a proteção contra senha vazada no Supabase Auth — ação externa, botão no Dashboard.** Registro original abaixo. ~~🔵 **Higiene do lint do Supabase, sem exploração conhecida:** 7 funções com `search_path` mutável, extensão `http` no schema `public` e **proteção contra senha vazada desligada** no Auth (esta é ação externa, no Dashboard) | 22/08~~ | 22/08~~ | 22/08 |
 
-| **P66** | 🟡 **`clone_sources_max` do Pro: o código e este arquivo discordam.** O `PLAN_FALLBACK` do `index.html` diz `pro: clone_sources_max: 1, clone_post: true`; a tabela de Planos deste arquivo diz Pro = 0 fontes de clone. A tabela da landing foi escrita a partir do código. Decidir qual é a verdade e alinhar os dois | 23/08 |
+| ~~P66~~ | ✅ **FECHADA 26/08 — conferido contra o banco de produção (`plan_features`), não só o código.** `select plan, clone_post, clone_auto, clone_sources_max from plan_features` devolveu Pro = `clone_post:true, clone_auto:true, clone_sources_max:1` — bate com o `PLAN_FALLBACK` do `index.html`. O erro era só na tabela de Planos deste arquivo (dizia Pro=0); corrigida para 1 | 26/08 |
 | **P67** | 🟡 **NO AR E MEDIDO LOGADO (REVISÃO 65).** Landing, roteamento, Voltar/Avançar/F5, console limpo e cabeçalhos — todos provados no navegador do Érico, na sessão real. **Falta ainda, e só o Érico pode fazer:** clicar num link de recuperação de senha de e-mail de verdade, entrar uma vez com o Google, e conferir em iOS Safari. Registro anterior abaixo. ~~🔴 O redesign da REVISÃO 63 não está em produção~~ | 23/08 |
 | **P68** | 🔵 **`boas-vindas-pc.png` e `boas-vindas-cel.png` (2,8 MB) não são mais referenciados por ninguém**, mas continuam no repo e no `COPY` do `frontend/Dockerfile`. Limpeza opcional | 23/08 |
 | **P69** | 🔵 **Site URL / Redirect URLs do Supabase continuam apontando para a raiz.** Funciona porque a landing encaminha para `/painel`, mas apontar direto para `/painel` elimina um salto. Ação externa, no Dashboard | 23/08 |
