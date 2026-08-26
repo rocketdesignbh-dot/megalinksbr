@@ -2885,12 +2885,17 @@ async function loadAnalitico(){
     const el=n=>document.getElementById("kpi_"+n.replace(/\s/g,"_"));
     const eld=n=>document.getElementById("kpid_"+n.replace(/\s/g,"_"));
     if(!e1&&el("Cliques hoje")){el("Cliques hoje").textContent=(cliqHoje||0).toLocaleString("pt-BR");eld("Cliques hoje").textContent="cliques gerados hoje";}
-    // Posts enviados (hoje)
-    const hoje=new Date().toISOString().slice(0,10);
+    // Posts enviados (hoje) — P47: mesmo defeito de fuso da P45 (ver csDiaBR
+    // acima). "hoje" era UTC; entre 21:00 e 00:00 BRT o UTC ja tinha virado o
+    // dia, entao o filtro so contava posts enviados nas ultimas horas da noite
+    // e o KPI desabava para quase zero num dia cheio. csDiaBR() da o dia certo
+    // em America/Sao_Paulo, e o limite vira meia-noite BRT (=03:00 UTC, sem
+    // horario de verao desde 2019) em vez de meia-noite UTC.
+    const hoje=csDiaBR(new Date());
     const{data:postsData,error:e2}=await SB.from("scheduled_posts")
       .select("id",{count:"exact",head:true})
       .eq("user_id",uid).eq("status","sent")
-      .gte("sent_at",hoje+"T00:00:00Z");
+      .gte("sent_at",hoje+"T03:00:00Z");
     if(!e2&&el("Posts enviados")){el("Posts enviados").textContent=(postsData||0).toLocaleString("pt-BR");eld("Posts enviados").textContent="posts disparados hoje";}
     if(el("Comissões estimadas")){el("Comissões estimadas").textContent="em breve";eld("Comissões estimadas").textContent="integração futura";}
     if(el("CTR médio")){el("CTR médio").textContent="—";eld("CTR médio").textContent="dados insuficientes";}
@@ -10189,11 +10194,16 @@ async function prDisparar(){
   if(!PR.gruposSel.size){toast("Selecione ao menos um grupo de oferta.","⚠️");return;}
   const nenhumDestino=!PR.destinos.grupos&&!PR.destinos.canais&&!PR.destinos.telegram;
   if(nenhumDestino){toast("Selecione ao menos um destino (Grupos WA, Canais WA ou Telegram).","⚠️");return;}
-  // Starter: limite de 5 posts manuais/dia
+  // Starter: limite de 5 posts manuais/dia — P47: mesmo defeito de fuso da
+  // P45/P47-Analitico acima. Com "hoje" em UTC, entre 21:00 e 00:00 BRT o UTC
+  // ja tinha virado o dia e a contagem "zerava" — um usuario Starter que ja
+  // tinha batido o teto conseguia postar de novo nessas ~3h por noite. csDiaBR()
+  // da o dia certo em America/Sao_Paulo; o limite vira meia-noite BRT (=03:00
+  // UTC, sem horario de verao desde 2019) em vez de meia-noite UTC.
   if(MY_PLAN==="starter"&&CURRENT_USER?.id){
-    const hoje=new Date().toISOString().slice(0,10);
+    const hoje=csDiaBR(new Date());
     const{count}=await SB.from("scheduled_posts").select("id",{count:"exact",head:true})
-      .eq("user_id",CURRENT_USER.id).eq("is_manual",true).gte("sent_at",hoje+"T00:00:00Z");
+      .eq("user_id",CURRENT_USER.id).eq("is_manual",true).gte("sent_at",hoje+"T03:00:00Z");
     if((count||0)>=5){
       toast("Limite de 5 posts manuais/dia atingido no Starter. Faça upgrade para postar mais! 🚀","🔒");
       setTimeout(()=>go("assinatura"),1500);
