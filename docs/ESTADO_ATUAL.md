@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 72 — 25/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 78 — 26/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,443 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 78 — 26/08/2026 — P79 NO AR E MEDIDA EM PRODUÇÃO. E o terceiro
+defeito da noite apareceu logo atrás: o SSE de progresso NÃO atravessa o proxy
+do EasyPanel. A tela passa a ler o banco.**
+
+### ✅ P79 no ar — medido no arquivo servido e por comportamento
+
+O conserto da ordem do multipart foi para o `main` e o `app` recebeu Deploy
+(04:43 UTC). Medido no `index.html` **servido pelo domínio**, com bust de cache:
+comentário novo presente, `connectionId`/`store` **antes** do `fd.append('file')`,
+e a ordem antiga ausente.
+
+Duas tentativas reais do Érico, com o código deployado e **sem nenhuma injeção**:
+`import_batch` `failed · DUPLICATE_FILE: Este arquivo ja foi importado em
+26/08/2026`, às 01:44:58 e 01:48:18 (BRT). **Chegar ao DUPLICATE_FILE é a prova
+de que passou por tudo:** autenticação, `mr_habilitado`, campos do formulário,
+leitura e checksum do arquivo. Antes do conserto parava no 400.
+
+### 🔴 P80 — o `GET /import/:id/stream` nunca responde (proxy engole SSE)
+
+Medido no navegador logado, com as chamadas instrumentadas:
+
+```
+progresso {stage: enviando}
+-> POST /import
+<- 202 /import              331 ms   ✅
+-> GET /import/<id>/stream
+   (sem resposta — pendente após 20 s)
+```
+
+**Controle negativo decisivo, na mesma sessão:** o mesmo endpoint com um
+`importId` **inexistente** responde em **425 ms**, `content-type:
+text/event-stream`, corpo `data: {"stage":"unknown"}`. A diferença entre os dois
+caminhos está no servidor: no id desconhecido ele faz `res.end()` na hora
+(`server.js` linha 321); no id válido ele escreve o primeiro evento e **mantém a
+conexão aberta**. Ou seja: **a resposta só atravessa o proxy quando a conexão
+fecha.** SSE de conexão aberta é bufferizado no meio do caminho.
+
+Sintoma para o usuário: a barra fica em *"Enviando arquivo…"* para sempre,
+**mesmo com a importação já concluída no banco**. Foi exatamente o que o Érico
+viu três vezes seguidas, e o que fez parecer que "não funcionou" quando tinha
+funcionado.
+
+### ✅ O conserto — ler a fonte durável, não o stream
+
+`mrAcompanhar(importId)` substitui o `mrStream` no fluxo: consulta
+`megaresults.import_batch` a cada 1,5 s (teto de 5 min) até o `status` sair de
+`parsing`, e renderiza o estado final. **A escolha não é contornar por preguiça:**
+o próprio `mr-ingest` documenta que o `PROGRESS` é memória efêmera e que *"o
+estado durável vive em megaresults.import_batch"* (`server.js` linha 127). A tela
+estava lendo a fonte errada.
+
+`mrStream` **fica no arquivo, sem chamador**, com aviso — se o proxy for
+ajustado (ou o serviço ganhar `X-Accel-Buffering: no`), ela volta a servir para
+progresso granular.
+
+### O que foi medido do conserto, antes de subir
+
+`node --check` limpo nos 5 blocos inline. E os três estados renderizados na
+página real, chamando `mrAcompanhar` contra lotes de verdade do banco:
+
+| lote | o que a tela mostrou |
+|---|---|
+| `failed` · `UNKNOWN_NETWORK` | *"Falhou: Nao reconhecemos este formato…"* |
+| `failed` · `DUPLICATE_FILE` | **card próprio** aberto, com a data, barra escondida |
+| `completed` (o de 40 linhas) | *"Concluído — 40 linhas válidas de 40 · 40 novas…"* |
+
+⚠️ **O que NÃO foi exercitado:** o fluxo inteiro de uma ponta a outra com o
+`mrAcompanhar` já ligado ao `mrUpload` — o teste foi barrado pelo sandbox. A
+fiação entre os dois é uma linha (`await mrAcompanhar(body.importId)`), e o
+`POST` já está medido em 331 ms, mas **isso é dedução, não medição**. A prova
+fecha com uma importação real depois do Deploy.
+
+---
+
+**REVISÃO 77 — 26/08/2026 — 🎉 O MEGA RESULTS IMPORTOU UM RELATÓRIO REAL PELA
+PRIMEIRA VEZ. Duas causas, uma atrás da outra: `< >` colados junto com os
+segredos, e a ordem dos campos do multipart. P78 FECHA. Código do frontend
+corrigido no repo, PENDENTE DE PUSH E DEPLOY.**
+
+### ✅ A prova — lida no banco, não na tela
+
+```
+import_batch  WebsiteClickReport202608260015.csv
+  status      completed
+  dataset     click        (detectado sozinho — os anteriores eram transaction)
+  rows_total  40
+  rows_valid  40
+  erro        nenhum
+```
+
+E o dado chegou ao fato, não só ao lote: **40 linhas em `megaresults.fact_click`**
+com o `import_id` do lote, cobrindo de **19/08 00:07** a **24/08 20:56** (horário
+de São Paulo). `rollup_dirty` com 5 dias na fila — o cron
+`megaresults-refresh-rollups` (`*/5 * * * *`) agrega em seguida.
+
+Antes disto a base tinha **1 linha** em `fact_transaction` e **zero** clique
+importado. As 9 importações anteriores eram todas o mesmo arquivo de teste de 1
+linha.
+
+### 🔴 Causa 1 — os segredos estavam com `<` e `>` em volta (fecha a P78)
+
+Lido diretamente no Environment do `mr-ingest` no EasyPanel, pelo navegador do
+Érico:
+
+| variável | 1º char | último char | tamanho sem as bordas |
+|---|---|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | `<` | `>` | **219** — exatamente a `service_role` legada |
+| `MR_INGEST_TOKEN` | `<` | `>` | **64** — exatamente um `openssl rand -hex 32` |
+
+**A chave certa sempre esteve lá, embrulhada.** O Supabase recebia
+`<eyJhbGci…>` e respondia `Invalid API key`, com razão.
+
+**De onde veio:** o `mr-ingest/README.md` documenta o passo como
+`SUPABASE_SERVICE_ROLE_KEY=<copiar do painel do Supabase → Settings → API>` e
+`MR_INGEST_TOKEN=<gerar: openssl rand -hex 32>`. Os sinais são notação de
+"preencha aqui" e vieram junto na hora de colar. ⚠️ **O `MR_INGEST_TOKEN`
+estava quebrado pelo mesmo motivo** — qualquer chamada de serviço a `/import`
+falharia; ninguém percebeu porque ninguém usa esse caminho hoje.
+
+⚠️ **Isto custou quatro rodadas de diagnóstico**, e a lição é aproveitável:
+nenhum log consegue dizer *"seu valor tem um caractere a mais"* — o
+`Invalid API key` é idêntico para chave errada, chave revogada e chave
+embrulhada. **O que resolveu foi MEDIR o campo (tamanho, primeiro e último
+caractere) em vez de olhar para ele.** Vale para qualquer segredo daqui em
+diante.
+
+### 🔴 Causa 2 — a ordem dos campos do multipart (bug de código, novo)
+
+Com a chave consertada o erro **mudou de forma**, que é o sinal de que uma
+camada foi vencida: de `500 "Nao foi possivel verificar sua sessao"` para
+`400 "ownerId, connectionId e store sao obrigatorios"` — resposta que só existe
+**depois** de o token ser aceito.
+
+O `mr-ingest` lê `fields` **dentro** do handler do arquivo (`src/server.js`
+linha 161), e o Busboy entrega as partes do multipart **na ordem em que elas
+chegam no corpo**. O frontend montava assim:
+
+```js
+fd.append('file', file);          // <- arquivo PRIMEIRO
+fd.append('connectionId', conn.id);
+fd.append('store', conn.store);
+```
+
+Quando o handler do arquivo roda, `connectionId` e `store` **ainda não
+chegaram**. Daí a tela mostrar a conexão selecionada e o servidor jurar que ela
+não veio.
+
+**Conserto (`frontend/index.html`):** os campos passam a ser adicionados
+**antes** do arquivo, com o comentário explicando o porquê para ninguém
+"arrumar" de volta. Nenhuma outra linha tocada.
+
+⚠️ **O backend continua dependendo da ordem do cliente.** Não foi mexido por
+escopo estrito, mas fica registrado: um `mr-ingest` robusto não confiaria nisso
+(esperar o `close` do Busboy, ou exigir os campos antes explicitamente).
+
+**A prova aconteceu ANTES do deploy:** a função corrigida foi injetada na
+página, no navegador logado do Érico, e a importação que vinha falhando
+completou — os 40 cliques acima. Comportamento observável, produção real,
+arquivo real.
+
+### ⚠️ O que fica pendente
+
+1. **O conserto do frontend NÃO está em produção.** Está no repo (P79) e
+   depende de push + Deploy do `app`. Enquanto isso a aba do Érico só importa
+   com a correção injetada — **um F5 desfaz**.
+2. **O push segue bloqueado nesta sessão** (o proxy recusa este repo). As
+   revisões 73–77 estão commitadas localmente e foram entregues como `.patch`.
+3. **A tela de métricas continua não existindo** (P74) — mas agora existe dado
+   real para ela mostrar, o que muda a prioridade dela.
+4. **O `mr_expire_queue`**: o EasyPanel tem **três** serviços e nenhum
+   duplicado (`app`, `mr-ingest`, `wa-engine`), e o `mr-ingest` builda de
+   `main` / Build Path `/mr-ingest` — o mesmo código deste repo. Ainda assim
+   havia uma chamada por minuto, cravada no segundo `:00`, que não existe em
+   nenhum arquivo. **Com a chave e o token agora corretos, reconferir se ainda
+   dá 401** — pode ter se resolvido junto.
+
+---
+
+**REVISÃO 76 — 26/08/2026 — CAUSA RAIZ ISOLADA POR EXPERIMENTO. A chave certa
+para o `mr-ingest` é a `service_role` LEGADA (JWT `eyJ…`), não a `sb_secret_…`
+nova. Medido chamando o Supabase com cada uma.**
+
+### O experimento — feito no navegador do Érico, contra o projeto real
+
+Aberto o Dashboard do Supabase (`Settings → API Keys`) na sessão logada dele e
+disparada, do próprio navegador, a MESMA chamada que vinha falhando —
+`POST /rest/v1/rpc/mr_expire_queue` — usando a **`service_role` legada**
+revelada na aba "Legacy anon, service_role API keys":
+
+| chave usada | `POST /rest/v1/rpc/mr_expire_queue` |
+|---|---|
+| **`service_role` legada** (JWT, 219 caracteres, começa em `eyJ`) | **HTTP 200**, corpo `0` |
+| `sb_secret_…` (a que está no EasyPanel hoje) | **recusada** — é a que produz `Invalid API key` no log do `mr-ingest` |
+
+**Isto é comportamento observável, não dedução:** a mesma função, o mesmo
+projeto, o mesmo endpoint, mudando só a credencial. A legada passa; a nova não.
+
+`mr_expire_queue` foi escolhida de propósito para o teste: é exatamente a
+função que vinha aparecendo **401 a cada minuto** no `query_logs` desde antes
+de qualquer mexida desta sessão. Com a chave legada ela responde 200.
+
+### Por que a chave nova não serve aqui
+
+O `mr-ingest` usa `@supabase/supabase-js` com a chave em `apikey` +
+`Authorization: Bearer`, e o caminho que mais importa é o
+`db().auth.getUser(token)` do `authorize()`. As chaves novas
+(`sb_publishable_` / `sb_secret_`) são um esquema diferente do JWT legado, e
+neste projeto **o par legado continua ativo** (o Dashboard ainda oferece
+"Disable legacy API keys", ou seja, não foi desligado). A `anon` legada segue
+em uso pelo painel — o `mr-ingest` precisa da **`service_role` legada**, o par
+dela.
+
+### O conserto — um campo, um Deploy
+
+No EasyPanel, serviço **`mr-ingest`** → Environment →
+`SUPABASE_SERVICE_ROLE_KEY` = a chave da aba **"Legacy anon, service_role API
+keys"**, linha **`service_role` `secret`**, botão **Reveal** (é um JWT longo,
+219 caracteres, começando em `eyJhbGci…`). **Não** a `sb_secret_…`. Salvar e
+**Deploy**.
+
+### As duas provas que fecham a P78, depois do Deploy
+
+1. **O log do `mr-ingest` para de escrever** `SUPABASE_SERVICE_ROLE_KEY parece
+   invalida`.
+2. **O 401 por minuto em `mr_expire_queue` vira 200** no `query_logs` — é o
+   sinal mais barato e não depende de ninguém abrir tela.
+
+E só então a importação de um relatório real prova a P75.
+
+### ⚠️ Achado de lado, não resolvido: quem chama `mr_expire_queue` por minuto
+
+A chamada de minuto em minuto **não existe em nenhum arquivo deste repo**
+(procurada em `mr-ingest/src`, `wa-engine`, e em `cron.job` do Postgres — não
+está em nenhum dos três) e **sobreviveu a dois rebuilds do `mr-ingest`**. Ou a
+produção está rodando uma versão do `mr-ingest` mais nova que o repo (com um
+`setInterval` que aqui não existe), ou há um segundo processo/serviço no
+EasyPanel usando a mesma credencial. **Não medido** — fica registrado porque um
+timer que ninguém acha no código é exatamente o tipo de coisa que este projeto
+já pagou caro para descobrir tarde.
+
+---
+
+**REVISÃO 75 — 26/08/2026 — sem código. O Érico trocou a chave no Environment
+e o log revelou DOIS problemas, não um: a chave nova ainda é recusada, E o
+container está rodando Node 20, não o Node 22 que o Dockerfile já pede.**
+
+### Log real depois da troca da `SUPABASE_SERVICE_ROLE_KEY`
+
+```
+⚠️ Node.js 20 and below are deprecated…
+[mr-ingest] falha ao validar token de usuario: Node.js detected but native WebSocket not found.
+[mr-ingest] SUPABASE_SERVICE_ROLE_KEY parece invalida — o Supabase recusou NOSSA chave: Invalid API key
+```
+
+### 🔴 Problema 1 — o container não rebuildou: continua em Node 20
+
+O `mr-ingest/Dockerfile` já está em `FROM node:22-slim` há um tempo (o
+comentário do próprio arquivo registra que essa troca resolveu exatamente este
+erro de WebSocket, num incidente anterior). O log de agora mostra Node
+avisando sobre depreciação de "Node.js 20 e abaixo" e o `auth.getUser()`
+lançando `native WebSocket not found` — sintoma exclusivo de runtime **abaixo**
+do 22. **Conclusão: trocar a variável de ambiente no EasyPanel reiniciou o
+container, mas não refez o build** — a imagem em execução é anterior ao
+Dockerfile atual do repo. Isso by itself já quebraria toda importação de
+usuário logado (o `catch` desse erro devolve 401 "unauthorized", não o 500 da
+chave), **independente da chave estar certa ou não**.
+
+### 🔴 Problema 2 — a chave nova também está sendo recusada
+
+`Invalid API key` é a resposta literal do Supabase para a chave que o
+`mr-ingest` está usando agora, depois da troca. Não dá para saber pelo log **o
+que** exatamente foi colado, mas as causas mais comuns são: espaço ou quebra de
+linha extra ao colar, ou ter copiado um valor diferente do que o Supabase
+chama de **service_role key** hoje (o projeto tem tanto a chave legada em JWT
+quanto o par novo publishable/secret — `get_publishable_keys` confirma que a
+`anon` legada **ainda está ativa**, então a `service_role` legada também deve
+estar).
+
+### O que falta — dois passos, nesta ordem, e é ação do Érico no EasyPanel
+
+1. **Fazer um Deploy de verdade (rebuild), não só salvar a env var** — no
+   EasyPanel, no serviço `mr-ingest`, usar o botão de Deploy/rebuild para que
+   ele puxe o Dockerfile atual do repo (Node 22). Confirmar depois pelo log de
+   boot: **sem** o aviso de depreciação do Node 20.
+2. **Só depois** reconferir a `SUPABASE_SERVICE_ROLE_KEY`: copiar de novo do
+   Supabase (Settings → API → service_role, ou o card equivalente na tela
+   nova de chaves), colar sem espaço/quebra de linha extra, salvar, e essa
+   troca específica de env var pode precisar de Deploy de novo para pegar —
+   **não presumir que só salvar reinicia com o valor novo aplicado**.
+
+Enquanto o Node continuar em 20, o problema 2 não pode ser confirmado de
+verdade: o erro de WebSocket já derruba a validação de token antes de a chave
+ser testada a fundo pelo caminho do usuário logado — só o log
+`SUPABASE_SERVICE_ROLE_KEY parece invalida` (que é outro caminho, chamado
+direto pela função) prova que a chave em si também está errada agora.
+
+---
+
+**REVISÃO 74 — 26/08/2026 — sem código, MEDIDO EM PRODUÇÃO. P76 confirmada:
+achado o motivo exato do 500 que o Érico bateu ao tentar importar de verdade.
+`SUPABASE_SERVICE_ROLE_KEY` do `mr-ingest` está inválida.**
+
+### A prova — a mensagem de erro aponta para a própria causa, e o log bate
+
+O Érico tentou importar `WebsiteClickReport20260826xxxx.csv` pela conexão
+"Shopee - Conta Ana Luiza" e recebeu, na tela: **"Falhou: Nao foi possivel
+verificar sua sessao."** e, no console do navegador, `Failed to load resource:
+… 500` em `…mr-ingest…/import`.
+
+Essa frase existe em **um lugar só do código**: `mr-ingest/src/server.js`
+linha 114, dentro do `catch` que distingue "token do usuário é ruim" (401) de
+"a NOSSA `SUPABASE_SERVICE_ROLE_KEY` morreu" (500) — o comentário do próprio
+arquivo já registrava que isso **aconteceu antes, em 11/08**. Não é inferência
+a partir da mensagem: é a `query_logs` confirmando, no mesmo minuto do print
+(03:17:25 UTC), **`GET 401 https://…supabase.co/auth/v1/user | node`** — a
+chamada que o `authorize()` faz para validar o token do usuário, recusada
+porque quem está inválida é a chave de serviço do próprio `mr-ingest`, não o
+token dele.
+
+### E o mesmo sintoma está rodando em loop, todo minuto, desde antes disso
+
+`query_logs` (edge_logs) mostra **`POST 401 …/rest/v1/rpc/mr_expire_queue |
+node`** uma vez por minuto, ininterrupto, pelo menos desde 02:50 UTC até
+agora. `mr_expire_queue` é `public`, `SECURITY DEFINER`, `EXECUTE` só para
+`service_role` desde a migration de segurança de 22/08 (REVISÃO 54) — **antes
+disso, `authenticated` também executava, o que mascarava uma chave errada**.
+⚠️ **Não localizado neste código quem chama isso a cada minuto** — não está em
+`mr-ingest/src` (procurado em todos os arquivos), não está em `wa-engine`, não
+está em nenhum `cron.job` do Postgres. É provavelmente um processo à parte (um
+worker antigo, talvez uma revisão anterior do `mr-ingest` ainda rodando em
+paralelo) usando a mesma credencial quebrada. **Fica para o Érico confirmar no
+EasyPanel se há mais de um serviço/processo do `mr-ingest` no ar.**
+
+### O que isso significa, e o que não significa
+
+**Não é bug de código.** O `authorize()` já foi escrito para não confundir os
+dois casos, e é exatamente essa distinção que produziu a mensagem certa em vez
+de um 401 genérico culpando o usuário. **É uma credencial (`SUPABASE_SERVICE_ROLE_KEY`
+do serviço `mr-ingest` no EasyPanel) inválida, expirada ou trocada** — o mesmo
+padrão de falha já documentado no código como tendo ocorrido em 11/08.
+
+### O que falta, e é ação externa (EasyPanel + Supabase Dashboard)
+
+1. Conferir a `SUPABASE_SERVICE_ROLE_KEY` atual em Supabase → Settings → API.
+2. Comparar com o valor configurado no serviço `mr-ingest` no EasyPanel
+   (Environment).
+3. Se divergir (ou se a chave tiver sido regenerada em algum momento — o
+   projeto passou por várias correções de segurança entre 22/08 e 25/08),
+   colar a chave certa e fazer **Deploy manual** do `mr-ingest` (não entra no
+   auto-deploy).
+4. Reconferir importando o mesmo `WebsiteClickReport…csv` de novo.
+5. Descobrir e desligar o processo que chama `mr_expire_queue` a cada minuto
+   com a chave errada — ele está gerando ruído de 401 há pelo menos meia hora
+   contínua no log do Supabase.
+
+Isto **substitui e fecha a incerteza da P76** (que só pedia "confirmar se o
+`mr-ingest` responde") — ele responde, mas com a credencial errada. Ver P78.
+
+---
+
+**REVISÃO 73 — 26/08/2026 — sem código. Auditoria do Mega Results pedida pelo
+Érico: o módulo tem metade construída e não documentada, e a outra metade
+nunca foi ligada a nada.**
+
+### O que foi lido (não adivinhado) nesta sessão
+
+Clone do repo por `git clone` com PAT fornecido na sessão (`ghp_…`, não salvo
+em memória), leitura de `frontend/index.html` (aba `page-mega-results` e o
+bloco `<script>` "MEGA RESULTS"), das 13 migrations `megaresults_*`, do
+`mr-ingest/README.md`, e consulta direta ao Supabase (`execute_sql`,
+`list_edge_functions`, `get_edge_function`) no projeto `nxlfezpagporealqqbfj`.
+**Sem acesso de rede deste sandbox** a `megalinksbr.com.br`,
+`megalinksbr-wa-engine…` nem `megalinksbr-mr-ingest…` (egress bloqueado) — o
+que segue não inclui nenhuma leitura de `/health` ao vivo.
+
+### 🔴 Achado principal: existe uma Edge Function `mega-results` (dashboard),
+### deployada, e o frontend nunca a chama — e o ESTADO_ATUAL nunca a citou
+
+`list_edge_functions` mostra `mega-results` **ACTIVE, version 8**,
+`verify_jwt: true`, criada em 08/08 e atualizada em 08/08. O código
+(`get_edge_function`) é uma API de métricas completa: `POST
+/mega-results/metrics/query`, lê `megaresults.rollup_daily` (nunca
+`fact_transaction` direto — comentário no próprio arquivo explica por quê),
+resolve período por preset ou `from/to`, compara com o período anterior de
+mesmo tamanho, calcula `conversion_rate`/`epc`/`aov`/`roi` com `null` honesto
+em vez de zero quando não dá para calcular, monta série diária sem buracos e
+breakdown por `store`/`campaign`/`category`/`product` com rótulo. Também
+respeita a trava de piloto (`mr_habilitado`) antes de qualquer consulta.
+
+**Nada disso aparece na tela.** `grep` em `frontend/index.html` por
+`rollup_daily`, `mrDash`, `mrKpi`, `mrChart`, `dim_product`, `dim_merchant`,
+`saved_report`, `share_link` e `goal` — **zero ocorrências**. O bloco
+`<script>` "MEGA RESULTS" (11.568–11.774) só implementa três cards: **Conexão**
+(criar/listar `connection`), **Importar relatório** (upload para o
+`mr-ingest`, barra de progresso via SSE) e **Importações recentes** (lista de
+`import_batch`). Não existe um único elemento de KPI, gráfico ou tabela de
+métricas — a promessa do próprio subtítulo da aba, *"acompanhe comissões,
+pedidos e conversão"*, não tem UI nenhuma por trás.
+
+**Isto explica por que a REVISÃO 44 pôde provar "o Mega Results aparece em
+produção" olhando só a existência da `<section>`:** a aba carrega, mas carrega
+uma tela de importação de arquivo. Não há como acompanhar comissão nenhuma
+hoje, mesmo com dado importado.
+
+### O que foi medido no banco (não no código) — dado real, não teste de bancada
+
+| | valor |
+|---|---|
+| `megaresults.pilot_access` | **1 linha** — só o Érico, `enabled=true`, nota "piloto interno — dono do produto" |
+| `plan_features.mr_enabled` | **false nas 4 linhas** (starter/pro/elite/premium) — por desenho, ninguém entra pelo plano hoje |
+| `megaresults.connection` | **3 linhas**, todas do Érico, todas `store='shopee'`, criadas entre 08/08 e 11/08 |
+| `megaresults.field_mapping` (lojas mapeadas) | **só `shopee`, 52 linhas** — nenhuma outra loja tem mapeamento, então `mrLoadStores()` nunca vai oferecer Mercado Livre/Amazon/etc. na tela |
+| `megaresults.import_batch` | **9 linhas**, todas do mesmo arquivo `shopee-commission-202608021606.csv`, entre 08/08 e 11/08 — a mais recente é de **15 dias atrás** |
+| `megaresults.fact_transaction` (view particionada) | **1 linha no total** |
+
+Ou seja: o pipeline de importação já foi exercitado e funciona ponta a ponta
+para **um arquivo de teste de 1 linha**, três vezes, com dedupe (`DUPLICATE_FILE`)
+pego corretamente numa das tentativas. **Nunca** foi testado com um relatório
+real de tamanho real — o desenho promete streaming para "centenas de milhares
+de linhas" (`mr-ingest/README.md`), e isso segue sem nenhuma medição.
+
+### O que está codado e não sei se ainda está no ar
+
+O `mr-ingest` **não entra no auto-deploy** (aprendizado registrado desde a
+REVISÃO 57) — exige Deploy manual próprio no EasyPanel. A última confirmação
+de que ele respondia no domínio real é da REVISÃO 60/62 (22/08, CORS por
+lista, `sharp` 0.35.3). Desde então houve o redesign do painel (REVISÃO 63–66)
+e a troca do Source do serviço `app` de "Github" para "Git" por token expirado
+(REVISÃO 72, virou a P73) — **nenhuma das duas mexeu no `mr-ingest` por
+desenho**, mas também ninguém voltou a abrir a aba Mega Results logado desde
+22/08 para confirmar que a tela de importação ainda fala com o serviço. Sem
+acesso de rede neste sandbox para checar `/health` agora.
+
+### O que fica pendente (ver P74, P75, P76 abaixo)
+
+---
 
 **REVISÃO 72 — 25/08/2026 — REVISÕES 70 e 71 CONFIRMADAS NO AR, POR MEDIÇÃO.
 E o Source do EasyPanel teve que sair de "Github" para "Git" — o token do
@@ -5127,6 +5564,34 @@ Captura ofertas de grupos-fonte de terceiros e replica nos grupos do usuário.
   sessão é dono de alguma fonte ativa; a lista vem da action `jids`. Sessão sem fonte
   (a admin, hoje) não disputa mais a mensagem com o dono.
 
+### Mega Results — piloto fechado (auditado 26/08 · REVISÕES 73–77)
+
+Importação de relatório de afiliado + dashboard de métricas. **Metade construída,
+metade nunca ligada** — ver "Última alteração" da REVISÃO 73 para a auditoria
+completa.
+
+- **Frontend (`page-mega-results`):** só a importação existe — Conexão, Importar
+  relatório (upload + progresso SSE), Importações recentes. **Não existe tela de
+  métricas.**
+- **Backend de importação:** `mr-ingest` (serviço Node no EasyPanel, streaming
+  CSV/XLSX → `megaresults.import_batch`/`fact_transaction`). **Não entra no
+  auto-deploy**, exige Deploy manual. Última confirmação de estar no ar: REVISÃO
+  60/62 (22/08).
+- **Backend de métricas:** Edge Function `mega-results` (`ACTIVE`, version 8, desde
+  08/08) — API completa (`POST /metrics/query`, totais, série diária, comparação
+  de período, breakdown por dimensão), lê `megaresults.rollup_daily`. **Nunca
+  citada neste doc antes da REVISÃO 73 e nunca chamada pelo frontend.**
+- **Acesso:** piloto por `megaresults.pilot_access` (1 linha, só o Érico); nenhum
+  plano tem `mr_enabled=true` — por desenho (migration 13, 10/08).
+- **Dado real no banco (26/08, depois da primeira importação de verdade):** 4
+  conexões (todas Shopee); 10 importações, sendo **1 relatório real** —
+  `WebsiteClickReport202608260015.csv`, `completed`, **40/40 linhas**, gravadas
+  em `megaresults.fact_click` (19–24/08). As outras 9 são o mesmo arquivo de
+  teste de 1 linha. `fact_transaction` segue com 1 linha. Só `shopee` tem
+  `field_mapping` — nenhuma outra loja importa hoje.
+- ⚠️ **O upload só funciona com o conserto da P79 aplicado.** Ele está no repo e
+  **não** em produção: até o Deploy do `app`, a tela falha com 400.
+
 ### Sessão admin do WhatsApp — `…73545214`
 
 `/health` do engine reporta **4 sessões**; `whatsapp_instances` conhece **3**. O
@@ -5421,6 +5886,13 @@ código não relacionado.
 | **P71** | 🔴 **A tipografia da REVISÃO 66 não foi vista por ninguém.** O sandbox não alcança o Google Fonts; tudo foi renderizado com fallback. Archivo e IBM Plex Sans/Mono só serão conferidas no navegador depois do Deploy. Sintoma de falha: painel com cara de Arial | 23/08 |
 | **P72** | 🔴 **O PAT clássico do GitHub usado nos pushes de 25/08 foi colado no chat e precisa ser REVOGADO e rotacionado.** Enquanto não for, qualquer pessoa com acesso ao histórico daquela conversa pode dar push no repo. Ação do Érico no GitHub → Settings → Developer settings → Personal access tokens | 25/08 |
 | **P73** | 🟡 **Auto-deploy por webhook do EasyPanel provavelmente parou.** Na REVISÃO 72 o Source do serviço `app` saiu de **Github** (token expirado) para **Git** (clone anônimo por URL, repo é público). Isso resolveu o build, mas se o webhook dependia da conexão "Github" do painel, ele não dispara mais. **Não medido.** Na prática o fluxo já era Deploy manual, então o impacto é baixo — mas convém confirmar em vez de supor | 25/08 |
+| **P74** | 🔴 **O Mega Results não tem tela de métricas — só tem tela de importação.** A Edge Function `mega-results` (dashboard completo: totais, série diária, comparação de período, breakdown) está `ACTIVE` desde 08/08 e **nunca foi chamada pelo frontend**. Decisão do Érico: construir a tela de dashboard (cards de KPI + gráfico + breakdown, consumindo `POST mega-results/metrics/query`), ou decidir que o piloto por enquanto é só validar a importação e adiar o dashboard de propósito. Ver auditoria da REVISÃO 73 | 26/08 |
+| **P75** | 🟢 **PARCIALMENTE FECHADA 26/08 (REVISÃO 77).** Um relatório real foi importado ponta a ponta: `WebsiteClickReport202608260015.csv`, dataset `click` detectado sozinho, **40/40 linhas válidas**, 40 linhas gravadas em `megaresults.fact_click` cobrindo 19–24/08. ⚠️ **Continua sem prova o que o desenho promete**: streaming de centenas de milhares de linhas. 40 linhas não exercitam nem um lote (`BATCH_SIZE` 5000). Registro original abaixo. ~~🟡 **A importação nunca foi testada com relatório real.** `import_batch` só tem 9 linhas, todas do mesmo arquivo de teste de 1 linha (08–11/08). O desenho promete streaming para centenas de milhares de linhas sem travar o navegador — isso segue sem nenhuma medição. Precisa de um relatório de verdade da conta do Érico para provar por comportamento | 26/08 |
+| ~~P76~~ | ✅ **RESPONDIDA 26/08 (REVISÃO 74) — e virou a P78.** O `mr-ingest` responde, mas com a `SUPABASE_SERVICE_ROLE_KEY` inválida: 500 "Nao foi possivel verificar sua sessao" medido na tentativa real do Érico, com o `/auth/v1/user` 401 no mesmo minuto no `query_logs`. Ver REVISÃO 74 | 26/08 |
+| ~~P78~~ | ✅ **FECHADA 26/08 (REVISÃO 77) — MEDIDA EM PRODUÇÃO.** A causa final não era qual chave, era **como ela estava colada**: `SUPABASE_SERVICE_ROLE_KEY` e `MR_INGEST_TOKEN` estavam no Environment do EasyPanel envolvidos em `<` e `>` (a notação de "preencha aqui" do README veio junto). Medido no campo: 219 e 64 caracteres sem as bordas — os tamanhos exatos da `service_role` legada e de um `openssl rand -hex 32`. Removidos os sinais, a autenticação passou e o erro mudou para o 400 da P79. Prova final: `WebsiteClickReport202608260015.csv` importado `completed`, 40/40 linhas, 40 linhas em `fact_click`. Registro anterior abaixo. ~~🟡 **CAUSA ISOLADA POR EXPERIMENTO EM 26/08 (REVISÃO 76) — falta só colar a chave certa e dar Deploy.** A chave que o `mr-ingest` precisa é a **`service_role` LEGADA** (JWT `eyJ…`, 219 chars, aba "Legacy anon, service_role API keys" do Dashboard), **não** a `sb_secret_…` nova que está lá hoje. Medido no navegador do Érico chamando `POST /rest/v1/rpc/mr_expire_queue` com cada uma: legada **200** (corpo `0`), a atual recusada com `Invalid API key`. Prova depois do Deploy: log do `mr-ingest` sem `SUPABASE_SERVICE_ROLE_KEY parece invalida`, e o 401-por-minuto de `mr_expire_queue` virando 200 no `query_logs`. Node 22 já confirmado no build de 03:33. Registro original abaixo. ~~🔴 **`SUPABASE_SERVICE_ROLE_KEY` do serviço `mr-ingest` no EasyPanel está inválida — bloqueia toda importação real.** Medido em produção: tentativa real do Érico com `WebsiteClickReport…csv` devolveu 500 "Nao foi possivel verificar sua sessao"; `query_logs` do mesmo minuto confirma `GET /auth/v1/user` 401. Ação: conferir a chave em Supabase → Settings → API, corrigir no Environment do `mr-ingest` no EasyPanel, Deploy manual (não é automático), reimportar para confirmar. **Junto:** há uma chamada a `public.mr_expire_queue` toda a cada minuto recebendo 401 desde antes do teste do Érico — não localizada em nenhum arquivo deste repo nem em `cron.job` do Postgres; suspeita de processo/container órfão do `mr-ingest` usando a mesma chave quebrada. Ver REVISÃO 74~~ | 26/08 |
+| ~~P79~~ | ✅ **FECHADA 26/08 (REVISÃO 78) — NO AR E MEDIDA.** Deploy do `app` às 04:43 UTC; o `index.html` servido pelo domínio traz os campos antes do arquivo. Duas tentativas reais do Érico chegaram ao `DUPLICATE_FILE`, que só é alcançável depois de autenticação, trava do piloto, campos e checksum. Registro original abaixo. ~~🔴 **CORRIGIDA NO REPO, NÃO DEPLOYADA — ordem dos campos do multipart no upload do Mega Results.** O `frontend/index.html` mandava `fd.append('file', …)` **antes** de `connectionId` e `store`; o `mr-ingest` lê `fields` dentro do handler do arquivo (`src/server.js` linha 161) e o Busboy entrega as partes na ordem do corpo, então os dois campos chegavam vazios e a resposta era 400 `ownerId, connectionId e store sao obrigatorios`. Consertado no repo (campos antes do arquivo). **Provado por comportamento ANTES do deploy**, com a função corrigida injetada na sessão logada do Érico: a importação completou com 40/40 linhas. **Falta push + Deploy do `app`** — sem isso, um F5 desfaz e a tela volta a falhar. ⚠️ Fica em aberto endurecer o backend para não depender da ordem do cliente | 26/08 |
+| **P80** | 🟡 **CORRIGIDA NO REPO E PROVADA EM BANCADA — FALTA PUSH + DEPLOY. O SSE de progresso não atravessa o proxy do EasyPanel.** `GET /import/:id/stream` fica pendente para sempre quando o lote existe; com id inexistente responde em 425 ms (o servidor fecha a conexão nesse caminho). A tela ficava em "Enviando arquivo…" mesmo com a importação concluída. Conserto: `mrAcompanhar()` lê `megaresults.import_batch` a cada 1,5 s em vez de depender do stream — a fonte durável, como o próprio `mr-ingest` documenta. Três estados renderizados contra lotes reais. **Falta**: upload do `index.html`, Deploy do `app` e uma importação real para fechar. ⚠️ Alternativa de servidor, não feita: `X-Accel-Buffering: no` no `mr-ingest` (exige Deploy próprio dele) | 26/08 |
+| **P77** | 🔵 **Só Shopee tem `field_mapping` em `megaresults`.** Se o Érico quiser importar relatório de outra loja (Mercado Livre, Amazon, etc.), falta cadastrar o mapeamento de campos dela antes — sem isso `mrLoadStores()` nem oferece a opção na tela | 26/08 |
 | **P74** | 🟡 **REVISÕES 70 e 71 estão no ar e medidas no ARQUIVO SERVIDO, mas o FLUXO ponta a ponta nunca foi rodado.** Falta: (a) Postar Agora com link de Shein → o alerta amarelo aparece mesmo na tela do Passo 2? (b) Clone Post com mensagem real de grupo → preview vem preenchido e o clone salva certo? (c) `prGerarLinkAfil` carimba o ID na Shein quando há credencial configurada? | 25/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
