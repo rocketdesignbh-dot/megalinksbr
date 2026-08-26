@@ -11685,7 +11685,7 @@ async function mrUpload(force){
     const body = await res.json().catch(()=>({}));
     if(res.status === 403){ mrShow('mrLocked'); return; }
     if(!res.ok) throw new Error(body.message || `HTTP ${res.status}`);
-    await mrStream(body.importId, tk);
+    await mrAcompanhar(body.importId);
   }catch(e){
     mrProgresso({ stage: 'failed', message: e.message });
   }finally{
@@ -11694,8 +11694,54 @@ async function mrUpload(force){
   }
 }
 
+/* Acompanha o lote LENDO O BANCO, nao o stream.
+ *
+ * Por que nao o SSE: medido em producao em 26/08. O `POST /import` responde 202
+ * em 331 ms, e o `GET /import/:id/stream` logo depois **nunca responde** quando
+ * o lote existe — fica pendente para sempre. Controle na mesma sessao: o mesmo
+ * endpoint com um id INEXISTENTE responde em 425 ms, porque nesse caminho o
+ * servidor faz `res.end()` na hora. Ou seja, a resposta so atravessa o proxy do
+ * EasyPanel quando a conexao fecha: SSE de conexao aberta e engolido no meio do
+ * caminho. O sintoma na tela era ficar em "Enviando arquivo..." para sempre,
+ * mesmo com a importacao ja concluida no banco.
+ *
+ * A saida nao e insistir no stream: o estado duravel do lote vive em
+ * `megaresults.import_batch` — o proprio `mr-ingest` diz isso no comentario do
+ * PROGRESS, que e memoria efemera. Entao a tela le a fonte duravel.
+ *
+ * `mrStream` fica logo abaixo, sem chamador, de proposito: se um dia o proxy
+ * for ajustado (ou o servico ganhar `X-Accel-Buffering: no`), ela volta a ser
+ * util para progresso granular. Hoje ela NAO e usada. */
+async function mrAcompanhar(importId){
+  const COLS = 'status,rows_total,rows_valid,rows_inserted,rows_updated,rows_skipped,error_message';
+  // 1,5 s x 200 = 5 min. Acima disso o lote esta orfao e quem resolve e a
+  // reconciliacao, nao a tela.
+  for(let i = 0; i < 200; i++){
+    await new Promise(r => setTimeout(r, 1500));
+    const { data, error } = await mrDb().from('import_batch').select(COLS).eq('id', importId).maybeSingle();
+    if(error || !data) continue;              // piscada de rede nao encerra a espera
+    if(data.status === 'parsing'){ mrProgresso({ stage: 'parsing' }); continue; }
+    if(data.status === 'completed'){
+      mrProgresso({ stage: 'completed', total: data.rows_total, valid: data.rows_valid,
+                    inserted: data.rows_inserted, updated: data.rows_updated, skipped: data.rows_skipped });
+      return;
+    }
+    // `failed`. O servidor grava `error_message` como "CODIGO: mensagem" — e o
+    // codigo importa: DUPLICATE_FILE tem card proprio, com o botao de importar
+    // mesmo assim.
+    const msg = String(data.error_message || '');
+    const sep = msg.indexOf(': ');
+    mrProgresso({ stage: 'failed',
+                  code: sep > 0 ? msg.slice(0, sep) : 'ERROR',
+                  message: sep > 0 ? msg.slice(sep + 2) : (msg || 'erro desconhecido') });
+    return;
+  }
+  mrProgresso({ stage: 'failed', message: 'A importacao demorou mais que o esperado. Confira em "Importacoes recentes".' });
+}
+
 /* O endpoint de progresso exige header Authorization, e EventSource nao permite
-   headers — dai o fetch com leitura de stream em vez de new EventSource(). */
+   headers — dai o fetch com leitura de stream em vez de new EventSource().
+   ⚠️ SEM CHAMADOR HOJE — ver a nota em mrAcompanhar. */
 async function mrStream(importId, tk){
   const res = await fetch(`${MR_INGEST_URL}/import/${importId}/stream`, {
     headers: { Authorization: `Bearer ${tk}` }
