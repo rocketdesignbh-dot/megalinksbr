@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 85 — 26/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 87 — 26/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1649,6 +1649,82 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 87 — 26/08/2026 — ✅ "Post em Loop" (Grupo de Oferta → Postagem
+automática) FECHADA e MEDIDA NO NAVEGADOR LOGADO DO ÉRICO (Claude in Chrome,
+depois do Deploy do `app` que ele fez).**
+
+### O bug reportado
+
+Érico: em Grupo de Oferta → Postagem automática, marcar **Post Automático** +
+**Post em Loop** e salvar fazia o **Post em Loop voltar a desmarcado**.
+
+### Causa
+
+`niche_groups.loop_enabled` (coluna boolean, existe no schema desde antes)
+**nunca foi lida nem gravada em lugar nenhum do código** — nem no
+`loadGroups()`/`buildTabs()` do frontend (carregar), nem no `salvarGeral()`
+(salvar), nem no `send-post` (consumir). Mesma classe de bug já registrada
+antes neste doc para `expired`/`scheduled_at`/`valid_until` no `send-post`
+(coluna existe, nada lê): "campo órfão".
+
+### O que "Post em Loop" significa de verdade (definido pelo Érico nesta
+### sessão — a UI antiga sugeria "reinicia a lista ao fim", o que é falso)
+
+O rodízio de produtos **nunca acaba** em nenhum dos dois modos — isso é o
+Post Automático funcionando, não o Loop. O Loop é só sobre **ORDEM**:
+- **Desmarcado (padrão):** posta na ordem em que os produtos foram
+  cadastrados, usando o `cursor_index` sequencial de sempre.
+- **Marcado:** sorteia um produto aleatório a cada disparo, em vez de seguir
+  a ordem.
+
+### O que mudou
+
+- **Frontend (`frontend/index.html`):** `loadGroups()` agora lê
+  `loop_enabled` para `g.loopEnabled`; `buildTabs()` restaura o checkbox
+  `#pgLoop` a partir dele; `salvarGeral()` grava `g.loopEnabled` de volta em
+  `loop_enabled` no `update` de `niche_groups`; `pgResetGeral()` ("Limpar
+  tudo") zera para `false`. Label do checkbox reescrito para explicar o
+  comportamento real.
+- **Backend — `send-post` v20 (Supabase, deployado direto via MCP, version
+  53):** lê `loop_enabled` no select de `niche_groups`; se `true`, o cursor
+  de seleção do produto vira `Math.floor(Math.random() * total)` em vez de
+  `cursor_index % total`; e o `cursor_index` **fica congelado** nesse modo
+  (não avança) — assim, se o usuário desmarcar o Loop depois, a ordem
+  sequencial retoma de onde parou em vez de perder o lugar.
+- **Migration de segurança, executada ANTES do deploy do `send-post`:** todas
+  as 10 linhas de `niche_groups` já tinham `loop_enabled = true` (era o
+  default original da coluna, nunca lido). Deployar a leitura sem resetar
+  teria virado a ordem de **todos** os grupos ativos de sequencial para
+  aleatória de uma vez, sem ninguém pedir. `update niche_groups set
+  loop_enabled = false;` + `alter column ... set default false` rodados
+  antes do deploy.
+
+### A prova
+
+Deploy do `app` confirmado pelo Érico. Medido ao vivo (Claude in Chrome, login
+real do Érico): no grupo "Achadinhos da Semana" (`8d9505b9-…`), desmarcado o
+checkbox → Salvar → **conferido direto no banco** (`loop_enabled=false`) →
+página **recarregada do zero** (não só re-render) → checkbox continuou
+desmarcado, batendo com o banco. Repetido no sentido contrário (marcar →
+salvar → banco `true`) e devolvido ao estado original do grupo (`true`) ao
+final, sem alterar nada além do teste.
+
+### Outros achados desta sessão, sem mudança de código
+
+- **Clone Post "não capturou nada" investigado — não era bug.** A última
+  oferta do grupo clonado "Melhores Ofertas da Internet" (Shopee, 8:03)
+  **foi capturada** (confirmado em `clone_ingest_log`/`clone_posts`), mas
+  ficou `status='expired'`: passou as 24h da fila de revisão
+  (`clone_sources.expira_horas`) sem ninguém aprovar. Não é falha de
+  captura. Érico decidiu manter `expira_horas` como está.
+- **Não foi possível diagnosticar a estiagem de captura anterior (a partir
+  de 25/08 11:03 UTC)** — limite real do plano do EasyPanel: **Deployments**
+  só lista deploys por código (nenhum bateu com o horário) e **Logs** só
+  retém desde o último restart do container, não desde 25/08. Guiado o
+  Érico pelas duas abas; sem achado retroativo possível por aí.
+
+---
 
 **REVISÃO 85 — 26/08/2026 — ✅ P82 FECHADA, MEDIDA NO NAVEGADOR LOGADO DO
 ÉRICO (via Claude in Chrome, depois do Deploy do `app` que ele fez). As duas
