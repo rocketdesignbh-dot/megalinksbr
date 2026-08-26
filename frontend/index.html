@@ -9366,6 +9366,7 @@ function csRender(){
       <div class="cs-meta" style="margin-top:2px">🕐 captura o dia inteiro · até ${teto} por dia<button type="button" class="cs-teto-bt" title="Diminuir o teto em 5 por dia" onclick="csAjustarTeto('${f.id}',-5)">−</button><button type="button" class="cs-teto-bt" title="Aumentar o teto em 5 por dia" onclick="csAjustarTeto('${f.id}',5)">+</button></div>
       <div class="cs-meta" style="margin-top:2px">⏳ a fila guarda por ${validade}h sem revisão<button type="button" class="cs-teto-bt" title="Diminuir a validade em 6 horas" onclick="csAjustarValidade('${f.id}',-6)">−</button><button type="button" class="cs-teto-bt" title="Aumentar a validade em 6 horas" onclick="csAjustarValidade('${f.id}',6)">+</button></div>
       <div class="cs-acoes">
+        <button class="btn btn-ghost btn-sm" onclick="csAbrirForm('${f.id}')">Editar</button>
         <button class="btn btn-ghost btn-sm" onclick="csAlternar('${f.id}',${f.active?"false":"true"})">${f.active?"Pausar":"Ativar"}</button>
         <button class="btn btn-ghost btn-sm" onclick="csRemover('${f.id}')">Remover</button>
       </div>
@@ -9391,17 +9392,20 @@ function csRender(){
     <div id="csForm" style="display:none;margin-top:14px"></div>`;
 }
 
-async function csAbrirForm(){
+async function csAbrirForm(editId){
   const el=document.getElementById("csForm");
   if(!el)return;
+  const editando=editId?CS_FONTES.find(x=>String(x.id)===String(editId)):null;
   // Barrar aqui, antes de ir buscar os grupos no engine: nao faz sentido gastar
-  // a ida e volta pra depois recusar o salvamento.
-  if(cloneFontesCheio()){
-    toast("Seu plano permite "+cloneFontesMax()+" fonte(s) de captura autom\u00e1tica. Remova uma para trocar.","\u{1F512}");
+  // a ida e volta pra depois recusar o salvamento. So vale para fonte NOVA —
+  // editar uma fonte que ja existe nao aumenta a contagem do plano.
+  if(!editando&&cloneFontesCheio()){
+    toast("Seu plano permite "+cloneFontesMax()+" fonte(s) de captura automática. Remova uma para trocar.","\u{1F512}");
     return;
   }
   el.style.display="block";
   el.innerHTML='<div style="color:var(--tx2);font-size:13px">Buscando seus grupos do WhatsApp…</div>';
+  el.scrollIntoView({behavior:"smooth",block:"nearest"});
   if(!S.grupos.length){
     el.innerHTML='<div class="alert y" style="margin:0"><span>Crie um Grupo de Oferta antes: é pra ele que as ofertas capturadas vão.</span></div>';
     return;
@@ -9430,15 +9434,24 @@ async function csAbrirForm(){
   if(!CS_GRUPOS_WA.length&&!avisoLista){
     avisoLista='<div class="alert y" style="margin:0 0 12px"><span>O WhatsApp não devolveu nenhum grupo nessa sessão.<br><small style="opacity:.85">Use o link de convite, ali embaixo.</small></span></div>';
   }
-  const jaTem=new Set(CS_FONTES.map(f=>f.source_jid));
+  // A propria fonte que esta sendo editada nao pode ficar desabilitada na lista
+  // por "ja e fonte" — e ela mesma. Se o WhatsApp nao devolveu esse grupo entre
+  // os atuais (grupo grande costuma ficar de fora), ele entra na lista assim
+  // mesmo, pra nao sumir o valor atual do select.
+  if(editando&&!CS_GRUPOS_WA.some(g=>(g.id||g.jid)===editando.source_jid)){
+    CS_GRUPOS_WA.push({id:editando.source_jid,name:editando.source_label||editando.source_jid});
+  }
+  const jaTem=new Set(CS_FONTES.filter(f=>!editando||String(f.id)!==String(editando.id)).map(f=>f.source_jid));
   const opts=CS_GRUPOS_WA.map(g=>{
     const jid=g.id||g.jid||"";
     const nome=(g.subject||g.name||jid).replace(/</g,"&lt;");
-    return `<option value="${jid}"${jaTem.has(jid)?" disabled":""}>${nome}${jaTem.has(jid)?" (já é fonte)":""}</option>`;
+    const atual=!!(editando&&editando.source_jid===jid);
+    return `<option value="${jid}"${(jaTem.has(jid)&&!atual)?" disabled":""}${atual?" selected":""}>${nome}${(jaTem.has(jid)&&!atual)?" (já é fonte)":""}</option>`;
   }).join("");
   el.innerHTML=`
     <div class="card" style="margin:0">
       <div class="cb">
+        ${editando?'<div class="ch" style="padding:0;border:0;margin-bottom:12px">✏️ Editando: '+esc(editando.source_label||editando.source_jid)+'</div>':''}
         ${avisoLista}
         <div class="g2">
           <div>
@@ -9447,7 +9460,7 @@ async function csAbrirForm(){
           </div>
           <div>
             <label>Mandar as ofertas para</label>
-            <select id="csDestino" style="width:100%">${S.grupos.map(g=>`<option value="${g.db_id||g.id}">${g.nome}</option>`).join("")}</select>
+            <select id="csDestino" style="width:100%">${S.grupos.map(g=>`<option value="${g.db_id||g.id}"${editando&&String(editando.niche_group_id)===String(g.db_id||g.id)?" selected":""}>${g.nome}</option>`).join("")}</select>
           </div>
         </div>
         <div class="field" style="grid-column:1/-1;margin-top:14px;border-top:1px solid var(--bd2);padding-top:12px">
@@ -9459,25 +9472,27 @@ async function csAbrirForm(){
           <div id="csConviteMsg" style="display:none;margin-top:8px"></div>
           <small style="display:block;margin-top:8px;color:var(--tx2);line-height:1.6">A lista acima vem do WhatsApp e <strong>não devolve todos os seus grupos</strong> — grupo grande de promoção costuma ficar de fora. No WhatsApp, abra o grupo → <strong>Convidar via link</strong> → copiar, e cole aqui. <strong>Só funciona para grupo em que você está:</strong> o WhatsApp entrega os dados do convite de qualquer grupo, e fonte de grupo onde você não está nunca captura nada.</small>
         </div>
+        ${editando?'':`
         <div style="margin-top:10px;max-width:220px">
           <label>Máximo por dia</label>
           <input id="csMax" type="number" min="1" max="50" value="10" style="width:100%">
         </div>
         <div class="field" style="grid-column:1/-1;margin-top:14px;border-top:1px solid var(--bd2);padding-top:12px">
-          <label>Lojas que essa fonte pode clonar <small style="font-weight:400;color:var(--tx2)">\u2014 opcional</small></label>
+          <label>Lojas que essa fonte pode clonar <small style="font-weight:400;color:var(--tx2)">— opcional</small></label>
           <div class="cs-loja-chips" id="csLojasNova" style="margin-top:8px">
             <label class="cs-loja-check"><input type="checkbox" value="mercadolivre"> Mercado Livre</label>
             <label class="cs-loja-check"><input type="checkbox" value="shopee"> Shopee</label>
             <label class="cs-loja-check"><input type="checkbox" value="amazon"> Amazon</label>
           </div>
-          <small style="display:block;margin-top:8px;color:var(--tx2);line-height:1.6">Deixe <strong>tudo desmarcado</strong> para clonar qualquer loja \u2014 \u00e9 o padr\u00e3o. Marcar serve para grupo que presta para uma loja e n\u00e3o para outra: o link das lojas de fora \u00e9 recusado <strong>antes</strong> de consultar o pre\u00e7o, ent\u00e3o n\u00e3o gasta cr\u00e9dito. D\u00e1 pra mudar depois, no card da fonte.</small>
-        </div>
+          <small style="display:block;margin-top:8px;color:var(--tx2);line-height:1.6">Deixe <strong>tudo desmarcado</strong> para clonar qualquer loja — é o padrão. Marcar serve para grupo que presta para uma loja e não para outra: o link das lojas de fora é recusado <strong>antes</strong> de consultar o preço, então não gasta crédito. Dá pra mudar depois, no card da fonte.</small>
+        </div>`}
         <div class="field" style="grid-column:1/-1;margin-top:14px;border-top:1px solid var(--bd2);padding-top:12px">
-          <label>Testar se esse grupo \u00e9 clon\u00e1vel <small style="font-weight:400;color:var(--tx2)">\u2014 opcional, mas evita perder um dia</small></label>
-          <textarea id="csTeste" rows="4" placeholder="Cole aqui uma mensagem de oferta desse grupo, inteira, do jeito que ela chegou \u2014 com o link." style="width:100%;font-family:var(--mono);font-size:12.5px;resize:vertical"></textarea>
+          <label>Testar se esse grupo é clonável <small style="font-weight:400;color:var(--tx2)">— opcional, mas evita perder um dia</small></label>
+          <textarea id="csTeste" rows="4" placeholder="Cole aqui uma mensagem de oferta desse grupo, inteira, do jeito que ela chegou — com o link." style="width:100%;font-family:var(--mono);font-size:12.5px;resize:vertical"></textarea>
           <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap">
             <button class="btn btn-ghost btn-sm" id="csTesteBtn" onclick="csTestarClonabilidade()">Testar mensagem</button>
-            <small style="color:var(--tx2);flex:1;min-width:180px">Muito grupo posta link de <strong>vitrine do afiliado</strong>, que n\u00e3o leva a produto nenhum. Melhor descobrir agora que amanh\u00e3.</small>
+            <button class="btn btn-ghost btn-sm" onclick="csLimparTeste()">Limpar</button>
+            <small style="color:var(--tx2);flex:1;min-width:180px">Muito grupo posta link de <strong>vitrine do afiliado</strong>, que não leva a produto nenhum. Melhor descobrir agora que amanhã.</small>
           </div>
           <div id="csTesteRes" style="display:none;margin-top:10px"></div>
         </div>
@@ -9485,11 +9500,20 @@ async function csAbrirForm(){
           <div style="font-size:12px;color:var(--tx2);line-height:1.6">A captura roda <strong>o dia inteiro</strong>. Quem controla gasto é o teto acima — a mensagem no grupo-fonte não volta, então recusar por horário perderia a oferta em vez de adiar. Os <strong>Horários Inteligentes</strong> valem no <strong>disparo</strong>, e são configurados no Grupo de Oferta de destino.</div>
         </div>
         <div style="display:flex;gap:10px;margin-top:14px">
-          <button class="btn btn-volt btn-sm" onclick="csSalvar()">Salvar fonte</button>
+          <button class="btn btn-volt btn-sm" onclick="${editando?`csSalvarEdicao('${editando.id}')`:'csSalvar()'}">${editando?"Salvar alterações":"Salvar fonte"}</button>
           <button class="btn btn-ghost btn-sm" onclick="document.getElementById('csForm').style.display='none'">Cancelar</button>
         </div>
       </div>
     </div>`;
+}
+
+// Limpa o textarea de teste e o resultado — pedido separado do "Testar
+// mensagem": depois de um teste, quem vai colar uma mensagem NOVA pra testar de
+// novo (outro grupo, ou confirmar depois de mudar as lojas permitidas) precisa
+// de um jeito de esvaziar sem apagar manualmente.
+function csLimparTeste(){
+  const t=document.getElementById("csTeste");if(t)t.value="";
+  const r=document.getElementById("csTesteRes");if(r){r.style.display="none";r.innerHTML="";}
 }
 
 // \u2500\u2500 P23 \u00b7 teste de clonabilidade, ANTES de salvar a fonte \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -9637,6 +9661,28 @@ async function csSalvar(){
   });
   if(error){toast("Não consegui salvar: "+error.message,"⚠️");return;}
   toast("Fonte cadastrada. O monitoramento começa em até 5 minutos.","🤖");
+  const f=document.getElementById("csForm");if(f)f.style.display="none";
+  csCarregar();
+}
+
+// Contraparte do csSalvar() para o modo Editar: so grava origem e destino — os
+// outros campos (teto, validade, lojas, ativa/pausada) ja tem controle proprio
+// no card e continuam gravando por ele, sem passar por aqui.
+async function csSalvarEdicao(id){
+  const jid=document.getElementById("csJid")?.value||"";
+  const destino=document.getElementById("csDestino")?.value||"";
+  if(!jid||!destino){toast("Escolha o grupo de origem e o de destino.","⚠️");return;}
+  const editando=CS_FONTES.find(x=>String(x.id)===String(id));
+  const patch={niche_group_id:destino,source_jid:jid};
+  // So troca o rotulo salvo se a origem mudou de fato — mantendo o mesmo grupo,
+  // preserva o nome que ja estava la (pode ter vindo de convite, por exemplo).
+  if(!editando||editando.source_jid!==jid){
+    const g=CS_GRUPOS_WA.find(x=>(x.id||x.jid)===jid);
+    patch.source_label=(g?.subject||g?.name||jid).slice(0,120);
+  }
+  const{error}=await SB.from("clone_sources").update(patch).eq("id",id);
+  if(error){toast("Não consegui salvar: "+error.message,"⚠️");return;}
+  toast("Fonte atualizada.","✅");
   const f=document.getElementById("csForm");if(f)f.style.display="none";
   csCarregar();
 }
