@@ -4389,12 +4389,29 @@ renderLojas();
 const INSTANCIAS=[];
 const WA_ENGINE_URL="https://megalinksbr-wa-engine.fwezsn.easypanel.host";
 let WA_ENGINE_TOKEN=""; // obtido dinamicamente via get-wa-engine-token no login (enterApp) — nunca hardcoded
+// JWT do PRÓPRIO usuário logado, repassado ao wa-engine no header `x-user-token`
+// (P35, 26/08). O WA_ENGINE_TOKEN sozinho não basta mais para provar quem é o
+// dono de uma sessão: é um segredo ÚNICO por plataforma, que todo usuário
+// autenticado recebe — o wa-engine passou a validar este JWT e cruzar com
+// `whatsapp_instances` (RLS já restringe "dono ou admin") antes de listar,
+// desconectar, reconectar ou enviar por uma sessão. Sem este header o wa-engine
+// ainda aceita a chamada (chamadas servidor-a-servidor das Edge Functions não
+// têm JWT de usuário), mas passa a tratar como "sem prova de dono" nas rotas
+// que tocam sessão de terceiro.
+let WA_USER_TOKEN="";
+function waAuthHeaders(comJSON){
+  const h={"Authorization":"Bearer "+WA_ENGINE_TOKEN};
+  if(WA_USER_TOKEN)h["x-user-token"]=WA_USER_TOKEN;
+  if(comJSON)h["Content-Type"]="application/json";
+  return h;
+}
 
 async function fetchWAEngineToken(){
   try{
     const session=await SB.auth.getSession();
     const jwt=session?.data?.session?.access_token;
     if(!jwt)return false;
+    WA_USER_TOKEN=jwt;
     const response=await fetch(`${SUPA_URL}/functions/v1/get-wa-engine-token`,{
       headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"}
     });
@@ -4467,7 +4484,7 @@ async function renderInstCard(){
     </div>`;
   // Verifica status real na wa-engine em background
   try{
-    const r=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}});
+    const r=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:waAuthHeaders()});
     if(!r.ok)throw new Error("HTTP "+r.status);
     const d=await r.json();
     const sessions=Array.isArray(d)?d:d.sessions||[];
@@ -4534,13 +4551,13 @@ async function renderInstCard(){
           try{
             const phone=(S.waNumber||"").replace(/\D/g,"");
             if(!phone)return;
-            const rr=await fetch(`${WA_ENGINE_URL}/reconnect/${phone}`,{method:"POST",headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}});
+            const rr=await fetch(`${WA_ENGINE_URL}/reconnect/${phone}`,{method:"POST",headers:waAuthHeaders()});
             if(rr.status===404)return;
             if(rr.ok){
               // Aguarda até 20s verificando a cada 2s
               for(let i=0;i<10;i++){
                 await new Promise(r=>setTimeout(r,2000));
-                const rs=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}});
+                const rs=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:waAuthHeaders()});
                 if(!rs.ok)break;
                 const dd=await rs.json();
                 const slist=Array.isArray(dd)?dd:dd.sessions||[];
@@ -4584,7 +4601,7 @@ async function waReconectar(){
   if(txt)txt.textContent="Reconectando… aguarde";
   if(pill){pill.className="pill";pill.style.background="var(--volt)";pill.style.color="#000";pill.innerHTML='⟳ RECONECTANDO';}
   try{
-    const r=await fetch(`${WA_ENGINE_URL}/reconnect/${phone}`,{method:"POST",headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}});
+    const r=await fetch(`${WA_ENGINE_URL}/reconnect/${phone}`,{method:"POST",headers:waAuthHeaders()});
     const d=await r.json().catch(()=>({}));
     if(r.ok){
       toast("Reconexão iniciada! Aguardando confirmação…","⟳");
@@ -4593,7 +4610,7 @@ async function waReconectar(){
       for(let i=0;i<10;i++){
         await new Promise(r=>setTimeout(r,2000));
         try{
-          const rs=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}});
+          const rs=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:waAuthHeaders()});
           if(!rs.ok)continue;
           const dd=await rs.json();
           const slist=Array.isArray(dd)?dd:dd.sessions||[];
@@ -4630,7 +4647,7 @@ async function waDesconectar(){
   if(!confirm("Desconectar o WhatsApp? Você precisará escanear o QR novamente para postar."))return;
   // Desconecta na wa-engine
   try{
-    const r=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}});
+    const r=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:waAuthHeaders()});
     if(r.ok){
       const d=await r.json();
       const sessions=Array.isArray(d)?d:d.sessions||[];
@@ -4638,7 +4655,7 @@ async function waDesconectar(){
       for(const s of sessions){
         const sPhone=(s.phone||s.jid||"").replace(/\D/g,"");
         if(sPhone.includes(myDigits)&&s.sessionId){
-          await fetch(`${WA_ENGINE_URL}/disconnect/${s.sessionId}`,{method:"POST",headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}}).catch(()=>{});
+          await fetch(`${WA_ENGINE_URL}/disconnect/${s.sessionId}`,{method:"POST",headers:waAuthHeaders()}).catch(()=>{});
         }
       }
     }
@@ -4664,7 +4681,7 @@ function waIniciaPolling(sessionId){
   let ultimoQR=null;
   waPollTimer=setInterval(async()=>{
     try{
-      const r=await fetch(`${WA_ENGINE_URL}/pair-status/${sessionId}`,{headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}});
+      const r=await fetch(`${WA_ENGINE_URL}/pair-status/${sessionId}`,{headers:waAuthHeaders()});
       if(r.status===404){
         waPararPolling();
         mostraQRStatus("⏱️","Pareamento expirado","Clique em Gerar QR Code novamente.","red");
@@ -4731,7 +4748,7 @@ btnGenQR.onclick=async()=>{
   qrMsg.innerHTML='<div style="font-size:42px">⏳</div><h3 style="margin:8px 0 4px">Gerando QR Code…</h3><p style="color:var(--mut)">Aguarde alguns segundos</p>';
   waStatus.innerHTML='<span class="pill sky"><span class="d"></span> gerando…</span>';
   try{
-    const r=await fetch(`${WA_ENGINE_URL}/pair`,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+WA_ENGINE_TOKEN},body:JSON.stringify({})});
+    const r=await fetch(`${WA_ENGINE_URL}/pair`,{method:"POST",headers:waAuthHeaders(true),body:JSON.stringify({})});
     if(!r.ok){const er=await r.json().catch(()=>({}));throw new Error(er.error||("HTTP "+r.status));}
     const d=await r.json();
     if(!d.sessionId||!d.qr)throw new Error("Resposta inválida do servidor");
@@ -5839,7 +5856,7 @@ async function wireWaGrupos(){
     const waPhone=(S.waNumber||"").replace(/\D/g,"");
     if(!waPhone)throw new Error("conecte seu WhatsApp antes de vincular grupos");
     const r=await fetch(`${WA_ENGINE_URL}/groups?phone=${waPhone}`,{
-      headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}
+      headers:waAuthHeaders()
     });
     if(!r.ok)throw new Error("HTTP "+r.status);
     const data=await r.json();
@@ -7521,7 +7538,7 @@ async function renderInstancias(){
   instKpis.innerHTML=[["Sessões online","—","#19E27D"],["Offline (24h)","—","#FF4D8D"],["Canais OWNER","—","#39C0FF"],["Canais ADMIN","—","#9B7DFF"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">aguardando dados</div></div>`).join("");
   instBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--mut);padding:30px">Carregando sessões do wa-engine…</td></tr>';
   try{
-    const r=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}});
+    const r=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:waAuthHeaders()});
     if(!r.ok)throw new Error("HTTP "+r.status);
     const d=await r.json();
     const sessions=Array.isArray(d)?d:d.sessions||[];
@@ -7729,7 +7746,7 @@ async function renderConfig(){
   // Integrações: status real onde possível, pendente onde não
   const integs=[
     {icon:"🟢",name:"Supabase",desc:"Banco de dados · Auth · Edge Functions",check:async()=>{try{const r=await fetch(SUPA_URL+"/auth/v1/health",{headers:{apikey:SUPA_KEY}});return r.ok?"conectado":"erro HTTP "+r.status;}catch(e){return "sem resposta";}}},
-    {icon:"📲",name:"WhatsApp Engine",desc:"wa-engine · Baileys · "+WA_ENGINE_URL.replace("https://",""),check:async()=>{try{const r=await fetch(WA_ENGINE_URL+"/health",{headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}});const d=await r.json();return d.ok?"operacional":"erro";}catch(e){return "sem resposta";}}},
+    {icon:"📲",name:"WhatsApp Engine",desc:"wa-engine · Baileys · "+WA_ENGINE_URL.replace("https://",""),check:async()=>{try{const r=await fetch(WA_ENGINE_URL+"/health",{headers:waAuthHeaders()});const d=await r.json();return d.ok?"operacional":"erro";}catch(e){return "sem resposta";}}},
     {icon:"🛒",name:"Shopee API",desc:"Affiliate API · aguardando aprovação",check:async()=>"pendente aprovação"},
     {icon:"📦",name:"Amazon PA-API",desc:"Product Advertising API",check:async()=>"não configurado"},
     {icon:"🤖",name:"MegaIA (OpenAI)",desc:"GPT · reescrita e sugestões",check:async()=>"não configurado"},
@@ -9692,7 +9709,7 @@ async function csAbrirForm(){
   let avisoLista="";
   try{
     // Sempre com o numero: e ele que amarra a resposta a SUA sessao.
-    const r=await fetch(`${WA_ENGINE_URL}/groups?phone=${waPhone}`,{headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}});
+    const r=await fetch(`${WA_ENGINE_URL}/groups?phone=${waPhone}`,{headers:waAuthHeaders()});
     if(!r.ok){
       const dd=await r.json().catch(()=>({}));
       throw new Error(dd.error||("HTTP "+r.status));
@@ -9863,7 +9880,7 @@ async function csResolverConvite(){
   cx.innerHTML='<div class="alert b" style="margin:0">🔗 Lendo o convite…</div>';
   if(btn)btn.disabled=true;
   try{
-    const r=await fetch(`${WA_ENGINE_URL}/group-invite-info?phone=${waPhone}&code=${encodeURIComponent(valor)}`,{headers:{"Authorization":"Bearer "+WA_ENGINE_TOKEN}});
+    const r=await fetch(`${WA_ENGINE_URL}/group-invite-info?phone=${waPhone}&code=${encodeURIComponent(valor)}`,{headers:waAuthHeaders()});
     const d=await r.json().catch(()=>({}));
     if(!r.ok||!d.ok)throw new Error(d.error||("HTTP "+r.status));
     const jid=String(d.id||"");
@@ -10215,7 +10232,7 @@ async function prDisparar(){
           if(imageUrl)body.imageUrl=imageUrl;
           const r=await fetch(`${WA_ENGINE_URL}/send-group`,{
             method:"POST",
-            headers:{"Content-Type":"application/json","Authorization":"Bearer "+WA_ENGINE_TOKEN},
+            headers:waAuthHeaders(true),
             body:JSON.stringify(body)
           });
           const d=await r.json().catch(()=>({}));
@@ -10239,7 +10256,7 @@ async function prDisparar(){
           if(imageUrl)body.imageUrl=imageUrl;
           const r=await fetch(`${WA_ENGINE_URL}/send`,{
             method:"POST",
-            headers:{"Content-Type":"application/json","Authorization":"Bearer "+WA_ENGINE_TOKEN},
+            headers:waAuthHeaders(true),
             body:JSON.stringify(body)
           });
           const d=await r.json().catch(()=>({}));

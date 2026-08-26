@@ -199,6 +199,73 @@ function verifyToken(req, res, next) {
     next();
 }
 
+// ---- Dono da sessão (P35, 26/08) ----
+//
+// ATE AQUI, WA_ENGINE_TOKEN era o UNICO controle de acesso: um segredo
+// compartilhado por toda a plataforma, que get-wa-engine-token entregava pra
+// QUALQUER conta autenticada (nao so admin), sem checar plano nem role. Com
+// ele, dava pra listar sessao de todo mundo (GET /sessions), derrubar a
+// sessao de qualquer um (POST /disconnect/:sessionId) e mandar mensagem pela
+// sessao de outra conta (POST /send, /send-message, /send-group) so trocando
+// o sessionPhone/sessionId/groupId no corpo da chamada — nenhuma rota
+// verificava de quem era a sessao pedida.
+//
+// A correcao NAO troca o modelo de token (isso e o desenho da P2, ainda em
+// aberto): ela ACRESCENTA uma prova de dono por cima. O navegador do usuario
+// agora manda tambem o header `x-user-token` com o PROPRIO JWT do Supabase
+// (o mesmo que ja usa pra falar com o PostgREST). Este middleware valida esse
+// JWT contra o GoTrue e busca os telefones que esse usuario enxerga em
+// `whatsapp_instances` USANDO O JWT DELE — a RLS da tabela
+// (`user_id = auth.uid() or is_admin()`) e quem decide o que ele ve: usuario
+// comum ve so o proprio telefone, admin ve todos. Nao reimplementamos a regra
+// de dono aqui — so pedimos pro banco responder com o JWT de quem chamou.
+//
+// Chamada SEM x-user-token (Edge Function batendo direto no wa-engine com o
+// WA_ENGINE_TOKEN de servidor — send-post, group-blast, product-refresh,
+// revops-automations, revops-offer-send, wa-idle-reaper) continua permitida:
+// nao tem JWT de usuario porque nao ha usuario navegando, e essas chamadas ja
+// vem de codigo nosso que leu o telefone certo do banco antes de chamar. A
+// checagem so entra em vigor quando HA um x-user-token pra validar.
+async function telefonesDoUsuario(userToken) {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/whatsapp_instances?select=phone`, {
+        headers: { Authorization: `Bearer ${userToken}`, apikey: SUPABASE_KEY },
+    });
+    if (!r.ok) return null; // JWT invalido/expirado — tratado como "sem prova de dono"
+    const linhas = await r.json().catch(() => []);
+    return new Set((linhas || []).map(l => String(l.phone || '').replace(/\D/g, '').slice(-9)));
+}
+
+// Middleware: resolve `req.telefonesPermitidos` (Set de telefones, cauda de 9
+// digitos) quando vem `x-user-token`; deixa `null` (= "sem checagem, chamada
+// de servidor") quando nao vem. NUNCA bloqueia sozinho — quem bloqueia e
+// `donoAutorizado()` chamado dentro de cada rota, depois de saber qual
+// telefone/sessao a rota especifica precisa.
+async function resolverDono(req, res, next) {
+    const userToken = req.headers['x-user-token'];
+    if (!userToken) { req.telefonesPermitidos = null; return next(); }
+    try {
+        req.telefonesPermitidos = await telefonesDoUsuario(userToken);
+        if (req.telefonesPermitidos === null) {
+            return res.status(401).json({ error: 'Sessão expirada. Entre novamente.' });
+        }
+    } catch (e) {
+        console.error('[DONO] falha ao verificar usuario:', e.message);
+        return res.status(500).json({ error: 'Nao foi possivel verificar o usuario.' });
+    }
+    next();
+}
+
+// `null` em telefonesPermitidos = chamada de servidor, sempre autorizada.
+// Caso contrario, o telefone pedido precisa estar no Set (cauda de 9 digitos,
+// mesmo criterio ja usado em /groups e /group-invite-info para casar as duas
+// grafias do numero BR).
+function donoAutorizado(req, telefone) {
+    if (req.telefonesPermitidos === null) return true;
+    if (!telefone) return false;
+    const cauda = String(telefone).replace(/\D/g, '').slice(-9);
+    return req.telefonesPermitidos.has(cauda);
+}
+
 // ============ SESSION MANAGEMENT ============
 /**
  * connectSession — cria ou reconecta uma sessão Baileys
@@ -555,9 +622,13 @@ app.get('/pair-status/:sessionId', verifyToken, (req, res) => {
 });
 
 // -- Sessions list --
-app.get('/sessions', verifyToken, (req, res) => {
+app.get('/sessions', verifyToken, resolverDono, (req, res) => {
     const sessions = [];
     for (const [sessionId, s] of SESSIONS) {
+        // Sem x-user-token (chamada de servidor) ve tudo, como antes. Com
+        // x-user-token, so entra sessao cujo telefone o dono enxerga por RLS
+        // (o proprio, ou qualquer um se for admin) — ver "Dono da sessão" acima.
+        if (!donoAutorizado(req, s.phoneNumber)) continue;
         sessions.push({
             sessionId,
             phone: s.phoneNumber ? '+' + s.phoneNumber : null,
@@ -571,12 +642,15 @@ app.get('/sessions', verifyToken, (req, res) => {
 });
 
 // -- Disconnect --
-app.post('/disconnect/:sessionId', verifyToken, async (req, res) => {
+app.post('/disconnect/:sessionId', verifyToken, resolverDono, async (req, res) => {
     const { sessionId } = req.params;
     const session = SESSIONS.get(sessionId);
 
     if (!session) {
         return res.status(404).json({ error: 'Session not found' });
+    }
+    if (!donoAutorizado(req, session.phoneNumber)) {
+        return res.status(403).json({ error: 'Essa sessão não pertence a este usuário.' });
     }
 
     try {
@@ -607,8 +681,11 @@ app.post('/disconnect/:sessionId', verifyToken, async (req, res) => {
 });
 
 // -- Reconnect by phone (chamado pelo frontend quando sessão sumiu) --
-app.post('/reconnect/:phone', verifyToken, async (req, res) => {
+app.post('/reconnect/:phone', verifyToken, resolverDono, async (req, res) => {
     const phone = req.params.phone.replace(/\D/g, '');
+    if (!donoAutorizado(req, phone)) {
+        return res.status(403).json({ error: 'Esse número não pertence a este usuário.' });
+    }
     const targetVariants = phoneVariants(phone);
 
     // Verifica se já existe sessão ativa para esse número
@@ -664,11 +741,14 @@ app.post('/reconnect/:phone', verifyToken, async (req, res) => {
 });
 
 // -- Send message to channel/group --
-app.post('/send', verifyToken, async (req, res) => {
+app.post('/send', verifyToken, resolverDono, async (req, res) => {
     const { sessionPhone, channelId, text, imageUrl, userId } = req.body;
 
     if (!channelId || !text) {
         return res.status(400).json({ error: 'channelId e text são obrigatórios' });
+    }
+    if (sessionPhone && !donoAutorizado(req, sessionPhone)) {
+        return res.status(403).json({ error: 'Esse número não pertence a este usuário.' });
     }
 
     // ─── RATE LIMITING: Validar antes de enviar ───
@@ -694,7 +774,12 @@ app.post('/send', verifyToken, async (req, res) => {
             }
         }
     }
-    if (!session) {
+    // O fallback "qualquer sessao paired" so e seguro quando NAO ha prova de
+    // dono pra checar — ou seja, chamada de servidor (Edge Function) sem
+    // sessionPhone. Chamada de navegador (com x-user-token) que nao apontou
+    // sessionPhone NAO pode herdar a sessao de outra conta por acidente: isso
+    // era exatamente o buraco da P35 (ver "Dono da sessão" no topo do arquivo).
+    if (!session && req.telefonesPermitidos === null) {
         for (const [, s] of SESSIONS) {
             if (s.status === 'paired') { session = s; break; }
         }
@@ -730,7 +815,7 @@ app.post('/send', verifyToken, async (req, res) => {
 });
 
 // -- Send direct message --
-app.post('/send-message', verifyToken, async (req, res) => {
+app.post('/send-message', verifyToken, resolverDono, async (req, res) => {
     const { sessionId, sessionPhone, phoneNumber, message, userId } = req.body;
 
     // sessionPhone e alternativa ao sessionId: quem chama de fora (Edge Functions)
@@ -764,6 +849,9 @@ app.post('/send-message', verifyToken, async (req, res) => {
     }
     if (!session || session.status !== 'paired') {
         return res.status(404).json({ error: 'Session not paired' });
+    }
+    if (!donoAutorizado(req, session.phoneNumber || session.phone)) {
+        return res.status(403).json({ error: 'Essa sessão não pertence a este usuário.' });
     }
 
     try {
@@ -831,10 +919,13 @@ app.post('/send-message', verifyToken, async (req, res) => {
 });
 
 // -- Envio para grupo WA --
-app.post('/send-group', verifyToken, async (req, res) => {
+app.post('/send-group', verifyToken, resolverDono, async (req, res) => {
     const { sessionPhone, groupId, text, imageUrl, userId } = req.body;
     if (!sessionPhone || !groupId || !text) {
         return res.status(400).json({ ok: false, error: 'sessionPhone, groupId e text são obrigatórios' });
+    }
+    if (!donoAutorizado(req, sessionPhone)) {
+        return res.status(403).json({ ok: false, error: 'Esse número não pertence a este usuário.' });
     }
 
     // ─── RATE LIMITING: Validar antes de enviar ───
@@ -1484,7 +1575,7 @@ app.post('/amazon-search', verifyToken, async (req, res) => {
 });
 
 // -- Groups list --
-app.get('/groups', verifyToken, async (req, res) => {
+app.get('/groups', verifyToken, resolverDono, async (req, res) => {
     const phoneParam = String(req.query.phone || '').replace(/\D/g, '');
 
     // SEM FALLBACK, de proposito. Este endpoint tinha um "se nao achou pelo
@@ -1495,6 +1586,13 @@ app.get('/groups', verifyToken, async (req, res) => {
     // Clone Post. Sem saber de quem e o numero, nao ha resposta correta possivel.
     if (!phoneParam) {
         return res.status(400).json({ error: 'Informe o número da sessão em ?phone=. Sem ele não dá pra saber de quem são os grupos.', groups: [] });
+    }
+    // P35: o ?phone= sozinho provava so que o numero EXISTE, nao que e do
+    // usuario que perguntou. Continuava sendo vazamento entre contas — so que
+    // agora exigia saber o telefone de outra conta, em vez de acertar por
+    // acaso na sessao "qualquer uma paired".
+    if (!donoAutorizado(req, phoneParam)) {
+        return res.status(403).json({ error: 'Esse número não pertence a este usuário.', groups: [] });
     }
 
     let session = null;
@@ -1567,7 +1665,7 @@ function comPrazo(promessa, ms, oQue) {
     return Promise.race([promessa, limite]).finally(() => clearTimeout(t));
 }
 
-app.get('/group-invite-info', verifyToken, async (req, res) => {
+app.get('/group-invite-info', verifyToken, resolverDono, async (req, res) => {
     const phoneParam = String(req.query.phone || '').replace(/\D/g, '');
     const code = extrairCodigoConvite(req.query.code);
 
@@ -1577,6 +1675,9 @@ app.get('/group-invite-info', verifyToken, async (req, res) => {
     }
     if (!code) {
         return res.status(400).json({ error: 'Isso não parece um link de convite. Esperado: https://chat.whatsapp.com/XXXXXXXX — se você colou uma página de links (linktr.ee e parecidas), abra o grupo no WhatsApp e use "Convidar via link".' });
+    }
+    if (!donoAutorizado(req, phoneParam)) { // P35, mesmo motivo do /groups acima
+        return res.status(403).json({ error: 'Esse número não pertence a este usuário.' });
     }
 
     let session = null;
