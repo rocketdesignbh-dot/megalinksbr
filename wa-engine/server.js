@@ -127,7 +127,13 @@ app.use((req, res, next) => {
     if (permitida) {
         res.header('Access-Control-Allow-Origin', origin);
         res.header('Vary', 'Origin');
-        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+        // x-user-token entrou na P35 (26/08) pra provar dono de sessao. Faltou
+        // aqui na hora — CORS so libera header customizado que estiver nesta
+        // lista, e sem ele o preflight (OPTIONS) recusa e a chamada real nem
+        // sai do navegador: "Failed to fetch" generico, sem status HTTP nenhum
+        // pra depurar. MEDIDO em produção logo apos o Deploy: GET /sessions do
+        // navegador falhando assim, com os dois tokens presentes e corretos.
+        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-user-token');
         res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     } else if (origin) {
         // Não derruba a requisição: só não devolve o cabeçalho, e o navegador
