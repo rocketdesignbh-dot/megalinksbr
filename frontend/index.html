@@ -1156,7 +1156,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="phead">
       <div>
         <h1 class="pt">🧬 Clone Post</h1>
-        <div class="psub">Viu uma oferta boa no grupo de outra pessoa? Cole a mensagem aqui: o link do afiliado dela sai, o seu entra, e o post vai pro seu Grupo de Oferta.</div>
+        <div class="psub">Ofertas capturadas automaticamente das suas fontes entram na fila abaixo para revisão e aprovação.</div>
         <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button>
       </div>
     </div>
@@ -1164,32 +1164,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div id="cloneGate" style="display:none"></div>
 
     <div id="cloneApp">
-      <div class="card" style="margin-bottom:16px">
-        <div class="ch">📋 Colar mensagem do grupo</div>
-        <div class="cb">
-          <label>Mensagem copiada</label>
-          <textarea id="cloneTexto" rows="6" placeholder="Cole aqui a mensagem inteira, com o link.&#10;&#10;Exemplo:&#10;🔥 AIR FRYER MONDIAL 4L&#10;💸 De R$ 399 por R$ 249 no Pix&#10;👉 https://s.shopee.com.br/9pxKq2Lm3" style="width:100%;font-family:var(--mono);font-size:12.5px;resize:vertical"></textarea>
-          <div class="g2" style="margin-top:12px">
-            <div>
-              <label>Grupo de Oferta de destino</label>
-              <select id="cloneGrupo" style="width:100%" onchange="cloneAtualizarAuto()"></select>
-            </div>
-            <div>
-              <label>Aprovação deste grupo</label>
-              <div style="display:flex;align-items:center;gap:10px;height:38px">
-                <input type="checkbox" id="cloneAuto" onchange="cloneToggleAuto()" style="width:auto">
-                <span id="cloneAutoTxt" style="font-size:12.5px;color:var(--tx2)">revisar antes de publicar</span>
-              </div>
-            </div>
-          </div>
-          <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
-            <button class="btn btn-gold" id="cloneBtn" onclick="cloneResolver()">🧬 Clonar oferta</button>
-            <button class="btn btn-ghost" onclick="cloneLimpar()">Limpar</button>
-          </div>
-          <div id="cloneStatus" style="display:none;margin-top:14px"></div>
-        </div>
-      </div>
-
       <div class="card" style="margin-bottom:16px">
         <div class="ch">🤖 Fontes automáticas <span class="r"><span id="csUpd" class="cs-upd"></span><a href="#" onclick="csAtualizar();return false">atualizar</a></span></div>
         <div class="cb" id="csBox"><div style="color:var(--tx2);font-size:13px">Carregando…</div></div>
@@ -8739,10 +8713,17 @@ function lrCopiar(){
 }
 
 /* ================= CLONE POST ================= */
-// Clona uma oferta postada em outro grupo: resolve o link encurtado (resolve-link),
-// descarta o ID de afiliado de quem postou, injeta o do usuario logado e joga na
-// fila do Grupo de Oferta escolhido. Grupo com clone_auto_approve=true publica direto.
-let CLONE_ATUAL=null;
+// A captura vem só das Fontes automáticas (clone-ingest) e cai na Fila de
+// clones pra revisão/aprovação — ver mais abaixo. O card "Colar mensagem do
+// grupo" (clonar por texto colado à mão) foi REMOVIDO a pedido do Érico em
+// 26/08: ele não via utilidade nele. Foram junto: a coluna de destino/
+// aprovação automática por grupo (`clone_auto_approve` em `niche_groups`,
+// que o clone-ingest de qualquer forma SEMPRE ignora — toda captura
+// automática cai como `pending`, ver comentário na REVISÃO 41/P18) e o
+// parser de fallback que lia título/preço do texto colado. `clone_posts`,
+// `clone_ingest_log` e o fluxo de aprovação (cloneAprovar/
+// cloneAprovarSelecionados/cloneCriarProduto) continuam intactos — só a
+// via manual de entrada saiu.
 
 // Quem pode usar o Clone Post. Admin ve tudo. VIP tem acesso enquanto for VIP
 // (saiu do VIP, perde junto). Fora isso quem manda e o plano: Pro pra cima.
@@ -8750,17 +8731,6 @@ function cloneAcessoLiberado(){
   if(IS_ADMIN)return true;
   if(MY_PROFILE&&MY_PROFILE.is_vip)return true;
   return !!myFeatures().clone_post;
-}
-
-function cloneGrupoSel(){
-  const id=document.getElementById("cloneGrupo")?.value||"";
-  return S.grupos.find(g=>String(g.db_id||g.id)===String(id))||null;
-}
-
-function cloneLimpar(){
-  CLONE_ATUAL=null;
-  const t=document.getElementById("cloneTexto");if(t)t.value="";
-  const s=document.getElementById("cloneStatus");if(s){s.style.display="none";s.innerHTML="";}
 }
 
 function cloneAbrirPagina(tentativa){
@@ -8779,276 +8749,8 @@ function cloneAbrirPagina(tentativa){
   }
   gate.style.display="none";
   app.style.display="block";
-  clonePreencherGrupos();
   cloneCarregarFila();
   csCarregar();
-}
-
-function clonePreencherGrupos(){
-  const sel=document.getElementById("cloneGrupo");
-  if(!sel)return;
-  const atual=sel.value;
-  if(!S.grupos.length){
-    sel.innerHTML='<option value="">— nenhum Grupo de Oferta criado —</option>';
-  }else{
-    sel.innerHTML=S.grupos.map(g=>`<option value="${g.db_id||g.id}">${g.nome}</option>`).join("");
-    if(atual)sel.value=atual;
-  }
-  cloneAtualizarAuto();
-}
-
-async function cloneAtualizarAuto(){
-  const g=cloneGrupoSel();
-  const chk=document.getElementById("cloneAuto");
-  const txt=document.getElementById("cloneAutoTxt");
-  if(!chk||!txt)return;
-  if(!g){chk.checked=false;chk.disabled=true;txt.textContent="selecione um grupo";return;}
-  chk.disabled=false;
-  let auto=g.cloneAuto;
-  if(auto===undefined){
-    try{
-      const{data}=await SB.from("niche_groups").select("clone_auto_approve").eq("id",g.db_id||g.id).maybeSingle();
-      auto=!!data?.clone_auto_approve;g.cloneAuto=auto;
-    }catch(e){auto=false;}
-  }
-  chk.checked=!!auto;
-  txt.textContent=auto?"publica direto, sem revisão":"revisar antes de publicar";
-}
-
-async function cloneToggleAuto(){
-  const g=cloneGrupoSel();
-  const chk=document.getElementById("cloneAuto");
-  if(!g||!chk)return;
-  const novo=chk.checked;
-  const{error}=await SB.from("niche_groups").update({clone_auto_approve:novo}).eq("id",g.db_id||g.id);
-  if(error){chk.checked=!novo;toast("Não consegui salvar: "+error.message,"⚠️");return;}
-  g.cloneAuto=novo;
-  const txt=document.getElementById("cloneAutoTxt");
-  if(txt)txt.textContent=novo?"publica direto, sem revisão":"revisar antes de publicar";
-  toast(novo?"Clones deste grupo vão direto pro ar.":"Clones deste grupo passam por revisão.","✅");
-}
-
-// Converte "1.299,90" / "249,00" / "399" em número. Devolve null se não der.
-function _cloneNum(s){
-  if(s===undefined||s===null)return null;
-  let t=String(s).trim().replace(/\s/g,"");
-  if(!t)return null;
-  // formato BR: ponto é separador de milhar, vírgula é decimal
-  if(t.includes(","))t=t.replace(/\./g,"").replace(",",".");
-  const n=parseFloat(t);
-  return (Number.isFinite(n)&&n>0)?n:null;
-}
-
-// FALLBACK do Clone Post: quando a product-search não devolve os dados (Shein,
-// AliExpress, Magalu, Natura, TerabyteShop — ver P44), tenta ler título e preço
-// do PRÓPRIO TEXTO que o usuário colou, que veio do grupo de origem já escrito.
-// Regra: só extrai o que está literalmente escrito. Não inventa, não estima,
-// não calcula desconto. O que não achar volta null e o usuário preenche.
-function cloneExtrairDoTexto(texto){
-  const out={title:"",price:null,price_original:null};
-  const raw=String(texto||"");
-  if(!raw.trim())return out;
-
-  // ---- preços ----
-  // 1) padrão explícito "de X por Y" (o mais confiável — diz qual é qual)
-  const dePor=raw.match(/\bde\s*:?\s*R?\$?\s*([\d.,]+)[\s\S]{0,40}?\bpor\s*:?\s*(?:apenas\s*)?R?\$?\s*([\d.,]+)/i);
-  if(dePor){
-    const a=_cloneNum(dePor[1]),b=_cloneNum(dePor[2]);
-    // só aceita se o "de" for realmente maior que o "por"
-    if(a&&b&&a>b){out.price_original=a;out.price=b;}
-    else if(b){out.price=b;}
-  }
-  if(!out.price){
-    // 2) "por apenas R$ X" / "por R$ X"
-    const soPor=raw.match(/\bpor\s*:?\s*(?:apenas\s*)?R\$\s*([\d.,]+)/i);
-    if(soPor)out.price=_cloneNum(soPor[1]);
-  }
-  if(!out.price){
-    // 3) um único valor em R$ — sem ambiguidade, pode usar.
-    //    Antes de contar, descarta linhas que notoriamente falam de OUTRO valor
-    //    que não é o preço do produto (frete, parcela, cupom mínimo, cashback).
-    //    Se ainda sobrar mais de um valor, NÃO chuta — deixa pro usuário.
-    const RUIDO=/\b(frete|parcela|parcelad|sem juros|acima de|a partir de|m[íi]nimo|cupom|cashback|desconto de|economi[ae])\b/i;
-    const limpo=raw.split(/\r?\n/).filter(l=>!RUIDO.test(l)).join("\n");
-    const todos=[...limpo.matchAll(/R\$\s*([\d.,]+)/gi)].map(m=>_cloneNum(m[1])).filter(Boolean);
-    if(todos.length===1)out.price=todos[0];
-  }
-
-  // ---- título ----
-  // primeira linha "de conteúdo": sem link, sem ser só preço, com letras de verdade
-  const linhas=raw.split(/\r?\n/);
-  for(const linha of linhas){
-    let l=linha.trim();
-    if(!l)continue;
-    if(/https?:\/\//i.test(l))continue;                 // linha de link
-    if(/^\W*(de|por)\b/i.test(l)&&/R\$/i.test(l))continue; // linha de preço
-    if(/^\W*R\$/i.test(l))continue;                     // começa com preço
-    // tira emoji/símbolo/pontuação decorativa do começo e do fim
-    l=l.replace(/^[^\p{L}\p{N}]+/u,"").replace(/[^\p{L}\p{N}%)\]]+$/u,"").trim();
-    if(l.length<4)continue;
-    const letras=(l.match(/\p{L}/gu)||[]).length;
-    if(letras<3)continue;                               // não é título de verdade
-    if(/^(corre|aproveit|clique|link|compre|oferta|promo[çc][ãa]o|frete|cupom|estoque|[úu]ltimas?)\b/i.test(l))continue; // CTA, não título
-    out.title=l.slice(0,120);
-    break;
-  }
-  return out;
-}
-
-async function cloneResolver(){
-  if(!cloneAcessoLiberado()){toast("Clone Post é a partir do plano Pro.","🔒");return;}
-  const texto=(document.getElementById("cloneTexto")?.value||"").trim();
-  const st=document.getElementById("cloneStatus");
-  const btn=document.getElementById("cloneBtn");
-  const grupo=cloneGrupoSel();
-  if(!texto){toast("Cole a mensagem do grupo primeiro.","⚠️");return;}
-  if(!grupo){toast("Crie ou selecione um Grupo de Oferta de destino.","⚠️");return;}
-  if(btn)btn.disabled=true;
-  st.style.display="block";
-  st.innerHTML='<div class="alert b" style="margin:0">🔗 Resolvendo o link e removendo o afiliado de origem…</div>';
-  try{
-    const session=await SB.auth.getSession();
-    const jwt=session?.data?.session?.access_token;
-    if(!jwt)throw new Error("Sessão expirada — entre de novo.");
-
-    const r=await fetch(`${SUPA_URL}/functions/v1/resolve-link`,{
-      method:"POST",
-      headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"},
-      body:JSON.stringify({text:texto})
-    });
-    const d=await r.json();
-    if(!d.ok){
-      st.innerHTML=`<div class="alert r" style="margin:0"><span><strong>Não deu pra clonar.</strong><br>${d.error||"erro desconhecido"}${d.stage?` <small style="opacity:.7">(etapa: ${d.stage})</small>`:""}</span></div>`;
-      return;
-    }
-
-    st.innerHTML=`<div class="alert b" style="margin:0">🔎 Link resolvido (${d.store_label||d.store}). Consultando preço e imagem na loja…</div>`;
-
-    const prod={title:"",price:null,price_original:null,image:"",discount:null};
-    let buscaErro="";
-    try{
-      const rp=await fetch(`${SUPA_URL}/functions/v1/product-search`,{
-        method:"POST",
-        headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"},
-        body:JSON.stringify({url:d.url,credentials:prColetarCredenciais()})
-      });
-      const dp=await rp.json();
-      if(dp.success){
-        prod.title=(dp.name||dp.title||"").slice(0,120);
-        prod.image=dp.image||dp.thumbnail||"";
-        prod.price=parseFloat(String(dp.price_to||dp.price||"").replace(",","."))||null;
-        prod.price_original=parseFloat(String(dp.price_from||"").replace(",","."))||null;
-        prod.discount=dp.discount_pct||null;
-      }else{
-        buscaErro=dp.error||"a loja não devolveu os dados do produto";
-      }
-    }catch(e){buscaErro=e.message||String(e);}
-
-    // Fallback: preenche SÓ o que a loja não devolveu, lendo do texto colado.
-    // Nunca sobrescreve dado que veio da loja — a loja é a fonte melhor.
-    const doTexto=cloneExtrairDoTexto(texto);
-    const veioDoTexto=[];
-    if(!prod.title&&doTexto.title){prod.title=doTexto.title;veioDoTexto.push("título");}
-    if(!prod.price&&doTexto.price){prod.price=doTexto.price;veioDoTexto.push("preço");}
-    if(!prod.price_original&&doTexto.price_original){prod.price_original=doTexto.price_original;veioDoTexto.push("preço original");}
-
-    const lojaLabel=d.store_label||detectLojaLabel(d.url)||"";
-    const linkAfiliado=prGerarLinkAfil(d.url,lojaLabel)||d.url;
-
-    CLONE_ATUAL={texto,resolve:d,prod,lojaLabel,linkAfiliado,grupoId:grupo.db_id||grupo.id,buscaErro,veioDoTexto};
-    cloneRenderPreview();
-  }catch(e){
-    st.innerHTML=`<div class="alert r" style="margin:0"><span><strong>Falhou:</strong> ${e.message||e}</span></div>`;
-  }finally{
-    if(btn)btn.disabled=false;
-  }
-}
-
-function cloneRenderPreview(){
-  const c=CLONE_ATUAL;
-  const st=document.getElementById("cloneStatus");
-  if(!c||!st)return;
-  const d=c.resolve;
-  const semCred=!temCredencialLoja(c.lojaLabel);
-  const avisoCred=semCred?`<div class="alert y" style="margin:10px 0 0"><span>⚠️ Você não tem credencial de <strong>${c.lojaLabel||"loja"}</strong> configurada — o link vai sair <strong>sem a sua comissão</strong>. <a href="#" onclick="go('config-afiliados');return false" style="color:var(--volt-tx)">Configurar agora</a></span></div>`:"";
-  const _vdt=(c.veioDoTexto||[]);
-  const avisoBusca=c.buscaErro
-    ?(_vdt.length
-      ?`<div class="alert y" style="margin:10px 0 0"><span>A loja não devolveu os dados automáticos (${c.buscaErro}). Preenchi <strong>${_vdt.join(", ")}</strong> lendo a mensagem que você colou — <strong>confira contra a página do produto antes de aprovar</strong>, porque o texto do grupo de origem pode estar errado ou desatualizado.</span></div>`
-      :`<div class="alert y" style="margin:10px 0 0"><span>A loja não devolveu os dados automáticos (${c.buscaErro}) e também não consegui achar título/preço na mensagem colada. Dá pra clonar assim mesmo — preencha título e preço à mão antes de aprovar.</span></div>`)
-    :"";
-  const removidos=(d.stripped||[]).length
-    ?`<span style="color:var(--volt-tx)">removido: ${d.stripped.join(", ")}</span>`
-    :'<span style="color:var(--tx2)">o link original não tinha parâmetro de afiliado</span>';
-  const esc=s=>String(s||"").replace(/"/g,"&quot;");
-  st.style.display="block";
-  st.innerHTML=`
-  <div class="card" style="margin:0">
-    <div class="ch">🧬 Pronto pra clonar</div>
-    <div class="cb">
-      <div style="display:flex;gap:14px;flex-wrap:wrap">
-        ${c.prod.image?`<img src="${c.prod.image}" style="width:96px;height:96px;object-fit:contain;border-radius:2px;background:#fff" onerror="this.style.display='none'">`:""}
-        <div style="flex:1;min-width:220px">
-          <label>Título</label>
-          <input id="cloneTitulo" value="${esc(c.prod.title)}" placeholder="Título do produto" style="width:100%">
-          <div class="g2" style="margin-top:10px">
-            <div><label>Preço original</label><input id="cloneDe" value="${c.prod.price_original||""}" placeholder="399,00" style="width:100%"></div>
-            <div><label>Preço atual</label><input id="clonePor" value="${c.prod.price||""}" placeholder="249,00" style="width:100%"></div>
-          </div>
-        </div>
-      </div>
-      <div style="margin-top:12px;font-size:12px;color:var(--tx2);line-height:1.8">
-        <div>Loja: <strong style="color:var(--tx)">${c.lojaLabel||d.store}</strong> · saltos até o link real: ${d.hops}</div>
-        <div>Afiliado de origem: ${removidos}</div>
-        <div style="word-break:break-all">Seu link: <span style="color:var(--volt-tx)">${c.linkAfiliado}</span></div>
-      </div>
-      ${avisoCred}${avisoBusca}
-      <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
-        <button class="btn btn-volt" onclick="cloneSalvar()">✅ Enviar pro grupo</button>
-        <button class="btn btn-ghost" onclick="cloneLimpar()">Descartar</button>
-      </div>
-    </div>
-  </div>`;
-}
-
-async function cloneSalvar(){
-  const c=CLONE_ATUAL;
-  if(!c){toast("Nada pra salvar.","⚠️");return;}
-  const titulo=(document.getElementById("cloneTitulo")?.value||"").trim();
-  const de=parseFloat(String(document.getElementById("cloneDe")?.value||"").replace(",","."))||null;
-  const por=parseFloat(String(document.getElementById("clonePor")?.value||"").replace(",","."))||null;
-  if(!titulo){toast("Preencha o título do produto.","⚠️");return;}
-  const desc=(de&&por&&por<de)?Math.round((1-por/de)*100):(c.prod.discount||null);
-  const g=S.grupos.find(x=>String(x.db_id||x.id)===String(c.grupoId));
-  const auto=!!(g&&g.cloneAuto);
-  const row={
-    user_id:CURRENT_USER?.id,
-    niche_group_id:c.grupoId,
-    status:auto?"approved":"pending",
-    source_text:String(c.texto||"").slice(0,2000),
-    source_url:c.resolve.original,
-    resolved_url:c.resolve.resolved,
-    clean_url:c.resolve.url,
-    affiliate_url:c.linkAfiliado,
-    store:STORE_ENUM[c.lojaLabel]||"manual",
-    store_label:c.lojaLabel||null,
-    stripped_params:c.resolve.stripped||[],
-    title:titulo,price:por,price_original:de,discount_pct:desc,
-    image_url:c.prod.image||null,
-    resolved_at:new Date().toISOString(),
-    approved_at:auto?new Date().toISOString():null
-  };
-  const{data:ins,error}=await SB.from("clone_posts").insert(row).select("id").maybeSingle();
-  if(error){toast("Erro ao salvar o clone: "+error.message,"⚠️");return;}
-  if(auto){
-    const ok=await cloneCriarProduto(ins.id,row);
-    if(!ok)return;
-    toast("Clonado e publicado no grupo.","🧬");
-  }else{
-    toast("Clone salvo na fila pra revisão.","🧬");
-  }
-  cloneLimpar();
-  cloneCarregarFila();
 }
 
 // Transforma uma linha da fila em produto do grupo. Se falhar, marca o clone como
