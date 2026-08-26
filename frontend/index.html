@@ -1072,7 +1072,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="bar-track" id="mrChart"></div>
           </div></div>
 
-          <div class="card"><div class="ch">🏪 Por loja</div><div class="cb" id="mrBreakdown"></div></div>
+          <div class="card" style="margin-bottom:16px"><div class="ch">🏪 Por loja</div><div class="cb" id="mrBreakdown"></div></div>
+
+          <div class="card" style="margin-bottom:16px"><div class="ch">🏆 Produtos mais vendidos</div><div class="cb" id="mrProdutos"></div></div>
+
+          <div class="card"><div class="ch">📡 Performance por canal & sub ID</div><div class="cb" id="mrCampanhas"></div></div>
         </div>
       </div>
 
@@ -11678,6 +11682,23 @@ function mrDelta(changePct){
   return `<span style="color:${cor}">${seta} ${Math.abs(changePct).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</span> vs. período anterior`;
 }
 
+// Uma chamada por dimensao: `dimensions:['product','campaign']` numa unica
+// chamada agruparia por COMBINACAO das duas (um par product+campaign por
+// linha), nao uma tabela de produtos e outra de campanhas separadas. Totais e
+// serie nao dependem da dimensao pedida, entao so o corpo de 'store' e usado
+// para eles; os outros dois servem so pelo `.breakdown`.
+async function mrFetchMetrics(tk, preset, dimensions){
+  const r = await fetch(`${SUPA_URL}/functions/v1/mega-results/metrics/query`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${tk}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ period: { preset }, dimensions })
+  });
+  const body = await r.json().catch(()=>({}));
+  if(r.status === 403 && body.error === 'MODULE_DISABLED') return { locked: true };
+  if(!r.ok) throw new Error(body.message || `HTTP ${r.status}`);
+  return { data: body.data };
+}
+
 async function mrMetricsLoad(preset){
   MR_PERIOD = preset;
   document.querySelectorAll('#mrPerBtns [data-preset]').forEach(b=>{
@@ -11691,15 +11712,19 @@ async function mrMetricsLoad(preset){
   if(!tk){ document.getElementById('mrMetLoading').style.display = 'none'; document.getElementById('mrMetErr').textContent = 'Sua sessão expirou. Entre de novo.'; document.getElementById('mrMetErr').style.display = ''; return; }
 
   try{
-    const r = await fetch(`${SUPA_URL}/functions/v1/mega-results/metrics/query`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${tk}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ period: { preset }, dimensions: ['store'] })
-    });
-    const body = await r.json().catch(()=>({}));
-    if(r.status === 403 && body.error === 'MODULE_DISABLED'){ mrShow('mrLocked'); return; }
-    if(!r.ok) throw new Error(body.message || `HTTP ${r.status}`);
-    mrRenderMetrics(body.data);
+    const principal = await mrFetchMetrics(tk, preset, ['store']);
+    if(principal.locked){ mrShow('mrLocked'); return; }
+    mrRenderMetrics(principal.data);
+
+    // Produtos e campanhas sao complementares: se uma das duas falhar, a tela
+    // principal (ja renderizada acima) continua de pe — so a tabela em questao
+    // mostra o erro dela.
+    const [produtos, campanhas] = await Promise.allSettled([
+      mrFetchMetrics(tk, preset, ['product']),
+      mrFetchMetrics(tk, preset, ['campaign']),
+    ]);
+    mrRenderBreakdownExtra('mrProdutos', produtos, 'product', 'productLabel', mrLinhaProduto);
+    mrRenderBreakdownExtra('mrCampanhas', campanhas, 'campaign', 'campaignLabel', mrLinhaCampanha);
   }catch(e){
     document.getElementById('mrMetLoading').style.display = 'none';
     document.getElementById('mrMetErr').textContent = 'Não foi possível carregar as métricas: ' + (e.message || e);
@@ -11755,6 +11780,51 @@ function mrRenderMetrics(data){
 
   document.getElementById('mrMetLoading').style.display = 'none';
   document.getElementById('mrMetBody').style.display = '';
+}
+
+function mrLinhaProduto(b){
+  const nome = b.productLabel || 'Sem atribuição';
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--surf2)">
+      <div style="font-weight:600;max-width:60%">${nome}</div>
+      <div style="text-align:right">
+        <div>${mrBRL(b.commission_projected)}</div>
+        <div style="color:var(--mut);font-size:12px">${mrNum(b.orders)} pedidos · ${mrNum(b.clicks)} cliques</div>
+      </div>
+    </div>`;
+}
+
+function mrLinhaCampanha(b){
+  const nome = b.campaignLabel || 'Sem atribuição';
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--surf2)">
+      <div style="font-weight:600;max-width:60%">${nome}</div>
+      <div style="text-align:right">
+        <div>${mrBRL(b.commission_projected)}</div>
+        <div style="color:var(--mut);font-size:12px">${mrNum(b.clicks)} cliques · ${mrNum(b.orders)} pedidos · ${mrPct(b.conversion_rate)} conv.</div>
+      </div>
+    </div>`;
+}
+
+/* Usado pelas duas tabelas complementares (produto/campanha). `settled` vem de
+ * Promise.allSettled: pode ter rejeitado (rede/erro HTTP) ou vir com
+ * `locked:true` (modulo desabilitado no meio da sessao — improvavel, mas o
+ * 403 existe e nao deve virar tela em branco silenciosa). */
+function mrRenderBreakdownExtra(elId, settled, campoId, campoLabel, linhaFn){
+  const el = document.getElementById(elId);
+  if(settled.status !== 'fulfilled'){
+    el.innerHTML = `<p style="color:var(--mut);margin:0">Não foi possível carregar: ${settled.reason?.message || settled.reason || 'erro desconhecido'}</p>`;
+    return;
+  }
+  if(settled.value.locked){
+    el.innerHTML = '<p style="color:var(--mut);margin:0">Módulo não liberado.</p>';
+    return;
+  }
+  const bd = (settled.value.data.breakdown || []).slice()
+    .sort((a,b) => b.commission_projected - a.commission_projected);
+  el.innerHTML = bd.length
+    ? bd.map(linhaFn).join('')
+    : '<p style="color:var(--mut);margin:0">Sem dados no período.</p>';
 }
 
 // Lojas vem de field_mapping, nao do enum: so faz sentido oferecer loja que o

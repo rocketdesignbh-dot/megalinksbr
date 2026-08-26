@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 83 — 26/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 84 — 26/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1642,6 +1642,65 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 84 — 26/08/2026 — CODADO, NÃO DEPLOYADO. Executada a primeira ação
+decidida na REVISÃO 83: "Produtos Mais Vendidos" e "Performance por Canal &
+Sub ID" na sub-aba Métricas do Mega Results.**
+
+### O que mudou
+
+Só `frontend/index.html`. Nenhuma migration, nenhuma mudança na Edge Function
+`mega-results` — como previsto na REVISÃO 83, a function já aceitava
+`dimensions:['product']` e `['campaign']` no `POST metrics/query`; faltava só
+consumir e desenhar.
+
+- Duas novas seções na sub-aba Métricas, abaixo de "Por loja": 🏆 **Produtos
+  mais vendidos** (`#mrProdutos`, dimensão `product`) e 📡 **Performance por
+  canal & sub ID** (`#mrCampanhas`, dimensão `campaign`).
+- `mrMetricsLoad` agora faz **3 chamadas** à Edge Function em vez de 1: a
+  principal com `dimensions:['store']` (totais, série e breakdown por loja,
+  como já era) e duas complementares com `Promise.allSettled` —
+  `dimensions:['product']` e `dimensions:['campaign']`. Não dá para pedir as
+  três dimensões numa chamada só: a function agrupa por **combinação** das
+  dimensões pedidas, então `['store','product']` devolveria pares
+  loja+produto, não duas tabelas independentes.
+- `allSettled` (não `all`): se a chamada de produto ou de campanha falhar, a
+  tela principal (já renderizada antes) continua de pé — só a tabela em
+  questão mostra "Não foi possível carregar", em vez de a falha de uma
+  derrubar as três.
+- Rótulo `productLabel`/`campaignLabel` nulo (produto/campanha sem
+  atribuição, `SENTINELA` no backend) aparece como "Sem atribuição" — mesmo
+  tratamento que a function já dava.
+
+### O que está medido e o que não está
+
+- ✅ **Sintaxe:** os 5 blocos `<script>` do `index.html` passam por
+  `new Function()` sem erro (mesmo smoke test do P15 — extrair os blocos e
+  rodar isolados).
+- ❌ **Nada disso rodou em produção nem no navegador.** Só existe no repo
+  depois deste commit. `?v=` novo e um load logado (Claude in Chrome ou o
+  Érico) faltam para confirmar que as duas tabelas aparecem, que o
+  `Promise.allSettled` não quebra em algum caso não previsto, e que os
+  nomes vindos de `dim_product`/`dim_campaign` batem com o dado real.
+- **Dado real ainda é 1 relatório de comissão de teste** (P75/P77) — é
+  esperado que "Produtos mais vendidos" apareça vazio ou com 1 linha até
+  entrar uma importação de comissão de verdade. Isso não é bug: é o estado
+  do dado, como a REVISÃO 83 já avisava.
+
+### Pendências de segurança também levantadas nesta sessão, ainda não resolvidas
+
+**P81** (CSV de cliques commitado por engano no repo público) e **P72** (PAT
+clássico colado em chat anterior, precisa revogar/rotacionar) seguem em
+aberto — não mexidas nesta sessão, só relembradas ao Érico.
+
+### Próxima ação
+
+Deploy do `app` no EasyPanel + medir no navegador logado (Claude in Chrome ou
+o Érico): as duas tabelas aparecem, `console` limpo, os números batem com o
+que a Edge Function devolve para `dimensions:['product']`/`['campaign']`
+chamada direto. Só depois disso marcar como MEDIDO EM PRODUÇÃO.
+
+---
 
 **REVISÃO 83 — 26/08/2026 — sem código. Auditoria: o Mega Results contra o
 desenho original completo (pedido pelo Érico, que colou a especificação de
@@ -5873,12 +5932,15 @@ Importação de relatório de afiliado + dashboard de métricas.
 - **Frontend (`page-mega-results`):** duas sub-abas, as duas NO AR E MEDIDAS.
   **Importar** — Conexão, Importar relatório (upload + progresso por polling
   em `import_batch`), Importações recentes; sem mudança desde a REVISÃO 78.
-  **Métricas (REVISÃO 80/82, MEDIDA EM PRODUÇÃO 26/08)** — seletor de
-  período, 8 KPIs com comparação vs. período anterior, gráfico de comissão
-  por dia, breakdown por loja; consome `mega-results/metrics/query` pela
-  primeira vez desde que a função existe (08/08). Medida no navegador logado
-  do Érico via Claude in Chrome: KPIs batendo com o dado real, período
-  reagindo, console limpo. Ver P74.
+  **Métricas (REVISÃO 80/82 MEDIDA EM PRODUÇÃO 26/08; REVISÃO 84 CODADA, NÃO
+  DEPLOYADA)** — seletor de período, 8 KPIs com comparação vs. período
+  anterior, gráfico de comissão por dia, breakdown por loja (medidos em
+  produção, REVISÃO 82); mais **🏆 Produtos mais vendidos** e **📡
+  Performance por canal & sub ID** (REVISÃO 84, no repo, ainda sem Deploy
+  nem medição) — `mrMetricsLoad` faz 3 chamadas a `mega-results/metrics/query`
+  com `dimensions` diferentes (`store`/`product`/`campaign`) porque a
+  function agrupa por combinação das dimensões pedidas, não uma tabela por
+  dimensão numa chamada só. Ver P74 e a REVISÃO 84 em "Última alteração".
 - **Backend de importação:** `mr-ingest` (serviço Node no EasyPanel, streaming
   CSV/XLSX → `megaresults.import_batch`/`fact_transaction`). **Não entra no
   auto-deploy**, exige Deploy manual. Última confirmação de estar no ar: REVISÃO
@@ -6199,6 +6261,7 @@ código não relacionado.
 | ~~P79~~ | ✅ **FECHADA 26/08 (REVISÃO 78) — NO AR E MEDIDA.** Deploy do `app` às 04:43 UTC; o `index.html` servido pelo domínio traz os campos antes do arquivo. Duas tentativas reais do Érico chegaram ao `DUPLICATE_FILE`, que só é alcançável depois de autenticação, trava do piloto, campos e checksum. Registro original abaixo. ~~🔴 **CORRIGIDA NO REPO, NÃO DEPLOYADA — ordem dos campos do multipart no upload do Mega Results.** O `frontend/index.html` mandava `fd.append('file', …)` **antes** de `connectionId` e `store`; o `mr-ingest` lê `fields` dentro do handler do arquivo (`src/server.js` linha 161) e o Busboy entrega as partes na ordem do corpo, então os dois campos chegavam vazios e a resposta era 400 `ownerId, connectionId e store sao obrigatorios`. Consertado no repo (campos antes do arquivo). **Provado por comportamento ANTES do deploy**, com a função corrigida injetada na sessão logada do Érico: a importação completou com 40/40 linhas. **Falta push + Deploy do `app`** — sem isso, um F5 desfaz e a tela volta a falhar. ⚠️ Fica em aberto endurecer o backend para não depender da ordem do cliente | 26/08 |
 | ~~P80~~ | ✅ **FECHADA 26/08 (REVISÃO 79) — NO AR E MEDIDA NA TELA.** Com o Deploy, a importação do mesmo arquivo abriu o card "⚠️ Este arquivo já foi importado" com a data, console limpo. Arquivo servido confere: `mrAcompanhar` chamada, `mrStream` fora do fluxo. Registro original abaixo. ~~🟡 **CORRIGIDA NO REPO E PROVADA EM BANCADA — FALTA PUSH + DEPLOY. O SSE de progresso não atravessa o proxy do EasyPanel.** `GET /import/:id/stream` fica pendente para sempre quando o lote existe; com id inexistente responde em 425 ms (o servidor fecha a conexão nesse caminho). A tela ficava em "Enviando arquivo…" mesmo com a importação concluída. Conserto: `mrAcompanhar()` lê `megaresults.import_batch` a cada 1,5 s em vez de depender do stream — a fonte durável, como o próprio `mr-ingest` documenta. Três estados renderizados contra lotes reais. **Falta**: upload do `index.html`, Deploy do `app` e uma importação real para fechar. ⚠️ Alternativa de servidor, não feita: `X-Accel-Buffering: no` no `mr-ingest` (exige Deploy próprio dele) | 26/08 |
 | **P81** | 🔴 **Relatório de cliques commitado por engano em repo PÚBLICO:** `frontend/WebsiteClickReport202608260015.csv`, no commit `26e05c5` de 26/08. Conteúdo de baixo risco (ID do clique, data, região "Brazil", Sub_id, referenciador — sem dado pessoal de terceiro), mas é dado comercial e o repo é aberto. **Apagar do `main`**; permanece no histórico do git de qualquer forma. Reescrever histórico não se justifica pelo conteúdo | 26/08 |
+| **P82** | 🟡 **REVISÃO 84 codada, não deployada nem medida.** "Produtos mais vendidos" e "Performance por canal & sub ID" na sub-aba Métricas do Mega Results estão no `index.html` do repo (checado só por `new Function()` nos blocos `<script>`), sem Deploy no EasyPanel e sem ter sido aberto uma vez sequer em navegador logado. Falta: Deploy do `app`, abrir `/painel/mega-results` logado, conferir as duas tabelas aparecendo, console limpo e os rótulos de `dim_product`/`dim_campaign` batendo com o dado real | 26/08 |
 | **P77** | 🔵 **Só Shopee tem `field_mapping` em `megaresults`.** Se o Érico quiser importar relatório de outra loja (Mercado Livre, Amazon, etc.), falta cadastrar o mapeamento de campos dela antes — sem isso `mrLoadStores()` nem oferece a opção na tela | 26/08 |
 | **P74** | 🟡 **REVISÕES 70 e 71 estão no ar e medidas no ARQUIVO SERVIDO, mas o FLUXO ponta a ponta nunca foi rodado.** Falta: (a) Postar Agora com link de Shein → o alerta amarelo aparece mesmo na tela do Passo 2? (b) Clone Post com mensagem real de grupo → preview vem preenchido e o clone salva certo? (c) `prGerarLinkAfil` carimba o ID na Shein quando há credencial configurada? | 25/08 |
 
