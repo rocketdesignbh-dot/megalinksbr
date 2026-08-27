@@ -1690,10 +1690,29 @@ Reescritas para usá-la — as três telas de produto do Grupo de Ofertas:
 
 `prBuscarProduto()` (Postar Agora) **não foi tocada**: ela já era a referência.
 
-### Pendência de prova
-Provado na causa (a tabela acima é medição, não leitura de código) e a sintaxe do
-HTML foi conferida. **Falta exercitar as três telas no navegador com o código
-novo servido** — depende do rebuild do frontend.
+### Prova em produção — feita (27/08, com o rebuild no ar)
+No HTML servido: `buscarProdutoPorLink` existe, o aviso novo está lá e o texto
+antigo sumiu. Chamada real na página logada, com a função nova:
+
+| link colado | ok | nome | foto | preço |
+|---|---|---|---|---|
+| `shopee.com.br/product/1248266601/58255756877` (**sem `https://`**) | ✅ | "Kit com 16 Energético Red Bull cada 250ml" | ✅ | R$ 126,99 |
+| `amazon.com.br/.../dp/B0DBF65JYY` | ✅ | "PDRN PINK PEPTIDE SERUM 30ml" | ✅ | R$ 131,38 |
+
+O caso do link **sem protocolo** é o mesmo que antes morria em 400 — agora passa.
+Érico confirmou no navegador: "deu certo".
+
+### O aviso de atualização de preço estava mentindo (mesma sessão)
+A tela dizia *"Produtos via link **não** são atualizados automaticamente após
+importação"*. Medido no banco, é falso: dos ativos, **8 de 9 do Mercado Livre** e
+a Amazon tinham `price_checked_at` carimbado pela rodada diária da
+`product-refresh`, que **não olha como o produto entrou** — olha a loja
+(`LOJAS_COM_VERIFICADOR` = ML e Amazon) e o plano do dono
+(`PLANOS_COM_MONITORAMENTO` = pro/elite/premium/infinity). Shopee recebe carimbo,
+mas é carimbo de pulo: o preço não é reconferido.
+
+O texto novo diz exatamente isso, e virou informativo (azul) em vez de alerta
+(amarelo). Mexeu naqueles dois conjuntos da `product-refresh`, mexe neste texto.
 
 **REVISÃO 91 — 27/08/2026 — queda de sessão de WhatsApp deixa de ser MUDA:
 faixa fixa no painel + mensagem de WhatsApp pedindo repareamento, uma por queda.**
