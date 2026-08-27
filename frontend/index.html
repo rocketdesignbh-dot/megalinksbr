@@ -4453,6 +4453,61 @@ document.addEventListener("visibilitychange",()=>{
   }catch(e){}
 });
 
+/* ===== FAIXA DE QUEDA DA CONEXAO WHATSAPP (27/08) =====
+   Antes disto a queda era MUDA: o status virava 'disconnected' no banco (pela
+   wa-heartbeat ou pela flag_heartbeat_timeout_whatsapp_instances, a cada 5 min)
+   e, como todo lugar do painel procura a sessao com .eq("status","connected"),
+   a conexao simplesmente sumia da tela. Quem tinha rebuild do wa-engine no meio
+   do dia so descobria quando um disparo nao saiu.
+   Regras, decididas pelo Erico:
+   - Faixa fixa no topo de TODAS as telas, nao fechavel.
+   - Some sozinha quando a sessao volta — nada de "ja vi, nao mostra mais".
+   - Nao aparece para quem nunca conectou (last_seen_at nulo). */
+let WA_QUEDA_TIMER=null;
+function waQuedaBarra(mostrar){
+  let el=document.getElementById("waQuedaAlerta");
+  if(!mostrar){ if(el)el.remove(); return; }
+  if(el)return;
+  const wrap=document.getElementById("wrap");
+  if(!wrap)return;
+  el=document.createElement("div");
+  el.id="waQuedaAlerta";
+  el.style.cssText="position:sticky;top:0;z-index:60;margin:0 0 14px;padding:14px 16px;border-radius:12px;border:1px solid #ff4d4f;background:linear-gradient(90deg,rgba(255,77,79,.18),rgba(255,77,79,.06));display:flex;gap:12px;align-items:center;flex-wrap:wrap;box-shadow:0 6px 24px rgba(255,77,79,.18)";
+  el.innerHTML='<span style="font-size:22px" id="waQuedaIco">🚨</span>'
+    +'<div style="flex:1;min-width:220px"><div style="font-weight:800;color:#ff6b6d;letter-spacing:.2px">SUA CONEXÃO DO WHATSAPP CAIU</div>'
+    +'<div style="font-size:13px;color:var(--tx2);margin-top:2px">Enquanto ela estiver fora, <strong>nada é enviado</strong>: posts automáticos, Clone Post e disparos para grupos ficam parados. Pareie o número de novo — leva 30 segundos.</div></div>'
+    +'<button class="btn btn-volt" onclick="go(\'conexao\')">📲 Parear agora</button>';
+  wrap.insertBefore(el,wrap.firstChild);
+  // Pisca discreto: chama atencao sem virar carrossel de CSS.
+  let on=true;
+  el._blink=setInterval(()=>{const i=document.getElementById("waQuedaIco");if(!i){clearInterval(el._blink);return;}i.style.opacity=(on=!on)?"1":".25";},700);
+}
+async function waQuedaCheck(){
+  try{
+    const uid=CURRENT_USER?.id;
+    if(!uid||!SB)return;
+    const{data}=await SB.from("whatsapp_instances").select("phone,status,last_seen_at").eq("user_id",uid);
+    const linhas=data||[];
+    const conectada=linhas.some(l=>l.status==="connected");
+    // So avisa quem JA conectou algum dia: quem nunca pareou ve o onboarding,
+    // nao um alarme de queda.
+    const caida=!conectada&&linhas.some(l=>l.last_seen_at);
+    waQuedaBarra(caida);
+    if(conectada&&!S.waConnected){
+      const viva=linhas.find(l=>l.status==="connected");
+      S.waConnected=true;S.waNumber=viva.phone;
+    }
+    if(!conectada)S.waConnected=false;
+  }catch(e){/* nunca pode derrubar o painel */}
+}
+function waQuedaIniciar(){
+  waQuedaCheck();
+  if(WA_QUEDA_TIMER)clearInterval(WA_QUEDA_TIMER);
+  // 60s: a queda e detectada no banco em ate 5 min (cron do heartbeat), entao
+  // olhar mais rapido que isso nao adianta nada e so gasta chamada.
+  WA_QUEDA_TIMER=setInterval(waQuedaCheck,60000);
+}
+
 async function fetchWAEngineToken(){
   try{
     const session=await SB.auth.getSession();
@@ -4502,6 +4557,8 @@ function waMostraConectado(){
   qrMsg.innerHTML='<div style="font-size:42px">✅</div><h3 style="margin:8px 0 4px">Número conectado!</h3><p style="color:var(--mut)">'+S.waNumber+'</p>';
   waStatus.innerHTML='<span class="pill volt"><span class="d"></span> conectado</span>';
   INSTANCIAS.length=0;INSTANCIAS.push({phone:S.waNumber,status:"connected"});
+  // Pareou: a faixa de queda sai na hora, sem esperar o ciclo de 60s.
+  try{waQuedaBarra(false);setTimeout(()=>{try{waQuedaCheck();}catch(e){}},1500);}catch(e){}
   // persiste instância no Supabase
   const uid=CURRENT_USER?.id;
   if(uid){
@@ -10608,6 +10665,8 @@ async function enterApp(profile){
       await renderInstCard().catch(e=>console.warn("renderInstCard:",e));
     }
   }
+  // Faixa de queda do WhatsApp: some sozinha quando a sessao volta.
+  waQuedaIniciar();
   // aplica o limite real de grupos do plano
   S.planLimit=lim("wa_groups");
   applyPlanGating();
