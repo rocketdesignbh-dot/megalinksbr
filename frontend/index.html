@@ -5360,7 +5360,15 @@ manual:`
   <div class="g2" style="align-items:start">
     <!-- Coluna 1: Importar via link -->
     <div class="card" style="margin:0"><div class="ch">🔗 Importar via link</div><div class="cb">
-      <div class="alert y" style="font-size:12px;margin-bottom:14px">⚠️ Produtos via link <strong>não</strong> são atualizados automaticamente após importação.</div>
+      <!-- 27/08: o aviso antigo dizia que produto via link NUNCA e atualizado.
+           Isso deixou de ser verdade e estava medido no banco: dos produtos
+           ativos, 8 de 9 do Mercado Livre e a Amazon tinham price_checked_at
+           carimbado pela rodada diaria da product-refresh. O que e verdade e
+           mais estreito: so ML e Amazon tem verificador de preco
+           (LOJAS_COM_VERIFICADOR), e so planos Pro+ tem monitoramento
+           (PLANOS_COM_MONITORAMENTO). Mexeu naqueles dois conjuntos, mexe neste
+           texto. -->
+      <div class="alert b" style="font-size:12px;margin-bottom:14px">🔄 Depois de importado, o preço é reconferido sozinho <strong>1x por dia</strong> — só em <strong>Mercado Livre</strong> e <strong>Amazon</strong>, e nos planos <strong>Pro ou superior</strong>. Nas outras lojas o valor fica como estava na importação.</div>
       <div class="field"><label>Cole o link do produto</label>
         <div style="display:flex;gap:8px">
           <input id="prodImportLink" placeholder="https://shopee.com.br/..." style="flex:1" oninput="prodLinkAutoFill()">
