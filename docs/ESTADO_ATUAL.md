@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 89 — 27/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 90 — 27/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1649,6 +1649,49 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 90 — 27/08/2026 — "Sessão expirada. Entre novamente." no Clone Post
+com o WhatsApp CONECTADO: causa medida e consertada. O JWT que o painel mandava
+ao wa-engine era capturado uma única vez no login e nunca mais atualizado.**
+
+### O sintoma
+Tela `painel/clone-post`, card "Fontes automáticas", faixa vermelha:
+*"Não consegui listar os grupos do seu WhatsApp: Sessão expirada. Entre
+novamente."* — com a instância do WhatsApp conectada e a sessão do painel
+funcionando normalmente (o resto da tela carregava).
+
+### A causa, medida no navegador logado do Érico (27/08, 01:00 UTC-3)
+1. `GET /rest/v1/whatsapp_instances?select=phone` com o JWT **corrente** do
+   `localStorage`: **200**, 9 telefones. O PostgREST e a RLS estão sãos.
+2. `GET {wa-engine}/groups?phone=...` com os headers da página: **200**, lista
+   de grupos completa. O engine e a sessão Baileys estão sãos.
+3. A mesma chamada com o `x-user-token` corrompido em 3 caracteres:
+   **401 `{"error":"Sessão expirada. Entre novamente."}`** — a mensagem exata da
+   tela. Ela nasce em `wa-engine/server.js`, `resolverDono()`: quando
+   `telefonesDoUsuario()` toma um não-200 do PostgREST, devolve `null` e o
+   middleware corta com esse 401.
+4. O JWT do Supabase vale **1h**. `WA_USER_TOKEN` era preenchido **uma vez**, em
+   `fetchWAEngineToken()` no login, e nunca mais. Passada a hora com o painel
+   aberto, o supabase-js já tinha renovado o token no `localStorage`, mas a
+   nossa cópia continuava velha — toda chamada ao engine ia com JWT vencido.
+   Não era o WhatsApp que caía: era o painel que se autenticava com token morto.
+
+### O conserto — `frontend/index.html`, escopo de uma função
+- `waTokenAtual()`: lê o `access_token` direto de
+  `sb-<ref>-auth-token` no `localStorage` (o storage que o supabase-js renova
+  sozinho). `WA_USER_TOKEN` fica só como fallback.
+- `waAuthHeaders()` passa a usar `waTokenAtual()`. **Nenhum dos 16 chamadores
+  mudou** — continua síncrona.
+- `visibilitychange`: aba que volta de suspensão chama `SB.auth.getSession()`,
+  que renova na hora se preciso (cobre o caso do celular bloqueado, em que o
+  timer de refresh do supabase-js não roda).
+
+### Pendência de prova
+O conserto está **provado na causa** (o 401 foi reproduzido com token inválido e
+a leitura nova do `localStorage` foi conferida na página real), mas **ainda não
+foi observado em produção com o código novo servido** — depende do rebuild do
+frontend. Medir: painel aberto por mais de 1h, abrir "Nova fonte" no Clone Post
+e ver a lista de grupos carregar sem a faixa vermelha.
 
 **REVISÃO 89 — 27/08/2026 — três pedidos de UX no Postar Agora (botão Buscar
 desligando sozinho, indicador visual de progresso, token do Scrape.do
