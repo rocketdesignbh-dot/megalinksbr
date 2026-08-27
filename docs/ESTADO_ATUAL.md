@@ -1686,12 +1686,20 @@ funcionando normalmente (o resto da tela carregava).
   que renova na hora se preciso (cobre o caso do celular bloqueado, em que o
   timer de refresh do supabase-js não roda).
 
-### Pendência de prova
-O conserto está **provado na causa** (o 401 foi reproduzido com token inválido e
-a leitura nova do `localStorage` foi conferida na página real), mas **ainda não
-foi observado em produção com o código novo servido** — depende do rebuild do
-frontend. Medir: painel aberto por mais de 1h, abrir "Nova fonte" no Clone Post
-e ver a lista de grupos carregar sem a faixa vermelha.
+### Prova em produção — feita (27/08, 01:20 UTC-3, deploy do EasyPanel já no ar)
+Medido no HTML servido e na página logada do Érico:
+- `waTokenAtual()` existe no código servido e o `visibilitychange` também; a
+  linha velha `if(WA_USER_TOKEN)h["x-user-token"]=WA_USER_TOKEN;` **não existe
+  mais** no que o site entrega.
+- `waTokenAtual()` devolve exatamente o `access_token` do storage do supabase-js.
+- **Teste decisivo:** com `WA_USER_TOKEN` sobrescrito à mão por um JWT
+  inválido — que é *exatamente* o estado do bug depois de 1h —
+  `GET {wa-engine}/groups` respondeu **200 com 8 grupos**, e o header enviado
+  **não** foi a cópia vencida. Antes do conserto isso dava 401
+  "Sessão expirada. Entre novamente.".
+- Tela: `csAbrirForm()` abre o formulário de Nova fonte **sem faixa vermelha**,
+  com **8 opções** no select ("Achadinhos Perfumes # 001", "Meu Grupo",
+  "Achadinhos de Beleza #001", …).
 
 **REVISÃO 89 — 27/08/2026 — três pedidos de UX no Postar Agora (botão Buscar
 desligando sozinho, indicador visual de progresso, token do Scrape.do
