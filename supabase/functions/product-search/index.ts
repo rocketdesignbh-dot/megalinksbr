@@ -1,3 +1,13 @@
+// product-search v32 — o "de" da Amazon voltava sempre nulo (27/08)
+// v32: a janela do buybox era de 4000 caracteres e o bloco real tem 4623; o
+//   `basisPrice` com o numero do riscado ficava FORA dela. Medido no produto
+//   B0DBF65JYY, que mostra "-14% R$131,38 De: R$154,23" na pagina e chegava
+//   aqui com price_from=null. Janela 4000 -> 12000 e leitura de TODAS as
+//   ocorrencias (data-a-strike primeiro, basisPrice depois), vencendo a
+//   primeira maior que o "por". Ver precoAmazon.
+//   ⚠️ A MESMA leitura existe copiada na clone-ingest e na product-refresh —
+//   elas continuam com a janela de 4000 e o mesmo defeito.
+//
 // product-search v31 — o Postar Agora do Mercado Livre
 // v31 (26/08): so o timeout do wa-engine, de 25 s para 70 s. Ver o comentario
 //   dentro de fetchMercadoLivre — MEDIDO, o mesmo link levou de 4 s a 51,6 s.
@@ -497,7 +507,13 @@ function precoAmazon(html: string): { por: number | null; de: number | null } {
   // 1. Ancora. Sem o div do buybox nao ha preco a afirmar.
   const p = html.indexOf('<div id="corePriceDisplay_desktop_feature_div"');
   if (p < 0) return vazio;
-  const bloco = html.slice(p, p + 4000);
+  // MEDIDO em 27/08 (produto B0DBF65JYY, "De: R$154,23" visivel na pagina): o
+  // bloco do buybox tem 4623 caracteres e o `basisPrice` que carrega o "de" util
+  // fica ALEM dos 4000 — a janela cortava o riscado fora. Resultado: preco atual
+  // certo e "de" sempre nulo em produto com desconto. 12000 cobre o bloco
+  // inteiro com folga; o "de" continua so valendo se for MAIOR que o "por",
+  // entao janela maior nao pode inventar desconto.
+  const bloco = html.slice(p, p + 12000);
 
   // 2. Duas testemunhas independentes do MESMO numero: o rotulo de
   // acessibilidade e o preco visivel. Discordancia entre elas nao vira palpite,
@@ -513,9 +529,19 @@ function precoAmazon(html: string): { por: number | null; de: number | null } {
   if (viaRotulo === null || viaVisivel === null || viaRotulo !== viaVisivel) return vazio;
 
   // 3. O "de" e opcional e so vale se for maior que o "por".
-  const mBase = bloco.match(/basisPrice[\s\S]{0,250}?([\d.]+,\d{2})/);
-  const de = mBase ? numeroDaLoja(mBase[1]) : null;
-  return { por: viaRotulo, de: de !== null && de > viaRotulo ? de : null };
+  // Duas leituras, na ordem: o riscado explicito (data-a-strike) e, se ele nao
+  // aparecer, o `basisPrice`. TODAS as ocorrencias sao consideradas e a primeira
+  // que for maior que o "por" vence — no HTML real ha mais de um `basisPrice` no
+  // bloco, e o primeiro nem sempre e o que traz numero.
+  const candidatos: number[] = [];
+  for (const m of bloco.matchAll(/data-a-strike="true"[\s\S]{0,400}?R\$\s*([\d.]+,\d{2})/g)) {
+    const v = numeroDaLoja(m[1]); if (v !== null) candidatos.push(v);
+  }
+  for (const m of bloco.matchAll(/basisPrice[\s\S]{0,250}?([\d.]+,\d{2})/g)) {
+    const v = numeroDaLoja(m[1]); if (v !== null) candidatos.push(v);
+  }
+  const de = candidatos.find((v) => v > viaRotulo) ?? null;
+  return { por: viaRotulo, de };
 }
 
 function imagemAmazon(html: string): string {
@@ -762,14 +788,14 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   try {
     const { url, credentials = {} } = await req.json();
-    console.log(`[product-search v31] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
+    console.log(`[product-search v32] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
     if (!url || !/^https?:\/\//i.test(url))
       return new Response(JSON.stringify({ success: false, motivo: "url_sem_protocolo", error: "O link colado não começa com http:// ou https://. Copie o endereço completo da página do produto." }), { status: 400, headers: { ...CORS, "Content-Type": "application/json" } });
 
     const store = detectStore(url);
     const authHeader = req.headers.get("authorization");
     const userId = getUserIdFromJwt(authHeader);
-    console.log(`[product-search v31] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
+    console.log(`[product-search v32] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
 
     const waEngineUrl = Deno.env.get("WA_ENGINE_URL") || "https://megalinksbr-wa-engine.fwezsn.easypanel.host";
     const waEngineToken = Deno.env.get("WA_ENGINE_TOKEN") || "";
@@ -808,7 +834,7 @@ Deno.serve(async (req: Request) => {
       result = result || { success: false, source: "none", store, motivo: "loja_sem_integracao", error: "Loja sem integração automática. Preencha manualmente." };
     }
 
-    console.log(`[product-search v31] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
+    console.log(`[product-search v32] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
     return new Response(JSON.stringify(result), { headers: { ...CORS, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ success: false, error: (e as Error).message }), { status: 500, headers: { ...CORS, "Content-Type": "application/json" } });
