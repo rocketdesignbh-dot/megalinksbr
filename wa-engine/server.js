@@ -1021,6 +1021,49 @@ function mlMoneyPdp($, seletor) {
     return v > 0 ? v : null;
 }
 
+// Preco pelo JSON-LD (schema.org Product/offers) — rede de seguranca para as
+// paginas de CATALOGO do ML (/p/MLB..., layout "polycard").
+//
+// MEDIDO em 27/08 na pagina
+// mercadolivre.com.br/vodka-destilada-absolut-garrafa-750ml/p/MLB18308206:
+// `.ui-pdp-price__second-line` e `.ui-pdp-price__original-value` — os DOIS
+// seletores que o /ml-product usava — simplesmente NAO EXISTEM ali. O engine
+// lia titulo e foto normalmente e devolvia a resposta SEM price_to/price_from,
+// e a tela mostrava produto sem valor nenhum. Nao era antibot nem credito: era
+// seletor de um layout que aquela pagina nao usa.
+// O mesmo HTML traz `<script type="application/ld+json">` com
+// `offers.price: 78.21` — o preco certo do item. `.poly-price__current` foi
+// descartado de proposito: na medicao ele leu "R$ 7.062", preco de outro card
+// do carrossel da pagina. O JSON-LD e o unico que fala do produto desta URL.
+function mlPrecoJsonLd($) {
+    let preco = null, de = null;
+    try {
+        $('script[type="application/ld+json"]').each((_, el) => {
+            if (preco != null) return;
+            let j;
+            try { j = JSON.parse($(el).html() || ''); } catch (e) { return; }
+            const raiz = Array.isArray(j) ? j : [j];
+            for (const o of raiz) {
+                if (!o) continue;
+                const nos = [o, ...(Array.isArray(o['@graph']) ? o['@graph'] : [])];
+                for (const n of nos) {
+                    if (!n || String(n['@type'] || '').toLowerCase() !== 'product') continue;
+                    const of = Array.isArray(n.offers) ? n.offers[0] : n.offers;
+                    if (!of) continue;
+                    const p = Number(of.price ?? of.lowPrice ?? (of.priceSpecification && of.priceSpecification.price));
+                    if (Number.isFinite(p) && p > 0) {
+                        preco = p;
+                        const h = Number(of.highPrice);
+                        if (Number.isFinite(h) && h > p) de = h;
+                        return;
+                    }
+                }
+            }
+        });
+    } catch (e) { /* leitura de preco nunca pode derrubar a rota */ }
+    return { preco, de };
+}
+
 // Extrai o ID do anuncio (MLBxxxxx) a partir do link do produto
 function mlExtractId(link) {
     const m = String(link || '').match(/MLB-?(\d{6,})/i);
@@ -1424,8 +1467,19 @@ app.get('/ml-product', verifyToken, async (req, res) => {
         // 90% dos produtos de ML no banco tinham preco redondo por causa disto,
         // contra 19% no radar_offers, que sempre usou a mlMoney() (linha ~809).
         // Duas leituras da mesma coisa no mesmo arquivo, uma certa e uma errada.
-        const priceTo = mlMoneyPdp($, '.ui-pdp-price__second-line');
-        const priceFrom = mlMoneyPdp($, '.ui-pdp-price__original-value');
+        let priceTo = mlMoneyPdp($, '.ui-pdp-price__second-line');
+        let priceFrom = mlMoneyPdp($, '.ui-pdp-price__original-value');
+        // Pagina de catalogo (/p/MLB..., polycard): os seletores acima nao
+        // existem. Cai para o JSON-LD, que existe nos dois layouts. Ver o
+        // cabecalho de mlPrecoJsonLd() para a medicao que motivou isto.
+        if (!priceTo) {
+            const ld = mlPrecoJsonLd($);
+            if (ld.preco) {
+                priceTo = ld.preco;
+                if (!priceFrom && ld.de) priceFrom = ld.de;
+                console.log(`[ml-product] preco veio do JSON-LD (layout catalogo): ${priceTo}`);
+            }
+        }
         const discPct = priceFrom && priceTo && priceFrom > priceTo
             ? Math.round((1 - priceTo / priceFrom) * 100) : null;
 
