@@ -8279,6 +8279,7 @@ function prColetarCredenciais(){
 // JÁ rodando (o oninput do campo dispara prAutoBuscar). O botão não tinha nem
 // estilo de :disabled, então parecia clicável. Agora ele é desligado no instante
 // em que um link válido aparece no campo, não só quando a requisição sai.
+let _prBuscando=false; // trava de reentrancia da busca (ver prBuscarProduto)
 function prBtnBuscarBusy(busy,texto){
   const b=document.getElementById("prBtnBuscar");
   if(!b)return;
@@ -8326,7 +8327,7 @@ function prProgressoParar(){
 // (chama APIs oficiais quando há credenciais, ou scraping como fallback)
 async function prBuscarProduto(){
   let link=document.getElementById("prLink").value.trim();
-  if(!link){toast("Cole o link do produto primeiro.","⚠️");return;}
+  if(!link){toast("Cole o link do produto primeiro.","⚠️");prBtnBuscarBusy(false);return;}
   // MEDIDO em 26/08 19:46 UTC (log real da product-search): o Érico colou
   // "amazon.com.br/Hidratante-...-/dp/B079VW5KTT/?..." SEM https. A Edge Function
   // recusa com 400 (regra dela, correta) e a tela traduzia isso em
@@ -8338,11 +8339,17 @@ async function prBuscarProduto(){
     link="https://"+link.replace(/^\/+/,"");
     document.getElementById("prLink").value=link;
   }
-  if(!PR.loja){toast("Selecione a loja/afiliado.","⚠️");return;}
+  if(!PR.loja){toast("Selecione a loja/afiliado.","⚠️");prBtnBuscarBusy(false);return;}
 
   const st=document.getElementById("prBuscarStatus");
   const btn=document.getElementById("prBtnBuscar");
-  if(btn?.disabled){toast("Já buscando esse produto, aguarde…","⏳");return;}
+  // NAO ler btn.disabled aqui: desde 26/08 o botao ja e desligado no oninput,
+  // antes do debounce de 800 ms — usar o botao como trava fazia esta funcao
+  // barrar a propria busca automatica que acabara de desliga-lo. MEDIDO em
+  // producao: a tela ficava em "Loja detectada — buscando produto..." para
+  // sempre, sem nenhuma requisicao sair. A trava agora e uma flag propria.
+  if(_prBuscando){toast("Já buscando esse produto, aguarde…","⏳");return;}
+  _prBuscando=true;
   const st2reset=document.getElementById("prStep2Alert");
   if(st2reset){st2reset.style.display="none";st2reset.innerHTML="";}
   st.style.display="none";
@@ -8453,6 +8460,7 @@ async function prBuscarProduto(){
 
   prProgressoParar();
   prBtnBuscarBusy(false);
+  _prBuscando=false;
 }
 
 // Auto-busca: dispara a busca automaticamente ao colar/digitar um link válido
@@ -10235,6 +10243,7 @@ function prStep2Reset(){
   // clicavel junto, senao fica travado em "Buscando..." para sempre.
   prProgressoParar();
   prBtnBuscarBusy(false);
+  _prBuscando=false;
   prRenderLojas();
 }
 
