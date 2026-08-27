@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 88 — 26/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 89 — 27/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1649,6 +1649,101 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 89 — 27/08/2026 — três pedidos de UX no Postar Agora (botão Buscar
+desligando sozinho, indicador visual de progresso, token do Scrape.do
+obrigatório em Config Afiliados) ENTREGUES E MEDIDOS NO NAVEGADOR LOGADO DO
+ÉRICO — e um bug de reentrância introduzido pela própria correção, achado e
+consertado na mesma sessão antes de reportar como pronto.**
+
+### O que o Érico pediu, depois de ver a tela travada em "Buscando... 84s"
+
+1. Desligar o botão "Buscar" quando a busca automática (disparada ao colar o
+   link, sem precisar clicar) já estiver em andamento — usuários estavam
+   clicando no botão por cima da busca automática.
+2. Um indicador visual moderno (não só texto) mostrando que os dados do
+   produto estão sendo baixados, perto do card do Scrape.do.
+3. Tornar obrigatório o token do Scrape.do em Config Afiliados. Pergunta feita
+   ao Érico sobre o que "obrigatório" deveria travar — resposta: **campo
+   obrigatório na tela (visual + validação ao salvar), sem bloquear a busca do
+   Postar Agora** para quem ainda não configurou.
+
+### O que foi construído
+
+- **`prBtnBuscarBusy(busy, texto)`** — liga/desliga o botão `#prBtnBuscar`
+  (`disabled` + texto "⏳ Buscando…"), chamado tanto por `prAutoBuscar` (no
+  `oninput`, antes mesmo do debounce de 800 ms disparar) quanto por
+  `prBuscarProduto` (clique manual).
+- **`#prProgresso`** — bloco novo abaixo do link, com spinner CSS
+  (`@keyframes spin`), cronômetro que conta em segundos desde o início
+  (`_prProgT0=Date.now()`, `setInterval` de 1 s) e uma barra de progresso
+  indeterminada (`@keyframes pr-bar`, sem número de %, porque a variância
+  medida na REVISÃO 88 foi 4 s–51,6 s — uma barra com % daria um prazo falso).
+  Subtexto muda em 15 s ("Mercado Livre costuma demorar mais") e em 45 s
+  ("a loja está lenta agora"). Usa as variáveis de cor do design system
+  (`--volt-tx`, `--bd2`, `--bg2`, `--mut`) — sem paleta nova.
+- **Config Afiliados:** label do token ganhou `<span style="color:#FF6B6B">*`
+  e "obrigatório" ao lado; sem token salvo, o input fica com borda vermelha e
+  a mensagem de status vira "⚠️ Campo obrigatório e ainda vazio…"; e
+  `salvarScrapeDoToken()` recusa salvar vazio (foco + borda vermelha + toast),
+  mas **nada no Postar Agora ficou bloqueado** — quem não configurar continua
+  buscando pela cota compartilhada, como sempre.
+
+### 🔴 O bug que a própria correção introduziu — achado ANTES de reportar como pronto
+
+O guard de reentrância que já existia em `prBuscarProduto()` era
+`if(btn?.disabled){toast("Já buscando esse produto, aguarde…");return;}` — ou
+seja, usava o **estado visual do botão** como trava contra clique duplo. Ao
+implementar o item 1 (desligar o botão no `oninput`, antes do debounce), esse
+mesmo guard passou a barrar a **própria busca automática**: o `oninput`
+desligava o botão, o debounce de 800 ms chamava `prBuscarProduto()`, e o guard
+via `btn.disabled===true` — posto por ELE MESMO — e desistia sem tentar nada.
+**Reproduzido ao vivo** colando o link `/up/MLBU4110581108` na sessão logada
+do Érico: botão desligava com o estilo certo, mas `document.getElementById
+("prNome").value` continuava vazio depois de vários segundos e nenhum log
+`[product-search]`/`[ML]` aparecia para aquela janela — zero chamada de rede.
+**Causa raiz:** usar estado de UI como mutex quebra assim que outra coisa
+também mexe nesse mesmo estado por outro motivo. **Conserto:** flag dedicada
+`let _prBuscando=false`, independente do `disabled` do DOM, setada no início
+da busca de verdade e resetada em TODOS os pontos de saída de
+`prBuscarProduto()` (link vazio, loja não selecionada, fim normal) e em
+`prStep2Reset()`.
+
+### A prova, no fluxo real da tela (depois do Deploy do `app` que o Érico fez)
+
+Arquivo servido conferido: `_prBuscando` presente, guard antigo
+`if(btn?.disabled)` ausente, `prProgressoIniciar` presente, texto do campo
+obrigatório presente — tudo checado direto no HTML de
+`/painel/post-relampago` antes de testar qualquer coisa.
+
+Colado `/up/MLBU4110581108` (mesmo link intermitente da REVISÃO 88) na sessão
+logada real: botão virou "⏳ Buscando…" (cinza, cursor not-allowed) no
+instante do `oninput`; o card `#prProgresso` apareceu com spinner, cronômetro
+subindo (visto em "2s") e barra animada; a loja "Mercado Livre" foi marcada
+sozinha; e — diferente da tentativa registrada na REVISÃO 88 antes deste
+conserto — o Passo 2 abriu **preenchido de verdade**: nome "Cooktop Fogão
+Itatiaia Essencial 4 Bocas Bivolt Preto", de R$ 589,99 por R$ 276,44, foto do
+mlstatic, preview ao vivo renderizado e link de afiliado gerado
+(`/r/40qk8x3`). Em Config Afiliados, o rótulo "SEU TOKEN DO SCRAPE.DO *
+OBRIGATÓRIO" apareceu conferido; o estado vazio (borda vermelha + aviso) **não
+foi exercitado ao vivo** porque a conta do Érico já tem token salvo — remover
+um token real só para testar o estado vazio seria destrutivo e não foi pedido;
+a lógica do branch "sem token" foi conferida no código-fonte, não no DOM.
+
+### Deploys desta sessão
+
+| componente | estado |
+|---|---|
+| frontend/index.html | commit `e03300e0` (SHA-256 `b9916b88…`) + Deploy do `app` feito pelo Érico — arquivo servido conferido e fluxo completo medido |
+
+### Aprendizado novo (ver também "Aprendizados — não repetir" → Sobre UX)
+
+**Estado de UI (`.disabled`) não é mutex.** Dois chamadores independentes que
+ligam/desligam o mesmo atributo por motivos diferentes vão pisar um no outro
+mais cedo ou mais tarde. Reentrância precisa de uma variável dedicada que só a
+lógica de reentrância toca.
+
+---
 
 **REVISÃO 88 — 26/08/2026 — "o Postar Agora parou de coletar as informações
 automáticas" investigado do zero e MEDIDO. NÃO foi a Shein, e Shopee e Amazon
@@ -6726,6 +6821,14 @@ código não relacionado.
   recria — dentro, cada atualização apagaria a própria confirmação.
 - **Booleano de permissão não é limite.** `clone_auto` só dizia SE podia, nunca
   QUANTAS — e cada fonte gasta até `max_per_day` consultas de loja por dia.
+- **Estado de UI (`.disabled`) não é mutex de reentrância (REVISÃO 89).** O
+  Postar Agora usava `btn.disabled` tanto para "trava contra clique duplo" (um
+  chamador) quanto para "desligar durante a busca automática" (outro
+  chamador) — o segundo motivo passou a disparar o guard do primeiro contra
+  si mesmo, e a busca automática parou de rodar silenciosamente, sem erro no
+  console. **Reentrância precisa de uma variável dedicada** (`_prBuscando`),
+  que só a própria lógica de reentrância lê e escreve; o atributo visual do
+  botão pode continuar mudando por quantos motivos quiser sem interferir.
 
 **Sobre infraestrutura**
 
