@@ -5539,16 +5539,12 @@ async function impBuscarLink(id){
   try{
     const session=await SB.auth.getSession();
     const jwt=session?.data?.session?.access_token;
-    const r=await fetch(`${SUPA_URL}/functions/v1/product-search`,{
-      method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+jwt},
-      body:JSON.stringify({url:link})
-    });
-    const d=await r.json();
-    if(!d||(!d.title&&!d.name)){toast(d?.error||"Não foi possível extrair dados. Preencha manualmente.","⚠️");return;}
-    const precoAtualNum=d.price_to||d.price||null;
-    const precoOrigNum=d.price_from||d.price_original||null;
-    window._impData[id]={title:d.title||d.name,price:precoAtualNum,price_from:precoOrigNum,affiliate_url:link,image_url:d.image||d.thumbnail||d.image_url,discount_pct:d.discount_pct||null};
+    const d=await buscarProdutoPorLink(link);
+    if(!d.ok){toast("Não consegui ler o produto: "+d.erro,"⚠️");return;}
+    const campo=document.getElementById(`imp_${id}_link`);if(campo&&d.link)campo.value=d.link;
+    const precoAtualNum=d.por??null;
+    const precoOrigNum=d.de??null;
+    window._impData[id]={title:d.nome,price:precoAtualNum,price_from:precoOrigNum,affiliate_url:d.link||link,image_url:d.foto,discount_pct:d.desconto||null};
     const elPrecoAtual=document.getElementById(`imp_${id}_precoAtual`);
     const elPrecoOrig=document.getElementById(`imp_${id}_precoOrig`);
     if(elPrecoAtual&&precoAtualNum)elPrecoAtual.value=String(precoAtualNum).replace(".",",");
@@ -6403,6 +6399,67 @@ function _prodImgFallback(el){
   if(box)box.textContent="📦";
 }
 
+/* ===== LEITURA DE PRODUTO — MESMA LOGICA DO POSTAR AGORA (27/08) =====
+   As telas do Grupo de Ofertas ("Adicionar por link", "Importar de loja" e o
+   cadastro manual) chamavam a product-search de um jeito PROPRIO, e por isso
+   voltavam sem nome e sem foto enquanto o Postar Agora, com o MESMO link,
+   trazia tudo. As tres diferencas, todas medidas no codigo:
+
+     1. Nao mandavam `credentials`. A product-search so consulta a API oficial da
+        Shopee/Amazon/AliExpress com as chaves do afiliado no corpo — sem elas,
+        o proprio backend responde "faltando App Key/App Secret". Era a causa
+        principal do "nao vem nada".
+     2. Nao normalizavam o link sem `https://`. Copiar da barra do Chrome traz
+        "amazon.com.br/..." e a Edge Function recusa com 400 — o mesmo defeito ja
+        consertado no Postar Agora em 26/08.
+     3. Ignoravam `d.success` e liam `d.title`, campo que a product-search NAO
+        devolve (ela devolve `name`). Um erro do backend virava "nao consegui
+        extrair", sem dizer o motivo real.
+
+   Daqui pra frente ha UMA funcao. Mexeu na leitura, mexe aqui — nao em tres
+   lugares. */
+async function buscarProdutoPorLink(linkCru){
+  let link=String(linkCru||"").trim();
+  if(!link)return{ok:false,erro:"cole o link do produto primeiro"};
+  if(!/^https?:\/\//i.test(link))link="https://"+link.replace(/^\/+/,"");
+  try{
+    const session=await SB.auth.getSession();
+    const jwt=session?.data?.session?.access_token;
+    if(!jwt)return{ok:false,erro:"sessão expirada — entre de novo"};
+    const credentials=(typeof prColetarCredenciais==="function")?prColetarCredenciais():{};
+    const controller=new AbortController();
+    // 90s: a product-search espera ate 70s pelo wa-engine. Abortar antes disso
+    // matava leitura que estava chegando — medido em 26/08 no Postar Agora.
+    const timeout=setTimeout(()=>controller.abort(),90000);
+    const r=await fetch(`${SUPA_URL}/functions/v1/product-search`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+jwt},
+      body:JSON.stringify({url:link,credentials}),
+      signal:controller.signal
+    });
+    clearTimeout(timeout);
+    const d=await r.json().catch(()=>null);
+    if(!r.ok||!d)return{ok:false,link,erro:(d&&(d.motivo||d.error))||("o servidor respondeu HTTP "+r.status)};
+    const nome=d.name||d.title||"";
+    const foto=d.image||d.thumbnail||d.image_url||"";
+    if(d.success===false||(!nome&&!foto)){
+      return{ok:false,link,store:d.store||"",erro:[d.motivo,d.error].filter(Boolean).join(" — ")||"a loja não devolveu nome nem foto para esse link"};
+    }
+    return{
+      ok:true,link,store:d.store||"",
+      nome:String(nome).slice(0,120),
+      foto,
+      por:d.price_to??d.price??null,
+      de:d.price_from??d.price_original??null,
+      desconto:d.discount_pct??d.discount??null,
+      short_link:d.short_link||null
+    };
+  }catch(e){
+    if(e.name==="AbortError")return{ok:false,link,erro:"a loja demorou demais para responder (90s). Tente de novo."};
+    return{ok:false,link,erro:e.message};
+  }
+}
+
 async function prodImportarLink(){
   const link=(document.getElementById("prodImportLink")?.value||"").trim();
   if(!link){toast("Cole um link primeiro.","⚠️");return;}
@@ -6411,16 +6468,11 @@ async function prodImportarLink(){
   if(btn)btn.disabled=true;
   toast("Buscando produto…","⏳");
   try{
-    const session=await SB.auth.getSession();
-    const jwt=session?.data?.session?.access_token;
-    const r=await fetch(`${SUPA_URL}/functions/v1/product-search`,{
-      method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+jwt},
-      body:JSON.stringify({url:link})
-    });
-    const d=await r.json();
-    if(!d||(!d.title&&!d.name)){toast("Não foi possível extrair dados do produto.","⚠️");return;}
-    _prodImportData={title:d.title||d.name||d.name,price:d.price||d.price_to||d.price_from,price_from:d.price_from||null,price_to:d.price_to||d.price||null,affiliate_url:link,image_url:d.image||d.thumbnail||d.image_url,discount_pct:d.discount_pct||d.discount||null};
+    const d=await buscarProdutoPorLink(link);
+    if(!d.ok){toast("Não consegui ler o produto: "+d.erro,"⚠️");return;}
+    // Mantem o link normalizado (com https) tambem no campo, como o Postar Agora.
+    const campo=document.getElementById("prodImportLink");if(campo&&d.link)campo.value=d.link;
+    _prodImportData={title:d.nome,price:d.por??d.de,price_from:d.de,price_to:d.por??d.de,affiliate_url:d.link||link,image_url:d.foto,discount_pct:d.desconto};
     const body=document.getElementById("prodImportBody");
     const prev=document.getElementById("prodImportPreview");
     if(body)body.innerHTML=`
@@ -6544,25 +6596,19 @@ async function paBuscarDados(){
   if(!link){toast("Cole o link do produto primeiro.","⚠️");return;}
   toast("Buscando dados do produto…","⏳");
   try{
-    const session=await SB.auth.getSession();
-    const jwt=session?.data?.session?.access_token;
-    const r=await fetch(`${SUPA_URL}/functions/v1/product-search`,{
-      method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+jwt},
-      body:JSON.stringify({url:link,credentials:(typeof prColetarCredenciais==="function"?prColetarCredenciais():undefined)})
-    });
-    const d=await r.json();
-    const titulo=d?.title||d?.name;
-    if(!titulo){toast(d?.error||"Não consegui extrair os dados. Preencha manualmente.","⚠️");return;}
-    const precoAtual=d.price_to??d.price??null;
-    const precoOrig=d.price_from??d.price_original??null;
-    const img=d.image||d.thumbnail||d.image_url||"";
+    const d=await buscarProdutoPorLink(link);
+    if(!d.ok){toast("Não consegui ler o produto: "+d.erro,"⚠️");return;}
+    const campoLink=document.getElementById("paLink");if(campoLink&&d.link)campoLink.value=d.link;
+    const titulo=d.nome;
+    const precoAtual=d.por??null;
+    const precoOrig=d.de??null;
+    const img=d.foto||"";
     const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!==null&&v!==undefined&&v!=="")el.value=v;};
     set("paNome",titulo);
     if(precoAtual!=null)set("paPreco",String(precoAtual).replace(",","."));
     if(precoOrig!=null)set("paPrecoOrig",String(precoOrig).replace(".",","));
     set("paImg",img);
-    if(d.discount_pct)set("paDesc",d.discount_pct);
+    if(d.desconto)set("paDesc",d.desconto);
     toast("Dados preenchidos! Revise e salve.","✅");
   }catch(e){toast("Erro ao buscar: "+e.message,"⚠️");}
 }
