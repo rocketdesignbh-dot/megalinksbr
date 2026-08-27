@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 91 — 27/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 92 — 27/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1649,6 +1649,51 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 92 — 27/08/2026 — produto adicionado no Grupo de Ofertas voltava sem
+nome e sem foto. Causa medida: as telas do grupo chamavam a `product-search` sem
+mandar as CREDENCIAIS do afiliado. Agora existe uma função só, igual à do
+Postar Agora.**
+
+### A causa, medida no painel logado (27/08)
+Mesmo link de Shopee (`shopee.com.br/product/1248266601/58255756877`), duas
+chamadas à `product-search` na mesma sessão:
+
+| chamada | HTTP | success | nome | foto |
+|---|---|---|---|---|
+| **sem** `credentials` (o que as telas do grupo faziam) | 200 | **false** — `credenciais_incompletas` | — | — |
+| **com** `credentials` (o que o Postar Agora faz) | 200 | **true** | "Kit com 16 Energético Red Bull cada 250ml" | ✅ |
+
+Não era a loja, não era o link, não era o backend: a `product-search` só consulta
+a API oficial de Shopee/Amazon/AliExpress com as chaves do afiliado no corpo da
+requisição. Sem elas ela responde `credenciais_incompletas` — e a tela traduzia
+isso em "Não foi possível extrair dados do produto", sem dizer o motivo.
+
+### As três diferenças que existiam, todas eliminadas
+1. **`credentials` não era enviado.** Causa principal.
+2. **Link sem `https://` não era normalizado.** Copiar da barra do Chrome traz
+   `amazon.com.br/...`, a Edge Function recusa com 400. Mesmo defeito já
+   consertado no Postar Agora em 26/08 — e que tinha sobrado nestas telas.
+3. **Liam `d.title`, campo que a `product-search` não devolve** (ela devolve
+   `name`), e ignoravam `d.success`. Erro do backend virava mensagem genérica.
+
+### O conserto — `frontend/index.html`
+Uma função nova, `buscarProdutoPorLink(link)`, com exatamente o que o Postar
+Agora faz: normaliza o protocolo, manda `prColetarCredenciais()`, espera até 90s
+(a `product-search` espera 70s pelo wa-engine), confere `r.ok` **e** `d.success`,
+e devolve o motivo REAL do backend quando falha.
+
+Reescritas para usá-la — as três telas de produto do Grupo de Ofertas:
+- `prodImportarLink()` — "Adicionar por link"
+- `impBuscarLink(id)` — "Importar de loja"
+- `paBuscarDados()` — cadastro manual
+
+`prBuscarProduto()` (Postar Agora) **não foi tocada**: ela já era a referência.
+
+### Pendência de prova
+Provado na causa (a tabela acima é medição, não leitura de código) e a sintaxe do
+HTML foi conferida. **Falta exercitar as três telas no navegador com o código
+novo servido** — depende do rebuild do frontend.
 
 **REVISÃO 91 — 27/08/2026 — queda de sessão de WhatsApp deixa de ser MUDA:
 faixa fixa no painel + mensagem de WhatsApp pedindo repareamento, uma por queda.**
