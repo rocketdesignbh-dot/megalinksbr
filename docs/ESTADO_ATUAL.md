@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 90 — 27/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 91 — 27/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1649,6 +1649,61 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 91 — 27/08/2026 — queda de sessão de WhatsApp deixa de ser MUDA:
+faixa fixa no painel + mensagem de WhatsApp pedindo repareamento, uma por queda.**
+
+### O problema
+Quando o `wa-engine` reinicia (rebuild, deploy, manutenção), quando a rede cai ou
+quando o afiliado desloga pelo celular, o status vira `disconnected` no banco —
+pela `wa-heartbeat` ou pela `flag_heartbeat_timeout_whatsapp_instances` (cron de
+5 min). Como **todo** lugar do painel procura a sessão com
+`.eq("status","connected")`, a conexão simplesmente **sumia da tela**, sem
+nenhuma explicação, e a pessoa só descobria quando um disparo não saiu.
+
+### O que foi construído
+
+**1. `repair_notice_sent_at` em `whatsapp_instances`** — carimbo do aviso desta
+queda. Zerado por **trigger** (`trg_wa_reset_repair_notice`) sempre que a linha
+volta a `connected`, seja qual for o caminho que reconectou (heartbeat, upsert do
+painel, mão no banco). É isso que faz "uma mensagem por queda" valer sozinho, sem
+depender de nenhuma função lembrar de limpar. A
+`flag_heartbeat_timeout_whatsapp_instances` também passou a zerá-lo ao derrubar —
+queda nova, aviso novo.
+
+**2. Edge Function `wa-repair-notice` (v2, `verify_jwt:false`)** — cron
+`wa-repair-notice-5min` (jobid 35, `*/5 * * * *`, com `x-cron-secret` do vault).
+Varre as instâncias caídas sem aviso e manda a mensagem **pela sessão admin**
+(`revops_admin_whatsapp`, hoje +55 31 7354-5214), nunca pela sessão da própria
+pessoa — que é justamente a que caiu.
+
+As travas, cada uma com motivo medido:
+- **Carimba só com `messageId`.** Status 200 não é prova de entrega; sem essa
+  trava, uma falha de envio viraria "avisado" e a pessoa ficaria caída em
+  silêncio. Mesmo critério da `wa-idle-reaper`.
+- **Janela de 7 dias.** Quem está desconectado há semanas não recebe nada — sem
+  isso, a primeira rodada dispararia uma enxurrada para gente que abandonou a
+  conexão, e o número admin viraria spam. Na base de hoje isso é o que separa as
+  **3 instâncias caídas desde 13/08** (que não recebem) das quedas novas.
+- **Teto de 25 por rodada e 2,5s entre envios.** Um rebuild derruba todo mundo de
+  uma vez; 50 mensagens em 5 segundos pelo mesmo número é pedido de ban.
+- A própria sessão admin nunca recebe aviso.
+
+**3. Faixa no painel (`frontend/index.html`)** — `waQuedaCheck()` +
+`waQuedaBarra()`, chamadas no `enterApp` e a cada 60s. Faixa vermelha fixa
+(`position:sticky`) no topo de **todas** as telas, com ícone piscando e botão
+"📲 Parear agora". **Não é fechável**: some sozinha quando a sessão volta — e sai
+na hora do pareamento, sem esperar o ciclo. Não aparece para quem nunca conectou
+(`last_seen_at` nulo): quem nunca pareou vê o onboarding, não um alarme.
+
+### O que está medido, e o que não está
+- ✅ `wa-repair-notice` em produção: `dryRun` respondeu **200**,
+  `remetente: +553173545214`, `caidas_sem_aviso: 0` — a sessão admin resolve e a
+  janela de 7 dias está barrando as 3 caídas antigas, como projetado.
+- ✅ Migration, trigger e cron aplicados e conferidos (`cron.job` jobid 35 ativo).
+- ⚠️ **Envio real ainda NÃO foi observado** — nenhuma sessão caiu desde o deploy.
+  A prova pendente é derrubar uma instância de propósito e ver a mensagem chegar
+  com `messageId`, e a faixa aparecer no painel.
 
 **REVISÃO 90 — 27/08/2026 — "Sessão expirada. Entre novamente." no Clone Post
 com o WhatsApp CONECTADO: causa medida e consertada. O JWT que o painel mandava
