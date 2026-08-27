@@ -1696,14 +1696,31 @@ As travas, cada uma com motivo medido:
 na hora do pareamento, sem esperar o ciclo. Não aparece para quem nunca conectou
 (`last_seen_at` nulo): quem nunca pareou vê o onboarding, não um alarme.
 
-### O que está medido, e o que não está
-- ✅ `wa-repair-notice` em produção: `dryRun` respondeu **200**,
-  `remetente: +553173545214`, `caidas_sem_aviso: 0` — a sessão admin resolve e a
-  janela de 7 dias está barrando as 3 caídas antigas, como projetado.
-- ✅ Migration, trigger e cron aplicados e conferidos (`cron.job` jobid 35 ativo).
-- ⚠️ **Envio real ainda NÃO foi observado** — nenhuma sessão caiu desde o deploy.
-  A prova pendente é derrubar uma instância de propósito e ver a mensagem chegar
-  com `messageId`, e a faixa aparecer no painel.
+### Prova ponta a ponta — feita em 27/08, 01:45 UTC (queda forçada no banco)
+Com autorização do Érico, a instância dele (+55 31 7535-6865) foi marcada
+`disconnected` à mão, com `disconnect_reason='teste_revisao_91'`:
+
+1. `wa-repair-notice` respondeu **200**: `caidas_sem_aviso: 1`, `enviados: 1`,
+   `falhas: 0`, detalhe `✓ 75356865 (teste_revisao_91) — 3EB042E8BC38`.
+   **Mensagem entregue com messageId**, pela sessão admin +55 31 7354-5214.
+2. `repair_notice_sent_at` carimbado (01:45:18Z).
+3. **Segunda rodada imediata: `caidas_sem_aviso: 0`, `enviados: 0`.** Não repete
+   — "uma por queda" está provado, não deduzido.
+4. Painel recarregado: a **faixa vermelha apareceu** no topo do Dashboard, com o
+   botão "📲 Parear agora".
+5. Instância devolvida a `connected`: o trigger zerou `repair_notice_sent_at` e
+   `repair_notice_ack_at` **na mesma escrita**, e a faixa **sumiu sozinha do
+   painel, sem reload**, no ciclo de 60s.
+
+A sessão real do WhatsApp nunca chegou a cair — só o estado no banco —, então
+nada de produção foi interrompido no teste.
+
+### Ressalva honesta
+A queda causada por *rebuild do wa-engine* ainda não foi observada com esta
+esteira no ar: o que foi exercitado é o caminho a partir do momento em que o
+status vira `disconnected`, que é exatamente o que a `wa-heartbeat` e a
+`flag_heartbeat_timeout_whatsapp_instances` fazem num rebuild. O próximo rebuild
+é a confirmação que falta.
 
 **REVISÃO 90 — 27/08/2026 — "Sessão expirada. Entre novamente." no Clone Post
 com o WhatsApp CONECTADO: causa medida e consertada. O JWT que o painel mandava
