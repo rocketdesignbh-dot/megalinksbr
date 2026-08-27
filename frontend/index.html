@@ -4410,12 +4410,48 @@ let WA_ENGINE_TOKEN=""; // obtido dinamicamente via get-wa-engine-token no login
 // têm JWT de usuário), mas passa a tratar como "sem prova de dono" nas rotas
 // que tocam sessão de terceiro.
 let WA_USER_TOKEN="";
+// O JWT do Supabase expira em 1h. Ate 27/08 o WA_USER_TOKEN era capturado UMA
+// vez, no login (fetchWAEngineToken), e nunca mais atualizado: passada uma hora
+// com o painel aberto, TODA chamada ao wa-engine ia com JWT vencido, o
+// `resolverDono` do engine tomava 401 do PostgREST e devolvia
+// "Sessão expirada. Entre novamente." — mesmo com o WhatsApp conectado e a
+// sessao do painel valida (o supabase-js ja tinha renovado o token no
+// localStorage; era a NOSSA copia que estava velha).
+// Conserto: ler sempre o token corrente do storage do supabase-js, que ele
+// renova sozinho. WA_USER_TOKEN vira apenas fallback.
+const WA_SB_STORAGE_KEY="sb-"+((SUPA_URL.split("//")[1]||"").split(".")[0])+"-auth-token";
+function waTokenAtual(){
+  try{
+    const cru=localStorage.getItem(WA_SB_STORAGE_KEY);
+    if(cru){
+      const o=JSON.parse(cru);
+      const t=o.access_token||(o.currentSession&&o.currentSession.access_token);
+      if(t)return t;
+    }
+  }catch(e){}
+  return WA_USER_TOKEN;
+}
 function waAuthHeaders(comJSON){
   const h={"Authorization":"Bearer "+WA_ENGINE_TOKEN};
-  if(WA_USER_TOKEN)h["x-user-token"]=WA_USER_TOKEN;
+  const ut=waTokenAtual();
+  if(ut)h["x-user-token"]=ut;
   if(comJSON)h["Content-Type"]="application/json";
   return h;
 }
+// Aba suspensa (celular bloqueado, aba em segundo plano) pode voltar com o
+// token ja vencido antes de o timer de refresh do supabase-js rodar.
+// getSession() renova na hora quando preciso — e o supabase-js grava o token
+// novo no localStorage, que e de onde waTokenAtual() le.
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState!=="visible")return;
+  try{
+    if(typeof SB==="undefined"||!SB)return;
+    SB.auth.getSession().then(s=>{
+      const t=s&&s.data&&s.data.session&&s.data.session.access_token;
+      if(t)WA_USER_TOKEN=t;
+    }).catch(()=>{});
+  }catch(e){}
+});
 
 async function fetchWAEngineToken(){
   try{
