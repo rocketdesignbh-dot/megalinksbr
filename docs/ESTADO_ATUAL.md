@@ -1702,6 +1702,29 @@ antigo sumiu. Chamada real na página logada, com a função nova:
 O caso do link **sem protocolo** é o mesmo que antes morria em 400 — agora passa.
 Érico confirmou no navegador: "deu certo".
 
+### O rebuild do wa-engine NÃO derruba ninguém — medido em 27/08, 02:34 UTC
+A ponta que faltava da REVISÃO 91 foi medida no rebuild desta sessão, e o
+resultado é o contrário do que se supunha:
+
+- `GET /health` logo depois: **`uptime: 77s`** — o container reiniciou de fato,
+  **7 sessões, 7 conectadas**.
+- `whatsapp_instances`: as **6** instâncias de afiliado em `connected`, com
+  `last_seen_at` do heartbeat de 30 segundos antes; nenhuma
+  `auto_disconnected_at`, nenhum `repair_notice_sent_at`.
+- Nenhuma mensagem de repareamento saiu — **corretamente**: ninguém precisou
+  reparear.
+
+**O Baileys restaura as sessões da pasta de credenciais no boot.** Enquanto o
+volume sobreviver ao rebuild, reiniciar o engine não é queda. Isso combina com o
+que a P4/P16 já dizia sobre o push reiniciar o container, e reduz o alcance real
+da esteira de aviso: ela existe para queda de verdade (logout no celular,
+`session_closed`, heartbeat parado, volume perdido), não para deploy rotineiro.
+
+O caminho a partir de `status='disconnected'` continua provado ponta a ponta pelo
+teste forçado de 01:45 (mensagem entregue com `messageId`, faixa aparecendo e
+sumindo). O que este rebuild acrescenta é: esse caminho **não** é acionado por um
+deploy comum.
+
 ### O aviso de atualização de preço estava mentindo (mesma sessão)
 A tela dizia *"Produtos via link **não** são atualizados automaticamente após
 importação"*. Medido no banco, é falso: dos ativos, **8 de 9 do Mercado Livre** e
