@@ -326,6 +326,16 @@ tr:hover td{background:var(--surf2)}
 .cl-pg-bt.on{background:var(--volt);border-color:var(--volt-tx);color:#0c0c0e}
 .cl-pg-bt:disabled{opacity:.35;cursor:default}
 .cl-pg-el{color:var(--mut);font-size:12px;padding:0 2px}
+/* Contador dentro da sub-aba do Clone Post. */
+.cl-tabn{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:99px;font-size:10.5px;font-weight:700;background:rgba(255,255,255,.10);color:inherit}
+.tab.active .cl-tabn{background:rgba(245,197,24,.22)}
+.cl-tabn.pend{background:rgba(245,197,24,.25);color:var(--gold)}
+/* Filtro de status da fila. Mesmo visual dos chips de loja das fontes — dois
+   filtros na mesma tela com aparencia diferente seriam dois idiomas. */
+.cl-fchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.cl-fchip{font-family:inherit;font-size:11.5px;font-weight:600;line-height:1;padding:6px 10px;border-radius:2px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2);transition:.12s;white-space:nowrap}
+.cl-fchip:hover{border-color:var(--tx2);color:var(--tx)}
+.cl-fchip.on{border-color:var(--volt-tx);background:rgba(25,226,125,.14);color:var(--volt-tx)}
 .cs-loja-check{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--tx);cursor:pointer}
 .cs-loja-check input{width:auto;margin:0}
 .cs-add{border:1px dashed var(--bd2);background:transparent;border-radius:var(--r-sm);padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:150px;cursor:pointer;color:var(--tx2);font-size:12.5px;text-align:center;transition:border-color .15s,color .15s}
@@ -1175,7 +1185,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="phead">
       <div>
         <h1 class="pt">🧬 Clone Post</h1>
-        <div class="psub">Ofertas capturadas automaticamente das suas fontes entram na fila abaixo para revisão e aprovação.</div>
+        <div class="psub">Ofertas capturadas das suas fontes entram na fila de revisão — nada vai pro seu grupo sem você aprovar.</div>
         <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button>
       </div>
     </div>
@@ -1183,14 +1193,27 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div id="cloneGate" style="display:none"></div>
 
     <div id="cloneApp">
-      <div class="card" style="margin-bottom:16px">
-        <div class="ch">🤖 Fontes automáticas <span class="r"><span id="csUpd" class="cs-upd"></span><a href="#" onclick="csAtualizar();return false">atualizar</a></span></div>
-        <div class="cb" id="csBox"><div style="color:var(--tx2);font-size:13px">Carregando…</div></div>
+      <!-- Sub-abas: a fila e a acao do dia a dia, a fonte e configuracao ocasional.
+           Empilhados na mesma pagina, os cards de fonte (cada um ~400px no celular,
+           sem teto de quantidade para VIP/admin) empurravam a fila para fora da
+           tela. Uma aba por vez elimina a rolagem morta. -->
+      <div class="tabs-wrap"><div class="tabs" id="cloneTabs">
+        <button type="button" class="tab active" data-ctab="fila" onclick="cloneAba('fila')">🗂️ Fila de revisão<span id="cloneTabPend" class="cl-tabn" style="display:none">0</span></button>
+        <button type="button" class="tab" data-ctab="fontes" onclick="cloneAba('fontes')">🤖 Fontes automáticas<span id="cloneTabFontes" class="cl-tabn" style="display:none">0</span></button>
+      </div></div>
+
+      <div class="tp on" id="ctab-fila">
+        <div class="card">
+          <div class="ch">🗂️ Fila de clones <span class="r"><span id="clfUpd" class="cs-upd"></span><a href="#" onclick="cloneFilaAtualizar();return false">atualizar</a></span></div>
+          <div class="cb" id="cloneFila"><div style="color:var(--tx2);font-size:13px">Carregando…</div></div>
+        </div>
       </div>
 
-      <div class="card">
-        <div class="ch">🗂️ Fila de clones <span class="r"><span id="clfUpd" class="cs-upd"></span><a href="#" onclick="cloneFilaAtualizar();return false">atualizar</a></span></div>
-        <div class="cb" id="cloneFila"><div style="color:var(--tx2);font-size:13px">Carregando…</div></div>
+      <div class="tp" id="ctab-fontes">
+        <div class="card">
+          <div class="ch">🤖 Fontes automáticas <span class="r"><span id="csUpd" class="cs-upd"></span><a href="#" onclick="csAtualizar();return false">atualizar</a></span></div>
+          <div class="cb" id="csBox"><div style="color:var(--tx2);font-size:13px">Carregando…</div></div>
+        </div>
       </div>
     </div>
   </section>
@@ -9021,6 +9044,10 @@ function cloneAbrirPagina(tentativa){
   }
   gate.style.display="none";
   app.style.display="block";
+  // Restaura a última aba usada; na dúvida abre na Fila, que é a ação do dia.
+  let salva="fila";
+  try{salva=localStorage.getItem("mlbr_clone_aba")||"fila";}catch(e){}
+  cloneAba(salva);
   cloneCarregarFila();
   csCarregar();
 }
@@ -9096,8 +9123,34 @@ let CLONE_SEL_MODO=false;
 let CLONE_SEL=new Map();       // id → status, atravessa páginas
 let CLONE_FILA_PAG=0;          // página atual, base 0
 const CLONE_FILA_TAM=20;
-let CLONE_FILA_TOTAL=0;        // linhas na fila inteira
+let CLONE_FILA_TOTAL=0;        // linhas na fila JÁ FILTRADA (é o total que a paginação navega)
 let CLONE_FILA_PENDENTES=0;    // contado no banco, não no array da página
+// Filtro de status da fila. "pending" é o padrão de propósito: a fila mistura
+// publicado/descartado/expirado com o que ainda pede ação, e das 20 linhas de uma
+// página só um punhado costuma ser acionável. Filtrar no banco (e não na página)
+// faz a paginação contar só o que interessa.
+let CLONE_FILA_STATUS="pending";
+let CLONE_STATUS_CONTAGEM={};  // status → nº de linhas, para os chips
+
+/* ── Sub-abas do Clone Post ── */
+let CLONE_ABA="fila";
+function cloneAba(qual){
+  if(qual!=="fila"&&qual!=="fontes")qual="fila";
+  CLONE_ABA=qual;
+  document.querySelectorAll("#cloneTabs .tab").forEach(b=>b.classList.toggle("active",b.dataset.ctab===qual));
+  const f=document.getElementById("ctab-fila"),o=document.getElementById("ctab-fontes");
+  if(f)f.classList.toggle("on",qual==="fila");
+  if(o)o.classList.toggle("on",qual==="fontes");
+  try{localStorage.setItem("mlbr_clone_aba",qual);}catch(e){}
+}
+// Os dois contadores vivem no cabeçalho das abas, fora do miolo que cada render
+// recria — se morassem dentro, cada atualização apagaria o próprio número.
+function cloneAtualizarContadores(){
+  const p=document.getElementById("cloneTabPend");
+  if(p){p.textContent=CLONE_FILA_PENDENTES;p.className="cl-tabn"+(CLONE_FILA_PENDENTES?" pend":"");p.style.display=CLONE_FILA_PENDENTES?"inline-block":"none";}
+  const s=document.getElementById("cloneTabFontes");
+  if(s){s.textContent=CS_FONTES.length;s.style.display=CS_FONTES.length?"inline-block":"none";}
+}
 
 function cloneSelToggleModo(){
   CLONE_SEL_MODO=!CLONE_SEL_MODO;
@@ -9119,13 +9172,18 @@ function cloneSelTodos(on){
   document.querySelectorAll("#cloneFila input.clone-chk").forEach(i=>{i.checked=on;});
   cloneSelAtualizarBarra();
 }
+// Marca tudo o que o FILTRO ATUAL alcança, não a tabela inteira. Com o filtro em
+// "Pendentes", dizer "marcar os 6" e marcar 200 (incluindo publicados e
+// descartados) seria mentir sobre o alcance de um clique que apaga.
 async function cloneSelFilaInteira(){
   if(!CURRENT_USER?.id)return;
-  const{data,error}=await SB.from("clone_posts").select("id,status").eq("user_id",CURRENT_USER.id);
+  let q=SB.from("clone_posts").select("id,status").eq("user_id",CURRENT_USER.id);
+  if(CLONE_FILA_STATUS!=="all")q=q.eq("status",CLONE_FILA_STATUS);
+  const{data,error}=await q;
   if(error){toast("Não consegui marcar a fila inteira: "+error.message,"⚠️");return;}
   CLONE_SEL=new Map((data||[]).map(r=>[r.id,r.status]));
   cloneRenderFila();
-  toast(`${CLONE_SEL.size} item(ns) marcados na fila inteira.`,"☑️");
+  toast(`${CLONE_SEL.size} item(ns) marcados${CLONE_FILA_STATUS==="all"?" na fila inteira":" no filtro atual"}.`,"☑️");
 }
 function cloneSelAtualizarBarra(){
   const n=CLONE_SEL.size;
@@ -9186,24 +9244,39 @@ function cloneIdadeTxt(iso){
   return d===1?"há 1 dia":`há ${d} dias`;
 }
 
+// Troca o filtro de status. Volta pra página 1 sempre: manter a página 3 ao
+// trocar de um filtro com 60 linhas para um com 4 cairia numa página vazia que
+// existe e não mostra nada — o mesmo defeito que o recuo lá embaixo conserta.
+function cloneFiltrarStatus(st){
+  if(CLONE_FILA_STATUS===st)return;
+  CLONE_FILA_STATUS=st;
+  CLONE_FILA_PAG=0;
+  cloneCarregarFila();
+}
+
 async function cloneCarregarFila(){
   const el=document.getElementById("cloneFila");
   if(!el||!CURRENT_USER?.id)return;
   const ini=CLONE_FILA_PAG*CLONE_FILA_TAM;
-  const[res,cnt]=await Promise.all([
-    SB.from("clone_posts").select("*",{count:"exact"}).eq("user_id",CURRENT_USER.id)
-      .order("created_at",{ascending:false}).range(ini,ini+CLONE_FILA_TAM-1),
-    // Contagem própria: o badge NÃO pode sair do array da página.
-    SB.from("clone_posts").select("id",{count:"exact",head:true}).eq("user_id",CURRENT_USER.id).eq("status","pending")
+  let q=SB.from("clone_posts").select("*",{count:"exact"}).eq("user_id",CURRENT_USER.id);
+  if(CLONE_FILA_STATUS!=="all")q=q.eq("status",CLONE_FILA_STATUS);
+  const[res,todos]=await Promise.all([
+    q.order("created_at",{ascending:false}).range(ini,ini+CLONE_FILA_TAM-1),
+    // Contagem por status: o badge e os chips NÃO podem sair do array da página.
+    // Uma coluna só, mesmo padrão (e mesmo teto) do csCarregarLojas.
+    SB.from("clone_posts").select("status").eq("user_id",CURRENT_USER.id).limit(5000)
   ]);
   if(res.error){el.innerHTML=`<div class="alert r" style="margin:0"><span>Não consegui carregar a fila: ${esc(res.error.message)}</span></div>`;return;}
+  CLONE_STATUS_CONTAGEM={};
+  (todos.data||[]).forEach(r=>{const s=r.status||"";CLONE_STATUS_CONTAGEM[s]=(CLONE_STATUS_CONTAGEM[s]||0)+1;});
   CLONE_FILA_TOTAL=res.count||0;
-  CLONE_FILA_PENDENTES=cnt.error?0:(cnt.count||0);
+  CLONE_FILA_PENDENTES=CLONE_STATUS_CONTAGEM.pending||0;
   // Apagar a última linha de uma página deixaria o usuário numa página vazia
   // que existe e não mostra nada. Recua uma e recarrega.
   if(!(res.data||[]).length&&CLONE_FILA_PAG>0){CLONE_FILA_PAG--;return cloneCarregarFila();}
   CLONE_FILA_DATA=res.data||[];
   cloneRenderFila();
+  cloneAtualizarContadores();
 }
 
 function clonePaginacaoHtml(){
@@ -9231,14 +9304,43 @@ function clonePaginacaoHtml(){
   </div>`;
 }
 
+// Rótulos dos chips. Só entram os status que EXISTEM na fila deste usuário —
+// oferecer "Falharam (0)" é dar um clique que leva a uma tela vazia.
+const CLONE_FILTRO_ROTULO={pending:"Pendentes",approved:"Publicados",rejected:"Descartados",failed:"Falharam",expired:"Expirados"};
+const CLONE_FILTRO_ORDEM=["pending","approved","rejected","failed","expired"];
+function cloneFiltroChipsHtml(){
+  const total=Object.values(CLONE_STATUS_CONTAGEM).reduce((a,b)=>a+b,0);
+  // Ordem fixa, "Pendentes" primeiro: é o filtro padrão e a ação do dia.
+  const chips=[];
+  for(const st of CLONE_FILTRO_ORDEM){
+    const n=CLONE_STATUS_CONTAGEM[st]||0;
+    // O chip do filtro ativo fica mesmo com zero: sumir com ele deixaria o
+    // usuário numa lista vazia sem nada aceso explicando por quê. E "Pendentes"
+    // nunca some — é para onde a tela volta.
+    if(!n&&CLONE_FILA_STATUS!==st&&st!=="pending")continue;
+    chips.push(`<button type="button" class="cl-fchip${CLONE_FILA_STATUS===st?" on":""}" onclick="cloneFiltrarStatus('${st}')">${CLONE_FILTRO_ROTULO[st]} (${n})</button>`);
+  }
+  chips.push(`<button type="button" class="cl-fchip${CLONE_FILA_STATUS==="all"?" on":""}" onclick="cloneFiltrarStatus('all')">Todos${total?" ("+total+")":""}</button>`);
+  return `<div class="cl-fchips">${chips.join("")}</div>`;
+}
+
 function cloneRenderFila(){
   const el=document.getElementById("cloneFila");
   if(!el)return;
   const data=CLONE_FILA_DATA;
   const b0=document.getElementById("cloneBadge");
   if(b0){b0.textContent=CLONE_FILA_PENDENTES;b0.style.display=CLONE_FILA_PENDENTES?"inline-flex":"none";}
+  const chips=cloneFiltroChipsHtml();
   if(!data.length){
-    el.innerHTML='<div style="color:var(--tx2);font-size:13px">Nenhum clone ainda. Cole a mensagem de uma oferta acima pra começar.</div>';
+    const temAlgo=Object.values(CLONE_STATUS_CONTAGEM).reduce((a,b)=>a+b,0)>0;
+    // Fila vazia por FILTRO e fila vazia de verdade são coisas diferentes, e
+    // trocá-las manda o usuário procurar um problema que não existe.
+    const msg=temAlgo
+      ? (CLONE_FILA_STATUS==="pending"
+          ? 'Nada aguardando revisão. Tudo o que chegou já foi tratado — use os filtros acima para rever o histórico.'
+          : 'Nenhum clone com esse status. Use os filtros acima para ver os demais.')
+      : 'Nenhum clone ainda. Cadastre uma fonte na aba <strong>Fontes automáticas</strong> ou cole a mensagem de uma oferta pra começar.';
+    el.innerHTML=chips+'<div style="color:var(--tx2);font-size:13px">'+msg+'</div>';
     CLONE_SEL_MODO=false;CLONE_SEL.clear();
     return;
   }
@@ -9264,7 +9366,7 @@ function cloneRenderFila(){
         <input type="checkbox" id="cloneSelAll" onchange="cloneSelTodos(this.checked)" style="width:auto">
         <span>Selecionar todos${faltaPagina?" desta página":""}</span>
       </label>
-      ${faltaPagina?`<a href="#" onclick="cloneSelFilaInteira();return false" style="font-size:12px">marcar os ${CLONE_FILA_TOTAL} da fila inteira</a>`:""}
+      ${faltaPagina?`<a href="#" onclick="cloneSelFilaInteira();return false" style="font-size:12px">marcar os ${CLONE_FILA_TOTAL} ${CLONE_FILA_STATUS==="all"?"da fila inteira":"do filtro atual"}</a>`:""}
       <span id="cloneSelCount" style="font-size:12px;color:var(--tx2)"></span>
       <span style="flex:1"></span>
       <button class="btn btn-volt btn-sm" id="cloneBtnAprovarSel" onclick="cloneAprovarSelecionados()">✅ Aprovar</button>
@@ -9274,7 +9376,7 @@ function cloneRenderFila(){
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
       <button class="btn btn-ghost btn-sm" onclick="cloneSelToggleModo()">☑️ Selecionar</button>
     </div>`;
-  el.innerHTML=barra+data.map(c=>{
+  el.innerHTML=chips+barra+data.map(c=>{
     const vencido=c.status==="expired";
     return `
     <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--bd)${vencido?";opacity:.55":""}">
@@ -9662,6 +9764,7 @@ function csRender(){
     ${CS_FONTES.length?"":'<div style="color:var(--tx2);font-size:13px;margin-bottom:12px">Nenhuma fonte ainda. Escolha um grupo que voc\u00ea j\u00e1 acompanha e o sistema captura as ofertas dele pra sua fila.</div>'}
     <div class="cs-grid">${cards}${addCard}</div>
     <div id="csForm" style="display:none;margin-top:14px"></div>`;
+  cloneAtualizarContadores();
 }
 
 async function csAbrirForm(editId){
