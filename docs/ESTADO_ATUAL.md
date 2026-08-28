@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 95 — 28/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 96 — 28/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -273,7 +273,7 @@ da chamada no `get_logs`), e o controle com link de Shopee tem que seguir normal
 |---|---|---|
 | **P16** | decidir o gate ou desligar o auto-deploy do `app`. **Antes:** conferir no Dashboard se `app` e `wa-engine` compartilham build ou são dois auto-deploys | Dashboard + decisão |
 | **P2** | confirmar a terceira saída (rate limit como Edge Function, autenticada por `WA_ENGINE_TOKEN`, no padrão do `wa-heartbeat`) e codar | decisão + código |
-| **P35** | decidir entre token por usuário no engine e registrar o risco. **O gate por plano caiu na medição** | decisão |
+| **P35** | 🟠 **FASE 1 CODADA E PROVADA EM HARNESS 28/08 (REVISAO 96) — AGUARDA DEPLOY COORDENADO.** Brecha reconfirmada NO AR: token cru sem `x-user-token` via 7 sessoes contra 6 da chamada escopada. Esquema de dois tokens no commit `dcabc29`: `WA_ENGINE_BROWSER_TOKEN` separado para o navegador, que o wa-engine obriga a vir com `x-user-token`; o token de serviço nunca mais sai do servidor. Degradacao segura (sem o env, tudo como hoje). NAO deployado de proposito — runbook de 6 passos na REVISAO 96 (env no EasyPanel + rebuild + secret no Supabase, depois deploy do get-wa-engine-token). Fase 2 separada: rotacionar o WA_ENGINE_TOKEN para invalidar valores ja vazados | 03/08 |
 | **P7** | conferir no `index.html` quais colunas de `profiles` as telas de admin leem, e só então escrever a migration | leitura + migration |
 | **P19** | preview clicável — reemitir o `send-post` inteiro (571 linhas). **Sessão limpa própria** | código |
 | **P12 · P23(b) · P11 · 301 do `www`** | frontend. **Agrupar num deploy só** — cada deploy do `app` reinicia o `wa-engine` (P16) | código |
@@ -1649,6 +1649,84 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 96 — 28/08/2026 — faxina de 3 pendências de segurança. P81 fechada de
+verdade (histórico reescrito); P86 provada resolvida (era bloqueio transitório da
+Amazon); P35 fase 1 codada, provada em harness e aguardando o deploy coordenado
+(runbook abaixo). P72 relembrada: revogar os PATs.**
+
+### P81 — o CSV de teste estava EXPOSTO, e o "delete" não removia (FECHADA)
+`frontend/WebsiteClickReport202608260015.csv` foi apagado no commit `cb13d89`,
+mas apagar não remove nada do Git: o blob `c6ebf27` seguia acessível no
+repositório **público** por hash. Confirmado lendo o conteúdo — 41 linhas (ID do
+clique, data/hora, região, referenciador). O Érico confirmou que era arquivo de
+teste.
+
+Reescrito o histórico com `git filter-repo --invert-paths` (removeu os 2 commits
+que só tocavam o CSV; **762 commits**, o resto preservado — a árvore do HEAD
+reescrito é idêntica à de `793877e`, `9d3e09b`). `push --force`. **Prova:** clone
+fresco do remoto → 0 vestígios do nome, `git cat-file -e c6ebf27` → inacessível.
+⚠️ Um blob já público pode ficar em cache do GitHub e em clones/forks alheios;
+para dado sensível de verdade seria "considere comprometido". Aqui era teste.
+
+Efeito colateral registrado: os hashes pós-`26e05c5` citados no ESTADO_ATUAL
+(`7ab2cbc`, `128f372`, `4ef6bb8`, `3c4ad99`, `811490d`, `26e05c5`) foram
+reescritos e não existem mais no remoto. São referências históricas em doc, não
+quebram nada — mas não tente `git show` neles.
+
+### P86 — a Amazon voltou a confirmar preço (PRONTA PARA FECHAR)
+A P86 registrou que a Amazon parou de confirmar preço no Postar Agora em 26/08.
+Testado agora com o **mesmo ASIN da pendência**, `B079VW5KTT`: voltou **R$ 75,90
+de R$ 89,90, com foto** — exatamente os valores que a P86 anotou como a leitura
+boa antes de quebrar. Também `B0DBF65JYY`: R$ 117,79 de R$ 229,00. Era bloqueio
+transitório da Amazon, como a própria P86 suspeitava. Nada a codar.
+
+### P35 — o token do wa-engine vaza para qualquer conta (FASE 1 CODADA)
+`get-wa-engine-token` (`verify_jwt: true`) entrega um token ao navegador de
+QUALQUER conta autenticada, e esse token era o `WA_ENGINE_TOKEN` de serviço — o
+mesmo que, sem `x-user-token`, poe o pedido em "modo servidor". A defesa de dono
+de 26/08 (`resolverDono`/`donoAutorizado`, cobre todas as rotas sensíveis) só
+protege o navegador honesto, que sempre manda `x-user-token`.
+
+**MEDIDO no painel logado, 28/08:** token cru **sem** `x-user-token` →
+`GET /sessions` = **7 sessões**; chamada escopada do dono = **6**. Brecha
+confirmada NO AR: um atacante ignora o header e vê/age sobre a sessão de todos.
+
+**Conserto — esquema de dois tokens (`dcabc29`, fase 1):**
+- `wa-engine`: `verifyToken` aceita o token de serviço E um novo
+  `WA_ENGINE_BROWSER_TOKEN`, marcando `req.tokenKind`. `resolverDono` só deixa o
+  de SERVIÇO virar modo-servidor; o do NAVEGADOR sem `x-user-token` vira `Set`
+  vazio (nega tudo) em vez de `null` (libera geral).
+- `get-wa-engine-token`: passa a entregar o `WA_ENGINE_BROWSER_TOKEN`. O token de
+  serviço nunca mais sai do servidor.
+- **Degradação segura:** sem o env configurado, os dois arquivos se comportam
+  exatamente como hoje. O código pode ir pro ar sem depender do segredo.
+
+Provado em harness dos 5 casos (Edge Function = modo servidor; navegador honesto
+= escopado; **atacante browser sem `x-user-token` = Set vazio, não manda por
+número de ninguém**; atacante com `x-user-token` dele tentando número de outro =
+negado; service token não é mais obtenível). Degradação: sem env, tudo como hoje.
+
+⚠️ **NÃO DEPLOYADO — deploy coordenado, ações externas do Érico.** O
+`get-wa-engine-token` NÃO foi deployado de propósito: se ele entregasse o browser
+token antes de o wa-engine conhecê-lo, o painel tomaria 401. Runbook:
+1. `openssl rand -hex 32` → segredo.
+2. EasyPanel > wa-engine > Environment: `WA_ENGINE_BROWSER_TOKEN=<segredo>`.
+3. EasyPanel > wa-engine > **Rebuild** (entra o código `dcabc29` + o env).
+4. Supabase > Edge Functions > Secrets: `WA_ENGINE_BROWSER_TOKEN=<mesmo segredo>`.
+5. [Claude] deploy do `get-wa-engine-token`.
+6. [Claude] verificar: navegador escopa; token cru sem `x-user-token` negado.
+
+**Fase 2, separada:** rotacionar o `WA_ENGINE_TOKEN` de serviço para invalidar
+qualquer valor já capturado nos meses em que o `get-wa-engine-token` o entregou.
+A fase 1 fecha para atacantes NOVOS; a fase 2 fecha os já-vazados.
+
+### P72 — os PATs continuam pendentes de revogação
+O clássico de 25/08 (P72) e o desta sessão (`ghp_xF28…`, usado nos pushes de
+28/08, colado no chat) precisam ser **revogados e rotacionados** em GitHub >
+Settings > Developer settings > Personal access tokens. Ação do Érico.
+
+---
 
 **REVISÃO 95 — 28/08/2026 — a P32 valia para a `product-search` e NÃO estava
 sendo aplicada na `radar`. A Shopee para de ter o preço anterior derivado da
@@ -7113,10 +7191,10 @@ código não relacionado.
 | ~~P78~~ | ✅ **FECHADA 26/08 (REVISÃO 77) — MEDIDA EM PRODUÇÃO.** A causa final não era qual chave, era **como ela estava colada**: `SUPABASE_SERVICE_ROLE_KEY` e `MR_INGEST_TOKEN` estavam no Environment do EasyPanel envolvidos em `<` e `>` (a notação de "preencha aqui" do README veio junto). Medido no campo: 219 e 64 caracteres sem as bordas — os tamanhos exatos da `service_role` legada e de um `openssl rand -hex 32`. Removidos os sinais, a autenticação passou e o erro mudou para o 400 da P79. Prova final: `WebsiteClickReport202608260015.csv` importado `completed`, 40/40 linhas, 40 linhas em `fact_click`. Registro anterior abaixo. ~~🟡 **CAUSA ISOLADA POR EXPERIMENTO EM 26/08 (REVISÃO 76) — falta só colar a chave certa e dar Deploy.** A chave que o `mr-ingest` precisa é a **`service_role` LEGADA** (JWT `eyJ…`, 219 chars, aba "Legacy anon, service_role API keys" do Dashboard), **não** a `sb_secret_…` nova que está lá hoje. Medido no navegador do Érico chamando `POST /rest/v1/rpc/mr_expire_queue` com cada uma: legada **200** (corpo `0`), a atual recusada com `Invalid API key`. Prova depois do Deploy: log do `mr-ingest` sem `SUPABASE_SERVICE_ROLE_KEY parece invalida`, e o 401-por-minuto de `mr_expire_queue` virando 200 no `query_logs`. Node 22 já confirmado no build de 03:33. Registro original abaixo. ~~🔴 **`SUPABASE_SERVICE_ROLE_KEY` do serviço `mr-ingest` no EasyPanel está inválida — bloqueia toda importação real.** Medido em produção: tentativa real do Érico com `WebsiteClickReport…csv` devolveu 500 "Nao foi possivel verificar sua sessao"; `query_logs` do mesmo minuto confirma `GET /auth/v1/user` 401. Ação: conferir a chave em Supabase → Settings → API, corrigir no Environment do `mr-ingest` no EasyPanel, Deploy manual (não é automático), reimportar para confirmar. **Junto:** há uma chamada a `public.mr_expire_queue` toda a cada minuto recebendo 401 desde antes do teste do Érico — não localizada em nenhum arquivo deste repo nem em `cron.job` do Postgres; suspeita de processo/container órfão do `mr-ingest` usando a mesma chave quebrada. Ver REVISÃO 74~~ | 26/08 |
 | ~~P79~~ | ✅ **FECHADA 26/08 (REVISÃO 78) — NO AR E MEDIDA.** Deploy do `app` às 04:43 UTC; o `index.html` servido pelo domínio traz os campos antes do arquivo. Duas tentativas reais do Érico chegaram ao `DUPLICATE_FILE`, que só é alcançável depois de autenticação, trava do piloto, campos e checksum. Registro original abaixo. ~~🔴 **CORRIGIDA NO REPO, NÃO DEPLOYADA — ordem dos campos do multipart no upload do Mega Results.** O `frontend/index.html` mandava `fd.append('file', …)` **antes** de `connectionId` e `store`; o `mr-ingest` lê `fields` dentro do handler do arquivo (`src/server.js` linha 161) e o Busboy entrega as partes na ordem do corpo, então os dois campos chegavam vazios e a resposta era 400 `ownerId, connectionId e store sao obrigatorios`. Consertado no repo (campos antes do arquivo). **Provado por comportamento ANTES do deploy**, com a função corrigida injetada na sessão logada do Érico: a importação completou com 40/40 linhas. **Falta push + Deploy do `app`** — sem isso, um F5 desfaz e a tela volta a falhar. ⚠️ Fica em aberto endurecer o backend para não depender da ordem do cliente | 26/08 |
 | ~~P80~~ | ✅ **FECHADA 26/08 (REVISÃO 79) — NO AR E MEDIDA NA TELA.** Com o Deploy, a importação do mesmo arquivo abriu o card "⚠️ Este arquivo já foi importado" com a data, console limpo. Arquivo servido confere: `mrAcompanhar` chamada, `mrStream` fora do fluxo. Registro original abaixo. ~~🟡 **CORRIGIDA NO REPO E PROVADA EM BANCADA — FALTA PUSH + DEPLOY. O SSE de progresso não atravessa o proxy do EasyPanel.** `GET /import/:id/stream` fica pendente para sempre quando o lote existe; com id inexistente responde em 425 ms (o servidor fecha a conexão nesse caminho). A tela ficava em "Enviando arquivo…" mesmo com a importação concluída. Conserto: `mrAcompanhar()` lê `megaresults.import_batch` a cada 1,5 s em vez de depender do stream — a fonte durável, como o próprio `mr-ingest` documenta. Três estados renderizados contra lotes reais. **Falta**: upload do `index.html`, Deploy do `app` e uma importação real para fechar. ⚠️ Alternativa de servidor, não feita: `X-Accel-Buffering: no` no `mr-ingest` (exige Deploy próprio dele) | 26/08 |
-| **P81** | 🔴 **Relatório de cliques commitado por engano em repo PÚBLICO:** `frontend/WebsiteClickReport202608260015.csv`, no commit `26e05c5` de 26/08. Conteúdo de baixo risco (ID do clique, data, região "Brazil", Sub_id, referenciador — sem dado pessoal de terceiro), mas é dado comercial e o repo é aberto. **Apagar do `main`**; permanece no histórico do git de qualquer forma. Reescrever histórico não se justifica pelo conteúdo | 26/08 |
+| ~~P81~~ | ✅ **FECHADA 28/08 (REVISÃO 96).** O CSV de teste estava exposto por hash mesmo apos o "delete" (o blob `c6ebf27` sobrevivia no historico publico). Historico reescrito com `git filter-repo`, `push --force`; clone fresco do remoto sem vestigio, `git cat-file -e` do blob inacessivel. Era arquivo de teste (confirmado pelo Erico). Blobs ja publicos podem ficar em cache/forks — para dado real seria "considere comprometido"; aqui, teste | 26/08 |
 | ~~P82~~ | ✅ **FECHADA 26/08 (REVISÃO 85), MEDIDA NO NAVEGADOR LOGADO DO ÉRICO (Claude in Chrome).** Deploy feito pelo Érico; as duas tabelas novas aparecem com dado real (produto R$1,75/1 pedido, canal Instagram R$1,75/1 pedido, "Sem atribuicao"/"Sem campanha" cobrindo os 40 cliques sem pedido), console limpo. Ver REVISÃO 85 | 26/08 |
 | **P83** | 🟡 **Achado na medição da P82: navegar direto pra URL de uma aba não carrega ela — só o clique no menu dispara a inicialização.** Testado em `/painel/mega-results`: URL direta fica em "Carregando..." para sempre, zero chamada de rede, porque `mrInit()` só está pendurado num `addEventListener('click', ...)` do item de menu (linha ~12042), não em `rotaDaURL()`/`rotaAplicarEntrada()`. Clicar no menu depois resolve. Não testado se outras abas (Clone Post, Link Rápido, etc.) têm o mesmo padrão, nem se F5 na própria aba quebra do mesmo jeito. Não mexido — fora do escopo da tarefa que gerou o achado | 26/08 |
-| **P86** | 🔴 **A Amazon parou de confirmar o preço no Postar Agora, na tarde de 26/08, e NÃO por mudança nossa.** Às 18:48/18:49/19:00 leu certo (B079VW5KTT: R$ 75,90 de R$ 89,90 + foto). Às 19:52 em diante, B079VW5KTT e B077VW15YL passaram a devolver em ~2 s "o buybox da Amazon nao confirmou o preco (duas testemunhas)" — erro emitido só DEPOIS de achar id="productTitle", ou seja a página chega mas apex-pricetopay-accessibility-label / a-price-whole / a-price-fraction não casam. Hipótese NÃO medida: versão degradada servida ao IP do Supabase. **Próximo passo sugerido:** logar, no ramo que recusa, o tamanho do HTML e QUAL das três testemunhas faltou — sem isso a próxima sessão diagnostica no escuro | 26/08 |
+| ~~P86~~ | 🟢 **PRONTA PARA FECHAR 28/08 (REVISÃO 96), MEDIDA NO PAINEL LOGADO.** Testado o mesmo ASIN da pendencia (`B079VW5KTT`): voltou R$ 75,90 de R$ 89,90 com foto — os valores que a propria P86 anotou como a leitura boa. `B0DBF65JYY` idem (117,79 de 229,00). Era bloqueio transitorio da Amazon, como suspeitado. Nada a codar; fechar formalmente quando o Erico confirmar num link do dia a dia | 26/08 |
 | **P77** | 🔵 **Só Shopee tem `field_mapping` em `megaresults`.** Se o Érico quiser importar relatório de outra loja (Mercado Livre, Amazon, etc.), falta cadastrar o mapeamento de campos dela antes — sem isso `mrLoadStores()` nem oferece a opção na tela | 26/08 |
 | **P74** | 🟡 **REVISÕES 70 e 71 estão no ar e medidas no ARQUIVO SERVIDO, mas o FLUXO ponta a ponta nunca foi rodado.** Falta: (a) Postar Agora com link de Shein → o alerta amarelo aparece mesmo na tela do Passo 2? (b) Clone Post com mensagem real de grupo → preview vem preenchido e o clone salva certo? (c) `prGerarLinkAfil` carimba o ID na Shein quando há credencial configurada? | 25/08 |
 | ~~P87~~ | 🟢 **PARCIALMENTE FECHADA 28/08 (REVISÃO 94), MEDIDA NO PAINEL LOGADO DO ÉRICO (Claude in Chrome).** Deploy no ar (5 marcadores no código servido); Clone Post com chips batendo um a um com o banco (38/10/6/54), paginação 1–20→41–54 em 3 páginas, badge de 7 fontes, troca de aba e persistência; Radar com 150 ofertas reais em lotes 24→48→72 e **0 chamadas de rede** nos cliques (fetch e XHR instrumentados) — a aposta central do desenho, provada contra o `rrow` real; Produtos com 20 reais, seleção por `Set`, mestre indeterminado, atalho corretamente escondido; renomear gravando e recusando nome vazio, conferido no banco e restaurado; 0 erros de console. **RESTA:** (a) nenhuma medição de pixel em largura de celular — a janela está maximizada em 2560×1080 e o `resize_window` não altera o `innerWidth`; os números de 390px seguem vindo do harness; (b) seleção de produtos atravessando páginas não é demonstrável com dado real — o maior grupo tem 20 produtos e a página é de 25, então a paginação nem aparece | 28/08 |
