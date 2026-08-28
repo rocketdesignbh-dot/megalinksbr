@@ -336,6 +336,18 @@ tr:hover td{background:var(--surf2)}
 .cl-fchip{font-family:inherit;font-size:11.5px;font-weight:600;line-height:1;padding:6px 10px;border-radius:2px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2);transition:.12s;white-space:nowrap}
 .cl-fchip:hover{border-color:var(--tx2);color:var(--tx)}
 .cl-fchip.on{border-color:var(--volt-tx);background:rgba(25,226,125,.14);color:var(--volt-tx)}
+/* Linha da fila de clones. No desktop os botões ficam à direita do texto; no
+   celular eles espremiam o título em 3 linhas — a 390px sobravam ~300px de
+   largura para o texto, com Aprovar/Descartar em flex:none comendo o resto.
+   Abaixo de 520px a linha quebra e as ações vão para uma faixa própria de
+   largura total, que de quebra dá alvo de toque maior. */
+.cl-row{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--bd)}
+.cl-acoes{display:flex;gap:8px;flex:none}
+@media (max-width:520px){
+  .cl-row{flex-wrap:wrap}
+  .cl-acoes{flex-basis:100%;margin-top:2px}
+  .cl-acoes .btn{flex:1;justify-content:center}
+}
 .cs-loja-check{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--tx);cursor:pointer}
 .cs-loja-check input{width:auto;margin:0}
 .cs-add{border:1px dashed var(--bd2);background:transparent;border-radius:var(--r-sm);padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:150px;cursor:pointer;color:var(--tx2);font-size:12.5px;text-align:center;transition:border-color .15s,color .15s}
@@ -9379,7 +9391,7 @@ function cloneRenderFila(){
   el.innerHTML=chips+barra+data.map(c=>{
     const vencido=c.status==="expired";
     return `
-    <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--bd)${vencido?";opacity:.55":""}">
+    <div class="cl-row" style="${vencido?"opacity:.55":""}">
       ${CLONE_SEL_MODO?`<input type="checkbox" class="clone-chk" data-id="${c.id}" ${CLONE_SEL.has(c.id)?"checked":""} onchange="cloneSelItem('${c.id}',this.checked)" style="width:auto;flex:none;margin-top:4px">`:""}
       ${c.image_url?`<img src="${escAtt(c.image_url)}" style="width:56px;height:56px;object-fit:contain;border-radius:2px;background:#fff;flex:none${vencido?";filter:grayscale(1)":""}" onerror="this.style.display='none'">`:""}
       <div style="flex:1;min-width:0">
@@ -9388,7 +9400,7 @@ function cloneRenderFila(){
         <div style="font-size:11.5px;color:var(--mut);margin-top:3px">capturada ${cloneIdadeTxt(c.created_at)}${vencido?" · o preço não foi conferido desde então":""}</div>
         ${c.error?`<div style="font-size:11.5px;color:var(--red);margin-top:3px">${esc(c.error)}</div>`:""}
       </div>
-      ${(!CLONE_SEL_MODO&&c.status==="pending")?`<div style="display:flex;gap:8px;flex:none"><button class="btn btn-volt btn-sm" onclick="cloneAprovar('${c.id}')">Aprovar</button><button class="btn btn-ghost btn-sm" onclick="cloneRejeitar('${c.id}')">Descartar</button></div>`:""}
+      ${(!CLONE_SEL_MODO&&c.status==="pending")?`<div class="cl-acoes"><button class="btn btn-volt btn-sm" onclick="cloneAprovar('${c.id}')">Aprovar</button><button class="btn btn-ghost btn-sm" onclick="cloneRejeitar('${c.id}')">Descartar</button></div>`:""}
     </div>`;}).join("")+clonePaginacaoHtml();
   if(CLONE_SEL_MODO)cloneSelAtualizarBarra();
 }
