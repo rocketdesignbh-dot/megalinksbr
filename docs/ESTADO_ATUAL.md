@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 96 — 28/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 97 — 28/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -273,7 +273,7 @@ da chamada no `get_logs`), e o controle com link de Shopee tem que seguir normal
 |---|---|---|
 | **P16** | decidir o gate ou desligar o auto-deploy do `app`. **Antes:** conferir no Dashboard se `app` e `wa-engine` compartilham build ou são dois auto-deploys | Dashboard + decisão |
 | **P2** | confirmar a terceira saída (rate limit como Edge Function, autenticada por `WA_ENGINE_TOKEN`, no padrão do `wa-heartbeat`) e codar | decisão + código |
-| **P35** | 🟠 **FASE 1 CODADA E PROVADA EM HARNESS 28/08 (REVISAO 96) — AGUARDA DEPLOY COORDENADO.** Brecha reconfirmada NO AR: token cru sem `x-user-token` via 7 sessoes contra 6 da chamada escopada. Esquema de dois tokens no commit `dcabc29`: `WA_ENGINE_BROWSER_TOKEN` separado para o navegador, que o wa-engine obriga a vir com `x-user-token`; o token de serviço nunca mais sai do servidor. Degradacao segura (sem o env, tudo como hoje). NAO deployado de proposito — runbook de 6 passos na REVISAO 96 (env no EasyPanel + rebuild + secret no Supabase, depois deploy do get-wa-engine-token). Fase 2 separada: rotacionar o WA_ENGINE_TOKEN para invalidar valores ja vazados | 03/08 |
+| **P35** | 🟠 **FASE 1 NO AR E PROVADA PONTA A PONTA 28/08 (REVISAO 97), PAINEL LOGADO.** Token separado para o navegador (`WA_ENGINE_BROWSER_TOKEN`) configurado pelo Erico e `get-wa-engine-token` v28 no ar. Medido: o token que a funcao entrega, sem `x-user-token`, ve 0 sessoes (era 7); com `x-user-token`, 6; painel `/conexao` com "Sessao ativa ONLINE" e console limpo. O token de servico nao sai mais do servidor — fechado para atacantes NOVOS. **FASE 2 aberta:** rotacionar o `WA_ENGINE_TOKEN` de servico para invalidar valores capturados nos meses de vazamento (outro deploy coordenado) | 03/08 |
 | **P7** | conferir no `index.html` quais colunas de `profiles` as telas de admin leem, e só então escrever a migration | leitura + migration |
 | **P19** | preview clicável — reemitir o `send-post` inteiro (571 linhas). **Sessão limpa própria** | código |
 | **P12 · P23(b) · P11 · 301 do `www`** | frontend. **Agrupar num deploy só** — cada deploy do `app` reinicia o `wa-engine` (P16) | código |
@@ -1649,6 +1649,41 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 97 — 28/08/2026 — P35 FASE 1 NO AR E PROVADA PONTA A PONTA no painel
+logado. A brecha do token do wa-engine está fechada para atacantes novos.**
+
+O Érico configurou `WA_ENGINE_BROWSER_TOKEN` no EasyPanel (env + rebuild) e no
+Supabase (secret). Feito o deploy do `get-wa-engine-token` (v28, `verify_jwt`
+preservado) e medido tudo NO AR, na conta dele:
+
+| prova | antes | agora |
+|---|---|---|
+| wa-engine reconhece o browser token | — | sim (rebuild, uptime 66s, 7 sessões restauradas) |
+| browser token **sem** `x-user-token` vê | (com service) 7 | **0** |
+| browser token **com** `x-user-token` vê | — | 6 (o dono) |
+| `get-wa-engine-token` entrega | service token | **o browser token** (não o service) |
+| token que a função entrega, sem `x-user-token` | 7 | **0** |
+| painel real (`/conexao`) após o deploy | — | **"Sessão ativa · ONLINE", 0 erros de console** |
+
+O token de serviço **não sai mais do servidor**. Um atacante que crie conta agora
+recebe só o browser token, que sem `x-user-token` não vê nada e com o `x-user-token`
+dele só vê o dele. Confirmado que o fluxo do usuário honesto segue intacto — o
+card "Sessões ativas" carrega a sessão do dono normalmente.
+
+Falso alarme investigado e descartado: a string "Sessão expirada" na página está
+só dentro de um `<script>` (texto de erro embutido no código), não numa mensagem
+exibida; console limpo, sem 401.
+
+⚠️ **FASE 2 continua aberta:** rotacionar o `WA_ENGINE_TOKEN` de serviço. Nos
+meses em que o `get-wa-engine-token` o entregou a qualquer conta, o valor atual
+pode ter sido capturado — e um valor de serviço capturado ainda vale como "modo
+servidor". A fase 1 fecha a porta para quem chegar agora; a fase 2 troca a
+fechadura de quem já pode ter uma cópia da chave. É outro deploy coordenado
+(rotacionar o secret no Supabase + env no EasyPanel + rebuild, com o wa-engine
+aceitando os dois valores durante a janela).
+
+---
 
 **REVISÃO 96 — 28/08/2026 — faxina de 3 pendências de segurança. P81 fechada de
 verdade (histórico reescrito); P86 provada resolvida (era bloqueio transitório da
