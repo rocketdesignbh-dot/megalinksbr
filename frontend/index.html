@@ -347,6 +347,18 @@ tr:hover td{background:var(--surf2)}
   .cl-row{flex-wrap:wrap}
   .cl-acoes{flex-basis:100%;margin-top:2px}
   .cl-acoes .btn{flex:1;justify-content:center}
+  /* Linha de produto: checkbox + nº + miniatura + botão comiam a largura e
+     sobravam 215px para o título. Aperta os acessórios, não o texto. */
+  .prod{gap:9px}
+  .prod .pimg{width:36px;height:36px;font-size:17px}
+  .prod .prod-num{min-width:20px}
+}
+/* Estes grids são inline no HTML, então a media query de 820px que colapsa
+   .g2/.g3/.g4 não os alcançava. A classe serve só para dar a eles um seletor
+   que vença o atributo style — daí o !important, que aqui não é atalho: é a
+   única forma de derrubar um inline sem reescrever a marcação. */
+@media (max-width:820px){
+  .g2-mob{grid-template-columns:1fr !important}
 }
 .cs-loja-check{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--tx);cursor:pointer}
 .cs-loja-check input{width:auto;margin:0}
@@ -1369,7 +1381,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button class="btn btn-volt" id="btnAddGrupo">＋ Novo Grupo de Oferta</button>
     </div>
     <!-- Cards de ação rápida — sempre visíveis -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+    <div class="g2-mob" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
       <div onclick="btnAddGrupo.click()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px 18px;background:rgba(37,185,79,.06);border:1px solid rgba(37,185,79,.25);border-radius:2px;transition:.15s" onmouseover="this.style.borderColor='#25b94f'" onmouseout="this.style.borderColor='rgba(37,185,79,.25)'">
         <div style="width:42px;height:42px;border-radius:2px;background:rgba(37,185,79,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none">📱</div>
         <div style="flex:1">
@@ -4068,6 +4080,36 @@ async function shMassaImportar(){
   if(ok>0)setTimeout(()=>closeModal("modalShopeeEmMassa"),2000);
 }
 
+/* ── Radar: lotes em vez de despejo ──────────────────────────────────
+   MEDIDO a 390px com o CSS real: o grid vira 2 colunas e cada card tem 282px.
+   O fetch traz até 60 por loja × 4 lojas = 240 ofertas, e o render mandava
+   todas de uma vez — 33.840px de rolagem. Aqui a lista é de descoberta (o
+   usuário varre, não navega até "a página 7"), então o padrão é lote + botão,
+   e não a paginação numerada da fila de clones.
+   Os dados JÁ estão em memória: fatiar não custa consulta nenhuma. */
+const RADAR_PAGINA=24;   // múltiplo de 2, 3 e 4: fecha a linha em qualquer largura
+let RADAR_MOSTRANDO=RADAR_PAGINA;
+
+function radarMostrarMais(){
+  RADAR_MOSTRANDO+=RADAR_PAGINA;
+  radarPintarGrid();
+}
+// Só redesenha o grid. NÃO pode chamar renderRadar(): aquela refaz a consulta
+// às lojas a cada chamada, e "mostrar mais 24" não é motivo para consultar
+// ninguém de novo — a lista inteira já está em window.RADAR_VISIVEL.
+function radarPintarGrid(){
+  const el=document.getElementById("radarFull");
+  if(!el)return;
+  const list=window.RADAR_VISIVEL||[];
+  const fatia=list.slice(0,RADAR_MOSTRANDO);
+  const faltam=list.length-fatia.length;
+  el.innerHTML=`<div class="radar-grid">${fatia.map(rrow).join("")}</div>`
+    +`<div class="cl-pg"><span class="cl-pg-info">${fatia.length} de ${list.length} oferta(s)</span>`
+    +`<span style="flex:1"></span>`
+    +(faltam?`<button class="btn btn-ghost btn-sm" onclick="radarMostrarMais()">Mostrar mais ${Math.min(faltam,RADAR_PAGINA)}</button>`:"")
+    +`</div>`;
+}
+
 async function renderRadar(forceRefresh){
   const radarContainer=document.getElementById("radarFull");
   if(radarContainer)radarContainer.innerHTML='<div style="text-align:center;padding:40px;color:var(--mut)"><span class="typing"><i></i><i></i><i></i></span> Carregando ofertas…</div>';
@@ -4167,7 +4209,10 @@ async function renderRadar(forceRefresh){
     }else if(!list.length){
       radarFullEl.innerHTML=`<div class="card"><div class="cb" style="text-align:center;padding:30px;color:var(--mut)">Nenhuma oferta corresponde aos filtros selecionados.</div></div>`;
     }else{
-      radarFullEl.innerHTML=`<div class="radar-grid">${list.map(rrow).join("")}</div>`;
+      // Filtro, ordem ou busca mudou: volta ao primeiro lote. Manter 96 cards
+      // abertos ao trocar de filtro entregaria uma lista nova já rolada.
+      RADAR_MOSTRANDO=RADAR_PAGINA;
+      radarPintarGrid();
     }
   }
   
@@ -5012,7 +5057,7 @@ function renderGrupos(){const has=S.grupos.length>0;
         </div>
       </div>
       <!-- Grid de status 2x3 -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;padding:12px 16px;row-gap:10px">
+      <div class="g2-mob" style="display:grid;grid-template-columns:1fr 1fr;gap:0;padding:12px 16px;row-gap:10px">
         <div style="display:flex;align-items:center;gap:7px">
           <span style="font-size:14px">🤖</span>
           <span style="font-size:11px;color:var(--mut)">Post Auto:</span>
@@ -6398,17 +6443,80 @@ async function wireProdLista(){
     <div id="prodSelBarra" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:0 2px 12px;border-bottom:1px solid var(--bd);margin-bottom:6px">
       <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:var(--tx2);user-select:none">
         <input type="checkbox" id="prodSelTodos" onchange="prodSelMarcarTodos(this.checked)" style="width:auto;margin:0;cursor:pointer">
-        Selecionar todos
+        <span id="prodSelTodosLabel">Selecionar todos</span>
       </label>
       <span id="prodSelInfo" style="font-size:12px;color:var(--mut)">nenhum selecionado</span>
       <button class="btn btn-red btn-sm" id="prodSelBtn" onclick="prodRemoverSelecionados()" disabled style="margin-left:auto;opacity:.5">🗑 Apagar selecionados</button>
-    </div>`+data.map((p,i)=>{
+    </div>`+`<div id="prodLista"></div>`;
+  PROD_DATA=data;
+  prodPintarLista();
+}
+
+/* ── Produtos do grupo: paginação ────────────────────────────────────
+   MEDIDO a 390px com o CSS real: cada linha tem 89px. O teto de produtos é por
+   CONTA (Elite 150, Premium 300) e a consulta traz o grupo inteiro sem limit —
+   26.700px de rolagem no Premium. A consulta continua sendo uma só: os dados já
+   estão em memória, fatiar não custa ida ao banco.
+   Aqui a paginação é numerada, e não "mostrar mais" como no Radar: esta tela é
+   de edição, os produtos têm posição e o usuário precisa alcançar o de número
+   200 sem abrir os 199 antes. */
+let PROD_DATA=[];
+const PROD_TAM=25;
+let PROD_PAG=0;
+
+function prodIrPagina(n){
+  const paginas=Math.max(1,Math.ceil(PROD_DATA.length/PROD_TAM));
+  PROD_PAG=Math.min(Math.max(0,n),paginas-1);
+  prodPintarLista();
+  const box=document.getElementById("prodLista");
+  if(box)box.scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+function prodPaginacaoHtml(total,paginas){
+  const ini=PROD_PAG*PROD_TAM+1;
+  const fim=Math.min(total,(PROD_PAG+1)*PROD_TAM);
+  const resumo=`<span class="cl-pg-info">${ini}–${fim} de ${total}</span>`;
+  if(paginas<=1)return `<div class="cl-pg">${resumo}</div>`;
+  // Mesma janela de 5 números com reticências da fila de clones: 12 páginas em
+  // linha viram ruído e quebram no celular.
+  const nums=[];
+  const de=Math.max(0,Math.min(PROD_PAG-2,paginas-5));
+  const ate=Math.min(paginas-1,de+4);
+  if(de>0)nums.push(`<button class="cl-pg-bt" onclick="prodIrPagina(0)">1</button>`,`<span class="cl-pg-el">…</span>`);
+  for(let i=de;i<=ate;i++)nums.push(`<button class="cl-pg-bt${i===PROD_PAG?" on":""}" onclick="prodIrPagina(${i})">${i+1}</button>`);
+  if(ate<paginas-1)nums.push(`<span class="cl-pg-el">…</span>`,`<button class="cl-pg-bt" onclick="prodIrPagina(${paginas-1})">${paginas}</button>`);
+  return `<div class="cl-pg">${resumo}<span style="flex:1"></span>
+    <button class="cl-pg-bt" onclick="prodIrPagina(${PROD_PAG-1})" ${PROD_PAG===0?"disabled":""}>‹</button>
+    ${nums.join("")}
+    <button class="cl-pg-bt" onclick="prodIrPagina(${PROD_PAG+1})" ${PROD_PAG>=paginas-1?"disabled":""}>›</button>
+  </div>`;
+}
+
+function prodPintarLista(){
+  const box=document.getElementById("prodLista");
+  if(!box)return;
+  const total=PROD_DATA.length;
+  const paginas=Math.max(1,Math.ceil(total/PROD_TAM));
+  // Apagar a última linha de uma página deixaria o usuário numa página vazia
+  // que existe e não mostra nada.
+  PROD_PAG=Math.min(Math.max(0,PROD_PAG),paginas-1);
+  const ini=PROD_PAG*PROD_TAM;
+  // O rótulo do "selecionar todos" precisa dizer o alcance real: a seleção é
+  // por checkbox no DOM, então ela só alcança a página desenhada. Dizer
+  // "todos" e apagar 25 de 300 seria mentir sobre o alcance de um clique que
+  // não tem desfazer.
+  const lbl=document.getElementById("prodSelTodosLabel");
+  if(lbl)lbl.textContent=paginas>1?"Selecionar todos desta página":"Selecionar todos";
+  box.innerHTML=PROD_DATA.slice(ini,ini+PROD_TAM).map((p,k)=>{
+    // O número mostrado é a posição REAL no grupo, não o índice da fatia:
+    // reiniciar em "1." na página 2 desmentiria a ordem de rodízio.
+    const i=ini+k;
     const idade=prodIdadePreco(p);
     const fora=p.expired===true;
     return `
     <div class="prod" style="align-items:center${fora?";opacity:.6":""}">
       <input type="checkbox" class="prod-chk" value="${p.id}" onchange="prodSelAtualizar()" title="Selecionar para apagar" style="width:auto;margin:0 2px 0 0;flex:none;cursor:pointer">
-      <span style="color:var(--mut);font-size:11.5px;font-variant-numeric:tabular-nums;min-width:34px;text-align:right;flex:none">${i+1}.</span>
+      <span class="prod-num" style="color:var(--mut);font-size:11.5px;font-variant-numeric:tabular-nums;min-width:34px;text-align:right;flex:none">${i+1}.</span>
       <div class="pimg">${p.image_url?`<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:2px${fora?";filter:grayscale(1)":""}">`:"📦"}</div>
       <div style="flex:1;min-width:0">
         <strong${fora?' style="text-decoration:line-through"':""}>${p.title||"Sem título"}</strong>
@@ -6417,7 +6525,7 @@ async function wireProdLista(){
         <div style="font-size:11px;color:${idade.cor};margin-top:2px">${idade.semConferencia?"🔍 ":(idade.nunca?"⚠️ ":(idade.velho?"🕐 ":""))}${idade.txt}</div>
       </div>
       <button class="btn btn-red btn-sm" onclick="prodRemover('${p.id}')">✕</button>
-    </div>`;}).join("");
+    </div>`;}).join("")+prodPaginacaoHtml(total,paginas);
   prodSelAtualizar();
 }
 
