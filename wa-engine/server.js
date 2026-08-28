@@ -152,6 +152,30 @@ if (!WA_ENGINE_TOKEN) {
     console.error('❌ WA_ENGINE_TOKEN não configurado nas variáveis de ambiente. Configure no EasyPanel antes de iniciar.');
     process.exit(1);
 }
+// ---- P35 (28/08): token separado para o NAVEGADOR ----
+// O `get-wa-engine-token` entrega um token a QUALQUER conta autenticada, e ate
+// aqui esse token era o WA_ENGINE_TOKEN de serviço — o mesmo que poe o pedido em
+// "modo servidor" (ve tudo, manda por qualquer sessao) quando vem sem
+// x-user-token. Resultado medido em 28/08: com o token cru e SEM x-user-token,
+// GET /sessions devolvia 7 sessoes; a chamada escopada do dono, 6. A defesa de
+// dono de 26/08 so protege o navegador honesto, que sempre manda x-user-token —
+// nao o atacante que ignora o header.
+//
+// Correcao: um segundo segredo, WA_ENGINE_BROWSER_TOKEN, e o que passa a ser
+// entregue ao navegador. Ele NUNCA vale como "modo servidor": chamada com o
+// browser token e SEM x-user-token e negada (ver resolverDono). O
+// WA_ENGINE_TOKEN de serviço fica so com as Edge Functions, que nunca sai do
+// servidor.
+//
+// DEGRADACAO SEGURA: enquanto WA_ENGINE_BROWSER_TOKEN nao estiver configurado,
+// tudo se comporta EXATAMENTE como antes — o esquema novo fica inerte. Assim
+// este codigo pode ir pro ar (rebuild) sem depender de o segredo ja existir; o
+// aperto so liga quando o env e setado. Ver o runbook no commit.
+//
+// NAO invalida um WA_ENGINE_TOKEN de serviço que ja tenha vazado nos meses em
+// que o get-wa-engine-token o entregou — isso exige ROTACIONAR o service token
+// (fase 2, no runbook). Esta fase fecha o vazamento para novos atacantes.
+const WA_ENGINE_BROWSER_TOKEN = (process.env.WA_ENGINE_BROWSER_TOKEN || '').trim();
 // Sem default. Projeto e chave em código faziam o container subir apontando
 // para o lugar certo por acidente: trocar de projeto exigia lembrar de mudar o
 // código, e um deploy num ambiente novo falharia escrevendo no banco de
@@ -199,10 +223,19 @@ function phoneVariants(phone) {
 // ============ MIDDLEWARE ============
 function verifyToken(req, res, next) {
     const token = req.headers.authorization?.replace('Bearer ', '');
-    if (token !== WA_ENGINE_TOKEN) {
-        return res.status(401).json({ error: 'Unauthorized' });
+    // P35: dois tokens aceitos. O de serviço (Edge Functions) e o do navegador.
+    // req.tokenKind guia o resolverDono: so o de serviço pode virar "modo
+    // servidor". Sem WA_ENGINE_BROWSER_TOKEN configurado, so o de serviço vale —
+    // comportamento identico ao anterior.
+    if (token && token === WA_ENGINE_TOKEN) {
+        req.tokenKind = 'service';
+        return next();
     }
-    next();
+    if (WA_ENGINE_BROWSER_TOKEN && token === WA_ENGINE_BROWSER_TOKEN) {
+        req.tokenKind = 'browser';
+        return next();
+    }
+    return res.status(401).json({ error: 'Unauthorized' });
 }
 
 // ---- Dono da sessão (P35, 26/08) ----
@@ -248,7 +281,15 @@ async function telefonesDoUsuario(userToken) {
 // telefone/sessao a rota especifica precisa.
 async function resolverDono(req, res, next) {
     const userToken = req.headers['x-user-token'];
-    if (!userToken) { req.telefonesPermitidos = null; return next(); }
+    if (!userToken) {
+        // P35: sem x-user-token, so o token DE SERVIÇO vira "modo servidor" (null =
+        // ve tudo). O token do NAVEGADOR sem prova de dono nao ve nada — e este o
+        // caso do atacante que capturou o browser token e ignora o x-user-token.
+        // Set vazio, e nao null: donoAutorizado passa a exigir telefone na lista
+        // (que esta vazia), entao nega tudo em vez de liberar geral.
+        if (req.tokenKind === 'browser') { req.telefonesPermitidos = new Set(); return next(); }
+        req.telefonesPermitidos = null; return next();
+    }
     try {
         req.telefonesPermitidos = await telefonesDoUsuario(userToken);
         if (req.telefonesPermitidos === null) {
