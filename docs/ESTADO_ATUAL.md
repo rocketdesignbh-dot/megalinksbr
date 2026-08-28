@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 92 — 27/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 93 — 28/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1649,6 +1649,133 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 93 — 28/08/2026 — sessão de FRONTEND/UX, sem tocar backend. Renomear
+Grupo de Oferta pela tela, e o fim do despejo de listas: a fila de clones era a
+única lista do sistema com paginação, e agora o Radar e os Produtos do grupo
+também têm.**
+
+Nada de Edge Function, banco ou wa-engine foi alterado. Cinco commits, todos em
+`frontend/index.html`: `7ab2cbc`, `128f372`, `4ef6bb8`, `3c4ad99`, `811490d`.
+
+### 1. Renomear o Grupo de Oferta (`7ab2cbc`)
+Não havia como mudar o título depois de criado. Um ✏️ ao lado do nome na tela
+Editar abre um `prompt` (padrão que a tela já usa em dois outros lugares), grava
+em `niche_groups.name` via `persistGroups()` e redesenha a lista. Nome vazio é
+recusado; nome igual não gera escrita.
+
+### 2. Clone Post — sub-abas e filtro de status (`128f372`)
+**Causa medida:** as fontes automáticas eram desenhadas todas de uma vez ACIMA da
+fila. Cada `.cs-card` tem ~400px no celular (o `.cs-grid` colapsa para 1 coluna em
+`minmax(300px,1fr)`) e **não há teto de fontes para VIP/admin** — N fontes viravam
+N×400px de rolagem morta antes de a fila aparecer. O Érico descreveu o problema
+como "a lista de produtos cresce infinito"; medindo, a fila **já era paginada em
+20** desde a REVISÃO 41. Quem crescia sem limite eram as fontes.
+
+- Sub-abas **🗂️ Fila de revisão | 🤖 Fontes automáticas**, reusando `.tabs`/`.tab`
+  do Editar Grupo. Abre na Fila (ação diária); Fontes é configuração ocasional.
+  Aba escolhida persiste em `localStorage` (`mlbr_clone_aba`).
+- Contadores no cabeçalho das abas, **fora do miolo que cada render recria** —
+  dentro, cada atualização apagaria o próprio número (mesma razão do carimbo do
+  `csComCarimbo`).
+- Filtro de status na fila, **contado no banco e não na página**: a paginação
+  passa a navegar só o que o filtro alcança. Padrão `pending`.
+- `cloneSelFilaInteira()` respeita o filtro. Dizer "marcar os 6" e marcar 201
+  seria mentir sobre o alcance de um clique que apaga.
+- Vazio-por-filtro e vazio-de-verdade têm mensagens diferentes.
+
+**Medido** (harness com o HTML/CSS/funções reais, 390×844): fila com 6 pendentes
+= 1.201px; filtro Todos = 2.553px em 8 páginas; trocar de aba esconde o outro
+bloco (`display:none`); 0 erros.
+
+### 3. Ações da fila empilhadas no celular (`4ef6bb8`)
+`Aprovar`/`Descartar` ficavam em `flex:none` ao lado do texto. A 390px, com a
+miniatura de 56px, sobravam **121px** para o título — quebrava em 3 linhas.
+Abaixo de 520px a linha quebra e as ações ocupam faixa própria de largura total.
+
+| | antes | depois |
+|---|---|---|
+| largura do título | 121px | 290px |
+| linhas do título | 3 | 1 |
+| altura da linha | 211px | **153px** |
+
+Mesmo dando faixa inteira aos botões a linha **encolheu** 58px, porque o título
+deixou de quebrar. ~1.160px a menos numa página de 20.
+
+### 4. Auditoria mobile — Radar e Produtos (`3c4ad99`)
+Varredura pedida pelo Érico. **A base mobile é boa:** a media query de 820px já
+colapsa `.g2/.g3/.g4/.g23`, vira o menu em gaveta, os modais em bottom sheet, e
+reposiciona os toasts; o mapa de calor e as tabelas do admin estão em
+`overflow-x:auto`. **O buraco era paginação** — a fila de clones era a única lista
+do sistema que tinha.
+
+| Lista | Itens | Rolagem a 390px | Depois |
+|---|---|---|---|
+| 🛰️ Radar | 4 lojas × 60 = **240** | **33.840px** (2 col., card 282px) | **2.986px** |
+| 📦 Produtos do grupo | teto por conta: Elite 150, Premium 300 | **26.700px** (linha 89px) | **2.705px** |
+
+- **Radar → lote de 24 + "Mostrar mais"**, não paginação numerada: é lista de
+  descoberta, o usuário varre em vez de navegar até "a página 7".
+  ⚠️ **`radarPintarGrid()` NÃO pode chamar `renderRadar()`** — aquela refaz a
+  consulta às lojas a cada chamada, e "mostrar mais 24" não é motivo para gastar
+  crédito de Scrape.do. Os dados já estão todos em `window.RADAR_VISIVEL`.
+- **Produtos → paginação numerada, 25/página**: é tela de edição, produto tem
+  posição, e é preciso alcançar o de número 200 sem abrir os 199 antes. O número
+  exibido é a **posição real** (`ini+k`) — reiniciar em "1." na página 2
+  desmentiria a ordem do rodízio.
+- Grids inline dos cards de ação rápida e do painel de status 2×3 do card de
+  grupo ganharam `.g2-mob`: eles usam `grid-template-columns` **inline**, fora do
+  alcance da media query que colapsa as classes.
+- Linha de produto no celular: acessórios apertados (`.pimg` 44→36, gap 12→9,
+  número 34→20), título 215px → 235px.
+
+**Falso positivo corrigido na própria sessão:** a auditoria apontou um terceiro
+grid (`.sgrid` com `repeat(3,1fr)`, ficha de usuário no admin). Ao medir, **nem
+`.sgrid` nem `.stat` existem no CSS** — o elemento nunca teve `display:grid` e os
+três divs já empilhavam. Achado por grep, desmentido ao medir; revertido sem
+deixar CSS morto. Registro do erro de propósito: grep encontra a string, não o
+comportamento.
+
+### 5. Seleção de produtos atravessando páginas (`811490d`) — regressão nossa
+**A paginação do item 4 tirou uma capacidade que existia.** Antes, "Selecionar
+todos" alcançava os 300 produtos porque todos estavam no DOM: um clique apagava o
+grupo inteiro. Depois dela, `prodSelMarcados()` lia `.prod-chk:checked` e trocar
+de página destrói os checkboxes — 25 por vez, 12 rodadas.
+
+A seleção passou a viver num `Set` de ids (`PROD_SEL`), como já acontece na fila
+de clones (`CLONE_SEL`).
+
+- "Selecionar todos" governa a **página**; ao lado, atalho **"marcar os N do grupo
+  inteiro"**, escondido quando o grupo cabe numa página ou já está todo marcado.
+  Link "limpar seleção" quando há algo marcado.
+- O contador diz **"N de \<total do grupo\>"**, não "N de 25": com a seleção
+  atravessando páginas, o denominador da página mentiria sobre o alcance do botão
+  de apagar.
+- `PROD_SEL` zera ao recarregar a lista e no apagar individual — id de um estado
+  que o usuário não vê mais alimentando um botão sem desfazer é o acidente a
+  evitar.
+- `prodSelGrupoInteiro()` não vai ao banco: `PROD_DATA` já é o grupo inteiro, a
+  paginação é só de desenho.
+
+**Medido, 300 produtos:** marca pág.1 → "25 de 300"; **vai pra pág.2 → continua
+"25 de 300"** (era aqui que morria); marca pág.2 → "50 de 300"; volta pra pág.1 →
+os 25 checkboxes voltam marcados; atalho → "300 de 300" e o atalho some; limpar →
+zero. Parcial por clique real (3 de 25): mestre indeterminado. Grupo de 8: atalho
+não aparece. 0 erros.
+
+### Como tudo isto foi medido — e o que NÃO foi
+Não há navegador logado nesta sessão. A prova foi feita em **harness**: o CSS, os
+fragmentos de HTML e as funções JS extraídos **do próprio `index.html`** por
+posição no arquivo, com apenas o `SB` (Supabase) e o `toast` stubados, rodando em
+Chromium headless a 390×844 e 900×900. Isso prova **layout, paginação, contagem,
+persistência de seleção e ausência de erro de página**.
+
+⚠️ **NÃO prova nada com dado real de produção.** Nenhuma das cinco mudanças foi
+vista no painel logado do Érico. O que falta conferir quando houver navegador:
+Radar com ofertas de verdade (o `rrow` real, não o stub), grupo com muitos
+produtos, e a fila do Clone Post com fontes reais cadastradas.
+
+---
 
 **REVISÃO 92 — 27/08/2026 — produto adicionado no Grupo de Ofertas voltava sem
 nome e sem foto. Causa medida: as telas do grupo chamavam a `product-search` sem
@@ -6531,6 +6658,35 @@ incremento retornam 401 (`42501`), o engine loga e segue.
 Dar `EXECUTE` a `anon` resolveria **e abriria as funções para qualquer um com a chave
 pública queimar cota alheia**. Decisão pendente (P2).
 
+### Frontend — listas longas e celular (REVISÃO 93)
+
+Regra da casa a partir daqui: **lista que cresce com o uso não pode ser desenhada
+inteira.** Três listas paginam hoje, cada uma com o padrão que a tarefa pede:
+
+| Lista | Padrão | Tamanho | Onde |
+|---|---|---|---|
+| Fila de clones | paginação numerada, filtra no BANCO | 20 | `CLONE_FILA_TAM` |
+| Produtos do grupo | paginação numerada, fatia em MEMÓRIA | 25 | `PROD_TAM` |
+| Radar de Ofertas | lote + "Mostrar mais", fatia em MEMÓRIA | 24 | `RADAR_PAGINA` |
+
+- **Numerada × lote não é gosto:** tela de EDIÇÃO (produto tem posição, precisa
+  alcançar o item 200) pede numerada; lista de DESCOBERTA (o usuário varre) pede
+  lote.
+- **Fatiar em memória só vale quando a consulta já trouxe tudo.** Produtos e
+  Radar já vinham inteiros; a fila de clones não, e por isso ela filtra e conta
+  no banco.
+- ⚠️ **`radarPintarGrid()` não pode chamar `renderRadar()`** — esta refaz a
+  consulta às lojas e gasta crédito de Scrape.do a cada clique em "Mostrar mais".
+- ⚠️ **Seleção em lista paginada mora num `Set` de ids, nunca nos checkboxes do
+  DOM** (`CLONE_SEL`, `PROD_SEL`). Trocar de página destrói os checkboxes e
+  levaria a marcação junto. E o rótulo tem de dizer o alcance real: "todos desta
+  página" + atalho para o conjunto inteiro, com o contador no denominador do
+  TOTAL, não da página.
+- Media queries do painel: **820px** (colapsa `.g2/.g3/.g4/.g23` e `.g2-mob`, vira
+  o menu em gaveta, modais em bottom sheet) e **520px** (linha da fila e da lista
+  de produtos). Grid escrito **inline** no HTML escapa da de 820px — daí a classe
+  `.g2-mob`, cujo `!important` existe só para vencer o atributo `style`.
+
 ### Radar de Ofertas / Scrape.do
 
 - A API oficial de busca do ML (`/sites/MLB/search`) retorna **403 para qualquer
@@ -6803,6 +6959,9 @@ código não relacionado.
 | **P86** | 🔴 **A Amazon parou de confirmar o preço no Postar Agora, na tarde de 26/08, e NÃO por mudança nossa.** Às 18:48/18:49/19:00 leu certo (B079VW5KTT: R$ 75,90 de R$ 89,90 + foto). Às 19:52 em diante, B079VW5KTT e B077VW15YL passaram a devolver em ~2 s "o buybox da Amazon nao confirmou o preco (duas testemunhas)" — erro emitido só DEPOIS de achar id="productTitle", ou seja a página chega mas apex-pricetopay-accessibility-label / a-price-whole / a-price-fraction não casam. Hipótese NÃO medida: versão degradada servida ao IP do Supabase. **Próximo passo sugerido:** logar, no ramo que recusa, o tamanho do HTML e QUAL das três testemunhas faltou — sem isso a próxima sessão diagnostica no escuro | 26/08 |
 | **P77** | 🔵 **Só Shopee tem `field_mapping` em `megaresults`.** Se o Érico quiser importar relatório de outra loja (Mercado Livre, Amazon, etc.), falta cadastrar o mapeamento de campos dela antes — sem isso `mrLoadStores()` nem oferece a opção na tela | 26/08 |
 | **P74** | 🟡 **REVISÕES 70 e 71 estão no ar e medidas no ARQUIVO SERVIDO, mas o FLUXO ponta a ponta nunca foi rodado.** Falta: (a) Postar Agora com link de Shein → o alerta amarelo aparece mesmo na tela do Passo 2? (b) Clone Post com mensagem real de grupo → preview vem preenchido e o clone salva certo? (c) `prGerarLinkAfil` carimba o ID na Shein quando há credencial configurada? | 25/08 |
+| **P87** | 🟡 **As cinco mudanças da REVISÃO 93 nunca foram vistas no painel logado.** Todas provadas em harness headless (CSS/HTML/JS extraídos do próprio `index.html`, Supabase stubado) a 390×844 — o que prova layout, paginação, contagem e seleção, e **não** prova nada com dado de produção. Conferir com navegador: Radar com ofertas reais (`rrow` de verdade, não o stub), grupo com muitos produtos, fila do Clone Post com fontes cadastradas, e o ✏️ de renomear gravando de fato em `niche_groups.name` | 28/08 |
+| **P88** | 🔵 **As telas de admin não paginam.** `loadPaymentsFromDB` traz 300 pagamentos e a de suporte 100 tickets, ambas desenhadas inteiras. Baixa prioridade porque admin trabalha no desktop e hoje o único admin é o Érico — mesma dívida da P7, vence quando existir o segundo | 28/08 |
+| **P89** | 🔵 **Emoji de loja no Radar e nas fontes é literal no código** (`🛍️ Shopee`, `🟡 Mercado Livre`). Já existe `lojaLogoImg()` usado no filtro de loja do Radar; os demais pontos ainda usam o emoji cru. Cosmético, e some junto se a P70 for endereçada | 28/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
