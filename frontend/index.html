@@ -1370,7 +1370,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- ===== EDITAR GRUPO ===== -->
   <section class="page" id="page-editar-grupo">
-    <div class="phead"><div><h1 class="pt">Grupo de Oferta: <span id="egNome">—</span></h1><div class="psub">Configure lojas, layout, canais e o agendamento deste grupo.</div></div>
+    <div class="phead"><div><h1 class="pt">Grupo de Oferta: <span id="egNome">—</span> <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:12px" onclick="editarNomeGrupoAtual()" title="Renomear grupo">✏️</button></h1><div class="psub">Configure lojas, layout, canais e o agendamento deste grupo.</div></div>
       <button class="btn btn-ghost" onclick="go('canais-grupos')">← Voltar</button></div>
     <div class="tabs-l1" id="tabsL1"></div>
     <div class="tabs-l2" id="tabsBar"></div>
@@ -5067,6 +5067,19 @@ async function loadTabProdCounts(){
   }catch(e){}
 }
 function editarGrupo(id,tab){S.grupoAtual=S.grupos.find(g=>String(g.id)===String(id)||String(g.db_id)===String(id));if(!S.grupoAtual){toast("Grupo não encontrado.","⚠️");return;}egNome.textContent=S.grupoAtual.nome+" · ID "+id;_tabProdCounts={};loadTabProdCounts().then(()=>buildTabs());go("editar-grupo");if(tab)setTimeout(()=>{const t=document.querySelector(`.etab[data-tab="${tab}"]`);if(t)t.click();},250);}
+async function editarNomeGrupoAtual(){
+  const g=S.grupoAtual;if(!g){toast("Grupo não encontrado.","⚠️");return;}
+  const novoNome=prompt("Novo nome do grupo:",g.nome||"");
+  if(novoNome===null)return; // cancelou
+  const nomeLimpo=novoNome.trim();
+  if(!nomeLimpo){toast("O nome não pode ficar vazio.","⚠️");return;}
+  if(nomeLimpo===g.nome)return;
+  g.nome=nomeLimpo;
+  egNome.textContent=g.nome+" · ID "+(g.db_id||g.id);
+  await persistGroups();
+  renderGrupos();
+  toast("Nome do grupo atualizado!","✅");
+}
 
 // ⚡ Dispara um grupo via Postar Agora (Starter)
 async function dispararGrupo(id){
