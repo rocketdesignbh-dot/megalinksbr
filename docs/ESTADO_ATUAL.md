@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 94 — 28/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 95 — 28/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1649,6 +1649,87 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 95 — 28/08/2026 — a P32 valia para a `product-search` e NÃO estava
+sendo aplicada na `radar`. A Shopee para de ter o preço anterior derivado da
+taxa. `radar` v33, deployada e provada no painel logado.**
+
+### Como isto apareceu
+O Érico reportou que "alguns links no Postar Agora e em Produtos não preenchem o
+Preço original". **A queixa era verdadeira e o defeito era o oposto do que ela
+sugeria.**
+
+Medido na conta dele: Shopee **0 de 20** produtos com `price_original` (18 com
+desconto órfão); Amazon 6 de 10; ML 1 de 1. Chamada ao vivo da `product-search`:
+Amazon `B0DBF65JYY` → `de = R$ 229,00` ✅; Shopee → `de = null`, desconto 14%.
+Os 4 da Amazon sem "de" são produtos **sem desconto** — correto.
+
+**O campo vazio na Shopee é a P32, decisão do Érico em 01/08** — não é defeito.
+Quem estava errado era o Radar.
+
+### A prova de que o Radar derivava
+`radar` v32, `fetchShopeeKw`:
+```js
+const orig = disc>0 ? +(price/(1-disc/100)).toFixed(2) : price;
+```
+
+| fonte no `radar_offers` | linhas com "de" | batem com `price/(1-disc)` |
+|---|---|---|
+| **Shopee** | 60 | **60 (100%)** |
+| Amazon | 25 | 2 (23 não batem) |
+| Mercado Livre | 117 | 18 (99 não batem) |
+
+Amazon lê `SavingBasis` da PA-API ou o `.a-text-price` da página; o ML lê
+`.andes-money-amount--previous`. **Só a Shopee era deduzida.**
+
+### O número que fecha o caso — a página que o Érico mandou
+HUAWEI FreeBuds Pro 5, item `44507205958`:
+
+| | |
+|---|---|
+| API de afiliado | `priceMin 949` · `priceDiscountRate 44` (**inteiro**) · sem preço anterior |
+| derivado `949/(1−0,44)` | **R$ 1.694,64** |
+| **real, afirmado pela loja** | **R$ 1.699,00** |
+| **erro** | **R$ 4,36** |
+
+A taxa vem arredondada para inteiro, e é por isso que a conta nunca fecha. Um SDK
+de terceiros para esta mesma API diz o mesmo: não há campo de preço anterior no
+schema, e a estimativa *"can differ slightly because `priceDiscountRate` may be
+rounded"*. **Não existe caminho gratuito e exato pela API de afiliado.**
+
+### O conserto (v33)
+`price_original = price` quando não há preço anterior conhecido — **a mesma
+convenção do ML (`original || price`) e da Amazon (`savingBasis || price`)**.
+Nenhuma mudança de frontend: o card já só risca quando `de > por`, então o
+riscado some sozinho. **O selo de desconto fica** — esse a API afirma.
+
+As 61 linhas já gravadas foram limpas por `UPDATE` cujo `WHERE` exigia que a
+fórmula explicasse o número (**0 linhas inexplicadas**; um "de" LIDO pelo
+`fetchShopeeFeed` não seria tocado). Estado anterior registrado antes.
+
+### Prova em produção, depois do deploy (v54)
+| | |
+|---|---|
+| banco | Shopee **61 linhas · 0 com riscado · 61 com selo de desconto** |
+| banco | Amazon 25 de 30 e ML 117 de 148 riscados — **intocados** |
+| tela | 150 cards, **85 com riscado desenhado = 25 Amazon + 60 ML, zero Shopee** |
+| tela | o card do Abajur, que antes trazia "de R$ 99,97", mostra só R$ 29,99 com o selo **−70%** |
+
+A conta 85 = 25 + 60 fecha exata, e é ela que prova que nenhum riscado de Shopee
+sobrou e que nenhum de outra loja foi perdido.
+
+### O "de" real da Shopee EXISTE — e não é de graça
+Medido do navegador do Érico, mesmo item, `/api/v4/pdp/get_pc`:
+`price` = 94900000 → R$ 949,00 · **`price_before_discount` = 169900000 → R$
+1.699,00**, exato. É número **lido**, honraria a P32 e preencheria o campo.
+
+⚠️ Mas a rota é **antibot**: a segunda chamada seguida caiu em captcha
+(`scene=crawler_item`), e o `fetchShopeeFeed` — que já usa essa mesma família de
+API — **não produz nenhuma linha hoje** (as 61 vieram todas do caminho de
+afiliado). Do datacenter da Supabase ela é bloqueada. Lê-la exigiria proxy pago
+(Scrape.do, orçamento já em 850/1000). **Fica na P90, para decisão separada.**
+
+---
 
 **REVISÃO 94 — 28/08/2026 — P87 MEDIDA NO PAINEL LOGADO DO ÉRICO (Claude in
 Chrome). As cinco mudanças da REVISÃO 93 estão no ar e funcionam com dado real.
@@ -7041,6 +7122,7 @@ código não relacionado.
 | ~~P87~~ | 🟢 **PARCIALMENTE FECHADA 28/08 (REVISÃO 94), MEDIDA NO PAINEL LOGADO DO ÉRICO (Claude in Chrome).** Deploy no ar (5 marcadores no código servido); Clone Post com chips batendo um a um com o banco (38/10/6/54), paginação 1–20→41–54 em 3 páginas, badge de 7 fontes, troca de aba e persistência; Radar com 150 ofertas reais em lotes 24→48→72 e **0 chamadas de rede** nos cliques (fetch e XHR instrumentados) — a aposta central do desenho, provada contra o `rrow` real; Produtos com 20 reais, seleção por `Set`, mestre indeterminado, atalho corretamente escondido; renomear gravando e recusando nome vazio, conferido no banco e restaurado; 0 erros de console. **RESTA:** (a) nenhuma medição de pixel em largura de celular — a janela está maximizada em 2560×1080 e o `resize_window` não altera o `innerWidth`; os números de 390px seguem vindo do harness; (b) seleção de produtos atravessando páginas não é demonstrável com dado real — o maior grupo tem 20 produtos e a página é de 25, então a paginação nem aparece | 28/08 |
 | **P88** | 🔵 **As telas de admin não paginam.** `loadPaymentsFromDB` traz 300 pagamentos e a de suporte 100 tickets, ambas desenhadas inteiras. Baixa prioridade porque admin trabalha no desktop e hoje o único admin é o Érico — mesma dívida da P7, vence quando existir o segundo | 28/08 |
 | **P89** | 🔵 **Emoji de loja no Radar e nas fontes é literal no código** (`🛍️ Shopee`, `🟡 Mercado Livre`). Já existe `lojaLogoImg()` usado no filtro de loja do Radar; os demais pontos ainda usam o emoji cru. Cosmético, e some junto se a P70 for endereçada | 28/08 |
+| **P90** | 🔵 **O "de" REAL da Shopee existe e custa dinheiro.** `/api/v4/pdp/get_pc` devolve `price_before_discount` — medido no item 44507205958: 169900000 = R$ 1.699,00, exato, igual ao que a página afirma. Seria número LIDO, honraria a P32 e preencheria o "Preço original" no Postar Agora e nos Produtos. **Mas:** a rota é antibot (2ª chamada seguida caiu em captcha, `scene=crawler_item`) e o `fetchShopeeFeed`, que já usa essa família de API, não produz nenhuma linha hoje — do datacenter da Supabase ela é bloqueada. Exigiria proxy (Scrape.do, como no ML), com o orçamento já em 850/1000 créditos. **Antes de decidir, medir se passa SEM `super=true`** (1 crédito em vez de 10). Enquanto não for feito, Shopee segue sem "de" em todo lugar — o que agora é coerente, ver REVISÃO 95 | 28/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
