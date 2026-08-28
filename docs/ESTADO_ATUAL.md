@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 93 — 28/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 94 — 28/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1649,6 +1649,85 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 94 — 28/08/2026 — P87 MEDIDA NO PAINEL LOGADO DO ÉRICO (Claude in
+Chrome). As cinco mudanças da REVISÃO 93 estão no ar e funcionam com dado real.
+Duas pontas ficaram de fora, e estão nomeadas.**
+
+Sem alteração de código. Sessão de medição.
+
+### O deploy está no ar — conferido no código SERVIDO
+`megalinksbr.com.br/painel`, os cinco marcadores da REVISÃO 93 presentes:
+`editarNomeGrupoAtual`, `cloneAba`, `cloneFiltrarStatus`, `radarPintarGrid`,
+`prodPintarLista` — todos `function`; `PROD_SEL` é `Set`; a regra `.cl-row` está
+na folha de estilo; `#ctab-fila` existe no DOM. **O auto-deploy funcionou** —
+contraria a suspeita da P73 nesta rodada (não a fecha: pode ter sido rebuild
+manual do Érico).
+
+### Estado da conta no momento da medição
+6 grupos (maior com 20 produtos, 31 no total), fila de clones com 54 itens
+(38 `approved`, 10 `rejected`, 6 `expired`, **0 `pending`** naquele instante — 3
+pendentes chegaram durante a sessão), 7 fontes automáticas, plano premium, VIP,
+admin. Radar trouxe **150 ofertas reais**.
+
+### Clone Post — sub-abas e filtro (item 2 da REVISÃO 93)
+| o que | medido |
+|---|---|
+| Sub-abas | "🗂️ Fila de revisão" ativa, "🤖 Fontes automáticas **7**" — badge = contagem real |
+| Chips | `Pendentes (0) · Publicados (38) · Descartados (10) · Expirados (6) · Todos (54)` — **batem um a um com o banco** |
+| Chip "Falharam" | **ausente**, correto: 0 linhas e não é o filtro ativo |
+| Vazio-por-filtro | *"Nada aguardando revisão. Tudo o que chegou já foi tratado — use os filtros acima para rever o histórico."* — a distinção contra vazio-de-verdade funcionou |
+| Paginação (filtro Todos) | `1–20 de 54`, botões `‹ 1 2 3 ›`; página 3 → `41–54 de 54` com **14 linhas** |
+| Troca de aba | `#ctab-fila` vai a `display:none`, 7 `.cs-card` desenhados, `localStorage.mlbr_clone_aba` grava |
+
+### Radar — lotes (item 4) — e a prova que mais importava
+150 ofertas reais, `24 de 150 oferta(s)`, 24 cards. Dois cliques em "Mostrar mais":
+**24 → 48 → 72**, barra acompanhando.
+
+**`window.fetch` e `XMLHttpRequest.prototype.open` instrumentados durante os dois
+cliques: `0` chamadas.** Era a aposta central do desenho — "Mostrar mais" não
+refaz a consulta às lojas e **não gasta crédito de Scrape.do**. Está provado
+contra o `rrow` REAL, que era exatamente onde o harness provava menos (lá ele
+era stub).
+
+### Produtos do grupo (itens 4 e 5)
+Grupo "Achadinhos Geral", 20 produtos reais: 20 linhas, `1–20 de 20`, rótulo
+**"Selecionar todos"** — correto, sem o "desta página", porque cabe numa página.
+Cliques reais em 3 checkboxes → `3 de 20 marcados`, botão `🗑 Apagar 3
+selecionados`, `PROD_SEL.size===3`, mestre **indeterminado**, link "limpar"
+visível, atalho do grupo inteiro **escondido** (correto: 20 ≤ 25). Marcar todos →
+`20 de 20`. Limpar → zero.
+
+### Renomear o Grupo de Oferta (item 1) — provado contra o banco
+O ✏️ usa `prompt()`, que **congela a extensão do Chrome** — a medição substituiu
+`window.prompt` temporariamente em vez de clicar. Em "Achadinhos Make":
+
+| passo | `niche_groups.name` no banco |
+|---|---|
+| antes | `Achadinhos Make` |
+| renomeia p/ `Achadinhos Make TESTE93` | `Achadinhos Make TESTE93` ✅ (título da tela acompanhou) |
+| tenta gravar `"   "` (só espaços) | `Achadinhos Make TESTE93` — **recusado, como projetado** |
+| restaura | `Achadinhos Make` ✅ |
+
+⚠️ **Nome de produção alterado e restaurado na mesma medição.** Conferido no banco
+nas duas pontas.
+
+### Console
+Recarga completa do painel + navegação por Clone Post (as duas abas) e Radar:
+**0 erros e 0 exceções**.
+
+### O que NÃO foi medido — e por quê
+1. **Nenhuma medição de pixel em largura de celular.** A janela do Érico está
+   maximizada num monitor de **2560×1080**; `resize_window` respondeu "sucesso"
+   mas `window.innerWidth` continuou 2560, e a tentativa desconfigurou a captura.
+   Os números de 390px da REVISÃO 93 (33.840→2.986, 26.700→2.705, 211→153) seguem
+   vindo **do harness**, não do painel. O harness usa o CSS real, então a
+   confiança é alta — mas não é a mesma coisa.
+2. **Seleção de produtos atravessando páginas não pôde ser provada com dado
+   real:** o maior grupo tem 20 produtos e a página é de 25, então a paginação
+   nem aparece. Segue provada só em harness (marca pág.1 → troca → conta mantida).
+
+---
 
 **REVISÃO 93 — 28/08/2026 — sessão de FRONTEND/UX, sem tocar backend. Renomear
 Grupo de Oferta pela tela, e o fim do despejo de listas: a fila de clones era a
@@ -6959,7 +7038,7 @@ código não relacionado.
 | **P86** | 🔴 **A Amazon parou de confirmar o preço no Postar Agora, na tarde de 26/08, e NÃO por mudança nossa.** Às 18:48/18:49/19:00 leu certo (B079VW5KTT: R$ 75,90 de R$ 89,90 + foto). Às 19:52 em diante, B079VW5KTT e B077VW15YL passaram a devolver em ~2 s "o buybox da Amazon nao confirmou o preco (duas testemunhas)" — erro emitido só DEPOIS de achar id="productTitle", ou seja a página chega mas apex-pricetopay-accessibility-label / a-price-whole / a-price-fraction não casam. Hipótese NÃO medida: versão degradada servida ao IP do Supabase. **Próximo passo sugerido:** logar, no ramo que recusa, o tamanho do HTML e QUAL das três testemunhas faltou — sem isso a próxima sessão diagnostica no escuro | 26/08 |
 | **P77** | 🔵 **Só Shopee tem `field_mapping` em `megaresults`.** Se o Érico quiser importar relatório de outra loja (Mercado Livre, Amazon, etc.), falta cadastrar o mapeamento de campos dela antes — sem isso `mrLoadStores()` nem oferece a opção na tela | 26/08 |
 | **P74** | 🟡 **REVISÕES 70 e 71 estão no ar e medidas no ARQUIVO SERVIDO, mas o FLUXO ponta a ponta nunca foi rodado.** Falta: (a) Postar Agora com link de Shein → o alerta amarelo aparece mesmo na tela do Passo 2? (b) Clone Post com mensagem real de grupo → preview vem preenchido e o clone salva certo? (c) `prGerarLinkAfil` carimba o ID na Shein quando há credencial configurada? | 25/08 |
-| **P87** | 🟡 **As cinco mudanças da REVISÃO 93 nunca foram vistas no painel logado.** Todas provadas em harness headless (CSS/HTML/JS extraídos do próprio `index.html`, Supabase stubado) a 390×844 — o que prova layout, paginação, contagem e seleção, e **não** prova nada com dado de produção. Conferir com navegador: Radar com ofertas reais (`rrow` de verdade, não o stub), grupo com muitos produtos, fila do Clone Post com fontes cadastradas, e o ✏️ de renomear gravando de fato em `niche_groups.name` | 28/08 |
+| ~~P87~~ | 🟢 **PARCIALMENTE FECHADA 28/08 (REVISÃO 94), MEDIDA NO PAINEL LOGADO DO ÉRICO (Claude in Chrome).** Deploy no ar (5 marcadores no código servido); Clone Post com chips batendo um a um com o banco (38/10/6/54), paginação 1–20→41–54 em 3 páginas, badge de 7 fontes, troca de aba e persistência; Radar com 150 ofertas reais em lotes 24→48→72 e **0 chamadas de rede** nos cliques (fetch e XHR instrumentados) — a aposta central do desenho, provada contra o `rrow` real; Produtos com 20 reais, seleção por `Set`, mestre indeterminado, atalho corretamente escondido; renomear gravando e recusando nome vazio, conferido no banco e restaurado; 0 erros de console. **RESTA:** (a) nenhuma medição de pixel em largura de celular — a janela está maximizada em 2560×1080 e o `resize_window` não altera o `innerWidth`; os números de 390px seguem vindo do harness; (b) seleção de produtos atravessando páginas não é demonstrável com dado real — o maior grupo tem 20 produtos e a página é de 25, então a paginação nem aparece | 28/08 |
 | **P88** | 🔵 **As telas de admin não paginam.** `loadPaymentsFromDB` traz 300 pagamentos e a de suporte 100 tickets, ambas desenhadas inteiras. Baixa prioridade porque admin trabalha no desktop e hoje o único admin é o Érico — mesma dívida da P7, vence quando existir o segundo | 28/08 |
 | **P89** | 🔵 **Emoji de loja no Radar e nas fontes é literal no código** (`🛍️ Shopee`, `🟡 Mercado Livre`). Já existe `lojaLogoImg()` usado no filtro de loja do Radar; os demais pontos ainda usam o emoji cru. Cosmético, e some junto se a P70 for endereçada | 28/08 |
 
