@@ -1,4 +1,8 @@
-// Mega Links BR · Edge Function "radar" v32
+// Mega Links BR · Edge Function "radar" v33
+// v33 (28/08): a Shopee para de ter o preco anterior DERIVADO da taxa (P32).
+//   Ver o bloco sobre o fetchShopeeKw. `price_original = price` quando nao ha
+//   preco anterior conhecido — mesma convencao do ML e da Amazon. O selo de
+//   desconto fica; o riscado some sozinho, porque o card so risca se de > por.
 // v32: Amazon com zero resultado deixa de ser reportada como "0 ofertas encontradas".
 // Medimos o comportamento: a Amazon atende uma ou duas requisicoes vindas da VPS e
 // depois passa a devolver pagina vazia -- inclusive para a MESMA palavra que acabou
@@ -106,6 +110,36 @@ async function processMercadoLivre(keywords: string[], debug: string[]): Promise
 
 const SHOPEE_KW = ["fone bluetooth","air fryer","smartwatch","luminaria led","caixa de som"];
 
+/* P32 vale AQUI TAMBEM (28/08 · REVISAO 95).
+   Esta funcao derivava o preco anterior com `price/(1-disc/100)` — exatamente a
+   conta que a P32 descartou na product-search em 01/08. Resultado: a mesma
+   plataforma afirmava duas coisas diferentes sobre a mesma loja, e o Radar saia
+   com um riscado que a Shopee nunca disse. 60 de 60 ofertas de Shopee no banco
+   batiam com a formula ao centavo; Amazon (23 de 25) e ML (99 de 117) NAO batem,
+   porque essas duas leem o riscado real da pagina.
+
+   MEDIDO em 28/08, HUAWEI FreeBuds Pro 5 (item 44507205958):
+     API de afiliado ... priceMin 949 · priceDiscountRate 44 (INTEIRO)
+     derivado .......... 949/(1-0,44) = R$ 1.694,64
+     real, afirmado pela loja .......... R$ 1.699,00
+     erro .............. R$ 4,36
+   A taxa vem arredondada para inteiro; por isso a conta nunca fecha. Um SDK de
+   terceiros para esta mesma API diz o mesmo: nao ha campo de preco anterior no
+   schema, e a estimativa "can differ slightly because priceDiscountRate may be
+   rounded".
+
+   `price_original = price` e a MESMA convencao do Mercado Livre (`original ||
+   price`) e da Amazon (`savingBasis || price`): sem preco anterior conhecido,
+   repete-se o atual. O frontend so risca quando `de > por`, entao o riscado some
+   sozinho. O SELO DE DESCONTO FICA — esse a API afirma.
+
+   O "de" real EXISTE em `/api/v4/pdp/get_pc` -> `price_before_discount` (medido
+   no mesmo item: 169900000 = R$ 1.699,00), mas essa rota e antibot: a segunda
+   chamada seguida caiu em captcha (`scene=crawler_item`), e o `fetchShopeeFeed`
+   logo abaixo, que ja usa essa familia de API, nao produz nenhuma linha hoje.
+   Le-la exigiria proxy pago. Decisao do Erico em 28/08: parar de derivar agora,
+   avaliar a rota lida depois.
+*/
 async function fetchShopeeKw(kw: string, ak: string, as_: string): Promise<any[]> {
   const expires = new Date(Date.now()+6*3600*1000).toISOString();
   try {
@@ -115,7 +149,7 @@ async function fetchShopeeKw(kw: string, ak: string, as_: string): Promise<any[]
     const r=await fetchWithTimeout("https://open-api.affiliate.shopee.com.br/graphql",{method:"POST",headers:{"content-type":"application/json","Authorization":`SHA256 Credential=${ak},Timestamp=${ts},Signature=${sig}`},body:payload},6000);
     if(!r.ok)return[];
     const d=await r.json(); if(d.errors)return[];
-    return(d?.data?.productOfferV2?.nodes??[]).map((n:any)=>{ const price=Number(n.priceMin??0),disc=Number(n.priceDiscountRate??0),comm=Number(n.commissionRate??0),orig=disc>0?+(price/(1-disc/100)).toFixed(2):price; return{source:"shopee",item_id:String(n.itemId),shop_id:String(n.shopId??""),title:n.productName,keyword:kw,category:kw,price,price_original:orig,discount_pct:Math.round(disc),commission_rate:comm,rating:Number(n.ratingStar??0),sales:Number(n.sales??0),shop_name:n.shopName||"Shopee",image_url:n.imageUrl,product_link:n.productLink,affiliate_url:n.offerLink,score:scoreOf(disc,comm*100,Number(n.sales??0),Number(n.ratingStar??0)),fetched_at:new Date().toISOString(),expires_at:expires}; });
+    return(d?.data?.productOfferV2?.nodes??[]).map((n:any)=>{ const price=Number(n.priceMin??0),disc=Number(n.priceDiscountRate??0),comm=Number(n.commissionRate??0),orig=price; return{source:"shopee",item_id:String(n.itemId),shop_id:String(n.shopId??""),title:n.productName,keyword:kw,category:kw,price,price_original:orig,discount_pct:Math.round(disc),commission_rate:comm,rating:Number(n.ratingStar??0),sales:Number(n.sales??0),shop_name:n.shopName||"Shopee",image_url:n.imageUrl,product_link:n.productLink,affiliate_url:n.offerLink,score:scoreOf(disc,comm*100,Number(n.sales??0),Number(n.ratingStar??0)),fetched_at:new Date().toISOString(),expires_at:expires}; });
   } catch{return[];}
 }
 
