@@ -6446,9 +6446,14 @@ async function wireProdLista(){
         <span id="prodSelTodosLabel">Selecionar todos</span>
       </label>
       <span id="prodSelInfo" style="font-size:12px;color:var(--mut)">nenhum selecionado</span>
+      <a href="#" id="prodSelTudoLink" onclick="prodSelGrupoInteiro();return false" style="font-size:12px;display:none"></a>
+      <a href="#" id="prodSelLimpar" onclick="prodSelLimpar();return false" style="font-size:12px;color:var(--mut);display:none">limpar seleção</a>
       <button class="btn btn-red btn-sm" id="prodSelBtn" onclick="prodRemoverSelecionados()" disabled style="margin-left:auto;opacity:.5">🗑 Apagar selecionados</button>
     </div>`+`<div id="prodLista"></div>`;
   PROD_DATA=data;
+  // Seleção não sobrevive a uma recarga da lista: os ids seriam de um estado
+  // que o usuário não está mais vendo, e o botão que os apaga não tem desfazer.
+  PROD_SEL.clear();
   prodPintarLista();
 }
 
@@ -6515,7 +6520,7 @@ function prodPintarLista(){
     const fora=p.expired===true;
     return `
     <div class="prod" style="align-items:center${fora?";opacity:.6":""}">
-      <input type="checkbox" class="prod-chk" value="${p.id}" onchange="prodSelAtualizar()" title="Selecionar para apagar" style="width:auto;margin:0 2px 0 0;flex:none;cursor:pointer">
+      <input type="checkbox" class="prod-chk" value="${p.id}" ${PROD_SEL.has(String(p.id))?"checked":""} onchange="prodSelItem('${p.id}',this.checked)" title="Selecionar para apagar" style="width:auto;margin:0 2px 0 0;flex:none;cursor:pointer">
       <span class="prod-num" style="color:var(--mut);font-size:11.5px;font-variant-numeric:tabular-nums;min-width:34px;text-align:right;flex:none">${i+1}.</span>
       <div class="pimg">${p.image_url?`<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:2px${fora?";filter:grayscale(1)":""}">`:"📦"}</div>
       <div style="flex:1;min-width:0">
@@ -6832,13 +6837,29 @@ async function prodAdicionarManual(postarAgora=false){
 // O botão nasce desabilitado e só acorda com algo marcado: o estado da tela diz
 // o que vai acontecer antes de acontecer. E ele DIZ QUANTOS — "Apagar 7" é uma
 // frase que dá pra conferir contra o que se acha que marcou.
+// A seleção vive num Set de ids, e não nos checkboxes do DOM. Enquanto a lista
+// inteira era desenhada de uma vez, ler o DOM dava no mesmo; com a paginação
+// não dá: trocar de página destrói os checkboxes e levaria a marcação junto.
+// Marcar 40 itens em duas páginas e apagar 25 seria pior do que não marcar nada.
+let PROD_SEL=new Set();
+
 function prodSelMarcados(){
-  return [...document.querySelectorAll(".prod-chk:checked")].map(c=>c.value);
+  // Só ids que ainda existem na lista carregada: produto apagado por outra via
+  // não pode continuar contando na barra.
+  const vivos=new Set(PROD_DATA.map(p=>String(p.id)));
+  return [...PROD_SEL].filter(id=>vivos.has(id));
+}
+
+function prodSelItem(id,marcar){
+  if(marcar)PROD_SEL.add(String(id));else PROD_SEL.delete(String(id));
+  prodSelAtualizar();
 }
 
 function prodSelAtualizar(){
-  const todas=document.querySelectorAll(".prod-chk");
+  const naPagina=[...document.querySelectorAll(".prod-chk")];
   const n=prodSelMarcados().length;
+  const total=PROD_DATA.length;
+  const marcadosNaPagina=naPagina.filter(c=>PROD_SEL.has(String(c.value))).length;
   const btn=document.getElementById("prodSelBtn");
   const info=document.getElementById("prodSelInfo");
   const mestre=document.getElementById("prodSelTodos");
@@ -6847,18 +6868,46 @@ function prodSelAtualizar(){
     btn.style.opacity=n?"1":".5";
     btn.textContent=n?`🗑 Apagar ${n} selecionado${n>1?"s":""}`:"🗑 Apagar selecionados";
   }
-  if(info)info.textContent=n?`${n} de ${todas.length} marcado${n>1?"s":""}`:"nenhum selecionado";
-  // Indeterminado quando a seleção é parcial: o quadradinho meio-marcado é a
-  // única forma honesta de mostrar "alguns, não todos".
+  // O denominador é o grupo inteiro, não a página: com a seleção atravessando
+  // páginas, "12 de 25" mentiria sobre o que o botão de apagar alcança.
+  if(info)info.textContent=n?`${n} de ${total} marcado${n>1?"s":""}`:"nenhum selecionado";
+  // O mestre governa a PÁGINA — é o que ele marca. Indeterminado quando a
+  // seleção da página é parcial: o quadradinho meio-marcado é a única forma
+  // honesta de mostrar "alguns, não todos".
   if(mestre){
-    mestre.checked = todas.length>0 && n===todas.length;
-    mestre.indeterminate = n>0 && n<todas.length;
+    mestre.checked = naPagina.length>0 && marcadosNaPagina===naPagina.length;
+    mestre.indeterminate = marcadosNaPagina>0 && marcadosNaPagina<naPagina.length;
   }
+  // Atalho para o grupo inteiro: só quando há mais de uma página, e some
+  // quando tudo já está marcado.
+  const atalho=document.getElementById("prodSelTudoLink");
+  if(atalho){
+    atalho.style.display=(total<=PROD_TAM||n>=total)?"none":"inline";
+    atalho.textContent=`marcar os ${total} do grupo inteiro`;
+  }
+  const limpar=document.getElementById("prodSelLimpar");
+  if(limpar)limpar.style.display=n?"inline":"none";
 }
 
 function prodSelMarcarTodos(marcar){
-  document.querySelectorAll(".prod-chk").forEach(c=>{c.checked=!!marcar;});
+  document.querySelectorAll(".prod-chk").forEach(c=>{
+    c.checked=!!marcar;
+    if(marcar)PROD_SEL.add(String(c.value));else PROD_SEL.delete(String(c.value));
+  });
   prodSelAtualizar();
+}
+
+// Marca o grupo inteiro, inclusive o que está em outras páginas. Não vai ao
+// banco: PROD_DATA já é o grupo inteiro — a paginação é só de desenho.
+function prodSelGrupoInteiro(){
+  PROD_DATA.forEach(p=>PROD_SEL.add(String(p.id)));
+  prodPintarLista();
+  toast(`${prodSelMarcados().length} produto(s) marcados no grupo inteiro.`,"☑️");
+}
+
+function prodSelLimpar(){
+  PROD_SEL.clear();
+  prodPintarLista();
 }
 
 async function prodRemoverSelecionados(){
@@ -6873,12 +6922,14 @@ async function prodRemoverSelecionados(){
   // lista meio apagada se caísse no meio, sem dizer onde parou.
   const{error}=await SB.from("products").delete().in("id",ids);
   if(error){toast("Erro: "+error.message,"⚠️");prodSelAtualizar();return;}
+  PROD_SEL.clear();
   toast(`${ids.length} produto${ids.length>1?"s":""} removido${ids.length>1?"s":""}.`,"🗑");
   wireProdLista();
 }
 
 async function prodRemover(id){
   if(!confirm("Remover este produto do grupo?"))return;
+  PROD_SEL.delete(String(id));
   const{error}=await SB.from("products").delete().eq("id",id);
   if(error){toast("Erro: "+error.message,"⚠️");return;}
   toast("Produto removido.","🗑️");
