@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 98 — 28/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 101 — 29/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1649,6 +1649,190 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 101 — 29/08/2026 — `clone-ingest` v18 (item 3 da REVISÃO 100)
+deployada em produção (Supabase function version 24), depois de o Érico
+escolher a opção (a) na pergunta de segurança. Achado crítico no processo:
+quase se perdeu do repo uma feature não-relacionada (v17/P36) que estava
+codada e aguardando deploy — ver o aviso na seção 3 abaixo.**
+
+---
+
+**REVISÃO 100 — 29/08/2026 — três pedidos do Érico na mesma sessão da REVISÃO
+99. Dois entregues e deployados (código); um em aberto aguardando decisão dele
+sobre escopo (reabre uma decisão de segurança já tomada antes).**
+
+### 1. "Excluir automaticamente após postar" — ENTREGUE, `send-post` v22
+
+Checkbox novo em Grupo de Oferta → Postagem automática, ao lado de Post
+Automático/Post em Loop (`niche_groups.delete_after_post`, migration aplicada,
+default `false` — não muda nenhum grupo existente). Pedido do Érico: em grupo
+com muitos produtos, o produto sai do rodízio assim que é postado, abrindo
+espaço (dentro do limite do plano) pra cadastrar produtos novos sem precisar
+apagar os antigos à mão.
+
+- **Só dispara em post que de fato saiu** (`groupSent>0`) — falha em todos os
+  canais preserva o produto.
+- **Conferido no banco antes de codar:** `scheduled_posts.product_id` e
+  `clone_posts.product_id` são `on delete set null`. Apagar o produto **não**
+  apaga o histórico da postagem que acabou de sair (inclusive a linha que a
+  própria v22 acabou de inserir) — só zera a referência.
+- Frontend: `loadGroups()` lê a coluna, `buildTabs()` restora o checkbox,
+  `salvarGeral()` grava, `pgResetGeral()` zera — mesmo padrão do `loop_enabled`
+  (REVISÃO 87), pra não repetir a classe de bug do "campo órfão".
+- ⚠️ **Não testado em produção ainda** (feature nova, ninguém ligou o checkbox
+  até o fim desta sessão). Deployado e com smoke test de sintaxe (esbuild +
+  node --check nos `<script>` extraídos do `index.html`), não com disparo
+  real. Primeira coisa a conferir quando alguém ligar: um grupo com Post
+  Automático + Excluir após postar ligados, ver o produto sumir da lista após
+  o próximo disparo e o histórico em `scheduled_posts` continuar íntegro.
+
+### 2. Botão "editar" por produto em Grupo de Oferta — ENTREGUE, frontend
+
+Cada linha de `prodPintarLista()` ganhou um botão ✏️ ao lado do ✕ de remover.
+Abre a mesma aba "➕ Adicionar" (não um modal novo — reaproveita o formulário
+existente) pré-preenchida com os dados do produto; salvar faz `UPDATE` em vez
+de `INSERT`. Detalhes que evitam um footgun óbvio:
+
+- `PROD_EDIT_ID` (o produto em edição) só é setado por `prodEditar()`. Entrar
+  na aba "➕ Adicionar" por qualquer outra via (clique direto do usuário, ou
+  trocar de grupo) cancela a edição pendente e limpa os campos — sem isso,
+  abandonar uma edição sem clicar em "Cancelar" e voltar depois salvaria por
+  cima do produto errado com campos em branco.
+- O `UPDATE` não reafilia nem reencurta o link — o link já foi gerado no
+  cadastro; reafiliar de novo por engano ao só corrigir o preço poderia trocar
+  a loja detectada.
+- ⚠️ Não testado num navegador de verdade — só smoke test de sintaxe (mesmo
+  método do item 1). Falta clicar ✏️, editar, salvar e conferir no banco.
+
+### 3. "Aprovação automática" na captura de Clone Post — DECIDIDO E DEPLOYADO (backend), UI pendente
+
+Pedido: no cadastro do Grupo de Oferta que recebe ofertas clonadas, uma opção
+de aprovação automática da captura, com um alerta bem visível ao lado dizendo
+que a Mega Links BR não se responsabiliza pelos dados postados por essa
+função.
+
+Isto reabria uma decisão de segurança já tomada duas vezes (ver histórico
+abaixo), então antes de codar foi perguntado ao Érico se o critério deveria
+ser (a) o mesmo padrão do `auto_publish` por fonte — só pula fila quando a
+loja confirma o dado — exposto como toggle no grupo; ou (b) aprovar TUDO sem
+exceção, inclusive dado lido só do texto de terceiro. **Érico escolheu a opção
+(a)** ("Quero a opção 1 que vc sugeriu").
+
+**Backend ENTREGUE e DEPLOYADO — `clone-ingest` v18, Supabase function
+version 24 (29/08):**
+
+- `niche_groups.clone_auto_approve` (coluna órfã desde a Fase 2) agora é lida
+  por `grupoAutoAprova()`, com cache por lote como os outros lookups da
+  função.
+- A condição de auto-publicação virou `(fonte.auto_publish || grupoAprova)` —
+  qualquer um dos dois liga, mas o cheque `dataSource === 'store'` continua
+  valendo pros dois igual, sem exceção. Dado lido só do texto da mensagem
+  nunca pula a fila, com ou sem qualquer auto ligado — a v18 **não** afrouxa
+  esse ponto.
+- ⚠️ **Cuidado ao mexer de novo neste arquivo:** o repo tem, sem deploy, uma
+  outra feature codada em 03/08 e batizada de v17 (P36 — pré-filtro por
+  domínio do link cru, ver a pendência mais abaixo). A v18 foi deployada
+  **sozinha**, sobre a v16 em produção, sem levar a v17/P36 junto — de
+  propósito, por não fazer parte deste pedido (escopo estrito). Quem for
+  deployar a v17/P36 a partir de agora precisa **reler o arquivo do repo**
+  (que já tem as duas) e reemitir o `index.ts` inteiro, não recuperar uma
+  cópia antiga só com a P36 — isso reverteria a aprovação automática por
+  grupo que já está no ar.
+- ⚠️ **Não medido em produção ainda.** Não há grupo com `clone_auto_approve`
+  ligado até o fim desta sessão (não havia UI pra ligar). Falta: (1) ligar via
+  SQL num grupo de teste com fonte que capture Amazon/ML/Shopee de verdade,
+  (2) confirmar que uma captura com `data_source='store'` completa é
+  publicada sem passar pela fila, e que uma com `data_source='message'`
+  continua pendente mesmo com o grupo aprovando automático.
+
+**UI ENTREGUE — `frontend/index.html`, aba Geral do Grupo de Oferta:**
+
+- Novo card "🤖 Clone Post — captura automática deste grupo" na pane `geral`
+  (mesmo lugar do Post Automático/Post em Loop/Excluir após postar), com o
+  checkbox **✅ Aprovação Automática** (`pgCloneAutoApprove`).
+- Alerta chamativo (`pgCloneAutoApproveAlerta`) aparece **junto com o
+  checkbox marcado** — borda vermelha grossa, fundo vermelho translúcido,
+  ícone ⚠️ — com o texto que o Érico pediu explicitamente: a Mega Links BR
+  não se responsabiliza pelos dados postados por essa função. Some quando o
+  checkbox é desmarcado, e reaparece se marcar de novo — de propósito, não é
+  um "já vi isso" que fica escondido depois da primeira vez.
+- `loadGroups()` lê `clone_auto_approve`, `salvarGeral()` grava (state +
+  `niche_groups.update`), `pgResetGeral()` zera — mesmo padrão do
+  `delete_after_post` desta mesma sessão.
+
+**Achado paralelo, resolvido junto — o `auto_publish` por fonte nunca teve
+UI:** Érico relatou não lembrar de ver esse mecanismo funcionar
+("Eumesmo não recordo de ver um produto virar automatico e ja aparecer na
+lista"). Conferido nesta sessão: grep vazio em `auto_publish|autoPublish|
+"auto-publicar"` no `frontend/index.html` **antes** desta mudança — a coluna e
+o backend sempre funcionaram desde a v11, mas nunca existiu o toggle na tela.
+Agora existe: checkbox **🤖 Auto-publicar** em cada card de Fonte (Clone Post
+→ Fontes automáticas), ao lado dos ajustes de teto/validade que já existiam
+ali, gravando direto em `clone_sources.auto_publish` ao clicar
+(`csAlternarAutoPublish`).
+
+- ⚠️ **Nenhuma das duas checkboxes foi testada num navegador de verdade** —
+  só smoke test de sintaxe (extração dos `<script>` + `node --check`). Falta:
+  marcar cada uma, confirmar no banco que a coluna certa mudou, e rodar uma
+  captura sintética (`clone-ingest` com `dryRun:false` numa fonte de teste)
+  pra confirmar que uma oferta `data_source='store'` completa realmente sai
+  direto pro rodízio quando o grupo ou a fonte está com o auto ligado, e que
+  uma `data_source='message'` continua pendente mesmo assim.
+
+---
+
+**REVISÃO 99 — 29/08/2026 — `send-post` v21 NO AR E PROVADA: o "Post em Loop"
+não repete mais o post imediatamente anterior. Origem: Érico reportou usuários
+dizendo que participantes de grupo de WhatsApp reclamavam de post repetido.**
+
+### O que estava acontecendo, medido
+
+`send-post` v20 (REVISÃO 87, 26/08) sorteia um produto por disparo quando
+`loop_enabled=true` (`Math.floor(Math.random() * total)`), **sem nenhuma
+memória do que saiu no disparo anterior**. Medido nos 4 dias antes desta
+sessão, por grupo:
+
+| grupo | modo | produtos ativos | posts (4 dias) | repetições consecutivas |
+|---|---|---|---|---|
+| Achadinhos Geral | Loop (`loop_enabled=true`) | 22 | 113 | **10 (8,8%)** |
+| Achadinhos Beleza | sequencial | 6 | 23 | 0 |
+| Promos da Paty | sequencial | 33 | 96 | 0 |
+| variados 02 | sequencial | 16 | 6 | 0 |
+
+Ou seja: o defeito é **exclusivo do modo Loop** — o cursor sequencial nunca
+repete (avança sempre, `% total`), e é o único grupo com Loop ligado hoje
+(`niche_groups.loop_enabled=true` só em "Achadinhos Geral" e "ART Finds", que
+não tem produto). "Achadinhos Geral" é grande o bastante (22 produtos, post a
+cada 10 min) para o WhatsApp mostrar dois posts iguais em ~1h40 de intervalo
+médio — o que participantes de grupo veem como spam.
+
+### O conserto
+
+`send-post` **v21** (deployado via MCP, version 55): no modo Loop, se o
+sorteio bater com o `product_id` do último `scheduled_posts` com
+`status='sent'` do grupo, resorteia só entre os `(total - 1)` restantes —
+nunca reenvia o post imediatamente anterior. Só consulta `scheduled_posts`
+quando `loop_enabled=true` **e** o grupo tem mais de 1 produto elegível; ordem
+sequencial (`loop_enabled=false`, todo o resto da base) não muda em nada.
+
+### A prova (regra de ouro: comportamento observável, não versão)
+
+Consultado direto no banco, produção: **64 posts do grupo "Achadinhos Geral"
+entre o deploy (28/08 14:56 UTC) e agora (29/08 02:27 UTC) — 0 repetições
+consecutivas**, contra 10 de 113 (8,8%) nas 4 dias anteriores ao conserto, no
+mesmo grupo. `cursor_index` sequencial dos outros grupos não foi tocado —
+código só lê `scheduled_posts` a mais quando `loop_enabled=true`.
+
+⚠️ **O que isto NÃO resolve:** repetição não-consecutiva (mesmo produto
+reaparecendo poucos posts depois, só não em seguida) continua possível no
+modo Loop — é sorteio puro, só ganhou uma trava contra o caso mais gritante
+(o mesmo post duas vezes seguidas). Se a reclamação dos grupos persistir
+depois desta correção, o próximo passo é considerar excluir os últimos N
+posts (não só o último) do sorteio, ou reavaliar se o modo Loop deveria
+existir por padrão em grupo com poucos produtos.
+
+---
 
 **REVISÃO 97 — 28/08/2026 — P35 FASE 1 NO AR E PROVADA PONTA A PONTA no painel
 logado. A brecha do token do wa-engine está fechada para atacantes novos.**
@@ -6815,6 +6999,41 @@ antigos; hoje é **Premium**).
 
 ## Componentes — estado
 
+### Post Automático — `send-post` v21 (29/08, REVISÃO 99)
+
+- **Ordem sequencial (`loop_enabled=false`, padrão):** `cursor_index % total`,
+  nunca repete até esgotar a lista. Comportamento intacto desde sempre.
+- **"Post em Loop" (`loop_enabled=true`):** sorteia produto a cada disparo;
+  desde a v21, se o sorteio bater com o último `sent` do grupo, resorteia
+  entre os demais — nunca repete o post imediatamente anterior. Provado em
+  produção: 64/64 disparos sem repetição consecutiva no grupo "Achadinhos
+  Geral" desde o deploy. Não elimina repetição não-consecutiva (ver REVISÃO 99
+  em "Última alteração").
+- Hoje só **1 grupo com produto ativo** está em modo Loop: "Achadinhos Geral"
+  (22 produtos). Os demais 15 grupos usam ordem sequencial.
+
+### Clone Post — auto-publicação (`clone-ingest` v18, 29/08, REVISÃO 101)
+
+- **Duas chaves independentes, mesmo critério de segurança.** Uma captura só
+  pula a fila de revisão quando **(`clone_sources.auto_publish` OU
+  `niche_groups.clone_auto_approve`) E `data_source==='store'`** — dado lido
+  só do texto da mensagem do grupo-fonte nunca pula, com nenhum dos dois
+  ligado.
+- `auto_publish` é **por FONTE** (existe desde a v11, agora com toggle visível
+  no card da fonte em Clone Post → Fontes automáticas). `clone_auto_approve` é
+  **por GRUPO de destino** (coluna órfã desde a Fase 2, agora com checkbox no
+  Grupo de Oferta → Geral, com o alerta de responsabilidade que o Érico
+  pediu).
+- Supabase function version **24**. Repo e produção **batem** neste arquivo.
+- ⚠️ **O repo tem, sem deploy, uma feature não relacionada codada em 03/08
+  (v17/P36 — pré-filtro por domínio do link cru).** A v18 foi deployada
+  sozinha, por cima da v16 em produção, sem levar a v17/P36 — de propósito,
+  fora do escopo deste pedido. Ver a pendência P36 mais abaixo antes de
+  reemitir este arquivo de novo: o `index.ts` do repo já tem as duas
+  (v17 + v18) juntas, é ele que deve servir de base, nunca uma cópia antiga.
+- ⚠️ **Não medido em produção.** Nenhum grupo tinha `clone_auto_approve`
+  ligado até o fim desta sessão.
+
 ### Clone Post (Fase 2 — foco atual)
 
 Captura ofertas de grupos-fonte de terceiros e replica nos grupos do usuário.
@@ -7173,7 +7392,7 @@ código não relacionado.
 | ~~P33~~ | ✅ **FECHADA 04/08 à noite.** Os 9 órfãos de ML e Amazon receberam `discount_pct = null` por UPDATE à mão, depois da rodada de 04/08 (que não restaurou nenhum "de": `de_corrigidos` 0, `de_apagados` 0). Restam os 15 da Shopee, intencionais. Controle de 65 produtos com "de" **e** desconto intacto. Ver "Última alteração". Registro original abaixo. ~~🟡 DEPLOYADA EM 03/08 (dentro da v20), AGUARDANDO PROVA.~~ Apagar o "de" deixava o `discount_pct` de pé — 5 produtos com porcentagem órfã em 02/08. O `send-post` **não** usa o campo (o post sai limpo); a lista de produtos do painel usa (linha 5799) e o formulário regrava (linha 8271). v19 zera junto, só no ML e na Amazon, onde o desconto é derivado do "de" — a Shopee fica de fora por construção (decisão da P32). 🔴 **CORREÇÃO 03/08: a v19 NÃO alcança os órfãos que já existem** — a guarda `antes !== res.precoDe` compara `null` com `null` e pula o bloco. Ela impede órfão novo, só isso. **Medidos hoje: 24 órfãos** — 15 Shopee (intencional), 5 ML e 4 Amazon. Os 9 de ML e Amazon exigem UPDATE à mão, **combinado para depois da rodada de 04/08**, que pode restaurar o "de" de alguns sozinha | 02/08 |
 | ~~P34~~ | ✅ **FECHADA 07/08.** As três exigências combinadas antes do deploy da v20 estão cumpridas: `product_refresh_runs` populada (4 rodadas), `candidatos_antigos` = **4 em todas**, e os 4 produtos da Amazon saíram do carimbo `30/07 14:16` — três em `04/08 06:00` e o La Roche em `07/08 06:00`. O carimbo mais antigo da base foi de `30/07` para `02/08`. Registro original abaixo. ~~🟢 2 DAS 3 EXIGÊNCIAS PROVADAS EM 04/08.~~ `product_refresh_runs` tem 1 linha; `candidatos_antigos` = **4** (12 = 8 novos + 4 antigos), a reserva funcionou como piso; dos 4 da Amazon, **3 saíram** do carimbo `30/07 14:16` e o La Roche **não** — ver **P48**. Registro original abaixo. ~~🟡 DEPLOYADA EM 03/08, AGUARDANDO PROVA.~~ ~~A rodada diária só alcança produto recém-criado.~~ Medido em 03/08: os 11 carimbos da rodada foram **todos** de produtos criados no mesmo dia às 03:25. 27 produtos criados em 24h contra `BATCH = 12`; 19 ainda com `price_checked_at` nulo; **4 Amazon parados desde 30/07 14:16** (La Roche, Kit Rapunzel, Kärcher, Calvin Klein). `nullsFirst` + ingestão maior que o lote = produto que já tem carimbo nunca volta à fila. **Não é bug do `nullsFirst`** — é o lote ser menor que a entrada diária. Saídas não decididas: subir o `BATCH`, rodar o cron mais de uma vez por dia, ou reservar parte do lote para os carimbados mais antigos. **Consertada em 03/08.** Saída escolhida: **reserva de cota** (`RESERVA_ANTIGOS = 4`, piso e não teto), a única sem aumento de consumo de leitura — `BATCH` segue 12. Duas filas (`novos` por `created_at`, `antigos` por `price_checked_at`) no lugar da ordenação global com `nullsFirst`. Contadores `candidatos_novos`/`candidatos_antigos` entram na resposta e no `resumo` jsonb, sem migration. Lógica testada em 8 cenários com os números reais do banco. ⚠️ **A v20 contém a v19**: o deploy de 03/08 à tarde entregou as duas. **Deployado não é provado** — a prova é a rodada de 04/08 09:00 UTC, com `candidatos_antigos > 0` e os 4 da Amazon saindo de `30/07 14:16`. Enquanto isso não for lido, esta pendência fica 🟡 | 03/08 |
 | **P35** | 🟠 **Qualquer usuário autenticado obtém o `WA_ENGINE_TOKEN` da plataforma inteira.** Achado de lado ao investigar a P3, em 03/08. O `get-wa-engine-token` **não checa nada em código** (1391 bytes, devolve o token e a URL); a proteção mora só em `verify_jwt: true`, que está **medido** como ligado — não há exposição pública, mas basta uma conta cadastrada para receber a credencial que controla o `wa-engine` de **todos**. 🔴 **CORREÇÃO 03/08: "autorizar por plano" foi decidido e depois DERRUBADO pela medição.** Não existe plano sem WhatsApp: `starter` tem `wa_groups ≥ 1` e **1 dos 5 starters tem instância conectada**. Um gate por plano excluiria ninguém — toda conta cadastrada continuaria recebendo o token mestre. **Sobram duas saídas de verdade:** (a) **token por usuário no engine**, escopando `/sessions`, `/disconnect` e `/send` ao dono — resolve a raiz, mexe no `wa-engine` inteiro e em todo chamador; (b) **registrar o risco** com a ressalva de que um deploy com `verify_jwt: false` abre tudo, sem nada no código para segurar. **Não decidida** | 03/08 |
-| **P36** | 🟡 **CODADA E VALIDADA EM 03/08 (REVISÃO 30) — NÃO DEPLOYADA.** ~~Pré-filtro de domínio antes da `resolve-link`, decidido e não codado.~~ `clone-ingest` **v17** no repo, produção em **v16**. Mapa `DOMINIOS_LOJA` (host → loja, casando por sufixo, cobrindo `meli.la`, `s.shopee.com.br`, `amzlink.to`, `link.amazon`, `shp.ee`, `a.co`) + `lojaDoDominio()` + `linksDoTexto()`. **Regra conservadora:** só recusa quando **todos** os links do texto têm domínio reconhecido **e** nenhum está em `lojas_permitidas`; um único link desconhecido faz a mensagem seguir para a `resolve-link` como na v16. Array vazio = todas, então fonte sem filtro não muda. As duas recusas ficam separáveis no log pelos prefixos **`[pre-filtro]`** e **`[pos-filtro]`** — é isso que vai medir se o pré-filtro pega 44/dia ou zero. Validação de 03/08: `esbuild` parse limpo do arquivo inteiro, `node --check` no bundle, `const permitidas` declarada 1 vez só, **12/12 cenários** conforme o esperado. 🔴 **Premissa corrigida na medição:** as 44/dia são `resolve_falhou`, não `loja_filtrada` — `loja_filtrada` em 24h é **0**, o filtro da v16 nunca disparou para este caso. **Baseline gravada 03/08 13:53:12 UTC:** `resolve_falhou`+`mercadolivre.com.br` = **44**, `loja_filtrada` = **0**, `salvo` = 17, total = 100. **Falta só o deploy e a prova por comportamento** | 03/08 |
+| **P36** | 🟡 **CODADA E VALIDADA EM 03/08 (REVISÃO 30) — NÃO DEPLOYADA.** ~~Pré-filtro de domínio antes da `resolve-link`, decidido e não codado.~~ `clone-ingest` **v17** no repo, produção em **v16**. Mapa `DOMINIOS_LOJA` (host → loja, casando por sufixo, cobrindo `meli.la`, `s.shopee.com.br`, `amzlink.to`, `link.amazon`, `shp.ee`, `a.co`) + `lojaDoDominio()` + `linksDoTexto()`. **Regra conservadora:** só recusa quando **todos** os links do texto têm domínio reconhecido **e** nenhum está em `lojas_permitidas`; um único link desconhecido faz a mensagem seguir para a `resolve-link` como na v16. Array vazio = todas, então fonte sem filtro não muda. As duas recusas ficam separáveis no log pelos prefixos **`[pre-filtro]`** e **`[pos-filtro]`** — é isso que vai medir se o pré-filtro pega 44/dia ou zero. Validação de 03/08: `esbuild` parse limpo do arquivo inteiro, `node --check` no bundle, `const permitidas` declarada 1 vez só, **12/12 cenários** conforme o esperado. 🔴 **Premissa corrigida na medição:** as 44/dia são `resolve_falhou`, não `loja_filtrada` — `loja_filtrada` em 24h é **0**, o filtro da v16 nunca disparou para este caso. **Baseline gravada 03/08 13:53:12 UTC:** `resolve_falhou`+`mercadolivre.com.br` = **44**, `loja_filtrada` = **0**, `salvo` = 17, total = 100. **Falta só o deploy e a prova por comportamento.** ⚠️ **29/08 (REVISÃO 101):** o repo ganhou outra feature no mesmo arquivo, `clone-ingest` v18 (aprovação automática por grupo/fonte — ver "Componentes — estado"), **já deployada em produção sozinha, sem a P36**. O `index.ts` do repo agora tem v17+v18 juntas. Quem for deployar a P36 a partir daqui **precisa usar o arquivo do repo como está**, não uma cópia antiga só com a P36 — senão reverte a v18 que já está no ar | 03/08 |
 | **P16** | 🔴 **DEIXOU DE SER TEÓRICA EM 03/08 — ela é a causa da P4.** ~~O auto-deploy torna inexecutável qualquer instrução do tipo "deploye A antes de rebuildar B".~~ Medido: **todo push para o `main` reinicia o `wa-engine` em produção**, inclusive push só de documentação. 4 boots em 35 minutos em 03/08, 3 deles casados com eventos conhecidos, e 53 minutos sem push = sem restart. **Custo por push:** a `CLONE_FILA` (memória) é descartada, as 3 sessões levam `conflict/replaced` 440 do WhatsApp e o container antigo e o novo disputam a sessão por alguns segundos. O engine trata certo (`Não reconectar`), então não há laço — mas há janela. Decidir: gate técnico ou **desligar o auto-deploy do serviço `app`** | 31/07 |
 
 | ~~P32~~ | ✅ **FECHADA 01/08 noite.** A Shopee devolvia `price_from = node.price`, que é o preço ATUAL e não o anterior; 3 de 3 capturas reais saíram com "de" == "por" e desconto de 53%/42%/35%, já no rodízio do grupo. `product-search` **v25** para de enviar `price_from` para a Shopee. Os 3 produtos foram limpos. O Radar, que tem leitura própria, **não** tinha o defeito — terceira vez que duas implementações da mesma coisa divergem neste repo | 01/08 |
@@ -7237,6 +7456,9 @@ código não relacionado.
 | **P89** | 🔵 **Emoji de loja no Radar e nas fontes é literal no código** (`🛍️ Shopee`, `🟡 Mercado Livre`). Já existe `lojaLogoImg()` usado no filtro de loja do Radar; os demais pontos ainda usam o emoji cru. Cosmético, e some junto se a P70 for endereçada | 28/08 |
 | **P90** | 🔵 **O "de" REAL da Shopee existe e custa dinheiro.** `/api/v4/pdp/get_pc` devolve `price_before_discount` — medido no item 44507205958: 169900000 = R$ 1.699,00, exato, igual ao que a página afirma. Seria número LIDO, honraria a P32 e preencheria o "Preço original" no Postar Agora e nos Produtos. **Mas:** a rota é antibot (2ª chamada seguida caiu em captcha, `scene=crawler_item`) e o `fetchShopeeFeed`, que já usa essa família de API, não produz nenhuma linha hoje — do datacenter da Supabase ela é bloqueada. Exigiria proxy (Scrape.do, como no ML), com o orçamento já em 850/1000 créditos. **Antes de decidir, medir se passa SEM `super=true`** (1 crédito em vez de 10). Enquanto não for feito, Shopee segue sem "de" em todo lugar — o que agora é coerente, ver REVISÃO 95 | 28/08 |
 | **P91** | 🟠 **FASE 2 do P35 — rotacionar o `WA_ENGINE_TOKEN` de serviço.** A fase 1 (REVISÃO 97, no ar) fechou o vazamento para atacantes NOVOS: o `get-wa-engine-token` passou a entregar o `WA_ENGINE_BROWSER_TOKEN`, e o de serviço não sai mais do servidor. **Mas o valor ATUAL do `WA_ENGINE_TOKEN` circulou por meses** — a função o entregava a qualquer conta autenticada — e um service token capturado ainda vale como "modo servidor" (vê todas as sessões, manda por qualquer número). Rotacionar troca a fechadura de quem já pode ter uma cópia da chave. **Deploy coordenado, ações externas do Érico:** gerar novo valor; para não derrubar as Edge Functions durante a janela, o `wa-engine` precisa aceitar o valor ANTIGO e o NOVO ao mesmo tempo (env `WA_ENGINE_TOKEN_OLD` temporário no `verifyToken`, um commit pequeno), então: setar o novo `WA_ENGINE_TOKEN` no Supabase (secrets) e no EasyPanel (env) + rebuild; confirmar Postar Agora/Radar/Clone Post funcionando; por fim remover o `WA_ENGINE_TOKEN_OLD` e rebuildar de novo, invalidando o valor vazado. Não urgente como a fase 1 era, mas é o que fecha os já-capturados | 28/08 |
+| **P92** | 🟡 **`niche_groups.delete_after_post` — "excluir automaticamente após postar" deployado (`send-post` v22) e sem UM DISPARO REAL medido.** Falta: ligar o checkbox num grupo de teste com Post Automático ativo, deixar um disparo sair e confirmar (a) o produto some da lista, (b) a linha em `scheduled_posts` continua íntegra (`product_id` vira `null` por `ON DELETE SET NULL`, não `undefined`/erro) | 29/08 |
+| **P93** | 🟡 **Botão ✏️ editar produto em Grupo de Oferta, sem teste em navegador.** Só smoke test de sintaxe. Falta clicar, editar um produto de verdade, salvar e conferir no banco que virou `UPDATE` (não duplicou linha) e que o link não foi reafiliado/reencurtado por engano | 29/08 |
+| **P94** | 🟡 **`clone_auto_approve` (por grupo) e `auto_publish` (por fonte) com UI nova, sem nenhuma medição em produção.** Nenhum grupo ou fonte tinha qualquer um dos dois ligado até o fim desta sessão. Falta: ligar um dos dois numa fonte/grupo de teste que capture de verdade, confirmar que uma captura `data_source='store'` completa sai direto pro rodízio sem passar pela fila, e que uma `data_source='message'` continua pendente mesmo assim | 29/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
