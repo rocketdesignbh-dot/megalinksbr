@@ -13,9 +13,15 @@
 //
 // Decisoes que valem a pena estarem escritas aqui:
 //
-//  * SEMPRE 'pending'. Mesmo que o Grupo de Oferta tenha clone_auto_approve
-//    ligado. Na Fase 1 o dono viu o preview antes de salvar; aqui nao ha ninguem
-//    no circuito, e um titulo errado publicado no grupo da cliente nao se desfaz.
+//  * A LINHA sempre nasce 'pending' (ou 'failed', sem dado publicavel) —
+//    inclusive quando auto_publish/clone_auto_approve estao ligados; ver v18.
+//    Na Fase 1 o dono viu o preview antes de salvar; aqui nao ha ninguem no
+//    circuito, entao SO pula pra 'approved' — imediatamente apos o insert —
+//    quando os dados vieram CONFERIDOS NA LOJA (dataSource==='store'). Dado
+//    lido so do texto da mensagem de terceiro (dataSource==='message') fica
+//    pending sempre, com ou sem qualquer auto ligado: um titulo errado
+//    publicado no grupo da cliente nao se desfaz, e o texto de um terceiro
+//    nunca foi conferido por ninguem, nem pela loja nem por um humano.
 //
 //  * Trava de plano propria (plan_features.clone_auto, Elite pra cima). O
 //    clone_post da Fase 1 continua sendo Pro pra cima. A captura automatica
@@ -113,6 +119,30 @@
 //    [pre-filtro] e [pos-filtro]. E de proposito: sem isso nao ha como medir se
 //    o pre-filtro pega alguma coisa. Ver DOMINIOS_LOJA.
 
+//  * v18 — "aprovacao automatica" por GRUPO DE DESTINO (niche_groups.
+//    clone_auto_approve). Pedido do Erico, 29/08: a coluna ja existia no banco
+//    desde a Fase 2, mas o codigo SEMPRE a ignorava (comentario acima, desde a
+//    v1) e o frontend nunca teve onde liga-la (o checkbox que existiu foi
+//    removido em 26/08 a pedido do proprio Erico, "nao via utilidade nele").
+//    Decisao tomada COM o Erico depois de ele escolher entre duas opcoes: usar
+//    o MESMO criterio de seguranca do auto_publish por fonte (so publica
+//    quando a loja confirmou o dado) em vez de aprovar tudo sem excecao — a
+//    segunda opcao e exatamente o cenario que o "SEMPRE pending" da v1 foi
+//    escrito pra impedir. clone_auto_approve funciona como um OR com
+//    auto_publish: qualquer um dos dois liga a auto-publicacao, mas o cheque
+//    de dataSource==='store' vale pros dois igual, sem excecao pra nenhum.
+//    Erico tambem relatou nunca ter visto o auto_publish por fonte funcionar
+//    na pratica: conferido nesta sessao, o radio "auto-publicar × revisar
+//    antes" nunca existiu neste frontend (grep vazio em auto_publish/
+//    autoPublish/"auto-publicar") — a coluna e o backend sempre funcionaram,
+//    mas ninguem jamais teve como ligar o toggle pela tela. Registrado, nao
+//    resolvido nesta sessao — ver ESTADO_ATUAL.md.
+//    IMPORTANTE: v18 foi deployada em produção em 29/08 SOZINHA, sem a v17/P36
+//    (pre-filtro por dominio) — a P36 continua codada aqui no repo e NAO
+//    deployada, por decisao anterior do Erico (sessao de contexto limpo). Quem
+//    for deployar a v17/P36 a partir daqui precisa levar a v18 junto, ou vai
+//    reverter a aprovacao automatica por grupo que ja esta em producao.
+//
 //  * v16 — P31: filtro de loja por fonte (clone_sources.lojas_permitidas).
 //    Grupo-fonte que presta para uma loja e nao para outra e o caso comum, nao a
 //    excecao. MEDIDO em 01/08 na "Melhores Ofertas da Internet", com o campo de
@@ -938,6 +968,16 @@ Deno.serve(async (req: Request) => {
   const cacheCred = new Map<string, Record<string, Record<string, string>>>();
   const cacheMl = new Map<string, { token: string; token2: string; cookie: string }>();
   const cacheFones = new Map<string, string[]>();
+  // v18: clone_auto_approve (por GRUPO de destino) — ver comentario na v18 no
+  // topo do arquivo. Cache por niche_group_id pelo mesmo motivo dos de cima.
+  const cacheAutoApproveGrupo = new Map<string, boolean>();
+  async function grupoAutoAprova(nicheGroupId: string): Promise<boolean> {
+    if (cacheAutoApproveGrupo.has(nicheGroupId)) return cacheAutoApproveGrupo.get(nicheGroupId)!;
+    const { data } = await sb.from("niche_groups").select("clone_auto_approve").eq("id", nicheGroupId).maybeSingle();
+    const v = !!data?.clone_auto_approve;
+    cacheAutoApproveGrupo.set(nicheGroupId, v);
+    return v;
+  }
 
   async function planoPermite(userId: string) {
     if (cachePlano.has(userId)) return cachePlano.get(userId)!;
@@ -1361,11 +1401,16 @@ Deno.serve(async (req: Request) => {
         last_capture_at: agora.toISOString(),
       }).eq("id", fonte.id);
 
-      // ── Auto-publicacao (v11) ─────────────────────────────────
-      // Tres condicoes, todas obrigatorias: a fonte pede, os dados estao
-      // completos, e vieram DA LOJA. Faltando qualquer uma, cai na fila como
-      // sempre foi.
-      if (fonte.auto_publish && !semDados && dataSource === "store" && ins?.id) {
+      // ── Auto-publicacao (v11 por fonte; v18 por grupo de destino) ──────
+      // A fonte OU o grupo de destino podem pedir auto-publicacao — mas o
+      // criterio de seguranca e o MESMO dos dois lados, sem excecao: os dados
+      // tem que estar completos e ter vindo DA LOJA. Dado lido so do texto da
+      // mensagem de terceiro (dataSource==='message') nunca pula a fila, nem
+      // com auto_publish nem com clone_auto_approve ligados — e exatamente o
+      // caso que motivou o "SEMPRE pending" da v1 (titulo/preco errado indo
+      // pro grupo do cliente sem ninguem olhar nao tem como desfazer).
+      const grupoAprova = await grupoAutoAprova(fonte.niche_group_id);
+      if ((fonte.auto_publish || grupoAprova) && !semDados && dataSource === "store" && ins?.id) {
         const pub = await publicarClone(linha, fonte);
         if (pub.ok) {
           await sb.from("clone_posts").update({
@@ -1400,8 +1445,8 @@ Deno.serve(async (req: Request) => {
         motivo: semDados
           ? `${erroLoja} — e o texto da mensagem nao trazia titulo e preco`
           : (dataSource === "message"
-              ? (fonte.auto_publish
-                  ? "aguardando revisao — auto-publicacao nao vale para dados lidos do texto da mensagem"
+              ? ((fonte.auto_publish || grupoAprova)
+                  ? "aguardando revisao — auto-publicacao (fonte ou grupo) nao vale para dados lidos do texto da mensagem"
                   : "aguardando revisao — dados lidos do texto da mensagem")
               : "aguardando revisao"),
       });
