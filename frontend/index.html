@@ -1129,7 +1129,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
           <div class="card" style="margin-bottom:16px"><div class="ch">🏆 Produtos mais vendidos</div><div class="cb" id="mrProdutos"></div></div>
 
-          <div class="card"><div class="ch">📡 Performance por canal & sub ID</div><div class="cb" id="mrCampanhas"></div></div>
+                    <div class="card" style="margin-bottom:16px"><div class="ch">📡 Performance por canal & sub ID</div><div class="cb" id="mrCampanhas"></div></div>
+
+          <div class="card"><div class="ch">📍 Origem dos cliques</div><div class="cb" id="mrOrigem"></div></div>
         </div>
       </div>
 
@@ -12189,16 +12191,19 @@ async function mrMetricsLoad(preset){
   try{
     const principal = await mrFetchMetrics(tk, preset, ['store']);
     if(principal.locked){ mrShow('mrLocked'); return; }
-    mrRenderMetrics(principal.data);
-
-    // Produtos e campanhas sao complementares: se uma das duas falhar, a tela
-    // principal (ja renderizada acima) continua de pe — so a tabela em questao
-    // mostra o erro dela.
-    const [produtos, campanhas] = await Promise.allSettled([
+        // Produtos, campanhas e origem sao complementares: se uma das tres falhar, a
+    // tela principal (ja renderizada acima) continua de pe — so a tabela em
+    // questao mostra o erro dela.
+    const [produtos, campanhas, origem] = await Promise.allSettled([
       mrFetchMetrics(tk, preset, ['product']),
       mrFetchMetrics(tk, preset, ['campaign']),
+      mrFetchMetrics(tk, preset, ['referrer']),
     ]);
     mrRenderBreakdownExtra('mrProdutos', produtos, 'product', 'productLabel', mrLinhaProduto);
+    mrRenderBreakdownExtra('mrCampanhas', campanhas, 'campaign', 'campaignLabel', mrLinhaCampanha);
+    mrRenderOrigem(origem);
+
+    
     mrRenderBreakdownExtra('mrCampanhas', campanhas, 'campaign', 'campaignLabel', mrLinhaCampanha);
   }catch(e){
     document.getElementById('mrMetLoading').style.display = 'none';
@@ -12300,6 +12305,34 @@ function mrRenderBreakdownExtra(elId, settled, campoId, campoLabel, linhaFn){
   el.innerHTML = bd.length
     ? bd.map(linhaFn).join('')
     : '<p style="color:var(--mut);margin:0">Sem dados no período.</p>';
+}
+
+/* Origem dos cliques (referrer). Nao usa mrRenderBreakdownExtra porque o dado
+ * vem de `data.clickBreakdown` (fact_click, sem metrica de comissao), nao de
+ * `data.breakdown` (rollup_daily). Ver nota da v10 no mega-results. */
+function mrRenderOrigem(settled){
+const el = document.getElementById('mrOrigem');
+if(settled.status !== 'fulfilled'){
+el.innerHTML = `<p style="color:var(--mut);margin:0">Não foi possível carregar: ${settled.reason?.message || settled.reason || 'erro desconhecido'}</p>`;
+return;
+}
+if(settled.value.locked){
+el.innerHTML = '<p style="color:var(--mut);margin:0">Módulo não liberado.</p>';
+return;
+}
+const cb = settled.value.data.clickBreakdown || [];
+const aviso = settled.value.data.meta?.clickBreakdownPartial
+? '<p style="color:var(--mut);font-size:12px;margin:0 0 8px">⚠️ Volume grande no período — contagem parcial.</p>' : '';
+el.innerHTML = cb.length
+? aviso + cb.map(r => `
+<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--surf2)">
+<div style="font-weight:600">${r.referrer}</div>
+<div style="text-align:right">
+<div>${mrNum(r.clicks)} cliques</div>
+<div style="color:var(--mut);font-size:12px">${r.pct != null ? r.pct + '%' : '—'}</div>
+</div>
+</div>`).join('')
+: '<p style="color:var(--mut);margin:0">Sem dados no período.</p>';
 }
 
 // Lojas vem de field_mapping, nao do enum: so faz sentido oferecer loja que o
