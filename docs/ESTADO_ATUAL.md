@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 102 — 29/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 103 — 29/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1650,9 +1650,52 @@ desmarcado = não posta, não posta de outro jeito.
 
 ## Última alteração
 
-**REVISÃO 102 — 29/08/2026 — CAUSA RAIZ ACHADA: "canal" do WhatsApp nunca
-funcionou pra ninguém — não é bug do Arthur, é sistêmico. Só investigação,
-NADA CODADO ainda. Ver P95.**
+**REVISÃO 103 — 29/08/2026 — P95 CONSERTADO E DEPLOYADO (código + migração dos
+2 canais legados). Falta só confirmar com um disparo real que a mensagem chega
+no canal do Arthur — isso o agente não consegue medir sozinho.**
+
+Continuação da REVISÃO 102 (causa raiz do canal WhatsApp nunca ter entregado
+nada). Érico confirmou o conserto e pediu explicitamente que já ficasse pronto
+"pra futuros usuários usarem tbm", não só um patch pontual pro Arthur. Commitado
+via editor web do GitHub (push direto por `git` segue bloqueado pelo proxy desta
+sessão — ver nota em "Acesso").
+
+- **`wa-engine/server.js` (commit `6ed0e7`):**
+  - `/send`: removido o `jid = channelId.replace(/\D/g,'') + '@newsletter'` que
+    inventava um JID por regex a partir da URL do convite. Agora `/send` **exige**
+    `channelId` já no formato `...@newsletter` — se vier link cru, `400` explícito
+    em vez de aceitar e falhar mudo.
+  - Nova rota `GET /channel-invite-info?phone=&code=` — espelha o
+    `/group-invite-info` que já existia pra grupo, mas pra canal: chama
+    `session.socket.newsletterMetadata('invite', code)` do Baileys, valida que o
+    `id` retornado termina em `@newsletter`, devolve `{ok,id,subject,size}`.
+- **`frontend/index.html` (commit `e8ed03e`):**
+  - Cadastro de canal (`wireWaCanais`/`wcBuscar`) não simula mais localmente
+    (era um `setTimeout` que só lia o slug da URL e mostrava "OWNER" sem checar
+    nada). Agora chama `/channel-invite-info` de verdade, igual ao fluxo de
+    convite de grupo, e só oferece "Vincular este canal" com o JID real em mãos.
+  - `vincularCanal` agora recebe e grava `channel_whatsapp_id` no insert.
+  - Canais já cadastrados sem `channel_whatsapp_id` (linhas legadas) ganham um
+    badge visível "⚠️ revincular" na lista — cobre qualquer linha que escape da
+    migração abaixo ou de um bug futuro que volte a gravar sem o id.
+- **Migração dos 2 canais existentes:** deployada e rodada uma Edge Function
+  one-off (`p95-migrate-canais`, já **desativada** depois de rodar — devolve
+  `410` — não há tool de delete de function via MCP nesta sessão; pode ser
+  apagada pelo Dashboard do Supabase se quiser) que chamou
+  `/channel-invite-info` com o telefone de cada dono e o `channel_link`
+  existente, e gravou o `channel_whatsapp_id` resolvido:
+  - Arthur ("ART Finds", `d567b564-…`): `120363429097680639@newsletter`
+  - Gustavo Kalleb ("teste canal", `d4985c93-…`): `120363410343729423@newsletter`
+  - **Confirmado por `execute_sql` direto na tabela** (não só pela resposta da
+    function) que as duas linhas gravaram.
+- **O que NÃO foi medido ainda (regra de ouro do projeto):** que uma mensagem
+  publicada de verdade chega no canal do Arthur no WhatsApp. O `/send` agora
+  recusa link cru e o JID gravado é o resolvido pela API do Baileys (não mais
+  inventado por regex), o que **deveria** resolver — mas isso é dedução de
+  código, não comportamento observado. Falta um disparo real (manual ou pelo
+  próximo ciclo de Post Automático do grupo do Arthur) e conferir no WhatsApp
+  se chegou. Ver "Pendências abertas" — P95 fica **parcialmente aberta** até
+  essa confirmação.
 
 Érico pediu pra investigar por que os produtos do grupo do Arthur ("ART
 Finds") não estavam saindo no **canal** do WhatsApp (distinto de **grupo** do
@@ -7506,7 +7549,7 @@ código não relacionado.
 | **P92** | 🟡 **`niche_groups.delete_after_post` — "excluir automaticamente após postar" deployado (`send-post` v22) e sem UM DISPARO REAL medido.** Falta: ligar o checkbox num grupo de teste com Post Automático ativo, deixar um disparo sair e confirmar (a) o produto some da lista, (b) a linha em `scheduled_posts` continua íntegra (`product_id` vira `null` por `ON DELETE SET NULL`, não `undefined`/erro) | 29/08 |
 | **P93** | 🟡 **Botão ✏️ editar produto em Grupo de Oferta, sem teste em navegador.** Só smoke test de sintaxe. Falta clicar, editar um produto de verdade, salvar e conferir no banco que virou `UPDATE` (não duplicou linha) e que o link não foi reafiliado/reencurtado por engano | 29/08 |
 | **P94** | 🟡 **`clone_auto_approve` (por grupo) e `auto_publish` (por fonte) com UI nova, sem nenhuma medição em produção.** Nenhum grupo ou fonte tinha qualquer um dos dois ligado até o fim desta sessão. Falta: ligar um dos dois numa fonte/grupo de teste que capture de verdade, confirmar que uma captura `data_source='store'` completa sai direto pro rodízio sem passar pela fila, e que uma `data_source='message'` continua pendente mesmo assim | 29/08 |
-| **P95** | 🔴 **CANAL do WhatsApp nunca entregou mensagem nenhuma, pra ninguém — achado investigando o caso do Arthur, é sistêmico.** `whatsapp_channels.channel_whatsapp_id` é `null` nas 2 linhas que existem no banco (nenhum código em lugar nenhum do repo o preenche — o cadastro do canal salva só `channel_link`, o link de convite). `send-post`/`wa-engine` `/send` caem no fallback pro `channel_link` e transformam a URL do convite num JID **inventado** por regex (`replace(/\D/g,'')+'@newsletter'`) — não é o JID real do canal. O Baileys aceita sem validar, retorna sucesso, `scheduled_posts` grava `sent`/`error:null` — falha muda, igual ao padrão antigo da P28. **Conserto ainda não decidido:** precisa resolver o convite pro JID real (Baileys tem API de metadata de newsletter por invite code, análoga ao `/group-invite-info` que já existe pra grupo — não existe o par pra canal), gravar em `channel_whatsapp_id` no cadastro, e fazer `/send` exigir JID real em vez de aceitar link cru. Nada codado ainda — só a investigação, ver "Última alteração" da REVISÃO 102 | 29/08 |
+| **P95** | 🟡 **Conserto codado, deployado e migração aplicada (REVISÃO 103) — falta só confirmar por um disparo real que a mensagem chega no canal.** Causa raiz (REVISÃO 102): `channel_whatsapp_id` nunca era preenchido, `/send` inventava um JID por regex a partir do link de convite, Baileys aceitava sem validar e gravava `sent`/`error:null` — falha muda. Conserto: `wa-engine` ganhou `/channel-invite-info` (resolve JID real via `newsletterMetadata`, espelha `/group-invite-info`), `/send` agora recusa link cru com `400`, frontend resolve de verdade no cadastro em vez de simular, canais legados sem `channel_whatsapp_id` ganham badge "⚠️ revincular". Os 2 canais existentes (Arthur e Gustavo) foram migrados e **confirmados no banco** com JID real. **O que falta:** ninguém mediu ainda uma mensagem chegando de fato no WhatsApp do canal — só o código e a gravação no banco foram verificados. Ver "Última alteração" da REVISÃO 103 | 29/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
