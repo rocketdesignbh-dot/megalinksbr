@@ -23,6 +23,8 @@
  * - POST /disconnect/:sessionId → Desconecta sessão
  * - POST /reconnect/:phone → Força reconexão de sessão salva
  * - GET /groups → Lista grupos do WhatsApp
+ * - GET /group-invite-info → Resolve grupo pelo link de convite
+ * - GET /channel-invite-info → Resolve canal (newsletter) pelo link de convite
  * - GET /health → Status do servidor
  */
 
@@ -837,11 +839,8 @@ app.post('/send', verifyToken, resolverDono, async (req, res) => {
     }
 
     try {
-        let jid = channelId;
-        if (!jid.includes('@')) {
-            jid = jid.replace(/\D/g, '') + (jid.includes('-') ? '@g.us' : '@newsletter');
-        }
-
+        const jid = channelId;
+        
         if (imageUrl) {
             await session.socket.sendMessage(jid, { ...(await conteudoDeImagem(imageUrl)), caption: text });
         } else {
@@ -1819,6 +1818,68 @@ app.get('/group-invite-info', verifyToken, resolverDono, async (req, res) => {
     }
 });
 
+// -- Convite: resolver JID de um CANAL (newsletter) pelo link de convite --
+// (P95, 29/08). Par do /group-invite-info acima, só que pra canal em vez de
+// grupo. Sem isso o cadastro de canal (frontend `vincularCanal`) não tinha
+// como saber o JID real — só guardava o link, e o /send tentava adivinhar o
+// JID a partir da URL, o que nunca funcionou (ver "P95" no /send acima).
+//
+// `newsletterMetadata('invite', code)` é a chamada do Baileys pra isso —
+// existe desde a 6.6.x (o package.json já pede ^6.5.0, então um npm install
+// novo já traz a versão com suporte; não precisou subir o pin). Devolve
+// `{ id, name, subscribers, ... }`, `id` no formato "NNNN@newsletter".
+function extrairCodigoCanal(v) {
+    const s = String(v || '').trim();
+    // Com o domínio na frente a intenção está provada: aceita o código como vier.
+    const m = s.match(/whatsapp\.com\/channel\/([A-Za-z0-9]{10,40})/i);
+    if (m) return m[1];
+    // Código solto: mesmo criterio frouxo-mas-nao-tanto do grupo acima.
+    if (/^[A-Za-z0-9]{10,40}$/.test(s)) return s;
+    return '';
+}
+
+app.get('/channel-invite-info', verifyToken, resolverDono, async (req, res) => {
+    const phoneParam = String(req.query.phone || '').replace(/\D/g, '');
+    const code = extrairCodigoCanal(req.query.code);
+
+    if (!phoneParam) {
+        return res.status(400).json({ error: 'Informe o número da sessão em ?phone=.' });
+    }
+    if (!code) {
+        return res.status(400).json({ error: 'Isso não parece um link de canal do WhatsApp. Esperado: https://whatsapp.com/channel/XXXXXXXX.' });
+    }
+    if (!donoAutorizado(req, phoneParam)) { // mesmo motivo do /group-invite-info
+        return res.status(403).json({ error: 'Esse número não pertence a este usuário.' });
+    }
+
+    let session = null;
+    for (const [, s] of SESSIONS) {
+        if (s.status !== 'paired') continue;
+        const sp = String(s.phoneNumber || '').replace(/\D/g, '');
+        if (!sp) continue;
+        if (sp.slice(-8) === phoneParam.slice(-8)) { session = s; break; }
+    }
+    if (!session) {
+        return res.status(404).json({ error: 'Nenhuma sessão conectada para esse número.' });
+    }
+
+    try {
+        const info = await comPrazo(session.socket.newsletterMetadata('invite', code), 12000, 'o WhatsApp');
+        const id = String(info?.id || '');
+        if (!id.endsWith('@newsletter')) throw new Error('a resposta veio sem JID de canal');
+        console.log(`[CHANNEL-INVITE] ${code.slice(0, 6)}… -> ${id} (${info?.name || 'sem nome'})`);
+        res.json({
+            ok: true,
+            id,
+            subject: info?.name || id,
+            size: info?.subscribers || 0,
+        });
+    } catch (e) {
+        console.error('[CHANNEL-INVITE] Erro:', e.message);
+        res.status(502).json({ error: `Não consegui ler esse canal: ${e.message}` });
+    }
+});
+
 // -- Health --
 app.get('/health', (req, res) => {
     const connected = [...SESSIONS.values()].filter(s => s.status === 'paired').length;
@@ -1868,6 +1929,7 @@ Endpoints:
   POST   /reconnect/:phone     → Forçar reconexão
   GET    /groups               → Listar grupos WA
   GET    /group-invite-info    → Resolver grupo pelo link de convite
+  GET    /channel-invite-info  → Resolver canal (newsletter) pelo link de convite
   GET    /health               → Status
 
 Autenticação: Bearer token (WA_ENGINE_TOKEN)
