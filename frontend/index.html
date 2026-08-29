@@ -5988,36 +5988,48 @@ async function wireWaCanais(){
   if(gid){
     const{data}=await SB.from("whatsapp_channels").select("*").eq("niche_group_id",gid);
     if(data){
-      canaisVinc=data.map(r=>({db_id:r.id,nome:r.name,role:(r.role||"owner").toUpperCase(),link:r.channel_link||""}));
+      canaisVinc=data.map(r=>({db_id:r.id,nome:r.name,role:(r.role||"owner").toUpperCase(),link:r.channel_link||"",whatsappId:r.channel_whatsapp_id||null}));
       S.grupoAtual.canais=canaisVinc.length;
       const wcList=document.getElementById("wcList");
-      if(wcList)wcList.innerHTML=canaisVinc.length
-        ?canaisVinc.map(c=>`<div class="prod"><div class="pimg">📣</div><div style="flex:1"><strong>${c.nome}</strong></div><span class="chan-badge">✓ ${c.role}</span> <button class="btn btn-red btn-sm" onclick="desvincular('${c.nome}')">Remover</button></div>`).join("")
-        :'<p style="color:var(--mut);text-align:center;padding:20px">Nenhum canal vinculado ainda.</p>';
+      if(wcList)wcList.innerHTML=canaisVinc.length?canaisVinc.map(renderCanalItem).join(""):'<p style="color:var(--mut);text-align:center;padding:20px">Nenhum canal vinculado ainda.</p>';
     }
   }
   const btn=document.getElementById("wcBuscar");
-  btn.onclick=()=>{
+  btn.onclick=async()=>{
     if(!S.waConnected){toast("Pareie um número WhatsApp primeiro.","⚠️");setRole("afiliado");
   // RATE LIMITING: Inicializar
   if(window.SB && window.initRateLimiting && profile.id) {
     try { initRateLimiting(SB, profile.id); } catch(e) { console.warn('Rate limit init:', e); }
   }go("conexao");return;}
-    const link=document.getElementById("wcLink")?.value||"";
-    if(!link.trim()){toast("Cole o link do canal primeiro.","⚠️");return;}
+    const link=document.getElementById("wcLink")?.value.trim()||"";
+    if(!link){toast("Cole o link do canal primeiro.","⚠️");return;}
+    const waPhone=(S.waNumber||"").replace(/\D/g,"");
+    if(!waPhone){toast("Conecte seu WhatsApp primeiro.","⚠️");return;}
     const res=document.getElementById("wcResult");
-    res.innerHTML='<div class="prod"><div class="pimg">🔎</div><div style="flex:1"><span class="typing"><i></i><i></i><i></i></span> validando seu papel no canal…</div></div>';
-    setTimeout(()=>{
-      const m=link.match(/\/channel\/([^\/?]+)/i);
-      const slug=m?m[1]:"meu-canal";
-      const nome=slug.replace(/-/g," ").replace(/\b\w/g,l=>l.toUpperCase());
-      res.innerHTML=`<div class="prod"><div class="pimg">📣</div><div style="flex:1"><strong>${nome}</strong><br><small style="color:var(--mut)">canal do WhatsApp</small></div><span class="chan-badge">✓ OWNER</span></div>
-      <button class="btn btn-volt" onclick="vincularCanal('${nome.replace(/'/g,"\\'")}','${link.replace(/'/g,"\\'")}\')" style="margin-top:4px">Vincular este canal</button>`;
-    },1400);
+    res.innerHTML='<div class="prod"><div class="pimg">🔎</div><div style="flex:1"><span class="typing"><i></i><i></i><i></i></span> lendo o canal…</div></div>';
+    // P95 (29/08): antes isto era simulado (setTimeout, so pegava o slug da URL
+    // e mostrava "OWNER" sem checar nada de verdade) — o disparo real ficava
+    // sem JID de canal nenhum e nunca chegava a lugar nenhum. Agora resolve de
+    // verdade no wa-engine, igual ao fluxo de convite de grupo/fonte de clone.
+    try{
+      const r=await fetch(`${WA_ENGINE_URL}/channel-invite-info?phone=${waPhone}&code=${encodeURIComponent(link)}`,{headers:waAuthHeaders()});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok||!d.ok)throw new Error(d.error||("HTTP "+r.status));
+      const nome=String(d.subject||"Meu canal");
+      const whatsappId=String(d.id||"");
+      res.innerHTML=`<div class="prod"><div class="pimg">📣</div><div style="flex:1"><strong>${nome.replace(/</g,"&lt;")}</strong><br><small style="color:var(--mut)">${d.size||0} inscrito(s) · canal do WhatsApp</small></div></div>
+      <button class="btn btn-volt" onclick="vincularCanal('${nome.replace(/'/g,"\\'").replace(/</g,"&lt;")}','${link.replace(/'/g,"\\'")}','${whatsappId.replace(/'/g,"\\'")}\')" style="margin-top:4px">Vincular este canal</button>`;
+    }catch(e){
+      res.innerHTML='<div class="alert r" style="margin:0"><span><strong>Não deu:</strong> '+String(e&&e.message?e.message:e).replace(/</g,"&lt;")+'</span></div>';
+    }
   };
 }
+function renderCanalItem(c){
+  const aviso=c.whatsappId?"":' <span class="chan-badge" style="background:var(--red,#ef4444)" title="Cadastrado antes do conserto — não recebe posts até ser revinculado">⚠️ revincular</span>';
+  return `<div class="prod"><div class="pimg">📣</div><div style="flex:1"><strong>${c.nome}</strong></div><span class="chan-badge">✓ ${c.role}</span>${aviso} <button class="btn btn-red btn-sm" onclick="desvincular('${c.nome}')">Remover</button></div>`;
+}
 let canaisVinc=[];
-async function vincularCanal(nome,link){
+async function vincularCanal(nome,link,whatsappId){
   const n=nome||"Meu canal";
   // Trava wa_channels
   const maxCh=lim("wa_channels")===-1?9999:lim("wa_channels");
@@ -6029,17 +6041,18 @@ async function vincularCanal(nome,link){
   }
   const uid=CURRENT_USER?.id;
   const gid=S.grupoAtual?.db_id;
+  const wid=whatsappId||null;
   if(uid&&gid){
     try{
       const{data,error}=await SB.from("whatsapp_channels").insert({
-        niche_group_id:gid,name:n,channel_link:link||"",role:"owner"
+        niche_group_id:gid,name:n,channel_link:link||"",channel_whatsapp_id:wid,role:"owner"
       }).select("id").single();
-      if(!error&&data)canaisVinc.push({db_id:data.id,nome:n,role:"OWNER",link:link||""});
-      else canaisVinc.push({nome:n,role:"OWNER",link:link||""});
-    }catch(e){canaisVinc.push({nome:n,role:"OWNER",link:link||""});}
-  }else{canaisVinc.push({nome:n,role:"OWNER",link:link||""});}
+      if(!error&&data)canaisVinc.push({db_id:data.id,nome:n,role:"OWNER",link:link||"",whatsappId:wid});
+      else canaisVinc.push({nome:n,role:"OWNER",link:link||"",whatsappId:wid});
+    }catch(e){canaisVinc.push({nome:n,role:"OWNER",link:link||"",whatsappId:wid});}
+  }else{canaisVinc.push({nome:n,role:"OWNER",link:link||"",whatsappId:wid});}
   S.grupoAtual.canais=canaisVinc.length;renderGrupos();
-  document.getElementById("wcList").innerHTML=canaisVinc.map(c=>`<div class="prod"><div class="pimg">📣</div><div style="flex:1"><strong>${c.nome}</strong></div><span class="chan-badge">✓ ${c.role}</span> <button class="btn btn-red btn-sm" onclick="desvincular('${c.nome}')">Remover</button></div>`).join("");
+  document.getElementById("wcList").innerHTML=canaisVinc.map(renderCanalItem).join("");
   document.getElementById("wcResult").innerHTML="";
   document.getElementById("wcAlert").className="alert g";document.getElementById("wcAlert").innerHTML="✅ Canal vinculado! Ative o <strong>Post Automático</strong> na aba Automação de Posts para começar a publicar.";
   toast("Canal vinculado como OWNER!","📣");
