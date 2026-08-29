@@ -2292,6 +2292,8 @@ async function loadGroups(){
       smartWeekend:!!r.smart_weekend,
       validadeDias:r.default_validity_days??null,
       loopEnabled:!!r.loop_enabled,
+      deleteAfterPost:!!r.delete_after_post,
+      cloneAutoApprove:!!r.clone_auto_approve,
     }));
     // ─── Buscar contagens reais de grupos WA, canais e produtos vinculados ───
     try{
@@ -5146,7 +5148,7 @@ async function loadTabProdCounts(){
     _tabProdCounts["prod-meus"]=data?.length||0;
   }catch(e){}
 }
-function editarGrupo(id,tab){S.grupoAtual=S.grupos.find(g=>String(g.id)===String(id)||String(g.db_id)===String(id));if(!S.grupoAtual){toast("Grupo não encontrado.","⚠️");return;}egNome.textContent=S.grupoAtual.nome+" · ID "+id;_tabProdCounts={};loadTabProdCounts().then(()=>buildTabs());go("editar-grupo");if(tab)setTimeout(()=>{const t=document.querySelector(`.etab[data-tab="${tab}"]`);if(t)t.click();},250);}
+function editarGrupo(id,tab){S.grupoAtual=S.grupos.find(g=>String(g.id)===String(id)||String(g.db_id)===String(id));if(!S.grupoAtual){toast("Grupo não encontrado.","⚠️");return;}PROD_EDIT_ID=null;egNome.textContent=S.grupoAtual.nome+" · ID "+id;_tabProdCounts={};loadTabProdCounts().then(()=>buildTabs());go("editar-grupo");if(tab)setTimeout(()=>{const t=document.querySelector(`.etab[data-tab="${tab}"]`);if(t)t.click();},250);}
 async function editarNomeGrupoAtual(){
   const g=S.grupoAtual;if(!g){toast("Grupo não encontrado.","⚠️");return;}
   const novoNome=prompt("Novo nome do grupo:",g.nome||"");
@@ -5278,6 +5280,7 @@ geral:`
     <div class="card" style="margin:0"><div class="ch">⚙️ Postagem automática</div><div class="cb">
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:10px"><input type="checkbox" id="pgAuto" style="width:auto"> Post Automático</label>
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgLoop" style="width:auto"> Post em Loop <small style="color:var(--mut);font-weight:400">(ordem aleatória a cada disparo — desmarcado posta na ordem em que os produtos foram cadastrados)</small></label>
+      <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgExcluirAposPostar" style="width:auto"> 🗑️ Excluir automaticamente após postar <small style="color:var(--mut);font-weight:400">(some do grupo assim que sai no disparo — libera espaço pra cadastrar produtos novos. Não tem desfazer.)</small></label>
       <div style="border:1px solid var(--bd);border-radius:2px;padding:11px 12px;margin-bottom:14px;background:rgba(139,92,246,.07)">
         <label style="display:flex;gap:9px;align-items:center;font-weight:600"><input type="checkbox" id="pgSmart" style="width:auto" onchange="pgSmartAplicar()"> 🧠 Horários Inteligentes <span class="pill" style="background:rgba(139,92,246,.18);color:#A78BFA;flex:none;font-size:10px;padding:1px 7px">ELITE+</span></label>
         <div style="font-size:12px;color:var(--tx2);margin-top:7px;line-height:1.65">Posta só nas janelas de maior audiência, dividindo seus produtos entre elas. <strong>Substitui intervalo e horário.</strong><br>${SMART_JANELAS.map(j=>j.rot).join(" · ")} <small style="color:var(--mut)">(a última é a melhor)</small><br>Até ${SMART_MAX_DIA} posts/dia, no mínimo ${SMART_PISO_MIN} min entre um e outro. O que não couber hoje entra amanhã.</div>
@@ -5317,6 +5320,17 @@ geral:`
       </div>
     </div></div>
   </div>
+  <!-- Clone Post — aprovação automática por grupo de destino -->
+  <div class="card" style="margin-top:14px"><div class="ch">🤖 Clone Post — captura automática deste grupo</div><div class="cb">
+    <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:10px"><input type="checkbox" id="pgCloneAutoApprove" style="width:auto" onchange="pgCloneAutoApproveAlerta()"> ✅ Aprovação Automática <small style="color:var(--mut);font-weight:400">(ofertas capturadas por Fonte automática que a loja confirmar vão direto pro rodízio deste grupo, sem passar pela fila de revisão)</small></label>
+    <div id="pgCloneAutoApproveAlerta" style="display:none;border:2px solid #ef4444;border-radius:2px;padding:12px 14px;background:rgba(239,68,68,.12)">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:22px;line-height:1">⚠️</span>
+        <span style="font-size:12.5px;line-height:1.65;color:var(--tx)"><strong>Atenção: com isso ligado, o que a Fonte capturar entra no seu grupo sozinho, sem você revisar antes.</strong><br>
+        A Mega Links BR <strong>não se responsabiliza pelos dados postados por essa função</strong> — título, preço e imagem vêm de terceiros (o grupo-fonte e a loja) e podem sair errados. Uma captura só pula a fila quando a <strong>loja confirmou o preço e a foto</strong>; dado lido apenas do texto da mensagem do grupo-fonte continua indo pra revisão, mesmo com isso ligado. Ainda assim, o risco de um dado errado ir pro seu grupo é seu.</span>
+      </div>
+    </div>
+  </div></div>
   <!-- Presets salvos -->
   <div class="card" style="margin-top:0"><div class="ch">💾 Pré-configurações salvas <span class="r"><button class="btn btn-volt btn-sm" onclick="pgSalvarPreset()">＋ Salvar configuração atual</button></span></div>
     <div class="cb" id="pgPresetList"><p style="color:var(--mut);font-size:13px">Nenhuma configuração salva ainda. Configure acima e clique em "Salvar configuração atual".</p></div>
@@ -5557,8 +5571,9 @@ manual:`
         <div class="field"><label>Preço parcelado</label><input id="paParcelado" placeholder="10x de R$ 5,99"></div>
         <div class="field"><label>Código do cupom</label><input id="paCupom" placeholder="Ex: CUPOM10"></div>
         <div style="display:flex;gap:8px;margin-top:4px">
-          <button class="btn btn-volt" style="flex:1" onclick="prodAdicionarManual()">➕ Salvar produto</button>
-          <button class="btn btn-gold" style="flex:1" onclick="prodAdicionarManual(true)">⚡ Salvar e Postar</button>
+          <button class="btn btn-volt" id="paSalvarBtn" style="flex:1" onclick="prodAdicionarManual()">➕ Salvar produto</button>
+          <button class="btn btn-gold" id="paSalvarPostarBtn" style="flex:1" onclick="prodAdicionarManual(true)">⚡ Salvar e Postar</button>
+          <button class="btn btn-ghost" id="paCancelarEdicaoBtn" style="flex:none;display:none" onclick="prodCancelarEdicao()">Cancelar edição</button>
         </div>
       </div></div>
     </div>
@@ -5758,6 +5773,11 @@ function buildTabs(){
     if(pgAuto)pgAuto.checked=!!g.postAuto;
     const pgLoop=document.getElementById("pgLoop");
     if(pgLoop)pgLoop.checked=!!g.loopEnabled;
+    const pgExcl=document.getElementById("pgExcluirAposPostar");
+    if(pgExcl)pgExcl.checked=!!g.deleteAfterPost;
+    const pgCAA=document.getElementById("pgCloneAutoApprove");
+    if(pgCAA)pgCAA.checked=!!g.cloneAutoApprove;
+    pgCloneAutoApproveAlerta();
     const pgInt=document.getElementById("pgInt");
     if(pgInt&&g.intervalo){const mins=String(g.intervalo).replace(/\D/g,"");const opt=[...pgInt.options].find(o=>o.value===mins);if(opt)pgInt.value=mins;}
     const pgIni=document.getElementById("pgIni");
@@ -5819,6 +5839,16 @@ function prodPreencherValidade(){
   const el=document.getElementById("prodValidoAte");
   if(el&&!el.value)el.value=prodValidadePadraoISO();
 }
+// Mostra/esconde o alerta chamativo junto com o checkbox — pedido do Érico
+// ("um Alerta bem chamativo, que a Megalinksbr não se responsabiliza por
+// dados postados nessa função"). Fica ligado ao estado do checkbox, não a um
+// "já vi isso": desligar e religar mostra o aviso de novo, de propósito — é
+// o tipo de coisa que vale reler cada vez que alguém for ligar.
+function pgCloneAutoApproveAlerta(){
+  const chk=document.getElementById("pgCloneAutoApprove");
+  const al=document.getElementById("pgCloneAutoApproveAlerta");
+  if(al)al.style.display=(chk&&chk.checked)?"block":"none";
+}
 async function salvarGeral(){
   const g=S.grupoAtual;
   const hasPostAuto=!!(PLAN_FEATURES[MY_PLAN]||{}).wa_post_automation;
@@ -5834,6 +5864,8 @@ async function salvarGeral(){
   g.smartSchedule=!!document.getElementById("pgSmart")?.checked&&smartTemPlano();
   g.smartWeekend=!!document.getElementById("pgSmartFds")?.checked;
   g.loopEnabled=!!document.getElementById("pgLoop")?.checked;
+  g.deleteAfterPost=!!document.getElementById("pgExcluirAposPostar")?.checked;
+  g.cloneAutoApprove=!!document.getElementById("pgCloneAutoApprove")?.checked;
   g.defaultCouponId=document.getElementById("pgCupomPadrao")?.value||null;
   const validadeSel=document.getElementById("pgValidade")?.value||"";
   g.validadeDias=validadeSel?Number(validadeSel):null;
@@ -5871,6 +5903,8 @@ async function salvarGeral(){
         smart_schedule:!!g.smartSchedule,
         smart_weekend:!!g.smartWeekend,
         loop_enabled:!!g.loopEnabled,
+        delete_after_post:!!g.deleteAfterPost,
+        clone_auto_approve:!!g.cloneAutoApprove,
         default_coupon_id:g.defaultCouponId||null,
         default_validity_days:g.validadeDias||null,
       }).eq("id",g.db_id);
@@ -5888,7 +5922,7 @@ async function salvarGeral(){
 function pgResetGeral(){
   if(!confirm("Limpar todas as configurações deste grupo?"))return;
   const g=S.grupoAtual;
-  g.postAuto=false;g.intervalo="10 min";g.startHour=8;g.endHour=22;g.loopEnabled=false;
+  g.postAuto=false;g.intervalo="10 min";g.startHour=8;g.endHour=22;g.loopEnabled=false;g.deleteAfterPost=false;g.cloneAutoApprove=false;
   buildTabs();
   toast("Configurações limpas.","🗑️");
 }
@@ -6529,6 +6563,7 @@ function prodPintarLista(){
         <small style="color:var(--mut)">${p.price?`R$ ${Number(p.price).toFixed(2).replace(".",",")} · `:""}${p.discount_pct?p.discount_pct+"% OFF · ":""}<span class="mono" style="color:var(--volt-tx);font-size:10px">${(p.affiliate_url||"").slice(0,60)}${(p.affiliate_url||"").length>60?"…":""}</span></small>
         <div style="font-size:11px;color:${idade.cor};margin-top:2px">${idade.semConferencia?"🔍 ":(idade.nunca?"⚠️ ":(idade.velho?"🕐 ":""))}${idade.txt}</div>
       </div>
+      <button class="btn btn-ghost btn-sm" onclick="prodEditar('${p.id}')" title="Editar produto">✏️</button>
       <button class="btn btn-red btn-sm" onclick="prodRemover('${p.id}')">✕</button>
     </div>`;}).join("")+prodPaginacaoHtml(total,paginas);
   prodSelAtualizar();
@@ -6537,6 +6572,15 @@ function prodPintarLista(){
 function wireProdAdd(){
   _prodImportData=null;
   const prev=document.getElementById("prodImportPreview");if(prev)prev.style.display="none";
+  // Entrar nesta aba por qualquer via que não seja prodEditar() cancela uma
+  // edição pendente — sem isso, sair da edição sem "Cancelar" e voltar depois
+  // salvaria por cima do produto errado com campos em branco.
+  if(_prodEditEntering){_prodEditEntering=false;}
+  else if(PROD_EDIT_ID){
+    PROD_EDIT_ID=null;
+    ["paNome","paLink","paPreco","paPrecoOrig","paImg","paDesc","paSufixo","paParcelado","paCupom"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  }
+  prodAtualizarModoEdicao();
 }
 
 // Preenche os campos de preco do "Importar via link" com o que a busca retornou.
@@ -6796,6 +6840,22 @@ async function prodAdicionarManual(postarAgora=false){
   if(!link){toast("Informe o link afiliado.","⚠️");return;}
   const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
   if(!gid){toast("Salve o grupo primeiro.","⚠️");return;}
+  // Editando um produto existente: atualiza no lugar, sem mexer em posição,
+  // limite do plano (já contado) ou link afiliado (o link já foi gerado no
+  // cadastro — reafiliar de novo aqui poderia trocar a loja detectada por
+  // engano se o usuário só corrigiu o preço).
+  if(PROD_EDIT_ID){
+    const{error:errUpd}=await SB.from("products").update({
+      title:nome,original_url:link,price:preco,price_original:precoOrig,
+      image_url:img,discount_pct:desc,price_suffix:sufixo,price_installment:parcelado,
+      coupon_code:cupom||null,
+    }).eq("id",PROD_EDIT_ID);
+    if(errUpd){toast("Erro: "+errUpd.message,"⚠️");return;}
+    toast("Produto atualizado! ✅","💾");
+    prodCancelarEdicao();
+    wireProdLista();
+    return;
+  }
   const _maxProd=lim("max_products")??15;if(_maxProd!==-1){const{count}=await SB.from("products").select("id",{count:"exact",head:true}).eq("niche_group_id",gid);if((count||0)>=_maxProd){toast(`Limite de ${_maxProd} produtos por grupo no plano ${myFeatures().label}. Faça upgrade!`,"🔒");go("assinatura");return;}}
   const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gid).order("position",{ascending:false}).limit(1).maybeSingle();
   const pos=(last?.position||0)+1;
@@ -6842,6 +6902,56 @@ async function prodAdicionarManual(postarAgora=false){
 // não dá: trocar de página destrói os checkboxes e levaria a marcação junto.
 // Marcar 40 itens em duas páginas e apagar 25 seria pior do que não marcar nada.
 let PROD_SEL=new Set();
+// Id do produto em edição no formulário "➕ Adicionar" (null = cadastro novo).
+// Enquanto setado, prodAdicionarManual faz UPDATE em vez de INSERT.
+let PROD_EDIT_ID=null;
+// true só entre o set de PROD_EDIT_ID em prodEditar() e o wireProdAdd() que o
+// clique programático na aba dispara — diferencia "entrando por editar" de
+// "usuário clicou na aba por conta própria".
+let _prodEditEntering=false;
+
+function prodAtualizarModoEdicao(){
+  const editando=!!PROD_EDIT_ID;
+  const salvar=document.getElementById("paSalvarBtn");
+  const postar=document.getElementById("paSalvarPostarBtn");
+  const cancelar=document.getElementById("paCancelarEdicaoBtn");
+  if(salvar)salvar.textContent=editando?"💾 Salvar alterações":"➕ Salvar produto";
+  if(postar)postar.style.display=editando?"none":"";
+  if(cancelar)cancelar.style.display=editando?"":"none";
+}
+
+// Abre "➕ Adicionar" pré-preenchido com os dados do produto e passa o
+// formulário para modo edição. wireProdAdd() (disparado pelo clique na aba)
+// só limpa o preview de importação — não mexe em PROD_EDIT_ID, então setá-lo
+// ANTES do clique é seguro.
+function prodEditar(id){
+  const p=PROD_DATA.find(x=>String(x.id)===String(id));
+  if(!p){toast("Produto não encontrado.","⚠️");return;}
+  PROD_EDIT_ID=String(id);
+  _prodEditEntering=true;
+  const tab=document.querySelector('.tab[data-tab="prod-add"]');
+  if(tab)tab.click();
+  const set=(campo,v)=>{const el=document.getElementById(campo);if(el)el.value=v==null?"":String(v);};
+  set("paNome",p.title||"");
+  set("paLink",p.original_url||p.affiliate_url||"");
+  set("paPreco",p.price!=null?String(p.price).replace(".",","):"");
+  set("paPrecoOrig",p.price_original!=null?String(p.price_original).replace(".",","):"");
+  set("paImg",p.image_url||"");
+  set("paDesc",p.discount_pct!=null?p.discount_pct:"");
+  set("paSufixo",p.price_suffix||"");
+  set("paParcelado",p.price_installment||"");
+  set("paCupom",p.coupon_code||"");
+  prodAtualizarModoEdicao();
+}
+
+// Sai do modo edição sem salvar e volta pra lista.
+function prodCancelarEdicao(){
+  PROD_EDIT_ID=null;
+  ["paNome","paLink","paPreco","paPrecoOrig","paImg","paDesc","paSufixo","paParcelado","paCupom"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  prodAtualizarModoEdicao();
+  const tabMeus=document.querySelector('.tab[data-tab="prod-lista"]');
+  if(tabMeus)tabMeus.click();
+}
 
 function prodSelMarcados(){
   // Só ids que ainda existem na lista carregada: produto apagado por outra via
@@ -9782,6 +9892,22 @@ function csTetoBarradoHtml(f){
 // Os limites 1 e 50 sao OS MESMOS do formulario de nova fonte, de proposito.
 // Dois lugares que gravam a mesma coluna com tetos diferentes seriam a
 // divergencia mercadolivre/mercado_livre outra vez, agora em numero.
+// Auto-publicar por FONTE (clone_sources.auto_publish) — o mecanismo mais
+// antigo (v11) e mais estreito do que o clone_auto_approve por grupo: existe e
+// funciona desde sempre, mas nunca teve onde ligar pela tela (grep vazio em
+// auto_publish/autoPublish/"auto-publicar" antes desta mudança) — o Érico
+// relatou não lembrar de nunca ter visto isso funcionar. Mesmo critério de
+// segurança do clone_auto_approve: só pula a fila quando a LOJA confirmou os
+// dados; captura lida só do texto da mensagem do grupo-fonte continua sempre
+// indo pra revisão, com ou sem isso ligado.
+async function csAlternarAutoPublish(id,ligar){
+  const{error}=await SB.from("clone_sources").update({auto_publish:!!ligar}).eq("id",id);
+  if(error){toast("Não consegui mudar: "+error.message,"⚠️");return;}
+  const f=CS_FONTES.find(x=>String(x.id)===String(id));
+  if(f)f.auto_publish=!!ligar;
+  toast(ligar?"Auto-publicar ATIVADO nesta fonte.":"Auto-publicar desativado — volta pra fila de revisão.",ligar?"🚀":"✅");
+  csRender();
+}
 async function csAjustarTeto(id,delta){
   const f=CS_FONTES.find(x=>String(x.id)===String(id));
   if(!f)return;
@@ -9910,6 +10036,7 @@ function csRender(){
       ${csLojasHtml(f)}
       <div class="cs-meta" style="margin-top:2px">🕐 captura o dia inteiro · até ${teto} por dia<button type="button" class="cs-teto-bt" title="Diminuir o teto em 5 por dia" onclick="csAjustarTeto('${f.id}',-5)">−</button><button type="button" class="cs-teto-bt" title="Aumentar o teto em 5 por dia" onclick="csAjustarTeto('${f.id}',5)">+</button></div>
       <div class="cs-meta" style="margin-top:2px">⏳ a fila guarda por ${validade}h sem revisão<button type="button" class="cs-teto-bt" title="Diminuir a validade em 6 horas" onclick="csAjustarValidade('${f.id}',-6)">−</button><button type="button" class="cs-teto-bt" title="Aumentar a validade em 6 horas" onclick="csAjustarValidade('${f.id}',6)">+</button></div>
+      <label class="cs-meta" style="margin-top:6px;display:flex;gap:7px;align-items:center;cursor:pointer"><input type="checkbox" style="width:auto" ${f.auto_publish?"checked":""} onchange="csAlternarAutoPublish('${f.id}',this.checked)"> 🤖 Auto-publicar <small style="color:var(--mut)">(só quando a loja confirmar o preço — sem revisão)</small></label>
       <div class="cs-acoes">
         <button class="btn btn-ghost btn-sm" onclick="csAbrirForm('${f.id}')">Editar</button>
         <button class="btn btn-ghost btn-sm" onclick="csAlternar('${f.id}',${f.active?"false":"true"})">${f.active?"Pausar":"Ativar"}</button>
