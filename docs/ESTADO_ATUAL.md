@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 104 — 29/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 105 — 29/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1649,6 +1649,14 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 105 — 29/08/2026 — BUG CORRIGIDO E TELA "ORIGEM DOS CLIQUES" CONFIRMADA POR COMPORTAMENTO OBSERVADO NO PAINEL REAL DO ÉRICO.**
+
+Ao testar de verdade (não só HTTP 200) depois do primeiro deploy no EasyPanel, a sub-aba Métricas do Mega Results ficava travada em "Carregando métricas…" para sempre. Inspecionei `mrMetricsLoad` ao vivo em produção via JS console e comparei com o código original (`git show HEAD~1:frontend/index.html`): faltava a chamada `mrRenderMetrics(principal.data);` (perdida numa edição de sessão anterior) e havia uma linha duplicada de `mrRenderBreakdownExtra('mrCampanhas', ...)`. Corrigido e commitado (`3d9b140`), pedido novo deploy no EasyPanel.
+
+Depois do segundo deploy, confirmado logado na conta real de piloto do Érico no navegador: KPIs, gráfico e os três breakdowns (Produtos, Campanhas, Origem) carregam corretamente. O card "📍 Origem dos cliques" mostra dados reais e coerentes: Outros 20 (33.3%), WhatsApp 18 (30%), Websites 17 (28.3%), Facebook 5 (8.3%) — soma 60 cliques, batendo com o KPI de Cliques do período. P96 fechada.
+
+---
 
 **REVISÃO 104 — 29/08/2026 — TELA "ORIGEM DOS CLIQUES" (REFERRER) NO MEGA RESULTS. PUSH FEITO, FALTA DEPLOY MANUAL NO EASYPANEL E CONFIRMAÇÃO POR COMPORTAMENTO OBSERVADO.**
 
@@ -7193,7 +7201,7 @@ Importação de relatório de afiliado + dashboard de métricas.
   **Métricas (REVISÕES 80/82/85, TODAS MEDIDAS EM PRODUÇÃO)** — seletor de
   período, 8 KPIs com comparação vs. período anterior, gráfico de comissão
   por dia, breakdown por loja, **🏆 Produtos mais vendidos** e **📡
-  Performance por canal & sub ID** — `mrMetricsLoad` faz 3 chamadas a e **📍 Origem dos cliques (REVISÃO 104, codado e pushado — aguardando Deploy no EasyPanel)**
+  Performance por canal & sub ID** — `mrMetricsLoad` faz 3 chamadas a e **📍 Origem dos cliques (REVISÃO 105, confirmada por comportamento observado no painel real do Érico)**
   `mega-results/metrics/query` com `dimensions` diferentes
   (`store`/`product`/`campaign`) porque a function agrupa por combinação das
   dimensões pedidas, não uma tabela por dimensão numa chamada só. ⚠️
@@ -7562,7 +7570,7 @@ código não relacionado.
 | **P93** | 🟡 **Botão ✏️ editar produto em Grupo de Oferta, sem teste em navegador.** Só smoke test de sintaxe. Falta clicar, editar um produto de verdade, salvar e conferir no banco que virou `UPDATE` (não duplicou linha) e que o link não foi reafiliado/reencurtado por engano | 29/08 |
 | **P94** | 🟡 **`clone_auto_approve` (por grupo) e `auto_publish` (por fonte) com UI nova, sem nenhuma medição em produção.** Nenhum grupo ou fonte tinha qualquer um dos dois ligado até o fim desta sessão. Falta: ligar um dos dois numa fonte/grupo de teste que capture de verdade, confirmar que uma captura `data_source='store'` completa sai direto pro rodízio sem passar pela fila, e que uma `data_source='message'` continua pendente mesmo assim | 29/08 |
 | **P95** | 🟡 **Conserto codado, deployado e migração aplicada (REVISÃO 103) — falta só confirmar por um disparo real que a mensagem chega no canal.** Causa raiz (REVISÃO 102): `channel_whatsapp_id` nunca era preenchido, `/send` inventava um JID por regex a partir do link de convite, Baileys aceitava sem validar e gravava `sent`/`error:null` — falha muda. Conserto: `wa-engine` ganhou `/channel-invite-info` (resolve JID real via `newsletterMetadata`, espelha `/group-invite-info`), `/send` agora recusa link cru com `400`, frontend resolve de verdade no cadastro em vez de simular, canais legados sem `channel_whatsapp_id` ganham badge "⚠️ revincular". Os 2 canais existentes (Arthur e Gustavo) foram migrados e **confirmados no banco** com JID real. **O que falta:** ninguém mediu ainda uma mensagem chegando de fato no WhatsApp do canal — só o código e a gravação no banco foram verificados. Ver "Última alteração" da REVISÃO 103 | 29/08 |
-| **P96** | 🟡 **Tela "Origem dos cliques" codada e pushada (REVISÃO 104) — falta Deploy no EasyPanel e confirmação por comportamento observado.** Edge Function `mega-results` já está deployada (version 11, ACTIVE) com a dimensão `referrer`. `frontend/index.html` commit `3742af4` no `main` via editor web do GitHub. Falta: (1) Deploy manual do `app` no EasyPanel, (2) abrir a sub-aba Métricas no navegador logado do Érico e confirmar que o card "📍 Origem dos cliques" aparece com dados reais | 29/08 |
+| ~~**P96**~~ | ✅ **FECHADA (REVISÃO 105).** "Tela Origem dos cliques" confirmada por comportamento observado, logada na conta real do Érico: KPIs, gráfico e os três breakdowns (Produtos, Campanhas, Origem) carregam certo; card "📍 Origem dos cliques" mostra Outros 20 (33,3%), WhatsApp 18 (30%), Websites 17 (28,3%), Facebook 5 (8,3%) — soma 60 cliques batendo com o KPI de Cliques. No caminho, achei e corrigi um bug real (`mrRenderMetrics` faltando, commit `3d9b140`) que travava a sub-aba Métricas inteira | 29/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
