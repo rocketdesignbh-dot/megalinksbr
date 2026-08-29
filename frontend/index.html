@@ -12191,6 +12191,7 @@ async function mrMetricsLoad(preset){
   try{
     const principal = await mrFetchMetrics(tk, preset, ['store']);
     if(principal.locked){ mrShow('mrLocked'); return; }
+mrRenderMetrics(principal.data);
         // Produtos, campanhas e origem sao complementares: se uma das tres falhar, a
     // tela principal (ja renderizada acima) continua de pe — so a tabela em
     // questao mostra o erro dela.
@@ -12204,7 +12205,7 @@ async function mrMetricsLoad(preset){
     mrRenderOrigem(origem);
 
     
-    mrRenderBreakdownExtra('mrCampanhas', campanhas, 'campaign', 'campaignLabel', mrLinhaCampanha);
+    
   }catch(e){
     document.getElementById('mrMetLoading').style.display = 'none';
     document.getElementById('mrMetErr').textContent = 'Não foi possível carregar as métricas: ' + (e.message || e);
