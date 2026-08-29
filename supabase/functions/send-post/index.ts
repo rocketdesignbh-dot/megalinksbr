@@ -1,4 +1,48 @@
-// Mega Links BR · Edge Function "send-post" v18
+// Mega Links BR · Edge Function "send-post" v22
+// v22: "Excluir automaticamente após postar" (niche_groups.delete_after_post,
+//      checkbox novo ao lado de Post Automático/Post em Loop). Pedido do
+//      Érico: em grupo com muitos produtos, deixar o produto sumir do rodízio
+//      assim que sair no disparo, abrindo espaço (dentro do limite do plano)
+//      para cadastrar produtos novos sem ter que apagar manualmente os
+//      antigos. So dispara quando o post de fato SAIU (groupSent>0) -- post
+//      que falhou em todo canal preserva o produto. `product_id` em
+//      `scheduled_posts`/`clone_posts` e `on delete set null` (conferido no
+//      banco antes de codar): apagar o produto NÃO apaga o histórico da
+//      postagem que acabou de sair, só zera a referência. Sem confirmação
+//      no cliente além do texto do checkbox -- é toggle de configuração do
+//      grupo, não uma ação de apagar avulsa; quem liga já leu "não tem
+//      desfazer".
+// v21: LOOP SEM REPETIR O ÚLTIMO POST. Reportado pelo Érico: participantes de
+//      grupo de WhatsApp reclamando de post repetido. Medido em produção (grupo
+//      "Achadinhos Geral", loop_enabled=true, 22 produtos ativos, 4 dias): 10 de
+//      113 disparos (8,8%) postaram o MESMO produto que o disparo imediatamente
+//      anterior -- Math.random() por disparo, sem memória do que saiu por último,
+//      então nada impedia sortear duas vezes seguidas o mesmo índice. Grupos em
+//      ordem sequencial (loop_enabled=false) no mesmo período: 0 repetições em
+//      125 disparos, porque o cursor sempre avança -- confirma que o defeito é
+//      exclusivo do modo Loop. Conserto: no modo Loop, se o sorteio bater com o
+//      product_id do último "sent" do grupo, resorteia dentro dos (total-1)
+//      restantes -- nunca reenvia o post anterior em seguida. Só consulta
+//      scheduled_posts quando loop_enabled=true e o grupo tem mais de 1 produto
+//      elegível; não muda nada para quem usa ordem sequencial (comportamento
+//      intacto, cursor_index como sempre).
+// v20: "Post em Loop". O checkbox existia na tela desde sempre mas nunca foi
+//      salvo nem lido em lugar nenhum -- clicar nele nao fazia nada. Agora:
+//      desmarcado (padrao) posta na ORDEM em que os produtos foram cadastrados
+//      (cursor_index, comportamento historico); marcado, sorteia um produto a
+//      cada disparo em vez de seguir a ordem. Isso NAO tem relacao com o
+//      rodizio nunca parar -- o Post Automatico sempre reinicia a lista ao
+//      chegar no fim (cursor % total), com ou sem Loop ligado; Loop e so
+//      sobre ORDEM, nao sobre parar/continuar. loop_enabled ja existia no
+//      banco com default true e todo mundo em true -- resetado pra false em
+//      26/08 antes de ligar esta leitura, senao a plataforma inteira passava
+//      a postar em ordem aleatoria da noite pro dia sem ninguem ter pedido.
+// v19: HORARIOS INTELIGENTES. O grupo pode trocar "intervalo fixo dentro de uma
+//      janela de horas" por tres janelas de maior audiencia (07:00-09:00,
+//      12:00-13:30, 19:00-21:00) com os produtos divididos entre elas. Elite
+//      pra cima. Quando ligado, start_hour, end_hour e interval_minutes ficam
+//      inertes. Default false em todo mundo: subir esta versao nao muda o
+//      comportamento de ninguem ate alguem ligar o toggle.
 // v18: o teto diario de disparo automatico passa a vir de plan_features
 //      (auto_posts_daily) em vez de ficar cravado como "starter = 1". As tres
 //      fontes discordavam: a tabela dizia que o Starter NAO tinha automacao, o
@@ -328,7 +372,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: groups, error: gErr } = await sb
     .from("niche_groups")
-    .select("id, user_id, name, interval_minutes, start_hour, end_hour, cursor_index, last_post_at, smart_schedule, smart_weekend")
+    .select("id, user_id, name, interval_minutes, start_hour, end_hour, cursor_index, last_post_at, smart_schedule, smart_weekend, loop_enabled, delete_after_post")
     .eq("post_auto_enabled", true);
   if (gErr) return new Response(JSON.stringify({ error: gErr.message }), { status: 500 });
   if (!groups?.length) return new Response(JSON.stringify({ processed: 0, msg: "no active groups" }));
@@ -464,7 +508,36 @@ Deno.serve(async (req: Request) => {
     }
 
     const total = products.length;
-    let cursor = (group.cursor_index ?? 0) % total, product = null, tentativas = 0;
+    // "Post em Loop": desmarcado (padrao) posta na ORDEM em que os produtos
+    // foram cadastrados, usando o cursor_index salvo — mesmo comportamento de
+    // sempre. Marcado, sorteia um produto a cada disparo em vez de seguir a
+    // ordem. Em ambos os casos o rodizio nunca "acaba": o cursor sequencial
+    // sempre volta ao inicio da lista (% total) quando chega no fim — isso e
+    // o Post Automatico funcionando, nao o Loop. O Loop e so sobre ORDEM, nao
+    // sobre parar ou continuar.
+    //
+    // v21: o sorteio do Loop nao tinha memoria do que saiu por ultimo -- podia
+    // (e media 8,8% das vezes, no grupo "Achadinhos Geral") repetir o mesmo
+    // produto duas vezes seguidas, que e o post duplicado que os participantes
+    // dos grupos de WhatsApp reclamaram. So busca o ultimo "sent" quando o
+    // grupo esta em Loop e tem mais de 1 produto elegivel -- ordem sequencial
+    // nao muda em nada.
+    const loop = !!group.loop_enabled;
+    let cursor = loop ? Math.floor(Math.random() * total) : (group.cursor_index ?? 0) % total;
+    if (loop && total > 1) {
+      const { data: ultimoEnviado } = await sb.from("scheduled_posts")
+        .select("product_id")
+        .eq("group_id", group.id).eq("is_manual", false).eq("status", "sent")
+        .order("sent_at", { ascending: false }).limit(1).maybeSingle();
+      const ultimoProductId = ultimoEnviado?.product_id ?? null;
+      if (ultimoProductId && products[cursor]?.id === ultimoProductId) {
+        // Resorteia só entre os (total - 1) restantes -- nunca reenvia o post
+        // imediatamente anterior. Desloca por 1 a (total-1) posições a partir
+        // do índice batido, cobrindo uniformemente todos os outros produtos.
+        cursor = (cursor + 1 + Math.floor(Math.random() * (total - 1))) % total;
+      }
+    }
+    let product = null, tentativas = 0;
     while (tentativas < total) {
       const candidato = products[cursor];
       const src = candidato.source ?? "";
@@ -479,7 +552,10 @@ Deno.serve(async (req: Request) => {
       continue;
     }
 
-    const nextCursor = (cursor + 1) % total;
+    // No modo Loop (aleatorio) o cursor_index sequencial fica congelado, sem
+    // avancar: assim, se o usuario desmarcar o Loop depois, a ordem retoma de
+    // onde parou em vez de perder o lugar.
+    const nextCursor = loop ? (group.cursor_index ?? 0) : (cursor + 1) % total;
     // 1º regenera a afiliação com as credenciais ATUAIS, 2º encurta com o user_id do dono.
     product.affiliate_url = await encurtarLink(sb, group.user_id, linkFinalDoProduto(product, credsMap));
     const msg = montarTexto(product);
@@ -564,6 +640,18 @@ Deno.serve(async (req: Request) => {
 
     await sb.from("scheduled_posts").insert({ user_id:group.user_id, group_id:group.id, product_id:product.id, status:groupSent>0?"sent":"failed", scheduled_for:now.toISOString(), sent_at:groupSent>0?now.toISOString():null, is_manual:false, error:erroDetalhado });
     await sb.from("niche_groups").update({ cursor_index:nextCursor, last_post_at:now.toISOString() }).eq("id", group.id);
+    // v22: "Excluir automaticamente após postar" (niche_groups.delete_after_post).
+    // So apaga em post que de fato saiu (groupSent>0) -- falha em todos os canais
+    // nao consome o produto. product_id em scheduled_posts e clone_posts e
+    // "on delete set null", entao o historico (inclusive a linha que acabou de
+    // ser inserida acima) sobrevive com product_id nulo; so o produto some do
+    // rodizio. cursor_index ja foi salvo com o total ANTES da exclusao -- na
+    // proxima rodada o total recalculado (products.length) absorve a mudanca
+    // sozinho, sem precisar de ajuste aqui.
+    if (group.delete_after_post && groupSent > 0) {
+      const { error: eDel } = await sb.from("products").delete().eq("id", product.id);
+      if (eDel) console.warn(`[EXCLUIR-APOS-POSTAR] grupo=${group.id} produto=${product.id} falhou: ${eDel.message}`);
+    }
     totalSent += groupSent; totalFailed += groupFailed;
   }
 
