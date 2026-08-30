@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 109 — 30/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 110 — 30/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1649,6 +1649,25 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 110 — 30/08/2026 — Érico pegou no ar (`/painel/assinatura`) que a
+"Comparativo completo" embaixo dos cards ainda mostrava MegaIA — a REVISÃO
+108 só tinha mexido nos cards de cima (`buildPlansFromFeatures`), não na
+tabela comparativa (`planCompareBody`), por escopo estrito na hora. CORRIGIDO
+NA TABELA TAMBÉM. CÓDIGO EDITADO E VALIDADO — AINDA NÃO
+COMMITADO/PUSHADO NESTA REVISÃO.**
+
+Na lista de linhas da tabela comparativa (dentro de `renderPlans()`), trocada
+a linha `["MegaIA", p=>planRow(p).mega_ia?"✅":"❌"]` por duas: `["Radar de
+Ofertas", p=>planRow(p).radar?"✅":"❌"]` e `["Clone Post",
+p=>planRow(p).clone_post?"✅":"❌"]` — mesmo par de recursos já incluído nos
+cards na REVISÃO 108, agora espelhado na tabela debaixo. Nenhuma outra menção
+a "MegaIA" no arquivo foi tocada (banner de upgrade do Dashboard, texto da
+gaveta, etc.) — fora do escopo deste pedido.
+
+⚠️ **Não medido em produção ainda** — só validado com `node --check` nos 5
+blocos `<script>` (limpo). Falta: commit, push, deploy manual no EasyPanel, e
+conferir visualmente a tabela em `/painel/assinatura`.
 
 **REVISÃO 109 — 30/08/2026 — pergunta do Érico ("já definimos o Clone Post
 por plano?") virou achado: a mensagem de bloqueio da captura automática dizia

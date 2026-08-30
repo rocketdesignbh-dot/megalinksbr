@@ -7322,7 +7322,8 @@ function renderPlans(){
         if(!r.wa_post_automation)return"Manual";
         return r.auto_posts_daily?r.auto_posts_daily+"/dia":"24/7";
       }],
-      ["MegaIA",                p=>planRow(p).mega_ia?"✅":"❌"],
+      ["Radar de Ofertas",      p=>planRow(p).radar?"✅":"❌"],
+      ["Clone Post",            p=>planRow(p).clone_post?"✅":"❌"],
       ["Rastreamento de cliques",p=>planRow(p).click_tracking?"✅":"❌"],
       ["Monitoramento de estoque",p=>planRow(p).stock_monitor?"✅":"❌"],
       ["Suporte",               p=>({prioritario:"Prioritário",vip:"VIP WhatsApp"}[planRow(p).support_level]||"—")],
