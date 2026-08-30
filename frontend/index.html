@@ -746,13 +746,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- AFILIADO -->
   <nav class="nav-grp show" id="navAfiliado">
     <a class="nav active" href="/painel/dashboard" data-page="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Dashboard</a>
-    <a class="nav-cta" href="/painel/post-relampago" data-page="post-relampago"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M13 2L4.5 13.5H11L10 22L19.5 10H13L13 2Z"/></svg>🚀 Postar Agora<span class="tag orange">NEW</span></a>
-    <a class="nav" href="/painel/link-rapido" data-page="link-rapido"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Link Rápido<span class="tag orange">NEW</span></a>
+    <a class="nav" href="/painel/post-relampago" data-page="post-relampago"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M13 2L4.5 13.5H11L10 22L19.5 10H13L13 2Z"/></svg>🚀 Postar Agora</a>
+    <a class="nav" href="/painel/post-automatico" data-page="post-automatico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>⚡ Post. Automático<span class="tag dot" id="autoPostBadge" style="display:none">0</span></a>
+    <a class="nav" href="/painel/link-rapido" data-page="link-rapido"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Link Rápido</a>
     <a class="nav" href="/painel/clone-post" data-page="clone-post"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Clone Post<span class="tag dot" id="cloneBadge" style="display:none">0</span></a>
     <a class="nav" href="/painel/radar" data-page="radar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 3v4.5M12 12l6-4"/></svg>Radar de Ofertas<span class="tag dot" id="radarBadge">0</span></a>
     <a class="nav" href="/painel/analitico" data-page="analitico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 20V8M10 20V4M16 20v-9M21 20H3"/></svg>Analítico</a>
-    <a class="nav" href="/painel/mega-results" data-page="mega-results"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 20h18"/><path d="M6 20V10M12 20V4M18 20v-7"/></svg>Mega Results<span class="tag orange">NEW</span></a>
-    <a class="nav" href="/painel/post-automatico" data-page="post-automatico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>⚡ Post. Automático<span class="tag dot" id="autoPostBadge" style="display:none">0</span></a>
+    <a class="nav" href="/painel/mega-results" data-page="mega-results"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 20h18"/><path d="M6 20V10M12 20V4M18 20v-7"/></svg>Mega Results</a>
     <div class="lbl">Seus Canais</div>
     <a class="nav" href="/painel/canais-grupos" data-page="canais-grupos"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M17 8a5 5 0 1 0-10 0c0 5-2 6-2 6h14s-2-1-2-6"/><path d="M10.5 19a1.7 1.7 0 0 0 3 0"/></svg>Grupos de Oferta</a>
     <a class="nav" href="/painel/conexao" data-page="conexao"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5z"/></svg>Conexão WhatsApp<span class="tag dot">QR</span></a>
@@ -5240,27 +5240,9 @@ const TAB_GROUPS=[
     {id:"telegram",label:"Telegram"},
     {id:"site",label:"Site"}
   ]},
-  {id:"market",label:"🛍️ Marketplaces",tabs:[
-    {id:"shopee",label:"Shopee"},
-    {id:"aliexpress",label:"AliExpress"},
-    {id:"amazon",label:"Amazon"},
-    {id:"magalu",label:"Magalu"},
-    {id:"ml",label:"Mercado Livre"},
-    {id:"shein",label:"Shein",novo:1},
-    {id:"awin",label:"Awin"},
-    {id:"natura",label:"Natura"},
-    {id:"terabyte",label:"TerabyteShop"},
-    {id:"manual",label:"Produto Manual"}
-  ]},
   {id:"produtos",label:"📦 Produtos",tabs:[
     {id:"prod-lista",label:"Meus Produtos"},
     {id:"prod-add",label:"➕ Adicionar"}
-  ]},
-  {id:"conteudo",label:"📝 Conteúdo",tabs:[
-    {id:"blogposts",label:"Blog/Posts"},
-    {id:"blogcats",label:"Blog/Categorias"},
-    {id:"ugc",label:"UGC Vídeo",novo:1},
-    {id:"colab",label:"Colaboradores"}
   ]}
 ];
 // Compatibilidade com código antigo que itera TABS (achata)
@@ -5498,7 +5480,12 @@ manual:`
         <div class="field" style="margin:0"><label>Preço parcelado</label><input id="prodLinkParcelado" placeholder="10x de R$ 5,99"></div>
       </div>
       <div class="field"><label>Descrição manual</label><textarea id="prodLinkDesc" rows="2" placeholder="Texto exclusivo para este produto (aparece no post)" style="resize:vertical"></textarea></div>
-      <label style="display:flex;gap:8px;align-items:center;margin-bottom:12px;font-size:13px"><input type="checkbox" id="prodLinkManterLink" style="width:auto"> Manter este link no post (não gerar link afiliado)</label>
+      <!-- CTA por produto -->
+      <div class="field"><label>🎯 CTA deste produto</label>
+        <select id="prodLinkCtaSel"></select>
+        <input id="prodLinkCtaCustom" type="text" placeholder="Ou escreva o seu próprio CTA" style="margin-top:6px">
+        <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:12.5px"><input type="checkbox" id="prodLinkCtaRandom" style="width:auto" onchange="prodToggleCtaRandom('prodLinkCta',this.checked)"> 🎲 CTA aleatório a cada disparo automático</label>
+      </div>
       <!-- Cupom -->
       <div class="card" style="margin:0 0 14px;border-color:rgba(100,200,255,.3);background:rgba(100,200,255,.05)">
         <div class="ch" style="font-size:12px;padding:10px 14px">🎟️ Cupom de desconto <small style="color:var(--mut);font-weight:400">(opcional)</small></div>
@@ -5572,6 +5559,12 @@ manual:`
         </div>
         <div class="field"><label>Preço parcelado</label><input id="paParcelado" placeholder="10x de R$ 5,99"></div>
         <div class="field"><label>Código do cupom</label><input id="paCupom" placeholder="Ex: CUPOM10"></div>
+        <!-- CTA por produto -->
+        <div class="field"><label>🎯 CTA deste produto</label>
+          <select id="paCtaSel"></select>
+          <input id="paCtaCustom" type="text" placeholder="Ou escreva o seu próprio CTA" style="margin-top:6px">
+          <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:12.5px"><input type="checkbox" id="paCtaRandom" style="width:auto" onchange="prodToggleCtaRandom('paCta',this.checked)"> 🎲 CTA aleatório a cada disparo automático</label>
+        </div>
         <div style="display:flex;gap:8px;margin-top:4px">
           <button class="btn btn-volt" id="paSalvarBtn" style="flex:1" onclick="prodAdicionarManual()">➕ Salvar produto</button>
           <button class="btn btn-gold" id="paSalvarPostarBtn" style="flex:1" onclick="prodAdicionarManual(true)">⚡ Salvar e Postar</button>
@@ -6584,9 +6577,40 @@ function prodPintarLista(){
   prodSelAtualizar();
 }
 
+// CTA por produto (Importar via link / Adicionar manualmente) — mesma lista da
+// aba Postar Agora e do Layout Post (PR_CTAS), mas gravado em products.cta_text/
+// cta_random. Antes destes dois formulários, só o Radar->Grupo (rgSalvarNoGrupo)
+// e o Postar Agora gravavam CTA por produto; produto importado por link ou
+// cadastrado manual sempre caía no CTA aleatório do send-post (products.cta_text
+// nulo), nunca no que o usuário pediu.
+function prodInitCtaSelects(){
+  const opts=PR_CTAS.map((c,i)=>`<option value="${i}">${esc(c)}</option>`).join("");
+  ["prodLinkCtaSel","paCtaSel"].forEach(id=>{const sel=document.getElementById(id);if(sel)sel.innerHTML=opts;});
+}
+function prodToggleCtaRandom(prefix,on){
+  const sel=document.getElementById(prefix+"Sel");if(sel)sel.disabled=on;
+  const custom=document.getElementById(prefix+"Custom");if(custom)custom.disabled=on;
+}
+// prefix: "prodLinkCta" (Importar via link) ou "paCta" (Adicionar manualmente).
+// Prioridade: aleatório > texto customizado > item selecionado da lista.
+function prodResolverCta(prefix){
+  const random=document.getElementById(prefix+"Random")?.checked||false;
+  if(random)return{cta_text:null,cta_random:true};
+  const custom=(document.getElementById(prefix+"Custom")?.value||"").trim();
+  if(custom)return{cta_text:custom,cta_random:false};
+  const sel=document.getElementById(prefix+"Sel");
+  const idx=sel?parseInt(sel.value,10):NaN;
+  return{cta_text:Number.isFinite(idx)?(PR_CTAS[idx]||null):null,cta_random:false};
+}
+function prodLimparCta(prefix){
+  const sel=document.getElementById(prefix+"Sel");if(sel){sel.value="0";sel.disabled=false;}
+  const custom=document.getElementById(prefix+"Custom");if(custom){custom.value="";custom.disabled=false;}
+  const rand=document.getElementById(prefix+"Random");if(rand)rand.checked=false;
+}
 function wireProdAdd(){
   _prodImportData=null;
   const prev=document.getElementById("prodImportPreview");if(prev)prev.style.display="none";
+  prodInitCtaSelects();
   // Entrar nesta aba por qualquer via que não seja prodEditar() cancela uma
   // edição pendente — sem isso, sair da edição sem "Cancelar" e voltar depois
   // salvaria por cima do produto errado com campos em branco.
@@ -6594,6 +6618,7 @@ function wireProdAdd(){
   else if(PROD_EDIT_ID){
     PROD_EDIT_ID=null;
     ["paNome","paLink","paPreco","paPrecoOrig","paImg","paDesc","paSufixo","paParcelado","paCupom"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+    prodLimparCta("paCta");
   }
   prodAtualizarModoEdicao();
 }
@@ -6749,6 +6774,7 @@ async function prodConfirmarImport(postarAgora=false){
   const agendamento=document.getElementById("prodAgendamento")?.value||"";
   const naoExpira=document.getElementById("prodNaoExpira")?.checked||false;
   const discPct=precoOrig&&precoAtual&&precoAtual<precoOrig?Math.round((1-precoAtual/precoOrig)*100):_prodImportData?.discount_pct||null;
+  const ctaResolvido=prodResolverCta("prodLinkCta");
 
   const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gid).order("position",{ascending:false}).limit(1).maybeSingle();
   const pos=(last?.position||0)+1;
@@ -6774,6 +6800,8 @@ async function prodConfirmarImport(postarAgora=false){
     coupon_code:cupomCodigo||null,
     coupon_value:cupomValor,
     coupon_minimum:cupomMinimo,
+    cta_text:ctaResolvido.cta_text,
+    cta_random:ctaResolvido.cta_random,
     scheduled_at:dtLocalParaISO(agendamento),
     valid_until:dtLocalParaISO(document.getElementById("prodValidoAte")?.value||""),
     never_expires:naoExpira,
@@ -6786,6 +6814,7 @@ async function prodConfirmarImport(postarAgora=false){
   // Limpa campos
   _prodImportData=null;
   ["prodImportLink","prodLinkPrecoOrig","prodLinkPrecoAtual","prodLinkSufixo","prodLinkParcelado","prodLinkDesc","prodCupomCodigo","prodCupomValor","prodCupomMinimo","prodAgendamento"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  prodLimparCta("prodLinkCta");
   const prev=document.getElementById("prodImportPreview");if(prev)prev.style.display="none";
   const body=document.getElementById("prodImportBody");if(body)body.innerHTML="";
   if(document.getElementById("prodCupomTipo"))document.getElementById("prodCupomTipo").value="";
@@ -6851,6 +6880,7 @@ async function prodAdicionarManual(postarAgora=false){
   const sufixo=document.getElementById("paSufixo")?.value||"";
   const parcelado=document.getElementById("paParcelado")?.value||"";
   const cupom=document.getElementById("paCupom")?.value||"";
+  const ctaResolvido=prodResolverCta("paCta");
   if(!nome){toast("Informe o nome do produto.","⚠️");return;}
   if(!link){toast("Informe o link afiliado.","⚠️");return;}
   const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
@@ -6864,6 +6894,7 @@ async function prodAdicionarManual(postarAgora=false){
       title:nome,original_url:link,price:preco,price_original:precoOrig,
       image_url:img,discount_pct:desc,price_suffix:sufixo,price_installment:parcelado,
       coupon_code:cupom||null,
+      cta_text:ctaResolvido.cta_text,cta_random:ctaResolvido.cta_random,
     }).eq("id",PROD_EDIT_ID);
     if(errUpd){toast("Erro: "+errUpd.message,"⚠️");return;}
     toast("Produto atualizado! ✅","💾");
@@ -6887,11 +6918,13 @@ async function prodAdicionarManual(postarAgora=false){
     title:nome,affiliate_url:linkFinal,original_url:link,price:preco,price_original:precoOrig,
     image_url:img,discount_pct:desc,niche_group_id:gid,source:sourceFinal,position:pos,
     price_suffix:sufixo,price_installment:parcelado,coupon_code:cupom||null,
+    cta_text:ctaResolvido.cta_text,cta_random:ctaResolvido.cta_random,
     user_id:CURRENT_USER?.id,
   });
   if(error){toast("Erro: "+error.message,"⚠️");return;}
   if(lojaDetectada&&!temCred)toast(`Link de ${lojaDetectada} salvo sem afiliação: cadastre suas credenciais em Config. Afiliados.`,"⚠️");
   ["paNome","paLink","paPreco","paPrecoOrig","paImg","paDesc","paParcelado","paCupom"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  prodLimparCta("paCta");
   const suf=document.getElementById("paSufixo");if(suf)suf.value="";
   S.grupoAtual.produtos=(S.grupoAtual.produtos||0)+1;renderGrupos();prodIdeaisCalc();
   toast(`"${nome}" adicionado! ✅`,"📦");
@@ -6956,6 +6989,14 @@ function prodEditar(id){
   set("paSufixo",p.price_suffix||"");
   set("paParcelado",p.price_installment||"");
   set("paCupom",p.coupon_code||"");
+  // CTA salvo no produto: se bate com um item de PR_CTAS, seleciona; senão,
+  // era texto customizado e cai no campo livre. cta_random desabilita os dois.
+  prodInitCtaSelects();
+  const idxCta=p.cta_text?PR_CTAS.indexOf(p.cta_text):-1;
+  set("paCtaSel",idxCta>=0?idxCta:0);
+  set("paCtaCustom",idxCta===-1&&p.cta_text?p.cta_text:"");
+  const chkRand=document.getElementById("paCtaRandom");
+  if(chkRand){chkRand.checked=!!p.cta_random;prodToggleCtaRandom("paCta",!!p.cta_random);}
   prodAtualizarModoEdicao();
 }
 
@@ -6963,6 +7004,7 @@ function prodEditar(id){
 function prodCancelarEdicao(){
   PROD_EDIT_ID=null;
   ["paNome","paLink","paPreco","paPrecoOrig","paImg","paDesc","paSufixo","paParcelado","paCupom"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  prodLimparCta("paCta");
   prodAtualizarModoEdicao();
   const tabMeus=document.querySelector('.tab[data-tab="prod-lista"]');
   if(tabMeus)tabMeus.click();

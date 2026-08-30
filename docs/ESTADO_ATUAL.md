@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 105 — 29/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 106 — 30/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1649,6 +1649,118 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 106 — 30/08/2026 — pedido do Érico: 7 alterações de UX/limpeza em Grupo de
+Oferta e no menu principal, mais uma investigação que achou a P97 (Cupons 100%
+quebrado desde sempre) e já corrigiu a causa. CÓDIGO COMMITADO E PUSHADO — FALTA O
+DEPLOY MANUAL NO EASYPANEL E A CONFIRMAÇÃO POR COMPORTAMENTO OBSERVADO.**
+
+### 1. CTA por produto em "Importar via link" e "Adicionar manualmente" — NOVO, DEPLOYADO NO BACKEND, FRONTEND AGUARDANDO DEPLOY
+
+Pedido do Érico: vários usuários pediram CTA diferente por produto. **Achado ao
+investigar:** `products.cta_text`/`products.cta_random` **já existiam** no banco e
+já eram lidos por `send-post`/`group-blast` (`montarTexto`/linha equivalente) —
+mas só dois fluxos os preenchiam (Radar→Grupo e Postar Agora). Os dois fluxos mais
+usados de Grupo de Oferta, **"Importar via link" e "Adicionar manualmente", nunca
+gravavam esses campos** — todo produto cadastrado por eles sempre caía no CTA
+aleatório fixo do `send-post` (`sortearCta()`), nunca no que o usuário escolhesse.
+🔴 **E o CTA salvo em "Layout Post" (`niche_groups.cta_text`) nunca foi lido por
+`send-post` nenhuma vez** — é campo órfão, do mesmo formato de "mecanismo que
+parece existir e não executa nada" que este projeto já viu antes (P28, P54). Fica
+registrado aqui e não mexido — fora do escopo deste pedido.
+
+- **Frontend (`frontend/index.html`):** os dois formulários ganharam um bloco
+  "🎯 CTA deste produto" — select com os 8 CTAs padrão (`PR_CTAS`, os mesmos do
+  Postar Agora e do send-post), campo de texto livre que sobrepõe o select quando
+  preenchido, e checkbox "🎲 CTA aleatório a cada disparo automático" que desabilita
+  os outros dois. `prodResolverCta(prefix)` decide a prioridade (aleatório > texto
+  livre > selecionado) e é chamado no insert de `prodConfirmarImport` e no
+  insert/update de `prodAdicionarManual`. `prodEditar()` agora também pré-preenche
+  o CTA do produto (acha o índice em `PR_CTAS` ou cai no campo livre; marca o
+  checkbox se `cta_random`).
+- **Nenhuma migration necessária** — as colunas já existiam.
+- ⚠️ **Não medido em produção.** `node --check` limpo nos 5 blocos `<script>` e o
+  smoke test do vm (mesmo método da P15) comparado contra o `HEAD` anterior: os
+  dois erros que aparecem (`d.getElementsByTagName`, `themeT is not defined`) já
+  existiam ANTES desta sessão — são os falsos positivos conhecidos do harness, não
+  regressão. Falta: Deploy do `app`, abrir os dois formulários, escolher um CTA
+  diferente em cada, salvar, e conferir `products.cta_text`/`cta_random` no banco;
+  depois, um disparo real do grupo e o CTA certo aparecendo no post.
+
+### 2. "Manter este link no post (não gerar link afiliado)" — REMOVIDO, era campo morto
+
+Pedido do Érico: remover, a não ser que houvesse um benefício. **Não havia.**
+Grep no arquivo inteiro: o checkbox `#prodLinkManterLink` nunca era lido por
+nenhuma função — só existia no HTML, sem `getElementById("prodLinkManterLink")`
+em lugar nenhum do código. Marcá-lo ou não fazia exatamente a mesma coisa: zero
+efeito. Removido de "Importar via link".
+
+### 3–4. Marketplaces (grupo de tabs) e Conteúdo (Blog/Posts, Blog/Categorias, UGC, Colaboradores) — REMOVIDOS
+
+Pedido do Érico: as duas eram redundantes/sem uso.
+
+- **"🛍️ Marketplaces"** (Shopee, AliExpress, Amazon, Magalu, Mercado Livre, Shein,
+  Awin, Natura, TerabyteShop, Produto Manual): cada aba era um formulário
+  genérico de "importar produto X via link" (`paneImportLoja`/`MARKET_STORES`)
+  que faz **exatamente** o que "📦 Produtos → ➕ Adicionar → Importar via link"
+  já faz com detecção automática de loja pelo link — confirmado lendo o código,
+  as duas telas chamam o mesmo tipo de fluxo. Redundância real, não só
+  aparência.
+- **"📝 Conteúdo"** (Blog/Posts, Blog/Categorias, UGC Vídeo, Colaboradores):
+  **nenhuma das 4 abas tinha entrada em `PANES`** — grep vazio. Toda vez que
+  alguém clicava numa delas, caía no placeholder genérico `paneCred()`
+  ("Credenciais X necessárias"), que nem fazia sentido pro conteúdo do menu.
+  Eram abas nunca implementadas, não uma função que parou de funcionar.
+- Removidas as duas entradas de `TAB_GROUPS`. As funções JS associadas
+  (`paneImportLoja`, `impBuscarLink`, `impConfirmarImport`, `MARKET_STORES`)
+  ficaram no arquivo sem uso — não removidas, por escopo estrito (risco de
+  mexer em código não pedido é maior que o custo de deixar código morto).
+
+### 5. Sidebar — sombreado do "Postar Agora" só quando ativo, "NEW" removido, "Post Automático" subiu
+
+Pedido do Érico.
+
+- **Sombreado permanente:** "Postar Agora" usava a classe `.nav-cta` (fundo
+  destacado, borda dourada, negrito — sempre ligado, independente da aba
+  atual). Trocado para a classe `.nav`, igual a todos os outros itens do menu:
+  agora só fica destacado quando é a aba ativa (`.nav.active`), exatamente
+  como pedido. Conferido: `.nav-cta` só aparecia nesse único `<a>` e no CSS —
+  nenhuma outra função dependia da classe continuar ali.
+- **"NEW":** removidas as 3 ocorrências no menu principal (Postar Agora, Link
+  Rápido, Mega Results) — eram as únicas 3 no arquivo inteiro (`grep -c "tag
+  orange"` = 3, todas nesse bloco).
+- **Ordem:** "Post. Automático" subiu para logo abaixo de "Postar Agora"
+  (antes vinha depois de Mega Results, 6ª posição; agora é a 2ª).
+- ⚠️ **Não visto no navegador** — só lido no código servido, ainda não
+  deployado. Depois do Deploy: conferir visualmente que só a aba ativa brilha
+  e que a ordem bateu.
+
+### 6. P97 — Cupons NUNCA funcionou: toda tentativa de salvar um cupom falhava, e a causa era o banco
+
+Pergunta do Érico: "Aba Cupons, está ativa e em funcionamento?" **Não estava —
+e a causa não era feature incompleta, era uma migration que nunca saiu.**
+
+- `cupomModalSalvar()` sempre gravou (insert e update) os campos `validade`,
+  `tipo_desconto`, `valor_desconto` e `minimo` em `affiliate_coupons`. **A
+  tabela real só tinha `id, user_id, store, code, label, created_at`** —
+  medido com `information_schema.columns` direto no Supabase, não suposição.
+- **Reproduzido byte a byte:** rodei o INSERT exato que o frontend manda —
+  `ERROR: 42703: column "validade" of relation "affiliate_coupons" does not
+  exist`. `select count(*) from affiliate_coupons` = **0** — nenhum cupom foi
+  salvo com sucesso desde que a tela existe, em nenhuma conta.
+- **Conserto (migration `p97_fecha_colunas_faltantes_affiliate_coupons`,
+  aplicada em produção):** `alter table affiliate_coupons add column if not
+  exists validade date, tipo_desconto text default 'percent', valor_desconto
+  numeric, minimo numeric`. **Medido depois:** o mesmo INSERT, agora com o
+  `user_id` real do Érico, gravou e devolveu a linha certa; linha de teste
+  apagada em seguida.
+- A LISTAGEM de cupons sempre funcionou (por isso a tela "parecia" viva) — o
+  quebrado era só criar/editar. Card "0 cupons" que todo mundo via não era bug
+  de tela, era literalmente zero cupons salvos no banco inteiro.
+- ✅ **Backend corrigido e no ar.** Falta: abrir a aba Cupons logado e criar um
+  cupom de verdade pela UI (não só por SQL) para fechar com prova na tela.
+
+---
 
 **REVISÃO 105 — 29/08/2026 — BUG CORRIGIDO E TELA "ORIGEM DOS CLIQUES" CONFIRMADA POR COMPORTAMENTO OBSERVADO NO PAINEL REAL DO ÉRICO.**
 
@@ -7571,6 +7683,11 @@ código não relacionado.
 | **P94** | 🟡 **`clone_auto_approve` (por grupo) e `auto_publish` (por fonte) com UI nova, sem nenhuma medição em produção.** Nenhum grupo ou fonte tinha qualquer um dos dois ligado até o fim desta sessão. Falta: ligar um dos dois numa fonte/grupo de teste que capture de verdade, confirmar que uma captura `data_source='store'` completa sai direto pro rodízio sem passar pela fila, e que uma `data_source='message'` continua pendente mesmo assim | 29/08 |
 | **P95** | 🟡 **Conserto codado, deployado e migração aplicada (REVISÃO 103) — falta só confirmar por um disparo real que a mensagem chega no canal.** Causa raiz (REVISÃO 102): `channel_whatsapp_id` nunca era preenchido, `/send` inventava um JID por regex a partir do link de convite, Baileys aceitava sem validar e gravava `sent`/`error:null` — falha muda. Conserto: `wa-engine` ganhou `/channel-invite-info` (resolve JID real via `newsletterMetadata`, espelha `/group-invite-info`), `/send` agora recusa link cru com `400`, frontend resolve de verdade no cadastro em vez de simular, canais legados sem `channel_whatsapp_id` ganham badge "⚠️ revincular". Os 2 canais existentes (Arthur e Gustavo) foram migrados e **confirmados no banco** com JID real. **O que falta:** ninguém mediu ainda uma mensagem chegando de fato no WhatsApp do canal — só o código e a gravação no banco foram verificados. Ver "Última alteração" da REVISÃO 103 | 29/08 |
 | ~~**P96**~~ | ✅ **FECHADA (REVISÃO 105).** "Tela Origem dos cliques" confirmada por comportamento observado, logada na conta real do Érico: KPIs, gráfico e os três breakdowns (Produtos, Campanhas, Origem) carregam certo; card "📍 Origem dos cliques" mostra Outros 20 (33,3%), WhatsApp 18 (30%), Websites 17 (28,3%), Facebook 5 (8,3%) — soma 60 cliques batendo com o KPI de Cliques. No caminho, achei e corrigi um bug real (`mrRenderMetrics` faltando, commit `3d9b140`) que travava a sub-aba Métricas inteira | 29/08 |
+
+| **P97** | 🟢 **BACKEND CORRIGIDO E NO AR (REVISÃO 106).** `affiliate_coupons` não tinha as colunas `validade`/`tipo_desconto`/`valor_desconto`/`minimo` que `cupomModalSalvar` sempre gravou — toda criação/edição de cupom falhava com `42703`, 0 cupons salvos desde sempre em qualquer conta. Migration aplicada e reproduzida com sucesso via `execute_sql` (insert real, com FK válida, gravou e foi apagado). **Falta:** criar um cupom pela UI de verdade (não só SQL) pra fechar com prova na tela | 30/08 |
+| **P98** | 🟡 **CTA por produto em "Importar via link"/"Adicionar manualmente" — CODADO, `node --check` e smoke test de vm limpos (sem regressão vs `HEAD`), NÃO DEPLOYADO NEM MEDIDO.** `products.cta_text`/`cta_random` já existiam e já eram lidos pelo `send-post`/`group-blast`; só faltava estes dois formulários gravarem. Achado de lado: `niche_groups.cta_text` (aba Layout Post) nunca foi lido pelo `send-post` — é campo órfão, não mexido, fora de escopo. Falta Deploy do `app` e testar: escolher CTA diferente em cada formulário, salvar, conferir no banco, e ver o CTA certo sair num disparo real | 30/08 |
+| **P99** | 🟡 **Sidebar (REVISÃO 106) — sem sombreado permanente em "Postar Agora", sem "NEW", "Post Automático" na 2ª posição — SEM DEPLOY NEM CONFERÊNCIA VISUAL.** Mudança é só classe CSS (`nav-cta`→`nav`) e ordem no HTML; `.nav-cta` não é usada em mais nenhum lugar do arquivo, então não deveria quebrar nada — mas isso é leitura de código, não navegador. Conferir depois do Deploy | 30/08 |
+| ~~P100~~ | ✅ **RETIRADA/FECHADA POR REMOÇÃO (REVISÃO 106).** Abas "🛍️ Marketplaces" (redundante com Produtos→Adicionar→Importar via link, mesmo fluxo) e "📝 Conteúdo" (Blog/Posts, Blog/Categorias, UGC, Colaboradores — nenhuma tinha `PANES` implementado, caíam no placeholder genérico de credenciais) removidas de `TAB_GROUPS` a pedido do Érico. Funções JS associadas (`paneImportLoja`, `MARKET_STORES` etc.) ficaram no arquivo sem uso, por escopo estrito | 30/08 |
 
 **Roadmap adiado (baixa prioridade):** documentação de API, integrações externas
 (Google Analytics, Meta Pixel, n8n, Zapier), ACL multi-admin, tracking de CAC.
