@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 110 — 30/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 111 — 30/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1648,7 +1648,59 @@ desmarcado = não posta, não posta de outro jeito.
 
 ---
 
+## 📌 PRIORIDADES PARA AS PRÓXIMAS SESSÕES — escrita em 30/08 (REVISÃO 110)
+
+Ordem sugerida. "P" remete à tabela completa em "Pendências abertas" logo
+abaixo — cada linha ali tem o detalhe técnico.
+
+1. **Deploy manual no EasyPanel + confirmar as REVISÕES 106 a 110, todas
+   codadas e validadas mas NENHUMA vista rodando em produção ainda**
+   (P97–P99, P101–P107, e as correções de texto das REVISÕES 109/110 sem
+   número de pendência próprio). É a maior pilha de trabalho pronto e parado
+   que este projeto já teve numa sessão só. Prioridade #1 óbvia: sem isso,
+   tudo abaixo espera. Dentro do lote, o item de **maior risco** é o **P106**
+   (Postar Agora agora grava produto em `products` a cada disparo — é
+   caminho novo de escrita, merece ser o primeiro clicado depois do deploy).
+2. **P72 — 🔴 PAT clássico do GitHub colado no chat em 25/08 precisa ser
+   revogado e rotacionado.** É o mesmo tipo de item que já aconteceu antes
+   (P6, revogado em 03/08) — enquanto não for feito, qualquer um com aquele
+   token tem push no repo. Ação simples, exclusivamente do Érico (GitHub →
+   Settings → Developer settings → revogar o token antigo, gerar um novo).
+3. **P16 — 🔴 todo push para o `main` reinicia o `wa-engine` em produção**,
+   inclusive push só de documentação — as sessões desta madrugada (106 a
+   110, 5 pushes) reiniciaram o WhatsApp 5 vezes. Decidir: gate técnico
+   (separar o deploy do `app` do `wa-engine`) ou aceitar o custo. Sem
+   decisão, todo push futuro continua com esse efeito colateral.
+4. **P91/P35 fase 2 — 🟠 rotacionar o `WA_ENGINE_TOKEN` de serviço.** A fase 1
+   (token de navegador separado) já está no ar e provada; falta a raiz —
+   qualquer conta autenticada ainda recebe a credencial mestre do engine.
+5. **P37 — 🔴 provar o "Link Rápido" por comportamento.** Só validado no
+   arquivo até hoje — nunca aberto em produção com um link real de cada
+   loja (Shopee, ML, Amazon, link cru).
+6. **P106 (ver item 1) e P92/P94 — disparos reais que faltam medir**: "excluir
+   após postar", `clone_auto_approve`/`auto_publish` por grupo/fonte, e agora
+   o "salvar no grupo" do Postar Agora — todos codados e deployados (ou
+   prestes a), nenhum com um clique real conferido ainda. Vale agrupar numa
+   sessão só de "clicar e confirmar", em vez de codar mais uma coisa em cima
+   de fundação não confirmada.
+7. **P5 — enforcement server-side dos limites de plano** (canais WA/Telegram,
+   grupos WA ainda só client-side). Dívida antiga, sobe de prioridade
+   conforme a base de usuários cresce.
+8. **Faxina de menor risco, quando sobrar tempo**: P11 (chips em vez de
+   checkbox no filtro de loja), P12 (remover intervalos <10min), P49 (sem
+   cache-busting — quem está logado roda bundle antigo até relogar), P68
+   (imagens 2,8MB órfãs ainda no repo).
+
+---
+
 ## Última alteração
+
+**REVISÃO 111 — 30/08/2026 — sem código, só documentação: Érico pediu uma
+lista de prioridades para as próximas sessões. Adicionada a seção "📌
+PRIORIDADES PARA AS PRÓXIMAS SESSÕES" logo no topo do arquivo (antes de
+"Última alteração"), e registradas as pendências P108/P109 que faltavam para
+as correções de texto das REVISÕES 109 e 110 (não tinham número de pendência
+próprio até agora).**
 
 **REVISÃO 110 — 30/08/2026 — Érico pegou no ar (`/painel/assinatura`) que a
 "Comparativo completo" embaixo dos cards ainda mostrava MegaIA — a REVISÃO
@@ -7789,6 +7841,8 @@ código não relacionado.
 | **P105** | 🟡 **CODADA E VALIDADA (REVISÃO 108) — NÃO DEPLOYADA.** Cards de Planos: removida a linha MegaIA, incluídas Radar de Ofertas (fixo, todo plano) e Clone Post (por plano). Falta deploy e conferir visualmente os 4 cards | 30/08 |
 | **P106** | 🟡 **CODADA E VALIDADA (REVISÃO 108) — NÃO DEPLOYADA, MAIOR RISCO DESTA LEVA.** Postar Agora ganhou checkbox "Salvar produto no Grupo" (marcado por padrão), que insere em `products` a cada disparo com sucesso — antes, nenhuma linha era gravada. Falta deploy e um disparo real seguido de conferir a linha nova em `products` (nome, preço, imagem, link, CTA, loja corretos) e o comportamento no teto de produtos do grupo (não deve desfazer o post, só pular a gravação nesse grupo com aviso) | 30/08 |
 | **P107** | 🟡 **CODADA E VALIDADA (REVISÃO 108) — NÃO DEPLOYADA.** "Fundo Preto" adicionado ao seletor de cor (Postar Agora/Layout Post/Radar→Grupo, array único `PR_CORES`); "(Breve)" adicionado aos filtros de AliExpress/Magalu/Natura/Terabyte em Cupons. Falta deploy e conferir visualmente as 3 telas de cor e os 4 botões de Cupons | 30/08 |
+| **P108** | 🟡 **CODADA E VALIDADA (REVISÃO 109) — NÃO DEPLOYADA.** Texto do cadeado de captura automática do Clone Post corrigido de "a partir do plano Elite" para "a partir do plano Pro" (`clone_auto` já libera desde o Pro, conferido em `plan_features`). Falta deploy — hoje inalcançável na prática (quem chega na tela já passou por um gate igual), mas o texto certo evita confusão futura | 30/08 |
+| **P109** | 🟡 **CODADA E VALIDADA (REVISÃO 110) — NÃO DEPLOYADA.** Érico pegou no ar que a tabela "Comparativo completo" de Assinatura ainda mostrava MegaIA (a REVISÃO 108 só tinha mexido nos cards de cima). Trocada por Radar de Ofertas e Clone Post, espelhando os cards. Falta deploy e conferir a tabela em `/painel/assinatura` | 30/08 |
 | **P2** | 🔵 **REDESENHADA 03/08 — as duas saídas originais estavam mal postas.** ~~Decidir entre `GRANT EXECUTE` a `anon` ou trocar a credencial do engine para service role.~~ O Érico escolheu service role em 03/08, e ao ir codar apareceu que **isso reverte uma decisão deliberada que já está escrita no código**: `wa-engine/server.js` linha 1516 — *"Não usamos a SERVICE_ROLE_KEY aqui de propósito: ela daria a este container acesso irrestrito ao banco. Autenticamos na Edge Function `wa-heartbeat` com o `WA_ENGINE_TOKEN`"*. Pior ainda depois da P16: esse container é reiniciado por qualquer push. **Terceira saída, que nenhum dos dois tinha listado e que segue o desenho que já existe: o rate limit vira Edge Function**, chamada pelo engine com `WA_ENGINE_TOKEN`, exatamente como o `wa-heartbeat`. Sem `GRANT` para `anon`, sem service role no container. **Falta o Érico confirmar essa saída e alguém codar** | 30/07 |
 | ~~P3~~ | ✅ **FECHADA 03/08 à tarde, MEDIDA NO PAINEL LOGADO.** Token de 43 chars preenchido num load limpo, `/sessions` **200** (não 401), card "Sessões ativas" **visível e populado** com a instância do dono, console limpo. ⚠️ **O que isto prova e o que não prova:** prova que **funciona hoje**; não prova que o conserto foi a causa, porque o sintoma nunca foi reproduzido ANTES do patch. Ver "P3 — medida" acima. Registro original abaixo. ~~🟡 DIAGNOSTICADA, CONSERTADA E DEPLOYADA 03/08 — AGUARDANDO REPRODUÇÃO LOGADA — e a hipótese da raiz comum com a P2 está ERRADA.** O engine valida certo (`token !== WA_ENGINE_TOKEN` → 401) e o `get-wa-engine-token` está protegido (`verify_jwt: true`, **medido**). O 401 vem de `Bearer ` **vazio**: o painel declara `WA_ENGINE_TOKEN=""` e (a) a linha top-level `renderAdminVisao();...renderInstancias();...` rodava na carga do script, antes de `enterApp` buscar o token; (b) `fetchWAEngineToken` devolve `false` em três caminhos e **ninguém lia o retorno** — o `.catch` só pega exceção —, então uma falha deixava o token vazio pela sessão inteira, sem retry e sem aviso; (c) a re-renderização pós-token cobria `renderInstancias` mas **não** `renderInstCard`, que é o card "Sessões ativas", exatamente a tela cega. Consertados os três, **deployados em 03/08 às 12:13 UTC e conferidos no código servido** (os três marcadores estão no `index.html` que o nginx entrega; console limpo num load completo, porém **deslogado**). ⚠️ **Sintoma NÃO reproduzido** — o mecanismo está lido no código, mas ninguém carregou a página e leu o console (ver P15). O smoke test dá "não piorou", não "funciona". **Consequência para a P2: ela perde o argumento de "resolve duas de uma vez" e volta a ser decisão isolada de rate limit** | 30/07 |
 | ~~P4~~ | ✅ **RESOLVIDA 03/08 — não era OOM nem healthcheck. É o auto-deploy da P16.** O log do EasyPanel de 03/08 mostra **quatro** boots do `wa-engine` em 35 minutos, cada um com hostname de container novo: **12:04**, **12:13:26**, **12:29:32**, **12:39:34**. O de 12:13:26 casa **ao segundo** com o `### Success ###` do build do serviço `app` (o frontend); os de 12:29 e 12:39 casam com os **dois pushes deste chat** para o `main`. Depois das 12:39, **53 minutos sem push e sem restart** — controle negativo. **Deployar o `app` derruba e sobe o `wa-engine` junto**, e como o auto-deploy dispara a cada push, **todo commit — inclusive commit só de documentação — reinicia o WhatsApp em produção.** O `CLONE_FILA` mora em memória e vai junto. Ver "P4/P16" acima. A frase do registro antigo, *"sem deploy"*, era inferência: ninguém tinha cruzado o horário com os pushes | 30/07 |
