@@ -1006,7 +1006,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section class="page on" id="page-dashboard">
     <div class="phead">
       <div><h1 class="pt" id="greeting">Boa tarde ⚡</h1><div class="psub">Resumo da sua operação na Mega Links BR.</div></div>
-      <div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="openDrawer()" id="btnDashIA">✨ Gerar post com IA</button><button class="btn btn-volt" onclick="go('canais-grupos')">＋ Novo Grupo de Oferta</button></div>
+      <div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="openDrawer()" id="btnDashIA" style="display:none">✨ Gerar post com IA</button><button class="btn btn-volt" onclick="go('canais-grupos')">＋ Novo Grupo de Oferta</button></div>
     </div>
     <!-- Banner de upgrade contextual (injetado via JS) -->
     <div id="upgradeBannerDash"></div>
@@ -1523,7 +1523,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="AliExpress" onclick="cupomFiltrar('AliExpress',this)">🌐 AliExpress</button>
           <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="Magalu" onclick="cupomFiltrar('Magalu',this)">💙 Magalu</button>
           <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="Shein" onclick="cupomFiltrar('Shein',this)">👗 Shein</button>
-          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="AWIN" onclick="cupomFiltrar('AWIN',this)">🔗 AWIN</button>
           <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="Natura" onclick="cupomFiltrar('Natura',this)">🌿 Natura</button>
           <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="TerabyteShop" onclick="cupomFiltrar('TerabyteShop',this)">💻 Terabyte</button>
         </div>
@@ -2285,7 +2284,6 @@ async function loadGroups(){
       produtos:0,
       grupos_wa:0,
       canais:0,
-      defaultCouponId:r.default_coupon_id||null,
       lastManualBlast:r.last_manual_blast_at||null,
       intervalo:r.post_auto_enabled?(r.interval_minutes+" min"):"N/A",
       startHour:r.start_hour??8,
@@ -2428,7 +2426,7 @@ function cupomRenderLista(){
   // Agrupa por loja
   const grupos={};
   filtrados.forEach(c=>{if(!grupos[c.store])grupos[c.store]=[];grupos[c.store].push(c);});
-  const LOJA_EMOJI={Shopee:"🛍️",Amazon:"📦","Mercado Livre":"🟡",AliExpress:"🌐",Magalu:"💙",Shein:"👗",AWIN:"🔗",Natura:"🌿",TerabyteShop:"💻"};
+  const LOJA_EMOJI={Shopee:"🛍️",Amazon:"📦","Mercado Livre":"🟡",AliExpress:"🌐",Magalu:"💙",Shein:"👗",Natura:"🌿",TerabyteShop:"💻"};
 
   lista.innerHTML=Object.entries(grupos).map(([loja,cs])=>`
     <div class="card" style="margin-bottom:12px">
@@ -3405,6 +3403,9 @@ const SUPA_KEY="sb_publishable_FQTFJaF46KfwSnODD5UjPA_nOagscIu";
 const RLOJAS=["Shopee","AliExpress","Amazon","Mercado Livre","Magalu","Shein"];
 const RPROD=["Fone Bluetooth TWS","Air Fryer 4L Digital","Smartwatch Fit Pro","Kit 10 Organizadores","Luminária LED Galaxy","Mini Projetor HD","Aspirador Robô Slim","Tênis Runner Flex","Cafeteira Espresso","Mochila Antifurto USB","Teclado Mecânico RGB","Garrafa Térmica 1L"];
 let radarData=[],radarFilter="Todas",radarLive=false;
+// Totais por loja, acumulados e NUNCA limpos ao trocar de filtro — ver nota em
+// fetchRadarLive/renderRadar sobre o chip "(sem ofertas)" enganoso.
+let RADAR_TOTAIS_LOJA={};
 function genRadar(){radarData=[];} // sem fictício: Radar só mostra ofertas reais
 // busca ofertas reais gravadas pela Edge Function "radar" (Shopee/AliExpress/Amazon Affiliate API)
 // Lojas consultadas pelo Radar e quanto cada uma pode ocupar da lista.
@@ -3482,6 +3483,11 @@ async function fetchRadarLive(searchQ="",lojaFiltro="Todas"){
       exibidas:brutas.length,
       total:Object.values(porLoja).reduce((a,b)=>a+(b.total||0),0)
     };
+    // Com um filtro de loja único ativo, esta chamada só consulta AQUELA loja —
+    // porLoja não tem as outras 3 nesta rodada. Sem acumular, o chip das outras
+    // lojas lia "(sem ofertas)" só porque não foram perguntadas agora, não porque
+    // não têm oferta nenhuma. Mescla (nunca substitui as que não vieram desta vez).
+    Object.assign(RADAR_TOTAIS_LOJA,porLoja);
     if(!brutas.length)return null;
     brutas.sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0));
     return brutas.map(o=>({
@@ -4170,7 +4176,12 @@ async function renderRadar(forceRefresh){
       `<button class="fc ${radarFilter==="Todas"?"on":""}" onclick="radarFilter='Todas';renderRadar()">🏪 Todas</button>`,
       ...todasLojas.map(l=>{
         const icone=lojaLogoImg(l,lojaIcone[l]||"🏷️",16);
-        const temDados=lojasNoDados.includes(l);
+        // "Tem oferta" usa o total acumulado (RADAR_TOTAIS_LOJA), não os dados
+        // ATUALMENTE carregados: com um filtro de loja único ativo, radarData só
+        // traz aquela loja, e as demais nunca deveriam parecer "sem ofertas" só
+        // por não terem sido perguntadas nesta rodada.
+        const totalConhecido=RADAR_TOTAIS_LOJA[lojaParaSource[l]]?.total;
+        const temDados=totalConhecido!=null?totalConhecido>0:lojasNoDados.includes(l);
         const conectada=lojaConectada(l);
         const label=temDados?" ✓":(conectada?" (sem ofertas)":"");
         return `<button class="fc ${l===radarFilter?"on":""}" onclick="radarFilter='${l}';renderRadar()" title="${conectada?"Conectada — clique em Buscar novas ofertas para carregar":"Sem credencial"}" style="${!temDados?"opacity:.7":""}">${icone} ${l}${label}</button>`;
@@ -4263,7 +4274,7 @@ const MARKET_PLAN={
 };
 
 // Dominios oficiais p/ buscar a logo pequena de cada marketplace (favicon), sem precisar de conta/token
-const LOJA_DOMINIO={"AliExpress":"aliexpress.com","Amazon":"amazon.com.br","AWIN":"awin.com","Shopee":"shopee.com.br","Magalu":"magazineluiza.com.br","Mercado Livre":"mercadolivre.com.br","Natura":"natura.com.br","Shein":"shein.com","TerabyteShop":"terabyteshop.com.br"};
+const LOJA_DOMINIO={"AliExpress":"aliexpress.com","Amazon":"amazon.com.br","Shopee":"shopee.com.br","Magalu":"magazineluiza.com.br","Mercado Livre":"mercadolivre.com.br","Natura":"natura.com.br","Shein":"shein.com","TerabyteShop":"terabyteshop.com.br"};
 // Retorna um <img> com a logo real do marketplace; se falhar ao carregar, cai automaticamente pro emoji de fallback
 function lojaLogoImg(nome,fallback,size){
   size=size||18;
@@ -4274,7 +4285,7 @@ function lojaLogoImg(nome,fallback,size){
 }
 
 const LOJAS=[
-  {n:"AliExpress",e:"🛒",img:"",f:[
+  {n:"AliExpress",e:"🛒",img:"",emBreve:true,f:[
     {k:"APP KEY",pwd:false,ph:"Sua App Key do AliExpress"},
     {k:"APP SECRET",pwd:true,ph:"Sua App Secret"},
     {k:"TRACKING ID",pwd:false,ph:"ID de rastreamento"}
@@ -4284,27 +4295,23 @@ const LOJAS=[
     {k:"ACCESS KEY",pwd:false,ph:"Sua Access Key ID",optional:true,advanced:true},
     {k:"SECRET KEY",pwd:true,ph:"Sua Secret Access Key",optional:true,advanced:true}
   ],dica:`<div>✅ <strong>Não tem Access Key/Secret Key? Sem problema!</strong> Preenchendo só o <strong>ID de Associado</strong> abaixo, o sistema já gera sozinho um link comissionado (parâmetro <code>tag=</code>) — é o código escolhido ao criar sua conta em <a href="https://associados.amazon.com.br" target="_blank" style="color:var(--volt-tx)">associados.amazon.com.br</a> (formato "seusite-20"), disponível em <strong>Configuração da conta → IDs de Rastreamento</strong>.</div><p style="margin-top:8px">As <strong>Opções avançadas</strong> abaixo (Access Key/Secret Key) só são necessárias se você quiser busca automática de produtos via PA-API. Gere em <strong>Portal de Associados → aba "API de Divulgação de Produtos" → Gerenciar credenciais</strong>. A Amazon costuma liberar essa API só depois de registrar vendas qualificadas pelo programa — até lá, o ID de Associado sozinho já funciona normalmente.</p>`},
-  {n:"AWIN",e:"🔗",img:"",f:[
-    {k:"ID do Publisher",pwd:false,ph:"Seu Publisher ID numérico"},
-    {k:"API TOKEN",pwd:true,ph:"Token de acesso à API"}
-  ],dica:`<p>Para encontrar suas credenciais:</p><ol><li>Acesse <a href="https://ui.awin.com" target="_blank" style="color:var(--volt-tx)">ui.awin.com</a></li><li>Vá em <strong>Account → API Credentials</strong></li><li>Copie o <strong>Publisher ID</strong> e gere um <strong>Token</strong></li></ol>`},
   {n:"Shopee",e:"🧡",img:"",f:[
     {k:"ID de Afiliado",label:"AppID / ID de Afiliado",altKey:"App Key",mirrorTo:["App Key"],pwd:false,ph:"Ex: 18344180897"},
     {k:"App Secret",label:"Senha (App Secret)",pwd:true,ph:"Senha exibida no painel Abrir API",optional:true,advanced:true}
   ],dica:`<div>O painel da Shopee te mostra <strong>dois dados</strong> — e são exatamente os dois campos abaixo.</div><div class="alert g" style="margin-top:8px;font-size:12.5px"><div style="line-height:1.7;min-width:0"><strong>AppID</strong> → campo <strong>AppID / ID de Afiliado</strong>. É o mesmo número que aparece em <strong>Configurações da Conta</strong> como "ID de Afiliado" — não são dois valores diferentes.<br><strong>Senha</strong> → é a <strong>App Secret</strong>, dentro de Opções avançadas.</div></div><p style="margin-top:8px">Só o <strong>AppID</strong> já habilita seus links comissionados. A <strong>Senha</strong> é opcional e serve apenas para o Radar buscar produtos Shopee automaticamente.</p><p style="margin-top:8px;color:var(--mut);font-size:12px">Onde achar: <a href="https://affiliate.shopee.com.br" target="_blank" style="color:var(--volt-tx)">affiliate.shopee.com.br</a> → <strong>Abrir API</strong> (AppID + Senha).</p>`},
-  {n:"Magalu",e:"💙",img:"",f:[
+  {n:"Magalu",e:"💙",img:"",emBreve:true,f:[
     {k:"Nome da Loja",pwd:false,ph:"Slug da sua loja no Magalu"}
   ],dica:`<p>Para encontrar:</p><ol><li>Acesse <a href="https://www.magazinevoce.com.br" target="_blank" style="color:var(--volt-tx)">magazinevoce.com.br</a></li><li>Copie o <strong>nome/slug</strong> da sua loja</li></ol>`},
   {n:"Mercado Livre",e:"💛",img:"",f:[
     {k:"Link de Afiliado",pwd:false,ph:"https://mercadolivre.com/affiliate/...",optional:true}
   ],oauth:true,dica:`<p>Conecte sua conta do Mercado Livre com 1 clique via login oficial.</p><p style="color:var(--mut);font-size:12px">O acesso é seguro e pode ser revogado a qualquer momento.</p>`},
-  {n:"Natura",e:"🌿",img:"",f:[
+  {n:"Natura",e:"🌿",img:"",emBreve:true,f:[
     {k:"Link do Espaço Digital",pwd:false,ph:"https://www.natura.com.br/consultora/..."}
   ],dica:`<p>Para encontrar:</p><ol><li>Acesse seu painel de Consultora Natura</li><li>Copie o link do seu <strong>Espaço Digital</strong></li></ol>`},
   {n:"Shein",e:"🖤",img:"",f:[
     {k:"ID de Afiliado",pwd:false,ph:"Seu ID numérico de afiliado Shein"}
   ],dica:`<p>Para encontrar seu ID de afiliado:</p><ol><li>Acesse <a href="https://m.shein.com/br/affiliate/my-account/personal" target="_blank" style="color:var(--volt-tx)">m.shein.com/br/affiliate/my-account/personal</a></li><li>Copie o <strong>ID de afiliado</strong> (são apenas números)</li></ol><div class="alert y" style="margin-top:8px;font-size:12px">⚠️ Não confunda com o código de indicação — o ID de afiliado é composto apenas por números.</div>`},
-  {n:"TerabyteShop",e:"🖥️",img:"",f:[
+  {n:"TerabyteShop",e:"🖥️",img:"",emBreve:true,f:[
     {k:"ID de Parceiro",pwd:false,ph:"Seu ID de parceiro Terabyte"}
   ],dica:`<p>Para encontrar:</p><ol><li>Acesse o painel de afiliados da <a href="https://www.terabyteshop.com.br" target="_blank" style="color:var(--volt-tx)">TerabyteShop</a></li><li>Copie seu <strong>ID de Parceiro</strong></li></ol>`}
 ];
@@ -4319,6 +4326,19 @@ function lojaConectada(n){
 
 function renderLojas(){
   lojasGrid.innerHTML=LOJAS.map((l,li)=>{
+    // Loja ainda não integrada: mostra "Breve" e não oferece configurar —
+    // sem isso o usuário preenche credenciais que nada usa do outro lado.
+    if(l.emBreve){
+      return `<div class="card" style="margin:0;opacity:.72" id="loja-card-${li}">
+        <div class="cb" style="display:flex;align-items:center;gap:12px;padding:16px">
+          <div style="width:44px;height:44px;border-radius:2px;background:var(--bg3);display:grid;place-items:center;font-size:24px;flex:none;overflow:hidden">${lojaLogoImg(l.n,l.e,30)}</div>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:14px">${l.n}</div>
+            <span class="pill gray" style="margin-top:4px;font-size:11px"><span class="d"></span>🔜 Breve</span>
+          </div>
+        </div>
+      </div>`;
+    }
     const con=lojaConectada(l.n);
     return `<div class="card" style="margin:0" id="loja-card-${li}">
       <div class="cb" style="display:flex;align-items:center;gap:12px;padding:16px">
@@ -5092,11 +5112,6 @@ function renderGrupos(){const has=S.grupos.length>0;
           <span style="font-size:11px;color:var(--mut)">WhatsApp:</span>
           <span style="font-size:11px;font-weight:700;color:${waColor}">${waLabel}</span>
         </div>
-        <div style="display:flex;align-items:center;gap:7px">
-          <span style="font-size:14px">🏷️</span>
-          <span style="font-size:11px;color:var(--mut)">Cupom:</span>
-          <span style="font-size:11px;font-weight:700;color:var(--tx)">${(()=>{const c=COUPONS.find(x=>x.id===g.defaultCouponId);return c?esc(c.code):"—";})()}</span>
-        </div>
       </div>
       ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:2px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
       ${(foraRodizio||g.prodAgendados)?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:2px;font-size:11px;color:#f59e0b;cursor:pointer" onclick="editarGrupo('${g.id}')" title="Estes produtos continuam cadastrados, mas não estão sendo postados agora. Clique para abrir o grupo.">⏳ Fora do rodízio: ${detalhesFora}</div>`:""}
@@ -5230,9 +5245,7 @@ function dispararGrupoMostrarErros(nomeGrupo,d){
 const TAB_GROUPS=[
   {id:"config",label:"⚙️ Configuração",tabs:[
     {id:"geral",label:"🤖 Automação de Posts"},
-    {id:"layout",label:"Layout Post"},
-    {id:"cabecalho",label:"Cabeçalho"},
-    {id:"ia",label:"Recursos de IA",novo:1}
+    {id:"layout",label:"Layout Post"}
   ]},
   {id:"dist",label:"📡 Distribuição",tabs:[
     {id:"wagrupos",label:"WhatsApp-GRUPOS"},
@@ -5297,12 +5310,6 @@ geral:`
         </select><small style="color:var(--mut);display:block;margin-top:4px">Todo produto novo deste grupo já nasce com essa data no campo "Até". Vale só para os próximos — não altera os que já estão cadastrados.</small></div>
         <div class="field"><label>Idioma</label><select><option>Português (BR)</option></select></div>
       </div></div></div>
-    <div class="card" style="margin:0"><div class="ch">🏷️ Cupom padrão</div><div class="cb">
-      <div class="field"><label>🏷️ Cupom padrão deste grupo (opcional)</label>
-        <select id="pgCupomPadrao"><option value="">— Nenhum —</option></select>
-        <small style="color:var(--mut);display:block;margin-top:4px">Pré-selecionado automaticamente no Postar Agora ao escolher este grupo.</small>
-      </div>
-    </div></div>
   </div>
   <!-- Clone Post — aprovação automática por grupo de destino -->
   <div class="card" style="margin-top:14px"><div class="ch">🤖 Clone Post — captura automática deste grupo</div><div class="cb">
@@ -5598,7 +5605,6 @@ const MARKET_STORES=[
   {id:"magalu",label:"Magalu",cred:"Magalu"},
   {id:"ml",label:"Mercado Livre",cred:"Mercado Livre"},
   {id:"shein",label:"Shein",cred:"Shein"},
-  {id:"awin",label:"Awin",cred:"AWIN"},
   {id:"natura",label:"Natura",cred:"Natura"},
   {id:"terabyte",label:"TerabyteShop",cred:"TerabyteShop"},
 ];
@@ -5787,11 +5793,6 @@ function buildTabs(){
     const pgValidade=document.getElementById("pgValidade");
     if(pgValidade)pgValidade.value=g.validadeDias?String(g.validadeDias):"";
     prodPreencherValidade();
-    const pgCupom=document.getElementById("pgCupomPadrao");
-    if(pgCupom){
-      pgCupom.innerHTML='<option value="">— Nenhum —</option>'+COUPONS.map(c=>`<option value="${c.id}">[${esc(c.store)}] ${esc(c.code)}${c.label?" — "+esc(c.label):""}</option>`).join("");
-      pgCupom.value=g.defaultCouponId||"";
-    }
   },80);pgRenderPresets();
   // wire onclick das categorias L1
   tabsL1.querySelectorAll(".tl1").forEach(b=>b.onclick=()=>{
@@ -5861,7 +5862,6 @@ async function salvarGeral(){
   g.loopEnabled=!!document.getElementById("pgLoop")?.checked;
   g.deleteAfterPost=!!document.getElementById("pgExcluirAposPostar")?.checked;
   g.cloneAutoApprove=!!document.getElementById("pgCloneAutoApprove")?.checked;
-  g.defaultCouponId=document.getElementById("pgCupomPadrao")?.value||null;
   const validadeSel=document.getElementById("pgValidade")?.value||"";
   g.validadeDias=validadeSel?Number(validadeSel):null;
 
@@ -5900,7 +5900,6 @@ async function salvarGeral(){
         loop_enabled:!!g.loopEnabled,
         delete_after_post:!!g.deleteAfterPost,
         clone_auto_approve:!!g.cloneAutoApprove,
-        default_coupon_id:g.defaultCouponId||null,
         default_validity_days:g.validadeDias||null,
       }).eq("id",g.db_id);
     }catch(e){console.warn("salvarGeral update:",e);}
@@ -7508,7 +7507,7 @@ async function tgEnviarTeste(){
 }
 /* ================= FAQ ================= */
 const FCATS=["Perguntas Gerais","WhatsApp & Canais","Programas de Afiliados","Assinatura","Recursos Avançados","Problemas Técnicos"];
-const FAQS=[["Perguntas Gerais","O que é a Mega Links BR?","Uma plataforma de automação para afiliados: encontra ofertas nas lojas, converte seus links de afiliado e publica automaticamente em grupos e canais do WhatsApp e Telegram."],["WhatsApp & Canais","Como conecto meu número?","Em Conexão WhatsApp, informe o número e gere o QR Code. No celular, vá em WhatsApp → Aparelhos conectados → Conectar um aparelho e escaneie."],["WhatsApp & Canais","Posso postar em Canais do WhatsApp?","Sim. Em Editar Grupo → WhatsApp-CANAIS, cole o link do canal e clique em Buscar canal. Só é possível vincular canais onde você é Dono (OWNER) ou Admin."],["Programas de Afiliados","Quais lojas são suportadas?","AliExpress, Amazon, AWIN, Shopee, Magalu, Mercado Livre, Shein, Natura e TerabyteShop, além de produtos manuais."],["Assinatura","Como funciona o trial?","O plano STARTER oferece 7 dias grátis com 1 grupo de configuração e marca de água nos posts."],["Recursos Avançados","O que é a MegaIA?","Nossa IA (BETA) que reescreve mensagens, gera legendas e sugere os melhores horários de postagem."],["Problemas Técnicos","Meu post parou de sair. O que fazer?","Verifique se a sessão WhatsApp continua conectada e se o grupo está com Post Auto ativo dentro da janela de horário configurada."]];
+const FAQS=[["Perguntas Gerais","O que é a Mega Links BR?","Uma plataforma de automação para afiliados: encontra ofertas nas lojas, converte seus links de afiliado e publica automaticamente em grupos e canais do WhatsApp e Telegram."],["WhatsApp & Canais","Como conecto meu número?","Em Conexão WhatsApp, informe o número e gere o QR Code. No celular, vá em WhatsApp → Aparelhos conectados → Conectar um aparelho e escaneie."],["WhatsApp & Canais","Posso postar em Canais do WhatsApp?","Sim. Em Editar Grupo → WhatsApp-CANAIS, cole o link do canal e clique em Buscar canal. Só é possível vincular canais onde você é Dono (OWNER) ou Admin."],["Programas de Afiliados","Quais lojas são suportadas?","Shopee, Amazon, Mercado Livre e Shein hoje. AliExpress, Magalu, Natura e TerabyteShop estão em breve — além de produtos manuais em qualquer loja."],["Assinatura","Como funciona o trial?","O plano STARTER oferece 7 dias grátis com 1 grupo de configuração e marca de água nos posts."],["Recursos Avançados","O que é a MegaIA?","Nossa IA (BETA) que reescreve mensagens, gera legendas e sugere os melhores horários de postagem."],["Problemas Técnicos","Meu post parou de sair. O que fazer?","Verifique se a sessão WhatsApp continua conectada e se o grupo está com Post Auto ativo dentro da janela de horário configurada."]];
 let faqCat="Perguntas Gerais";
 faqCats.innerHTML=FCATS.map(c=>`<button class="fc${c===faqCat?" on":""}" data-cat="${c}">${c}</button>`).join("");
 function renderFaq(){const q=faqSearch.value.toLowerCase();const list=FAQS.filter(f=>q?(f[1]+f[2]).toLowerCase().includes(q):f[0]===faqCat);
@@ -7524,7 +7523,7 @@ const PAL=[
   {t:"Conexão WhatsApp (QR)",ic:"📲",go:"conexao",k:"parear qr code numero"},{t:"Canais/Grupos",ic:"🔔",go:"canais-grupos",k:"grupo canal"},
 {t:"Adicionar Grupo de Oferta",ic:"➕",act:()=>{setRole("afiliado");go("canais-grupos");btnAddGrupo.click();},k:"novo criar"},
   {t:"Config Afiliados",ic:"⚙️",go:"config-afiliados",k:"credenciais shopee"},{t:"Assinatura e planos",ic:"💳",go:"assinatura",k:"upgrade pix"},
-  {t:"FAQ",ic:"❓",go:"faq",k:"ajuda"},{t:"Abrir MegaIA",ic:"✨",act:()=>openDrawer(),k:"ia copiloto"},
+  {t:"FAQ",ic:"❓",go:"faq",k:"ajuda"},
   {t:"Alternar tema",ic:"🌓",act:()=>toggleTheme(),k:"dark light"},
   {t:"[Admin] Visão Geral",ic:"📊",act:()=>setRole("admin"),k:"admin metricas"},
   {t:"[Admin] Usuários / CRM",ic:"👥",act:()=>{setRole("admin");go("adm-usuarios");},k:"crm usuarios"},
@@ -7690,7 +7689,13 @@ async function aiSendMsg(text){
   aiBody.scrollTop=aiBody.scrollHeight;
 }
 
+// MegaIA pausada em todo o site a pedido do Érico (30/08/2026) — ver
+// docs/ESTADO_ATUAL.md REVISÃO 107. openDrawer() é o único ponto de entrada
+// real (fab, botão do Dashboard e Command Palette todos chamam ele), então
+// travar aqui esconde a função inteira sem precisar caçar cada chamador.
+const MEGA_IA_PAUSADA=true;
 function openDrawer(){
+  if(MEGA_IA_PAUSADA)return;
   // Trava mega_ia — Starter não tem acesso
   if(!myFeatures().mega_ia){
     const prox=planRow("pro");
@@ -7748,7 +7753,7 @@ function ctaManualVisivel(){
 function atualizarFabIA(){
   const f=document.getElementById("fabAI");
   if(!f)return;
-  const mostrar=ctaManualVisivel();
+  const mostrar=MEGA_IA_PAUSADA?false:ctaManualVisivel();
   f.style.display=mostrar?"":"none";
   // Sair da tela com a gaveta aberta deixaria a MegaIA de pé num lugar onde ela
   // não deveria estar. Fecha junto.
@@ -10550,11 +10555,6 @@ function prRenderCupomSelect(){
     return;
   }
   sel.innerHTML='<option value="">— Selecione —</option>'+lista.map(c=>`<option value="${c.id}">${esc(c.code)}${c.label?" — "+esc(c.label):""}</option>`).join("");
-  // pré-seleciona o cupom padrão do grupo, se houver e pertencer à loja
-  const grupoSel=S.grupos.find(g=>PR.gruposSel.has(g.id));
-  if(grupoSel?.defaultCouponId&&lista.some(c=>c.id===grupoSel.defaultCouponId)){
-    sel.value=grupoSel.defaultCouponId;
-  }
 }
 function prToggleGrupo(id,on){on?PR.gruposSel.add(id):PR.gruposSel.delete(id);prRenderCupomSelect();prUpdatePreview();}
 function prSelectAll(on){

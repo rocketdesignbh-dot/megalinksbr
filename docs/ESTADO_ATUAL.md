@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 106 — 30/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 107 — 30/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1649,6 +1649,89 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 107 — 30/08/2026 — segundo pedido do Érico na mesma sessão da REVISÃO
+106: 5 alterações em Editar Grupo, Radar e Config Afiliados, mais a pausa da
+MegaIA no site inteiro. CÓDIGO EDITADO E VALIDADO (`node --check` limpo nos 5
+blocos `<script>`) — AINDA NÃO COMMITADO/PUSHADO NESTA REVISÃO.**
+
+### 1. "Cabeçalho" e "Recursos de IA" (abas de Editar Grupo) — REMOVIDAS
+
+Pedido do Érico. Confirmado por grep, mesmo padrão das abas de "Conteúdo" já
+fechadas na P100: nenhuma das duas tinha uso real por trás — "Recursos de IA"
+era só a demonstração estática do MegaIA (antes/depois de exemplo), sem ligação
+com produto de verdade. O `PANES["ia"]` correspondente ficou no arquivo como
+código morto, órfão, mesmo padrão de dead code já aceito no projeto (ex.: `ia:`
+pane, `paneImportLoja`/`MARKET_STORES` da P100) — não removido por completo
+para respeitar o escopo estrito do pedido (só as abas, não o pane).
+
+### 2. "Cupom padrão" (Editar Grupo → Layout Post) — REMOVIDO, era campo órfão
+
+Pedido do Érico: "não vejo utilidade". Confirmado por grep no backend inteiro
+(`grep -rn "default_coupon_id" supabase/functions/` vazio) — o campo
+`niche_groups.default_coupon_id` era gravado pelo frontend e **nunca lido por
+nenhuma Edge Function**, mesmo formato de "mecanismo que parece existir e não
+executa nada" já visto no projeto (P28, P54, e o `cta_text` de grupo achado na
+REVISÃO 106). Removido por completo do frontend: o card "🏷️ Cupom padrão" e o
+`<select id="pgCupomPadrao">` na tela de Editar Grupo, a leitura/gravação em
+`salvarGeral`/carregamento do grupo, o campo `defaultCouponId` no objeto de
+estado do grupo, a coluna no payload de update do `niche_groups`, e o
+pré-preenchimento em Postar Agora (`prRenderCupomSelect`). **Nenhuma migration**
+— a coluna `default_coupon_id` fica no banco sem uso, decisão de não mexer em
+schema fora do pedido (mesmo critério da P100/REVISÃO 106).
+
+### 3. Radar — chip "(sem ofertas)" enganoso em Shopee/Amazon — CORRIGIDO
+
+Pedido do Érico: "clico e aparece a oferta, mas ainda vejo 'sem ofertas'...
+meio confuso, resolva". **Causa:** `fetchRadarLive(searchQ, radarFilter)`
+consulta o backend **só da loja do filtro ativo** quando o filtro não é
+"Todas" — então `radarData` na memória só reflete a loja selecionada naquela
+rodada. Os chips das outras lojas liam "(sem ofertas)" **só porque não foram
+perguntados desta vez**, não porque não tinham oferta nenhuma — e ao clicar
+numa delas, a próxima chamada trazia dados reais, mas a rodada anterior já
+tinha "esquecido" as demais. **Conserto:** acumulador persistente
+`RADAR_TOTAIS_LOJA`, que faz `Object.assign` (nunca substitui, só mescla) do
+total por loja a cada resposta do `fetchRadarLive`; o chip agora lê esse
+acumulado quando existe, e só cai no comportamento antigo (baseado só na
+rodada atual) para uma loja que **nunca** foi consultada na sessão.
+
+### 4. Config Afiliados — Awin removida, 4 lojas marcadas "Breve"
+
+Pedido do Érico: excluir Awin por completo; marcar AliExpress, Magalu, Natura
+e TerabyteShop como "Breve" (Amazon, Shopee, Mercado Livre e Shein continuam
+ativas). Awin removida de `LOJAS`, `LOJA_EMOJI`, `LOJA_DOMINIO`, do filtro de
+loja em Cupons e de `MARKET_STORES`. As 4 lojas "Breve" ganharam `emBreve:true`
+em `LOJAS` e um branch novo em `renderLojas()` que mostra um card
+simplificado com a pill "🔜 Breve" em vez do card de credenciais completo.
+Conferido que os índices de `LOJAS` usados em `abrirModalLoja(li)` e
+`applyMarketplaceGating` são todos dinâmicos (por posição no array, recalculados
+a cada render) — seguro remover uma entrada sem quebrar as outras. FAQ
+"Quais lojas são suportadas?" atualizado para refletir as 4 ativas + 4 em breve.
+
+### 5. MegaIA pausada em todo o site, oculta
+
+Pedido do Érico: "Pause a Mega IA em todo o site, deixe oculta". Todos os
+pontos de entrada do MegaIA (fab flutuante `#fabAI`, botão do Dashboard "✨
+Gerar post com IA" `#btnDashIA`, e a entrada "Abrir MegaIA" do Command Palette)
+convergem numa única função, `openDrawer()` — por isso o guard entrou lá:
+`const MEGA_IA_PAUSADA=true;` no topo, `if(MEGA_IA_PAUSADA)return;` como
+primeira linha de `openDrawer()`. `atualizarFabIA()` agora força `mostrar` para
+`false` quando a flag está ligada, então o fab nunca aparece mesmo com um
+`data-cta-manual` visível na tela. O botão `#btnDashIA` ganhou
+`style="display:none"` (ele chama `openDrawer()`, que agora não faz nada — mas
+esconder evita clique morto). A entrada "Abrir MegaIA" do Command Palette foi
+removida da lista de comandos. **Reversível numa linha**: mudar
+`MEGA_IA_PAUSADA` para `false` religa os três pontos de entrada de volta ao
+comportamento normal (fab por `ctaManualVisivel()`, botões visíveis).
+⚠️ O botão "✨ Abrir MegaIA" dentro do pane órfão "Recursos de IA" (item 1
+acima) também chama `openDrawer()` e portanto já respeita a pausa — não
+precisou de edição própria por já estar inalcançável.
+
+⚠️ **Nada desta revisão foi medido em produção ainda** — só validado com
+`node --check` nos 5 blocos `<script>` (limpo) e grep de confirmação de que
+nenhuma referência a `defaultCouponId`/`pgCupomPadrao`/`default_coupon_id`
+sobrou no arquivo. Falta: commit, push, deploy manual no EasyPanel, e conferir
+por comportamento observado cada um dos 5 itens (screenshots/cliques reais).
 
 **REVISÃO 106 — 30/08/2026 — pedido do Érico: 7 alterações de UX/limpeza em Grupo de
 Oferta e no menu principal, mais uma investigação que achou a P97 (Cupons 100%
@@ -7581,6 +7664,10 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P101** | 🟡 **CODADA E VALIDADA (REVISÃO 107) — NÃO DEPLOYADA.** Remoção das abas "Cabeçalho" e "Recursos de IA" de Editar Grupo e do "Cupom padrão" (campo órfão, `default_coupon_id` nunca lido pelo backend). Falta commit, push e deploy no EasyPanel | 30/08 |
+| **P102** | 🟡 **CODADA E VALIDADA (REVISÃO 107) — NÃO DEPLOYADA.** Radar: acumulador `RADAR_TOTAIS_LOJA` corrige o chip "(sem ofertas)" enganoso em Shopee/Amazon, que só aparecia porque a loja não tinha sido consultada na rodada atual do filtro. Falta deploy e confirmar clicando em cada loja que o chip para de "esquecer" total já visto | 30/08 |
+| **P103** | 🟡 **CODADA E VALIDADA (REVISÃO 107) — NÃO DEPLOYADA.** Config Afiliados: Awin removida por completo (`LOJAS`, `LOJA_EMOJI`, `LOJA_DOMINIO`, `MARKET_STORES`, filtro de Cupons); AliExpress, Magalu, Natura e TerabyteShop marcadas "🔜 Breve". Falta deploy e conferir visualmente os 4 cards "Breve" e que Awin sumiu de toda tela | 30/08 |
+| **P104** | 🟡 **CODADA E VALIDADA (REVISÃO 107) — NÃO DEPLOYADA.** MegaIA pausada em todo o site via `MEGA_IA_PAUSADA=true` em `openDrawer()` (fab, botão do Dashboard e Command Palette todos passam por ali). Falta deploy e confirmar que o fab `#fabAI` não aparece em nenhuma tela e que os outros dois gatilhos não abrem a gaveta | 30/08 |
 | **P2** | 🔵 **REDESENHADA 03/08 — as duas saídas originais estavam mal postas.** ~~Decidir entre `GRANT EXECUTE` a `anon` ou trocar a credencial do engine para service role.~~ O Érico escolheu service role em 03/08, e ao ir codar apareceu que **isso reverte uma decisão deliberada que já está escrita no código**: `wa-engine/server.js` linha 1516 — *"Não usamos a SERVICE_ROLE_KEY aqui de propósito: ela daria a este container acesso irrestrito ao banco. Autenticamos na Edge Function `wa-heartbeat` com o `WA_ENGINE_TOKEN`"*. Pior ainda depois da P16: esse container é reiniciado por qualquer push. **Terceira saída, que nenhum dos dois tinha listado e que segue o desenho que já existe: o rate limit vira Edge Function**, chamada pelo engine com `WA_ENGINE_TOKEN`, exatamente como o `wa-heartbeat`. Sem `GRANT` para `anon`, sem service role no container. **Falta o Érico confirmar essa saída e alguém codar** | 30/07 |
 | ~~P3~~ | ✅ **FECHADA 03/08 à tarde, MEDIDA NO PAINEL LOGADO.** Token de 43 chars preenchido num load limpo, `/sessions` **200** (não 401), card "Sessões ativas" **visível e populado** com a instância do dono, console limpo. ⚠️ **O que isto prova e o que não prova:** prova que **funciona hoje**; não prova que o conserto foi a causa, porque o sintoma nunca foi reproduzido ANTES do patch. Ver "P3 — medida" acima. Registro original abaixo. ~~🟡 DIAGNOSTICADA, CONSERTADA E DEPLOYADA 03/08 — AGUARDANDO REPRODUÇÃO LOGADA — e a hipótese da raiz comum com a P2 está ERRADA.** O engine valida certo (`token !== WA_ENGINE_TOKEN` → 401) e o `get-wa-engine-token` está protegido (`verify_jwt: true`, **medido**). O 401 vem de `Bearer ` **vazio**: o painel declara `WA_ENGINE_TOKEN=""` e (a) a linha top-level `renderAdminVisao();...renderInstancias();...` rodava na carga do script, antes de `enterApp` buscar o token; (b) `fetchWAEngineToken` devolve `false` em três caminhos e **ninguém lia o retorno** — o `.catch` só pega exceção —, então uma falha deixava o token vazio pela sessão inteira, sem retry e sem aviso; (c) a re-renderização pós-token cobria `renderInstancias` mas **não** `renderInstCard`, que é o card "Sessões ativas", exatamente a tela cega. Consertados os três, **deployados em 03/08 às 12:13 UTC e conferidos no código servido** (os três marcadores estão no `index.html` que o nginx entrega; console limpo num load completo, porém **deslogado**). ⚠️ **Sintoma NÃO reproduzido** — o mecanismo está lido no código, mas ninguém carregou a página e leu o console (ver P15). O smoke test dá "não piorou", não "funciona". **Consequência para a P2: ela perde o argumento de "resolve duas de uma vez" e volta a ser decisão isolada de rate limit** | 30/07 |
 | ~~P4~~ | ✅ **RESOLVIDA 03/08 — não era OOM nem healthcheck. É o auto-deploy da P16.** O log do EasyPanel de 03/08 mostra **quatro** boots do `wa-engine` em 35 minutos, cada um com hostname de container novo: **12:04**, **12:13:26**, **12:29:32**, **12:39:34**. O de 12:13:26 casa **ao segundo** com o `### Success ###` do build do serviço `app` (o frontend); os de 12:29 e 12:39 casam com os **dois pushes deste chat** para o `main`. Depois das 12:39, **53 minutos sem push e sem restart** — controle negativo. **Deployar o `app` derruba e sobe o `wa-engine` junto**, e como o auto-deploy dispara a cada push, **todo commit — inclusive commit só de documentação — reinicia o WhatsApp em produção.** O `CLONE_FILA` mora em memória e vai junto. Ver "P4/P16" acima. A frase do registro antigo, *"sem deploy"*, era inferência: ninguém tinha cruzado o horário com os pushes | 30/07 |
