@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 107 — 30/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 108 — 30/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1649,6 +1649,72 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 108 — 30/08/2026 — terceiro pedido do Érico na mesma sessão:
+limpeza dos cards de Planos, uma pergunta respondida com achado real (produto
+do Postar Agora nunca era salvo no grupo) + função nova para resolver, cor de
+fundo preta e "Breve" nos cupons das lojas ainda não integradas. CÓDIGO EDITADO
+E VALIDADO (`node --check` limpo nos 5 blocos `<script>`) — AINDA NÃO
+COMMITADO/PUSHADO NESTA REVISÃO.**
+
+### 1. Cards de Planos (Assinatura) — MegaIA removida, Clone Post e Radar de Ofertas incluídos
+
+Pedido do Érico. `buildPlansFromFeatures()` (a função que monta a lista de
+recursos de cada card) perdeu a linha `f.mega_ia?"✅ MegaIA"...` e ganhou duas:
+`"✅ Radar de Ofertas"` fixo em todo card — `planRow().radar` já é `true` nos
+4 planos (Starter/Pro/Elite/Premium), então não muda regra de negócio, só
+deixa de esconder um recurso que todo plano sempre teve — e `f.clone_post?"✅
+Clone Post (captura automática de grupos)":"❌ Clone Post"`, que já refletia
+a regra real da plataforma (Starter sem Clone Post, Pro pra cima com). Escopo
+estrito: só os cards (`buildPlansFromFeatures`), a tabela comparativa embaixo
+dos cards (`planCompareBody`) manteve a linha "MegaIA" — não foi pedida.
+
+### 2. Postar Agora não salvava o produto no grupo — CONFIRMADO E CORRIGIDO
+
+Pergunta do Érico: "ele posta imediato... mas o produto é salvo no Grupo de
+Ofertas? Seria viável colocar a função salvar?" **Resposta, com código lido:**
+não, nunca foi. `prDisparar()` só grava em `scheduled_posts` (para o
+Analítico) — nenhuma linha em `products` nunca foi inserida por este fluxo.
+Isso significa que a preocupação do Érico procede à risca: com "excluir após
+postar" desligada (que é uma configuração do **grupo**, não do Postar Agora,
+e nem se aplica aqui porque nunca existiu produto pra excluir), um produto
+disparado pelo Postar Agora não ficava disponível em lugar nenhum para
+reaproveitar depois — nem na automação do grupo, nem num próximo disparo.
+**Implementado:** checkbox novo "💾 Salvar este produto no(s) Grupo(s) de
+Oferta selecionado(s)" no Passo 4 do Postar Agora, **marcado por padrão**. Ao
+disparar com sucesso (`ok>0`), para cada grupo selecionado insere uma linha em
+`products` com os mesmos dados do post (nome, preço, preço original, imagem,
+link afiliado, link original, CTA, loja detectada), respeitando o limite de
+produtos por plano do grupo (`max_products`) — se um grupo específico já
+estiver no teto, o produto não é salvo NELE (mas o post já disparado não é
+desfeito) e aparece um aviso na tela de resultado. Reaproveita o padrão já
+usado em `prodAdicionarManual` (mesma tabela, mesmas colunas).
+⚠️ Não é uma automação nova — é só parar de descartar um dado que já existia
+na tela e nunca ia para lugar nenhum.
+
+### 3. "Personalizar cor do post" — nova opção "Fundo Preto"
+
+Pedido do Érico. Adicionada ao array único `PR_CORES` (`{nome:"Fundo
+Preto",bg:"#0a0a0a",tx:"#ffffff"}`), que é compartilhado pelas 3 telas que têm
+esse seletor de cor: Postar Agora (`prPainelCor`), Layout Post/Post Automático
+(`lpPainelCor`) e Radar→Grupo (`rgPainelCor`) — uma edição só, aparece nas
+três.
+
+### 4. Cupons — "Breve" nos filtros de AliExpress, Magalu, Natura e Terabyte
+
+Pedido do Érico, mesma lista de lojas ainda não integradas marcada "Breve" em
+Config Afiliados na REVISÃO 106. Os 4 botões de filtro na tela de Cupons
+(`cupom-filtro`) ganharam "(Breve)" no rótulo — só o texto do botão, o filtro
+em si continua funcionando (não bloqueado), porque cupom cadastrado à mão
+para essas lojas continua sendo um registro válido, só o cadastro automático
+via API é que ainda não existe. Shein não foi tocada — não está na lista das
+4 lojas "Breve".
+
+⚠️ **Nada desta revisão foi medido em produção ainda** — só validado com
+`node --check` nos 5 blocos `<script>` (limpo). Falta: commit, push, deploy
+manual no EasyPanel, e conferir por comportamento observado os 4 itens —
+principalmente o item 2, que precisa de um disparo real do Postar Agora
+seguido de checar se o produto aparece na lista de produtos do grupo.
 
 **REVISÃO 107 — 30/08/2026 — segundo pedido do Érico na mesma sessão da REVISÃO
 106: 5 alterações em Editar Grupo, Radar e Config Afiliados, mais a pausa da
@@ -7668,6 +7734,9 @@ código não relacionado.
 | **P102** | 🟡 **CODADA E VALIDADA (REVISÃO 107) — NÃO DEPLOYADA.** Radar: acumulador `RADAR_TOTAIS_LOJA` corrige o chip "(sem ofertas)" enganoso em Shopee/Amazon, que só aparecia porque a loja não tinha sido consultada na rodada atual do filtro. Falta deploy e confirmar clicando em cada loja que o chip para de "esquecer" total já visto | 30/08 |
 | **P103** | 🟡 **CODADA E VALIDADA (REVISÃO 107) — NÃO DEPLOYADA.** Config Afiliados: Awin removida por completo (`LOJAS`, `LOJA_EMOJI`, `LOJA_DOMINIO`, `MARKET_STORES`, filtro de Cupons); AliExpress, Magalu, Natura e TerabyteShop marcadas "🔜 Breve". Falta deploy e conferir visualmente os 4 cards "Breve" e que Awin sumiu de toda tela | 30/08 |
 | **P104** | 🟡 **CODADA E VALIDADA (REVISÃO 107) — NÃO DEPLOYADA.** MegaIA pausada em todo o site via `MEGA_IA_PAUSADA=true` em `openDrawer()` (fab, botão do Dashboard e Command Palette todos passam por ali). Falta deploy e confirmar que o fab `#fabAI` não aparece em nenhuma tela e que os outros dois gatilhos não abrem a gaveta | 30/08 |
+| **P105** | 🟡 **CODADA E VALIDADA (REVISÃO 108) — NÃO DEPLOYADA.** Cards de Planos: removida a linha MegaIA, incluídas Radar de Ofertas (fixo, todo plano) e Clone Post (por plano). Falta deploy e conferir visualmente os 4 cards | 30/08 |
+| **P106** | 🟡 **CODADA E VALIDADA (REVISÃO 108) — NÃO DEPLOYADA, MAIOR RISCO DESTA LEVA.** Postar Agora ganhou checkbox "Salvar produto no Grupo" (marcado por padrão), que insere em `products` a cada disparo com sucesso — antes, nenhuma linha era gravada. Falta deploy e um disparo real seguido de conferir a linha nova em `products` (nome, preço, imagem, link, CTA, loja corretos) e o comportamento no teto de produtos do grupo (não deve desfazer o post, só pular a gravação nesse grupo com aviso) | 30/08 |
+| **P107** | 🟡 **CODADA E VALIDADA (REVISÃO 108) — NÃO DEPLOYADA.** "Fundo Preto" adicionado ao seletor de cor (Postar Agora/Layout Post/Radar→Grupo, array único `PR_CORES`); "(Breve)" adicionado aos filtros de AliExpress/Magalu/Natura/Terabyte em Cupons. Falta deploy e conferir visualmente as 3 telas de cor e os 4 botões de Cupons | 30/08 |
 | **P2** | 🔵 **REDESENHADA 03/08 — as duas saídas originais estavam mal postas.** ~~Decidir entre `GRANT EXECUTE` a `anon` ou trocar a credencial do engine para service role.~~ O Érico escolheu service role em 03/08, e ao ir codar apareceu que **isso reverte uma decisão deliberada que já está escrita no código**: `wa-engine/server.js` linha 1516 — *"Não usamos a SERVICE_ROLE_KEY aqui de propósito: ela daria a este container acesso irrestrito ao banco. Autenticamos na Edge Function `wa-heartbeat` com o `WA_ENGINE_TOKEN`"*. Pior ainda depois da P16: esse container é reiniciado por qualquer push. **Terceira saída, que nenhum dos dois tinha listado e que segue o desenho que já existe: o rate limit vira Edge Function**, chamada pelo engine com `WA_ENGINE_TOKEN`, exatamente como o `wa-heartbeat`. Sem `GRANT` para `anon`, sem service role no container. **Falta o Érico confirmar essa saída e alguém codar** | 30/07 |
 | ~~P3~~ | ✅ **FECHADA 03/08 à tarde, MEDIDA NO PAINEL LOGADO.** Token de 43 chars preenchido num load limpo, `/sessions` **200** (não 401), card "Sessões ativas" **visível e populado** com a instância do dono, console limpo. ⚠️ **O que isto prova e o que não prova:** prova que **funciona hoje**; não prova que o conserto foi a causa, porque o sintoma nunca foi reproduzido ANTES do patch. Ver "P3 — medida" acima. Registro original abaixo. ~~🟡 DIAGNOSTICADA, CONSERTADA E DEPLOYADA 03/08 — AGUARDANDO REPRODUÇÃO LOGADA — e a hipótese da raiz comum com a P2 está ERRADA.** O engine valida certo (`token !== WA_ENGINE_TOKEN` → 401) e o `get-wa-engine-token` está protegido (`verify_jwt: true`, **medido**). O 401 vem de `Bearer ` **vazio**: o painel declara `WA_ENGINE_TOKEN=""` e (a) a linha top-level `renderAdminVisao();...renderInstancias();...` rodava na carga do script, antes de `enterApp` buscar o token; (b) `fetchWAEngineToken` devolve `false` em três caminhos e **ninguém lia o retorno** — o `.catch` só pega exceção —, então uma falha deixava o token vazio pela sessão inteira, sem retry e sem aviso; (c) a re-renderização pós-token cobria `renderInstancias` mas **não** `renderInstCard`, que é o card "Sessões ativas", exatamente a tela cega. Consertados os três, **deployados em 03/08 às 12:13 UTC e conferidos no código servido** (os três marcadores estão no `index.html` que o nginx entrega; console limpo num load completo, porém **deslogado**). ⚠️ **Sintoma NÃO reproduzido** — o mecanismo está lido no código, mas ninguém carregou a página e leu o console (ver P15). O smoke test dá "não piorou", não "funciona". **Consequência para a P2: ela perde o argumento de "resolve duas de uma vez" e volta a ser decisão isolada de rate limit** | 30/07 |
 | ~~P4~~ | ✅ **RESOLVIDA 03/08 — não era OOM nem healthcheck. É o auto-deploy da P16.** O log do EasyPanel de 03/08 mostra **quatro** boots do `wa-engine` em 35 minutos, cada um com hostname de container novo: **12:04**, **12:13:26**, **12:29:32**, **12:39:34**. O de 12:13:26 casa **ao segundo** com o `### Success ###` do build do serviço `app` (o frontend); os de 12:29 e 12:39 casam com os **dois pushes deste chat** para o `main`. Depois das 12:39, **53 minutos sem push e sem restart** — controle negativo. **Deployar o `app` derruba e sobe o `wa-engine` junto**, e como o auto-deploy dispara a cada push, **todo commit — inclusive commit só de documentação — reinicia o WhatsApp em produção.** O `CLONE_FILA` mora em memória e vai junto. Ver "P4/P16" acima. A frase do registro antigo, *"sem deploy"*, era inferência: ninguém tinha cruzado o horário com os pushes | 30/07 |

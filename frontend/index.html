@@ -988,6 +988,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
           <div id="prGruposGrid" style="display:grid;gap:8px"></div>
           <div id="prWaAlert" class="alert y" style="display:none;margin-top:12px">⚠️ Conecte o WhatsApp primeiro para disparar.</div>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;margin-top:12px">
+            <input type="checkbox" id="prSalvarNoGrupo" checked style="width:auto">
+            💾 Salvar este produto no(s) Grupo(s) de Oferta selecionado(s) acima
+          </label>
+          <small style="color:var(--mut);display:block;margin-top:2px;margin-left:26px">Assim ele fica disponível para reaproveitar depois — na automação do grupo ou num próximo Postar Agora — mesmo sem "excluir após postar" ativo.</small>
         </div>
       </div>
 
@@ -1520,11 +1525,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="Shopee" onclick="cupomFiltrar('Shopee',this)">🛍️ Shopee</button>
           <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="Amazon" onclick="cupomFiltrar('Amazon',this)">📦 Amazon</button>
           <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="Mercado Livre" onclick="cupomFiltrar('Mercado Livre',this)">🟡 Mercado Livre</button>
-          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="AliExpress" onclick="cupomFiltrar('AliExpress',this)">🌐 AliExpress</button>
-          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="Magalu" onclick="cupomFiltrar('Magalu',this)">💙 Magalu</button>
+          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="AliExpress" onclick="cupomFiltrar('AliExpress',this)">🌐 AliExpress (Breve)</button>
+          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="Magalu" onclick="cupomFiltrar('Magalu',this)">💙 Magalu (Breve)</button>
           <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="Shein" onclick="cupomFiltrar('Shein',this)">👗 Shein</button>
-          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="Natura" onclick="cupomFiltrar('Natura',this)">🌿 Natura</button>
-          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="TerabyteShop" onclick="cupomFiltrar('TerabyteShop',this)">💻 Terabyte</button>
+          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="Natura" onclick="cupomFiltrar('Natura',this)">🌿 Natura (Breve)</button>
+          <button class="btn btn-ghost btn-sm cupom-filtro" data-filtro="TerabyteShop" onclick="cupomFiltrar('TerabyteShop',this)">💻 Terabyte (Breve)</button>
         </div>
         <div style="margin-top:10px">
           <input id="cupomBusca" placeholder="🔍 Buscar por código ou descrição…" oninput="cupomRenderLista()" style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:2px;border:1px solid var(--bdr,rgba(255,255,255,.12));background:var(--bg2);color:var(--tx);font-size:13px;outline:none">
@@ -7228,7 +7233,8 @@ function buildPlansFromFeatures(){
     feats.push(!f.wa_post_automation?"✅ Postar Agora (envio manual)":
       f.auto_posts_daily?"✅ Automação de posts ("+f.auto_posts_daily+" por dia)":
       "✅ Automação de posts 24/7");
-    feats.push(f.mega_ia?"✅ MegaIA (geração com IA)":"❌ MegaIA");
+    feats.push("✅ Radar de Ofertas");
+    feats.push(f.clone_post?"✅ Clone Post (captura automática de grupos)":"❌ Clone Post");
     feats.push(f.click_tracking?"✅ Rastreamento de cliques":"❌ Rastreamento de cliques");
     feats.push(f.stock_monitor?"✅ Monitoramento de estoque e preço":"❌ Monitoramento de estoque e preço");
     if(key==="elite"||key==="premium"){
@@ -8708,7 +8714,8 @@ const PR_CORES=[
   {nome:"Fundo Amarelo Solar",bg:"#ffe600",tx:"#0c0c0e"},
   {nome:"Fundo Laranja Vivo",bg:"#ff7a00",tx:"#1a0a00"},
   {nome:"Fundo Rosa Vivo",bg:"#ff2dd4",tx:"#1a0014"},
-  {nome:"Fundo Ciano Vivo",bg:"#00e5ff",tx:"#001a1f"}
+  {nome:"Fundo Ciano Vivo",bg:"#00e5ff",tx:"#001a1f"},
+  {nome:"Fundo Preto",bg:"#0a0a0a",tx:"#ffffff"}
 ];
 let PR={loja:null,produto:null,fotoDataUrl:null,ctaSel:0,ctaRandom:false,gruposSel:new Set(),linkAfil:"",destinos:{grupos:true,canais:false,telegram:false},extras:{extra1:false,extra2:false,cupom:false,extra3:false}};
 
@@ -10775,6 +10782,39 @@ async function prDisparar(){
   btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18"><path d="M13 2L4.5 13.5H11L10 22L19.5 10H13L13 2Z"/></svg> Disparar agora';
 
   if(ok>0){
+    // Salva o produto no(s) Grupo(s) de Oferta selecionado(s), se marcado.
+    // Pedido do Érico (30/08): sem isto, um produto disparado por Postar Agora
+    // nunca existia no grupo — se "excluir após postar" (P do grupo) não
+    // estivesse ativa, não havia nada para reaproveitar, porque nunca houve
+    // gravação nenhuma, ativa ou não. Aqui é a mesma tabela `products` do
+    // cadastro manual, respeitando o limite de produtos por plano do grupo.
+    if(document.getElementById("prSalvarNoGrupo")?.checked&&CURRENT_USER?.id){
+      try{
+        const lojaDetectada=PR.loja||detectLojaLabel(link)||null;
+        const sourceFinal=(lojaDetectada&&STORE_ENUM[lojaDetectada])||"manual";
+        const linkOriginal=document.getElementById("prLink")?.value.trim()||link;
+        const precoNum=parseFloat(String(por).replace(",","."))||null;
+        const precoOrigNum=de?(parseFloat(String(de).replace(",","."))||null):null;
+        const _maxProd=lim("max_products")??15;
+        for(const g of grupos){
+          const gid=g.db_id||g.id;
+          if(!gid)continue;
+          if(_maxProd!==-1){
+            const{count}=await SB.from("products").select("id",{count:"exact",head:true}).eq("niche_group_id",gid);
+            if((count||0)>=_maxProd){errMsgs.push(`"${g.nome}": limite de ${_maxProd} produtos atingido, produto não salvo no grupo`);continue;}
+          }
+          const{data:last}=await SB.from("products").select("position").eq("niche_group_id",gid).order("position",{ascending:false}).limit(1).maybeSingle();
+          const pos=(last?.position||0)+1;
+          const{error:errSalvar}=await SB.from("products").insert({
+            title:nome,affiliate_url:link,original_url:linkOriginal,price:precoNum,price_original:precoOrigNum,
+            image_url:imageUrl||null,niche_group_id:gid,source:sourceFinal,position:pos,
+            cta_text:ctaRandomChecked?null:(PR_CTAS[PR.ctaSel]||cta||null),cta_random:!!ctaRandomChecked,
+            user_id:CURRENT_USER.id,
+          });
+          if(errSalvar)console.warn("Erro ao salvar produto no grupo",g.nome,errSalvar);
+        }
+      }catch(e){console.warn("Erro ao salvar produto disparado no grupo:",e);}
+    }
     // Grava na scheduled_posts para contagem no Analítico
     try{
       const uid=CURRENT_USER?.id;
