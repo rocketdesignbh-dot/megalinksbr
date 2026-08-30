@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 108 — 30/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 109 — 30/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1649,6 +1649,39 @@ desmarcado = não posta, não posta de outro jeito.
 ---
 
 ## Última alteração
+
+**REVISÃO 109 — 30/08/2026 — pergunta do Érico ("já definimos o Clone Post
+por plano?") virou achado: a mensagem de bloqueio da captura automática dizia
+"a partir do Elite", mas o código libera desde o Pro. CORRIGIDO. CÓDIGO
+EDITADO E VALIDADO — AINDA NÃO COMMITADO/PUSHADO NESTA REVISÃO.**
+
+### Definição real do Clone Post por plano (conferida em código E no banco)
+
+`plan_features` (produção) bate 100% com o `PLAN_FALLBACK` do `index.html`:
+Starter sem Clone Post nenhum (nem manual, nem automático); **Pro, Elite e
+Premium liberam os dois juntos** — manual (colar mensagem à mão) e automático
+(o sistema escuta o grupo sozinho) — a única coisa que sobe de plano pra
+plano é o **teto de fontes automáticas simultâneas** (`clone_sources_max`):
+Pro 1, Elite 3, Premium 10.
+
+### Bug de texto corrigido: mensagem de bloqueio dizia "Elite", devia dizer "Pro"
+
+Achado ao confirmar a definição acima: `csCarregar()` (tela Clone Post →
+Fontes Automáticas) mostra um cadeado quando `!cloneAutoLiberado()`
+(`clone_auto` falso) — e o texto dizia **"a partir do plano Elite"**, só que
+`clone_auto` é `true` desde o **Pro**. Na prática ninguém foi barrado errado
+(só o Starter cai nesse cadeado, e o Starter também não tem Clone Post
+manual — barrado antes, em `cloneAcessoLiberado()`/`clone_post`), mas o texto
+subvendia o Pro: um Starter lendo aquilo podia achar que precisava pular
+direto pro Elite. Trocado "Elite" por "Pro" na única ocorrência do texto.
+⚠️ Este trecho é hoje **inalcançável na prática** — quem chega a ver esta
+tela já passou pelo gate de `clone_post`, que hoje é idêntico ao de
+`clone_auto` (os dois viram `true` juntos a partir do Pro) — mas o texto
+certo evita confusão se um dia os dois gates se separarem de novo.
+
+⚠️ **Não medido em produção ainda** — só validado com `node --check` nos 5
+blocos `<script>` (limpo). Falta: commit, push, deploy manual no EasyPanel, e
+conferir visualmente (mesmo sendo hoje inalcançável por um usuário real).
 
 **REVISÃO 108 — 30/08/2026 — terceiro pedido do Érico na mesma sessão:
 limpeza dos cards de Planos, uma pergunta respondida com achado real (produto

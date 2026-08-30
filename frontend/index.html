@@ -10033,7 +10033,7 @@ async function csCarregar(){
   const box=document.getElementById("csBox");
   if(!box||!CURRENT_USER?.id)return;
   if(!cloneAutoLiberado()){
-    box.innerHTML='<div class="alert y" style="margin:0;display:flex;align-items:center;gap:12px"><span style="font-size:20px">🔒</span><span style="flex:1">A <strong>captura automática</strong> é a partir do plano <strong>Elite</strong>. O Clone Post manual você já tem: cole a mensagem aí em cima. Na automática o sistema fica de olho no grupo por você e consulta a loja sozinho.</span><button class="btn btn-gold btn-sm" onclick="go(\'assinatura\')">Ver planos</button></div>';
+    box.innerHTML='<div class="alert y" style="margin:0;display:flex;align-items:center;gap:12px"><span style="font-size:20px">🔒</span><span style="flex:1">A <strong>captura automática</strong> é a partir do plano <strong>Pro</strong>. O Clone Post manual você já tem: cole a mensagem aí em cima. Na automática o sistema fica de olho no grupo por você e consulta a loja sozinho.</span><button class="btn btn-gold btn-sm" onclick="go(\'assinatura\')">Ver planos</button></div>';
     return;
   }
   const{data,error}=await SB.from("clone_sources").select("*").eq("user_id",CURRENT_USER.id).order("created_at",{ascending:false});
