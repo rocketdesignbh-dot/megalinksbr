@@ -5944,8 +5944,23 @@ async function wireWaCanais(){
       if(!r.ok||!d.ok)throw new Error(d.error||("HTTP "+r.status));
       const nome=String(d.subject||"Meu canal");
       const whatsappId=String(d.id||"");
-      res.innerHTML=`<div class="prod"><div class="pimg">📣</div><div style="flex:1"><strong>${nome.replace(/</g,"&lt;")}</strong><br><small style="color:var(--mut)">${d.size||0} inscrito(s) · canal do WhatsApp</small></div></div>
-      <button class="btn btn-volt" onclick="vincularCanal('${nome.replace(/'/g,"\\'").replace(/</g,"&lt;")}','${link.replace(/'/g,"\\'")}','${whatsappId.replace(/'/g,"\\'")}\')" style="margin-top:4px">Vincular este canal</button>`;
+      // Mesma regra dos grupos: só canal DE SUA PROPRIEDADE. Aqui quem diz o
+      // papel é o próprio WhatsApp (viewer_metadata.role), não um cálculo
+      // nosso. Admin (não-dono) entra também, porque consegue publicar.
+      const papel=String(d.role||"").toUpperCase();
+      const podeVincular=d.isOwner||d.isAdmin;
+      const papelDesconhecido=!d.papelConhecido;
+      const cab=`<div class="prod"><div class="pimg">📣</div><div style="flex:1"><strong>${nome.replace(/</g,"&lt;")}</strong><br><small style="color:var(--mut)">${d.size||0} inscrito(s) · canal do WhatsApp${papel?" · seu papel: "+papel:""}</small></div></div>`;
+      if(!podeVincular&&!papelDesconhecido){
+        // Papel conhecido E não é seu: bloqueia, dizendo o porquê. Vincular
+        // assim mesmo não adiantaria nada — o WhatsApp não deixa publicar em
+        // canal de terceiro, o post sairia falhando em silêncio.
+        res.innerHTML=cab+`<div class="alert r" style="margin:8px 0 0"><span><strong>Este canal não é seu.</strong> Você aparece como <strong>${papel||"inscrito"}</strong> nele. Só dá pra vincular canais em que você é o dono (ou administrador) — em canal de terceiro o WhatsApp não deixa publicar, e os posts não sairiam.</span></div>`;
+      }else{
+        const aviso=papelDesconhecido?`<div class="alert" style="margin:8px 0 0"><span>⚠️ Não consegui confirmar seu papel neste canal — o WhatsApp não respondeu isso. Se você não for o dono, os posts não vão sair.</span></div>`:"";
+        res.innerHTML=cab+aviso+
+        `<button class="btn btn-volt" onclick="vincularCanal('${nome.replace(/'/g,"\\'").replace(/</g,"&lt;")}','${link.replace(/'/g,"\\'")}','${whatsappId.replace(/'/g,"\\'")}','${(d.role||"").replace(/'/g,"")}\')" style="margin-top:4px">Vincular este canal</button>`;
+      }
     }catch(e){
       res.innerHTML='<div class="alert r" style="margin:0"><span><strong>Não deu:</strong> '+String(e&&e.message?e.message:e).replace(/</g,"&lt;")+'</span></div>';
     }
@@ -5956,8 +5971,14 @@ function renderCanalItem(c){
   return `<div class="prod"><div class="pimg">📣</div><div style="flex:1"><strong>${c.nome}</strong></div><span class="chan-badge">✓ ${c.role}</span>${aviso} <button class="btn btn-red btn-sm" onclick="desvincular('${c.nome}')">Remover</button></div>`;
 }
 let canaisVinc=[];
-async function vincularCanal(nome,link,whatsappId){
+async function vincularCanal(nome,link,whatsappId,papelReal){
   const n=nome||"Meu canal";
+  // O papel vem do WhatsApp (viewer_metadata.role). Até a REVISÃO 116 isto
+  // era "owner" fixo no código, pra qualquer link colado — o painel exibia
+  // ✓ OWNER em canal de terceiro. Sem papel confirmado, grava "unknown" em
+  // vez de mentir.
+  const roleDb=(String(papelReal||"").toLowerCase()||"unknown");
+  const roleLabel=roleDb==="unknown"?"?":roleDb.toUpperCase();
   // Trava wa_channels
   const maxCh=lim("wa_channels")===-1?9999:lim("wa_channels");
   const totalCanais=S.grupos.reduce((a,g)=>a+(g.canais||0),0);
@@ -5972,17 +5993,17 @@ async function vincularCanal(nome,link,whatsappId){
   if(uid&&gid){
     try{
       const{data,error}=await SB.from("whatsapp_channels").insert({
-        niche_group_id:gid,name:n,channel_link:link||"",channel_whatsapp_id:wid,role:"owner"
+        niche_group_id:gid,name:n,channel_link:link||"",channel_whatsapp_id:wid,role:roleDb
       }).select("id").single();
-      if(!error&&data)canaisVinc.push({db_id:data.id,nome:n,role:"OWNER",link:link||"",whatsappId:wid});
-      else canaisVinc.push({nome:n,role:"OWNER",link:link||"",whatsappId:wid});
-    }catch(e){canaisVinc.push({nome:n,role:"OWNER",link:link||"",whatsappId:wid});}
-  }else{canaisVinc.push({nome:n,role:"OWNER",link:link||"",whatsappId:wid});}
+      if(!error&&data)canaisVinc.push({db_id:data.id,nome:n,role:roleLabel,link:link||"",whatsappId:wid});
+      else canaisVinc.push({nome:n,role:roleLabel,link:link||"",whatsappId:wid});
+    }catch(e){canaisVinc.push({nome:n,role:roleLabel,link:link||"",whatsappId:wid});}
+  }else{canaisVinc.push({nome:n,role:roleLabel,link:link||"",whatsappId:wid});}
   S.grupoAtual.canais=canaisVinc.length;renderGrupos();
   document.getElementById("wcList").innerHTML=canaisVinc.map(renderCanalItem).join("");
   document.getElementById("wcResult").innerHTML="";
   document.getElementById("wcAlert").className="alert g";document.getElementById("wcAlert").innerHTML="✅ Canal vinculado! Ative o <strong>Post Automático</strong> na aba Automação de Posts para começar a publicar.";
-  toast("Canal vinculado como OWNER!","📣");
+  toast(roleDb==="unknown"?"Canal vinculado (papel não confirmado).":`Canal vinculado como ${roleLabel}!`,"📣");
 }
 async function desvincular(n){
   const c=canaisVinc.find(x=>x.nome===n);

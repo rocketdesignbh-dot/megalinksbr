@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 115 — 31/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 116 — 31/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,56 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 116 — 31/08/2026 — pedido do Érico: aplicar em CANAIS a mesma regra
+de "só o que é meu" feita para grupos na REVISÃO 115. Achado: canal não tinha
+regra nenhuma — o painel gravava `role:"owner"` na unha para qualquer link
+colado. CÓDIGO EDITADO (`node --check` limpo no `server.js` e nos 9 blocos
+`<script>`) — falta deploy e conferência.**
+
+### O achado: o painel afirmava OWNER sem nunca ter checado
+
+O FAQ do próprio produto diz *"Só é possível vincular canais onde você é Dono
+(OWNER) ou Admin"*. **O código nunca cumpriu isso.** O `vincularCanal` do
+frontend gravava `role:"owner"` em `whatsapp_channels` e exibia `✓ OWNER`
+para qualquer link de canal colado, inclusive canal de terceiro. O
+`/channel-invite-info` (P95, 29/08) resolvia o JID de verdade, mas não lia
+papel nenhum. Consequência: canal de outra pessoa entrava como OWNER e os
+posts simplesmente não saíam depois — o WhatsApp não deixa publicar em canal
+alheio.
+
+**É a mesma família de defeito do `isAdmin` da REVISÃO 113:** um valor que
+ninguém verificou, exibido como se fosse prova. Só que aqui era pior — não era
+um cálculo errado, era um literal.
+
+### O que mudou
+
+- **`wa-engine/server.js`, `/channel-invite-info`:** passa a ler
+  `viewer_metadata.role` ('owner' | 'admin' | 'subscriber' | 'guest'). A
+  consulta por convite é pública e costuma vir sem esse campo; quando vier
+  vazia, refaz por JID (`newsletterMetadata('jid', id)`), que é a consulta que
+  o WhatsApp responde "como eu". Devolve `role`, `isOwner`, `isAdmin`,
+  `papelConhecido` e `origemPapel`.
+  **Canal não tem lista de participantes** — quem informa o papel é o próprio
+  WhatsApp, então o problema de LID/telefone da REVISÃO 115 não existe aqui.
+- **Frontend:** papel conhecido e não é seu → **bloqueia** com o motivo na
+  tela (não adianta vincular: o post não sairia). Dono ou admin → vincula
+  normal. **Papel não confirmado → deixa vincular com aviso**, nunca bloqueia
+  — mesmo princípio da 115: "não consegui saber" não é prova de "não é seu".
+- **`vincularCanal` grava o papel REAL** (`unknown` quando não confirmado, em
+  vez de mentir "owner"), e o toast e o badge da lista passam a refletir isso.
+- Com isso, a frase do FAQ passa a ser verdade pela primeira vez.
+
+### ⚠️ Isto NÃO é prova de que funciona
+
+`node --check` só prova sintaxe. Falta: deploy do `wa-engine` e do `app`; e
+testar com **três links**: um canal criado pelo Érico (tem que vincular e
+mostrar OWNER), um canal público de terceiro (tem que ser bloqueado com a
+mensagem), e conferir o que acontece quando o WhatsApp não devolve
+`viewer_metadata` (tem que deixar vincular com aviso, não travar).
+**Canais vinculados ANTES desta revisão continuam com `role='owner'` gravado
+na marra no banco** — esses registros não foram migrados e podem estar
+mentindo; nada foi feito com eles nesta revisão.
 
 **REVISÃO 115 — 31/08/2026 — segunda tentativa de conserto do filtro de donos.
 A REVISÃO 114 NÃO resolveu: Érico deployou, atualizou a página, e a lista de

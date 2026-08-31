@@ -1971,12 +1971,53 @@ app.get('/channel-invite-info', verifyToken, resolverDono, async (req, res) => {
         const info = await comPrazo(session.socket.newsletterMetadata('invite', code), 12000, 'o WhatsApp');
         const id = String(info?.id || '');
         if (!id.endsWith('@newsletter')) throw new Error('a resposta veio sem JID de canal');
-        console.log(`[CHANNEL-INVITE] ${code.slice(0, 6)}… -> ${id} (${info?.name || 'sem nome'})`);
+
+        // REVISAO 116. Ate aqui este endpoint NAO checava papel nenhum: o
+        // frontend gravava role:"owner" na unha pra qualquer link colado, e o
+        // FAQ prometia "so da pra vincular canal onde voce e Dono ou Admin" —
+        // promessa que o codigo nunca cumpriu. Canal de terceiro entrava como
+        // OWNER e o disparo simplesmente nao saia depois.
+        //
+        // Canal nao tem lista de participantes (por isso o problema de
+        // LID/telefone dos grupos nao existe aqui): quem diz o papel e o
+        // proprio WhatsApp, em viewer_metadata.role
+        // ('owner' | 'admin' | 'subscriber' | 'guest').
+        const lerPapel = (m) => {
+            const vm = m?.viewer_metadata || m?.viewerMetadata || null;
+            const r = String(vm?.role || '').toLowerCase().trim();
+            return r || null;
+        };
+        let papel = lerPapel(info);
+        let origemPapel = papel ? 'invite' : null;
+        // A consulta por convite e publica e costuma vir SEM viewer_metadata.
+        // A consulta por JID e a que o WhatsApp responde "como eu" — e onde o
+        // papel real aparece. So vale a pena quando a primeira nao trouxe.
+        if (!papel) {
+            try {
+                const porJid = await comPrazo(session.socket.newsletterMetadata('jid', id), 8000, 'o WhatsApp');
+                papel = lerPapel(porJid);
+                if (papel) origemPapel = 'jid';
+            } catch (e) {
+                console.warn(`[CHANNEL-INVITE] não consegui ler o papel por JID: ${e.message}`);
+            }
+        }
+
+        const isOwner = papel === 'owner';
+        const isAdmin = papel === 'admin' || isOwner;
+        console.log(`[CHANNEL-INVITE] ${code.slice(0, 6)}… -> ${id} (${info?.name || 'sem nome'}) papel=${papel || 'desconhecido'}`);
         res.json({
             ok: true,
             id,
             subject: info?.name || id,
             size: info?.subscribers || 0,
+            // Cru e explicito. `papelConhecido:false` significa "o WhatsApp nao
+            // disse" — e NAO deve ser lido como "nao e dono": a REVISAO 113
+            // ja ensinou o preco de tratar calculo nao verificado como prova.
+            role: papel,
+            isOwner,
+            isAdmin,
+            papelConhecido: !!papel,
+            origemPapel,
         });
     } catch (e) {
         console.error('[CHANNEL-INVITE] Erro:', e.message);
