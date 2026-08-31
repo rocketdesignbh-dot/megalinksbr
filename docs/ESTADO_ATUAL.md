@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 112 — 31/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 113 — 31/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,48 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 113 — 31/08/2026 — pedido do Érico: em Editar Grupo → Distribuição
+→ WhatsApp-GRUPOS, só listar para vincular os grupos dos quais somos DONOS
+(quem criou o grupo com o número pareado), nunca grupos onde só somos
+participante ou admin promovido. Motivo: estava confundindo o usuário.
+CÓDIGO EDITADO (`node --check` limpo) — COMMITADO E PUSHADO NESTA REVISÃO.
+FALTA DEPLOY NO EASYPANEL E CONFERÊNCIA NO NAVEGADOR.**
+
+### O que mudou
+
+- **`wa-engine/server.js`, endpoint `GET /groups`:** cada grupo devolvido pelo
+  `groupFetchAllParticipating()` agora calcula `isOwner`. Critério: se o
+  WhatsApp devolveu `g.owner` (JID de quem criou o grupo), compara com o
+  número da sessão pareada; quando `g.owner` vem vazio (acontece em grupos
+  antigos e algumas comunidades — o Baileys nem sempre preenche), cai para o
+  próprio participante estar marcado `admin:'superadmin'` — quem cria um
+  grupo vira superadmin automaticamente e só pode haver um por grupo, então é
+  o sinal mais confiável que sobra. **`admin` comum (promovido, não criador)
+  fica de fora** — é exatamente o caso que estava confundindo o usuário.
+  A lista final já sai filtrada (`.filter(g => g.isOwner)`) — o endpoint
+  nunca devolve grupo de participação para o frontend, então não depende do
+  frontend lembrar de filtrar.
+- **Nada mudou no frontend** (`frontend/index.html`, `wireWaGrupos`/
+  `renderWgDisp`): ele já consumia a lista de `/groups` como veio; como o
+  filtro é feito na origem, a tela de Distribuição passa a mostrar só os
+  grupos próprios sem nenhuma mudança de tela.
+- **Não mexe em `isAdmin`** (campo separado, ainda calculado do jeito antigo)
+  nem em WhatsApp-CANAIS (`/group-invite-info` e o fluxo de canal, que já
+  exigia OWNER/admin explicitamente antes de vincular — caminho diferente,
+  fora de escopo aqui).
+
+### ⚠️ Isto NÃO é prova de que funciona
+
+Só `node --check` (sintaxe) foi rodado — **nenhum grupo real foi listado**.
+Falta: deploy do `wa-engine` no EasyPanel (repare: **push no `main` reinicia
+o `wa-engine`**, ver P16), abrir Editar Grupo → Distribuição com uma sessão
+WhatsApp pareada de verdade e conferir que (a) grupos onde somos só
+participante/admin promovido somem da lista, (b) grupos que criamos
+continuam aparecendo e vinculáveis, (c) nenhum grupo previamente vinculado
+(já salvo em `whatsapp_groups`) sumiu de "Vinculado" por conta do filtro —
+o filtro é só na listagem de candidatos a vincular, não na lista de já
+vinculados (que vem do Supabase, não do `/groups`).
 
 **REVISÃO 112 — 31/08/2026 — pedido do Érico: cabeçalho do post e emoji de
 preço customizáveis; Layout Post removido inteiro por decisão dele

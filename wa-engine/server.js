@@ -1721,15 +1721,30 @@ app.get('/groups', verifyToken, resolverDono, async (req, res) => {
 
     try {
         const groups = await session.socket.groupFetchAllParticipating();
-        const list = Object.values(groups).map(g => ({
-            id: g.id,
-            name: g.subject || g.id,
-            participants: g.participants?.length || 0,
-            isAdmin: g.participants?.some(p => {
+        const list = Object.values(groups).map(g => {
+            const ownerPid = (g.owner || '').split(':')[0].split('@')[0];
+            const selfIsSuperadmin = g.participants?.some(p => {
                 const pid = (p.id || '').split(':')[0].split('@')[0];
-                return pid === session.phoneNumber && (p.admin === 'admin' || p.admin === 'superadmin');
-            }) || false,
-        }));
+                return pid === session.phoneNumber && p.admin === 'superadmin';
+            }) || false;
+            // "Dono" = quem criou o grupo. O WhatsApp nem sempre devolve
+            // g.owner (grupos antigos, ou alguns tipos de comunidade) — nesses
+            // casos o unico sinal que sobra e o proprio participante estar
+            // marcado como 'superadmin' (quem cria um grupo vira superadmin
+            // automaticamente, e so pode existir 1 por grupo). 'admin' comum
+            // e so administrador promovido, nao dono — fica de fora.
+            const isOwner = ownerPid ? ownerPid === session.phoneNumber : selfIsSuperadmin;
+            return {
+                id: g.id,
+                name: g.subject || g.id,
+                participants: g.participants?.length || 0,
+                isAdmin: g.participants?.some(p => {
+                    const pid = (p.id || '').split(':')[0].split('@')[0];
+                    return pid === session.phoneNumber && (p.admin === 'admin' || p.admin === 'superadmin');
+                }) || false,
+                isOwner,
+            };
+        }).filter(g => g.isOwner); // P110-ish: so listar grupos que sao nossos, nao onde so participamos/administramos
         res.json({ groups: list, total: list.length });
     } catch (e) {
         console.error('[GROUPS] Erro:', e.message);
