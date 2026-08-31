@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 113 — 31/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 114 — 31/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,46 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 114 — 31/08/2026 — BUG DA REVISÃO 113 CONSERTADO: a tela de
+Distribuição não mostrou NENHUM grupo em produção (deploy feito, página
+atualizada, Érico confirmou 0 grupos — nem os próprios dele). Medido, não só
+suposto: era comparação de telefone quebrada. CÓDIGO EDITADO (`node --check`
+limpo) — falta commitar/pushar/deployar/reconferir.**
+
+### O que estava errado
+
+A REVISÃO 113 comparava `pid === session.phoneNumber` (igualdade exata de
+string) pra decidir se o participante do grupo é o dono da sessão. O resto
+deste arquivo (o próprio `/groups` mais abaixo na função de resolver sessão,
+linha ~1715, e mais dois lugares, e a `sufixoFoneClone` usada pela
+`clone-ingest`) **já tratava exatamente esse tipo de comparação com os
+últimos 8 dígitos**, porque o WhatsApp guarda o número às vezes com o nono
+dígito e às vezes sem, dependendo de onde ele veio — e isso já tinha
+mordido este projeto antes (é o motivo de existir `sufixoFoneClone`). Eu não
+apliquei esse mesmo critério no filtro novo de `isOwner`/`isAdmin` que virou
+filtro obrigatório na REVISÃO 113 — resultado: a comparação falhava pra
+(aparentemente) todo mundo, `isOwner` saía `false` sempre, e o `.filter()`
+zerava a lista inteira. Antes da 113, isso não aparecia porque `isAdmin` era
+só um campo solto, nunca usado pra excluir nada da resposta.
+
+### O que mudou
+
+- **`wa-engine/server.js`, `GET /groups`:** `ownerPid`/`pid` e
+  `session.phoneNumber` agora passam por `sufixoFoneClone()` (últimos 8
+  dígitos) antes de comparar, tanto pra `isOwner` quanto pra `isAdmin`. Mesmo
+  critério usado no resto do arquivo. `sufixoFoneClone` é `function`
+  (hoisted), então funciona mesmo sendo chamada antes de sua definição mais
+  abaixo no arquivo.
+
+### ⚠️ Isto NÃO é prova de que funciona
+
+Só `node --check` (sintaxe) — **nenhum grupo real foi listado ainda com este
+conserto**. Falta: commit, push (mesma trava do proxy da sessão cloud da
+REVISÃO 113 — push feito pela máquina do Érico via clone local), deploy do
+`wa-engine` no EasyPanel (reinicia o WhatsApp, ver P16), e reabrir Editar
+Grupo → Distribuição com a sessão pareada de verdade pra confirmar que os
+grupos que o Érico criou aparecem agora.
 
 **REVISÃO 113 — 31/08/2026 — pedido do Érico: em Editar Grupo → Distribuição
 → WhatsApp-GRUPOS, só listar para vincular os grupos dos quais somos DONOS

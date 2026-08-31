@@ -1721,11 +1721,20 @@ app.get('/groups', verifyToken, resolverDono, async (req, res) => {
 
     try {
         const groups = await session.socket.groupFetchAllParticipating();
+        // REVISAO 114: a primeira versao comparava pid === session.phoneNumber
+        // direto (igualdade exata) e isso zerou a lista em produção — o
+        // participante do proprio grupo vem no JID com o nono digito
+        // (ou sem, dependendo da grafia que o WhatsApp guardou pra aquele
+        // grupo especifico) e session.phoneNumber nem sempre bate byte a byte
+        // com isso, exatamente o motivo pelo qual o resto do arquivo (linha
+        // ~1715, ~1813, ~1875, sufixoFoneClone) so compara os ultimos 8
+        // digitos. Usando o mesmo criterio aqui.
+        const meuSufixo = sufixoFoneClone(session.phoneNumber);
         const list = Object.values(groups).map(g => {
-            const ownerPid = (g.owner || '').split(':')[0].split('@')[0];
+            const ownerSufixo = sufixoFoneClone((g.owner || '').split(':')[0].split('@')[0]);
             const selfIsSuperadmin = g.participants?.some(p => {
-                const pid = (p.id || '').split(':')[0].split('@')[0];
-                return pid === session.phoneNumber && p.admin === 'superadmin';
+                const pidSufixo = sufixoFoneClone((p.id || '').split(':')[0].split('@')[0]);
+                return pidSufixo && pidSufixo === meuSufixo && p.admin === 'superadmin';
             }) || false;
             // "Dono" = quem criou o grupo. O WhatsApp nem sempre devolve
             // g.owner (grupos antigos, ou alguns tipos de comunidade) — nesses
@@ -1733,18 +1742,18 @@ app.get('/groups', verifyToken, resolverDono, async (req, res) => {
             // marcado como 'superadmin' (quem cria um grupo vira superadmin
             // automaticamente, e so pode existir 1 por grupo). 'admin' comum
             // e so administrador promovido, nao dono — fica de fora.
-            const isOwner = ownerPid ? ownerPid === session.phoneNumber : selfIsSuperadmin;
+            const isOwner = ownerSufixo ? ownerSufixo === meuSufixo : selfIsSuperadmin;
             return {
                 id: g.id,
                 name: g.subject || g.id,
                 participants: g.participants?.length || 0,
                 isAdmin: g.participants?.some(p => {
-                    const pid = (p.id || '').split(':')[0].split('@')[0];
-                    return pid === session.phoneNumber && (p.admin === 'admin' || p.admin === 'superadmin');
+                    const pidSufixo = sufixoFoneClone((p.id || '').split(':')[0].split('@')[0]);
+                    return pidSufixo && pidSufixo === meuSufixo && (p.admin === 'admin' || p.admin === 'superadmin');
                 }) || false,
                 isOwner,
             };
-        }).filter(g => g.isOwner); // P110-ish: so listar grupos que sao nossos, nao onde so participamos/administramos
+        }).filter(g => g.isOwner); // so listar grupos que sao nossos, nao onde so participamos/administramos
         res.json({ groups: list, total: list.length });
     } catch (e) {
         console.error('[GROUPS] Erro:', e.message);
