@@ -1685,6 +1685,50 @@ app.post('/amazon-search', verifyToken, async (req, res) => {
 });
 
 // -- Groups list --
+// ── Identidade da sessao dentro de uma lista de participantes ──
+//
+// Existe porque o WhatsApp identifica a MESMA pessoa de duas formas que nao
+// se convertem uma na outra:
+//   - JID de telefone: "5531999999999:12@s.whatsapp.net"
+//   - LID:             "182736451827364:12@lid"  (opaco, NAO e o telefone)
+// Dentro de um unico g.participants as duas grafias convivem. Comparar so por
+// numero — que foi o erro das REVISOES 113 e 114 — falha silenciosamente para
+// todo participante que veio como LID.
+//
+// chaveDeId normaliza qualquer uma das duas para {tipo, chave} comparavel.
+// Telefone compara pelos ultimos 8 digitos (mesma razao do sufixoFoneClone:
+// o nono digito do celular brasileiro entra e sai conforme a origem do dado).
+// LID compara inteiro — nao tem grafia alternativa.
+function chaveDeId(raw) {
+    const s = String(raw ?? '').trim();
+    if (!s) return null;
+    const semDispositivo = s.split('@')[0].split(':')[0];
+    const digitos = semDispositivo.replace(/\D/g, '');
+    if (!digitos) return null;
+    if (s.includes('@lid')) return { tipo: 'lid', chave: digitos };
+    return { tipo: 'fone', chave: digitos.slice(-8) };
+}
+
+// Todas as identidades conhecidas desta sessao, em conjunto: o telefone (em
+// duas origens, porque uma pode faltar) e o LID, quando a versao do Baileys
+// expoe. Um participante casa se bater com QUALQUER uma.
+function identidadesDaSessao(session) {
+    const fones = new Set();
+    const lids = new Set();
+    for (const raw of [session?.phoneNumber, session?.socket?.user?.id, session?.socket?.user?.lid]) {
+        const k = chaveDeId(raw);
+        if (!k) continue;
+        if (k.tipo === 'lid') lids.add(k.chave); else fones.add(k.chave);
+    }
+    return { fones, lids };
+}
+
+function idBateComSessao(raw, meu) {
+    const k = chaveDeId(raw);
+    if (!k) return false;
+    return k.tipo === 'lid' ? meu.lids.has(k.chave) : meu.fones.has(k.chave);
+}
+
 app.get('/groups', verifyToken, resolverDono, async (req, res) => {
     const phoneParam = String(req.query.phone || '').replace(/\D/g, '');
 
@@ -1721,40 +1765,76 @@ app.get('/groups', verifyToken, resolverDono, async (req, res) => {
 
     try {
         const groups = await session.socket.groupFetchAllParticipating();
-        // REVISAO 114: a primeira versao comparava pid === session.phoneNumber
-        // direto (igualdade exata) e isso zerou a lista em produção — o
-        // participante do proprio grupo vem no JID com o nono digito
-        // (ou sem, dependendo da grafia que o WhatsApp guardou pra aquele
-        // grupo especifico) e session.phoneNumber nem sempre bate byte a byte
-        // com isso, exatamente o motivo pelo qual o resto do arquivo (linha
-        // ~1715, ~1813, ~1875, sufixoFoneClone) so compara os ultimos 8
-        // digitos. Usando o mesmo criterio aqui.
-        const meuSufixo = sufixoFoneClone(session.phoneNumber);
+
+        // REVISAO 115. As duas tentativas anteriores (113 e 114) erraram pelo
+        // mesmo motivo de fundo: assumiram que o participante do grupo vem
+        // identificado por NUMERO DE TELEFONE. Hoje o WhatsApp mistura, na
+        // MESMA lista de participantes, JID de telefone (@s.whatsapp.net) e
+        // LID (@lid) — um identificador opaco que NAO tem relacao nenhuma com
+        // o numero. Comparar numero contra LID falha sempre, e como a 113
+        // transformou essa comparacao em filtro obrigatorio, a lista inteira
+        // zerou. Aqui a identidade da sessao e um CONJUNTO (telefone + LID) e
+        // o participante casa se QUALQUER campo dele casar com QUALQUER uma
+        // das nossas identidades.
+        const meu = identidadesDaSessao(session);
+        const souEu = (raw) => idBateComSessao(raw, meu);
+        // Um participante pode trazer o mesmo sujeito em campos diferentes
+        // conforme a versao do Baileys: id, jid, lid, phoneNumber.
+        const participanteSouEu = (p) =>
+            souEu(p?.id) || souEu(p?.jid) || souEu(p?.lid) || souEu(p?.phoneNumber);
+
         const list = Object.values(groups).map(g => {
-            const ownerSufixo = sufixoFoneClone((g.owner || '').split(':')[0].split('@')[0]);
-            const selfIsSuperadmin = g.participants?.some(p => {
-                const pidSufixo = sufixoFoneClone((p.id || '').split(':')[0].split('@')[0]);
-                return pidSufixo && pidSufixo === meuSufixo && p.admin === 'superadmin';
-            }) || false;
-            // "Dono" = quem criou o grupo. O WhatsApp nem sempre devolve
-            // g.owner (grupos antigos, ou alguns tipos de comunidade) — nesses
-            // casos o unico sinal que sobra e o proprio participante estar
-            // marcado como 'superadmin' (quem cria um grupo vira superadmin
-            // automaticamente, e so pode existir 1 por grupo). 'admin' comum
-            // e so administrador promovido, nao dono — fica de fora.
-            const isOwner = ownerSufixo ? ownerSufixo === meuSufixo : selfIsSuperadmin;
+            const eu = (g.participants || []).find(participanteSouEu) || null;
+            const meuAdmin = eu?.admin || null;
+            // "Dono" = quem criou o grupo. Duas fontes, nessa ordem:
+            // 1) g.owner, quando o WhatsApp manda (nem sempre manda — em muita
+            //    metadata sincronizada ele vem vazio);
+            // 2) nos mesmos marcados 'superadmin' na lista de participantes.
+            //    Quem cria um grupo vira superadmin e so ha um por grupo.
+            // 'admin' comum e administrador PROMOVIDO, nao dono — fica de fora,
+            // que e exatamente o caso que confundia o usuario.
+            const ownerBate = g.owner ? souEu(g.owner) : null;
+            const isOwner = ownerBate === true || (ownerBate === null && meuAdmin === 'superadmin');
             return {
                 id: g.id,
                 name: g.subject || g.id,
                 participants: g.participants?.length || 0,
-                isAdmin: g.participants?.some(p => {
-                    const pidSufixo = sufixoFoneClone((p.id || '').split(':')[0].split('@')[0]);
-                    return pidSufixo && pidSufixo === meuSufixo && (p.admin === 'admin' || p.admin === 'superadmin');
-                }) || false,
+                isAdmin: meuAdmin === 'admin' || meuAdmin === 'superadmin',
                 isOwner,
+                // Cru, de proposito: o frontend decide o que esconder, e da pra
+                // conferir por que um grupo entrou ou saiu sem redeploy.
+                ownerRaw: g.owner || null,
+                meuPapel: meuAdmin,
+                meEncontrouNaLista: !!eu,
             };
-        }).filter(g => g.isOwner); // so listar grupos que sao nossos, nao onde so participamos/administramos
-        res.json({ groups: list, total: list.length });
+        });
+
+        // NAO filtra aqui. A 113 filtrava no servidor e, quando o criterio
+        // errou, a tela ficou vazia sem nenhuma pista do porque. O filtro
+        // agora e do frontend, que consegue mostrar o motivo e oferecer saida.
+        const resposta = { groups: list, total: list.length, owned: list.filter(g => g.isOwner).length };
+
+        // ?debug=1 — evidencia crua pra fechar a questao com dado, nao com
+        // suposicao. So chega aqui quem ja passou por verifyToken +
+        // donoAutorizado, entao e o proprio dono do numero olhando.
+        if (String(req.query.debug || '') === '1') {
+            const amostra = Object.values(groups).slice(0, 3).map(g => ({
+                subject: g.subject,
+                owner: g.owner || null,
+                participantesAmostra: (g.participants || []).slice(0, 5).map(p => ({
+                    id: p.id, jid: p.jid, lid: p.lid, phoneNumber: p.phoneNumber, admin: p.admin,
+                })),
+            }));
+            resposta._debug = {
+                sessionPhoneNumber: session.phoneNumber,
+                socketUserId: session.socket?.user?.id || null,
+                socketUserLid: session.socket?.user?.lid || null,
+                identidades: { fones: [...meu.fones], lids: [...meu.lids] },
+                amostra,
+            };
+        }
+
+        res.json(resposta);
     } catch (e) {
         console.error('[GROUPS] Erro:', e.message);
         res.status(500).json({ error: e.message, groups: [] });

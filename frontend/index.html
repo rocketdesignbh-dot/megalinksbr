@@ -5996,9 +5996,12 @@ async function desvincular(n){
 /* ── WhatsApp GRUPOS ── */
 let wgVinculados=[]; // grupos vinculados a este grupo de configuração
 let wgTodosGrupos=[]; // todos os grupos WA retornados pela engine
+let WG_MOSTRAR_TODOS=false; // escape do filtro "só grupos que eu criei"
+function wgMostrarTodos(){WG_MOSTRAR_TODOS=true;renderWgDisp(wgTodosGrupos);}
 async function wireWaGrupos(){
   const pane=document.getElementById("wagruposPane");
   if(!pane)return;
+  WG_MOSTRAR_TODOS=false; // cada abertura da aba volta ao filtro padrão
 
   // ── sem conexão ──
   if(!S.waConnected){
@@ -6067,16 +6070,40 @@ function renderWgDisp(grupos,filtro){
   const ct=document.getElementById("wgVincCount");
   if(ct)ct.textContent=vincCount?`${vincCount} vinculado${vincCount>1?"s":""}`:"";
 
+  // Só grupos DE SUA PROPRIEDADE (criados por você) entram na lista de
+  // candidatos a vincular — grupos onde você só participa ou é admin
+  // promovido confundiam o usuário. Grupo JÁ VINCULADO continua aparecendo
+  // mesmo que não seja seu, senão some junto o botão de desvincular dele.
+  // Se o engine for antigo (sem isOwner no payload), não filtra nada — melhor
+  // mostrar demais do que deixar a tela vazia.
+  const engineTemDono=grupos.some(g=>typeof g.isOwner==="boolean");
+  const meusGrupos=engineTemDono&&!WG_MOSTRAR_TODOS
+    ?grupos.filter(g=>g.isOwner||jaVinc.has(g.id||g.jid||""))
+    :grupos;
+
   // Campo de busca — preserva o valor digitado entre re-renders
   const termAtual=filtro!==undefined?filtro:(document.getElementById("wgBusca")?.value||"");
-  const gruposFiltrados=termAtual?grupos.filter(g=>(g.name||g.subject||g.id||"").toLowerCase().includes(termAtual.toLowerCase())):grupos;
+  const gruposFiltrados=termAtual?meusGrupos.filter(g=>(g.name||g.subject||g.id||"").toLowerCase().includes(termAtual.toLowerCase())):meusGrupos;
+
+  // Sem nenhum grupo próprio, a tela NÃO fica muda: diz o critério e oferece
+  // saída. Foi exatamente esse beco (lista vazia, zero explicação) que a
+  // primeira versão deste filtro criou em produção.
+  if(engineTemDono&&!WG_MOSTRAR_TODOS&&!meusGrupos.length){
+    st.innerHTML=`<div style="text-align:center;padding:24px 12px;color:var(--mut)">
+      <div style="font-size:30px;margin-bottom:8px">👤</div>
+      <p style="margin-bottom:6px"><strong style="color:var(--tx,#fff)">Nenhum grupo criado por você nesta sessão.</strong></p>
+      <p style="font-size:13px;margin-bottom:14px">Esta lista mostra só os grupos dos quais você é o dono. Encontramos ${grupos.length} grupo${grupos.length>1?"s":""} nesta conta, mas em nenhum deles você aparece como criador.</p>
+      <button class="btn btn-ghost btn-sm" onclick="wgMostrarTodos()">Mostrar todos os ${grupos.length} grupo${grupos.length>1?"s":""} mesmo assim</button>
+    </div>`;
+    return;
+  }
 
   st.innerHTML=`<div style="margin-bottom:12px">
     <input id="wgBusca" type="text" placeholder="🔍 Buscar grupo…" value="${termAtual.replace(/"/g,'&quot;')}"
       oninput="renderWgDisp(wgTodosGrupos,this.value)"
       style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:2px;border:1px solid var(--bdr,rgba(255,255,255,.12));background:var(--bg2,rgba(255,255,255,.05));color:var(--tx,#fff);font-size:13px;outline:none">
   </div>
-  <div style="margin-bottom:10px;font-size:13px;color:var(--mut)">${gruposFiltrados.length} de ${grupos.length} grupo${grupos.length>1?"s":""}</div>`+
+  <div style="margin-bottom:10px;font-size:13px;color:var(--mut)">${gruposFiltrados.length} de ${meusGrupos.length} grupo${meusGrupos.length>1?"s":""}${engineTemDono&&!WG_MOSTRAR_TODOS?` · <span title="Grupos onde você só participa ou é admin promovido não aparecem aqui">só os que você criou</span>${grupos.length>meusGrupos.length?` · <a href="javascript:void(0)" onclick="wgMostrarTodos()" style="color:var(--mut);text-decoration:underline">ver todos (${grupos.length})</a>`:""}`:""}</div>`+
     gruposFiltrados.map(g=>{
       const nome=g.name||g.subject||g.id||"Grupo sem nome";
       const part=g.participants||g.size||"?";

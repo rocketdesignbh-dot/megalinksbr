@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 114 — 31/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 115 — 31/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,66 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 115 — 31/08/2026 — segunda tentativa de conserto do filtro de donos.
+A REVISÃO 114 NÃO resolveu: Érico deployou, atualizou a página, e a lista de
+grupos continuou VAZIA. Diagnóstico refeito do zero, sem reaproveitar a
+suposição das duas anteriores. CÓDIGO EDITADO (`node --check` limpo no
+`server.js` e nos 9 blocos `<script>`) — falta deploy e conferência.**
+
+### Por que 113 e 114 falharam — a mesma suposição errada, duas vezes
+
+Ambas assumiram que o participante de um grupo vem identificado por **número
+de telefone**. A 113 comparou string exata; a 114 "consertou" comparando os
+últimos 8 dígitos (o problema do nono dígito). Ainda vazio — porque a
+premissa é que estava errada, não o formato do número.
+
+O WhatsApp hoje identifica a mesma pessoa de duas formas que **não se
+convertem uma na outra**: JID de telefone (`5531...@s.whatsapp.net`) e **LID**
+(`182736...@lid`), um identificador opaco que não tem relação com o número.
+As duas grafias convivem dentro do MESMO `g.participants`. Comparar número
+contra LID falha sempre — e como a 113 transformou essa comparação em filtro
+obrigatório no servidor, a lista inteira zerou.
+
+**Por que isso passou batido:** o `isAdmin` já tinha esse mesmo defeito desde
+sempre, mas era um campo solto que ninguém lia — nada no projeto jamais provou
+que dava pra identificar "eu" dentro de `g.participants`. A 113 promoveu um
+cálculo nunca verificado a critério de exclusão. Aprendizado registrado abaixo.
+
+### O que mudou
+
+- **`wa-engine/server.js` — identidade da sessão virou CONJUNTO.** Três funções
+  novas: `chaveDeId` (normaliza qualquer id para `{tipo:'lid'|'fone', chave}`;
+  telefone pelos últimos 8 dígitos, LID inteiro), `identidadesDaSessao`
+  (junta `session.phoneNumber`, `socket.user.id` e `socket.user.lid`) e
+  `idBateComSessao`. Um participante casa se **qualquer** um dos seus campos
+  (`id`, `jid`, `lid`, `phoneNumber`) bater com **qualquer** uma das nossas
+  identidades.
+- **`GET /groups` não filtra mais no servidor.** Devolve todos os grupos
+  anotados com `isOwner`, `isAdmin`, e mais `ownerRaw`, `meuPapel` e
+  `meEncontrouNaLista` — dados crus, de propósito, pra conferir por que um
+  grupo entrou ou saiu sem precisar de redeploy. Resposta ganhou `owned`.
+- **`?debug=1` no `/groups`** devolve `_debug` com as identidades da sessão e
+  amostra crua de 3 grupos (owner + 5 participantes com todos os campos de id).
+  Só chega lá quem já passou por `verifyToken` + `donoAutorizado`.
+- **O filtro passou para o frontend** (`renderWgDisp`), com três proteções que
+  a 113 não tinha: (a) grupo **já vinculado** continua na lista mesmo não sendo
+  seu — senão sumia junto o botão de desvincular dele; (b) se o engine não
+  mandar `isOwner` (versão antiga), **não filtra nada** em vez de esvaziar;
+  (c) se não houver nenhum grupo próprio, a tela **explica o critério** e
+  oferece "Mostrar todos mesmo assim" (`wgMostrarTodos`), em vez do beco sem
+  saída silencioso da 113. Contador mostra "só os que você criou" + link
+  "ver todos (N)".
+
+### ⚠️ Isto NÃO é prova de que funciona
+
+`node --check` só prova sintaxe. **Nenhum grupo real foi listado ainda.**
+Falta: deploy do `wa-engine` E do `app` no EasyPanel (reinicia o WhatsApp,
+ver P16); abrir Editar Grupo → Distribuição e conferir se os grupos criados
+pelo Érico aparecem. **Se ainda vier vazio**, o caminho é chamar
+`GET /groups?phone=<numero>&debug=1` autenticado e ler `_debug` — é
+exatamente pra isso que ele existe: fecha a questão com dado observado, em
+vez de uma quarta suposição.
 
 **REVISÃO 114 — 31/08/2026 — BUG DA REVISÃO 113 CONSERTADO: a tela de
 Distribuição não mostrou NENHUM grupo em produção (deploy feito, página
