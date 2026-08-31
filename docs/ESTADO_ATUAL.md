@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 116 — 31/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 117 — 31/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,71 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 117 — 31/08/2026 — só documentação: a REVISÃO 115 foi DEPLOYADA E
+PROVADA no navegador logado do Érico. O filtro de grupos por dono funciona.
+A parte de CANAIS (REVISÃO 116) foi deployada mas SEGUE SEM MEDIÇÃO.**
+
+### ✅ P111 FECHADA — medido, não suposto (31/08, 14:1x UTC)
+
+Chamada real de `GET /groups?phone=553175356865&debug=1`, autenticada pela
+sessão logada do Érico, na produção recém-deployada:
+
+- **18 grupos** na sessão WhatsApp; **9 com `isOwner:true`**, 9 com
+  `isOwner:false`.
+- Tela Editar Grupo → Distribuição renderizou **9 itens** e o contador
+  `"9 de 9 grupos · só os que você criou · ver todos (18)"`. Os 9 grupos de
+  mera participação sumiram da lista, que era o pedido.
+- `/health` do engine: uptime 66s, 7 sessões reconectadas — deploy confirmado.
+- Frontend servido contém `wgMostrarTodos`, `WG_MOSTRAR_TODOS`,
+  `papelConhecido`, `"só os que você criou"`, `"Este canal não é seu"`, e
+  **não** contém mais `role:"owner"`.
+
+### 🔑 A evidência que fecha o diagnóstico de 3 revisões
+
+O `_debug` devolveu o dado cru que faltava desde a 113:
+
+```
+owner do grupo:      "118026456309972@lid"      <- LID, NAO telefone
+eu (participante):   id  "118026456309972@lid"
+                     jid "553175356865@s.whatsapp.net"
+                     admin "superadmin"
+identidades sessao:  fones ["75356865"]  lids ["118026456309972"]
+socketUserId  "553175356865:4@s.whatsapp.net"
+socketUserLid "118026456309972:4@lid"
+```
+
+**O `g.owner` vem como LID.** Por isso a REVISÃO 113 (comparação exata de
+telefone) e a 114 (últimos 8 dígitos do telefone) falharam em 100% dos
+grupos: comparavam telefone contra um identificador que não é telefone. O
+mesmo participante aparece com as DUAS grafias no mesmo objeto (`id` = LID,
+`jid` = telefone) — é exatamente por isso que casar por conjunto
+(telefone + LID, contra `id`/`jid`/`lid`/`phoneNumber`) resolve.
+
+### ⚠️ O que continua SEM prova
+
+- **Canais (REVISÃO 116): nada foi medido.** Deployado, zero cliques. Faltam
+  os três testes: canal do próprio Érico (tem que vincular mostrando OWNER),
+  canal público de terceiro (tem que bloquear com a mensagem), e o caso do
+  WhatsApp não devolver `viewer_metadata` (tem que vincular com aviso, não
+  travar). Enquanto isso não for feito, o `viewer_metadata.role` continua
+  sendo suposição minha sobre o que o Baileys devolve — **exatamente o tipo de
+  suposição que custou 3 revisões no lado dos grupos.**
+- **Canais vinculados ANTES da 116** continuam com `role='owner'` gravado na
+  marra no banco. Não migrados, podem estar mentindo.
+- **Clicar "Vincular" de verdade** num grupo próprio não foi exercitado nesta
+  medição (só a listagem foi). A gravação em `whatsapp_groups` segue como
+  estava antes, mas não foi reconferida.
+
+### 📌 Aprendizado — não repetir
+
+**Não promova a filtro de exclusão um cálculo que nunca foi verificado.** O
+`isAdmin` deste mesmo endpoint carregava o defeito do LID desde sempre, sem
+incomodar ninguém, porque era um campo solto que nada lia. A REVISÃO 113
+transformou esse mesmo cálculo em critério de exclusão e a tela zerou. Se um
+valor nunca foi observado, ele não pode decidir o que o usuário vê — ou se
+mede antes, ou se entrega com saída de emergência (foi o que a 115 fez: não
+filtrar no servidor, explicar o critério na tela e oferecer "mostrar todos").
 
 **REVISÃO 116 — 31/08/2026 — pedido do Érico: aplicar em CANAIS a mesma regra
 de "só o que é meu" feita para grupos na REVISÃO 115. Achado: canal não tinha
