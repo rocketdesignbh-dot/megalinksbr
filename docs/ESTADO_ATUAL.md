@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 111 — 30/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 112 — 31/08/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,73 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 112 — 31/08/2026 — pedido do Érico: cabeçalho do post e emoji de
+preço customizáveis; Layout Post removido inteiro por decisão dele
+("não vai mais ter necessidade"). CÓDIGO EDITADO E VALIDADO (`node --check`
+nos 9 blocos `<script>`, limpo) — COMMITADO E PUSHADO NESTA REVISÃO. FALTA
+DEPLOY NO EASYPANEL E CONFERÊNCIA NO NAVEGADOR.**
+
+### O que mudou
+
+- **`🔥 OFERTA RELÂMPAGO 🔥` deixou de ser fixo no código.** Era hardcoded em
+  três lugares: `prMontarTexto` (Postar Agora, o disparo manual real),
+  `rgUpdatePreview`/`rgSalvarNoGrupo` (modal "📦 Adicionar produto ao Grupo de
+  Oferta", aberto a partir do Radar) e `montarTexto` no `send-post/index.ts`
+  (disparo automático). Os três agora leem um campo "Cabeçalho do post"
+  (`#prHead`/`#rgHead` no frontend; `description.header` no produto para o
+  backend), sem `maxlength` — texto livre, com emoji, do tamanho que o Érico
+  quiser. Pré-preenchido com o texto antigo por padrão, pra não mudar nada em
+  quem não mexer no campo.
+- **Emoji antes de "De" e de "Por", separados.** Onde havia preço com
+  `💸` fixo colado antes de "De R$X por R$Y", agora são dois campos
+  (`#prEmojiDe`/`#prEmojiPor` e `#rgEmojiDe`/`#rgEmojiPor`), cada um opcional.
+  `#prEmojiDe`/`#rgEmojiDe` nascem com `💸` (o emoji antigo, pra manter o
+  post igual por padrão) e `#prEmojiPor` nasce vazio. O emoji de "De" só
+  aparece na linha quando existe preço "De" (mesma regra que já existia pro
+  próprio "De R$X por").
+- **Persistência:** o modal do Radar (`rgSalvarNoGrupo`) grava cabeçalho e os
+  dois emojis dentro de `products.description` (JSON), no mesmo campo onde já
+  viviam `extra1`/`extra2`/`extra3` — sem migration nova. O `send-post/index.ts`
+  passou a ler `description.header`/`.emojiDe`/`.emojiPor` do mesmo jeito que
+  já lia os extras, com fallback pro texto/emoji antigos quando o campo não
+  existe (produtos salvos antes desta revisão continuam postando exatamente
+  como antes). Postar Agora é disparo direto (não grava produto), então lá o
+  campo só vale pro post daquele momento.
+- **Layout Post removido por completo** (aba "Layout Post" dentro de Editar
+  Grupo → Configuração, o formulário com `#lpHead`/`#lpDe`/etc., a função
+  `rp()` e todas as `lpXxx`). Motivo: media o cabeçalho e os extras pra
+  `niche_groups.post_header`/`extra_line1-3`/`color_index`, mas **nada lia
+  essas colunas de volta** — nem o `send-post`, nem o `group-blast`, nem o
+  carregamento do grupo no frontend (conferido em código antes de apagar, e já
+  registrado como campo órfão na P98). Era só um formulário que gravava e
+  nunca era lido. As colunas continuam existindo no banco (não apagadas —
+  fora de escopo, e não fazem mal ficando órfãs), só não têm mais tela.
+  `group-blast/index.ts` não foi tocado: ele nunca teve o cabeçalho
+  "OFERTA RELÂMPAGO" — usa `montarMsg`, formato próprio, sem essa frase.
+
+### ⚠️ Achado novo: o proxy da sessão pode bloquear o push mesmo com PAT válido
+
+Nesta sessão o `git push` com PAT clássico (`ghp_...`) do Érico foi recusado
+pelo proxy de rede do ambiente (não pelo GitHub): *"rocketdesignbh-dot/megalinksbr
+is not in this session's authorized repository set"* — HTTP 403 antes mesmo de
+tentar autenticar. **Isso é permissão de sessão/conector do app Claude
+(Cowork), não do PAT nem deste repo** — nenhuma ferramenta desta sessão
+consegue liberar isso sozinha. O Érico precisa liberar o repositório nas
+configurações de conectores/fontes da sessão antes do primeiro push de cada
+sessão nova; se o push falhar com essa mensagem, é isso, não o PAT. **Próxima
+sessão: checar isto ANTES de gastar tempo codando**, se o objetivo incluir
+commit e push.
+
+### ⚠️ Isto NÃO é prova de que funciona
+
+Só `node --check` (sintaxe) foi rodado. **Falta:** deploy do `app` no
+EasyPanel, e testar na tela: (a) Postar Agora com cabeçalho e emojis
+customizados aparecendo certo no preview e no disparo real; (b) o modal
+"Adicionar produto ao Grupo de Oferta" salvando um produto com cabeçalho
+customizado e o `product_refresh`/cron seguinte postando esse produto com o
+cabeçalho salvo (não o padrão); (c) confirmar visualmente que "Layout Post"
+sumiu de Editar Grupo → Configuração e que nada mais quebrou nessa aba.
 
 **REVISÃO 111 — 30/08/2026 — sem código, só documentação: Érico pediu uma
 lista de prioridades para as próximas sessões. Adicionada a seção "📌
@@ -7843,6 +7910,7 @@ código não relacionado.
 | **P107** | 🟡 **CODADA E VALIDADA (REVISÃO 108) — NÃO DEPLOYADA.** "Fundo Preto" adicionado ao seletor de cor (Postar Agora/Layout Post/Radar→Grupo, array único `PR_CORES`); "(Breve)" adicionado aos filtros de AliExpress/Magalu/Natura/Terabyte em Cupons. Falta deploy e conferir visualmente as 3 telas de cor e os 4 botões de Cupons | 30/08 |
 | **P108** | 🟡 **CODADA E VALIDADA (REVISÃO 109) — NÃO DEPLOYADA.** Texto do cadeado de captura automática do Clone Post corrigido de "a partir do plano Elite" para "a partir do plano Pro" (`clone_auto` já libera desde o Pro, conferido em `plan_features`). Falta deploy — hoje inalcançável na prática (quem chega na tela já passou por um gate igual), mas o texto certo evita confusão futura | 30/08 |
 | **P109** | 🟡 **CODADA E VALIDADA (REVISÃO 110) — NÃO DEPLOYADA.** Érico pegou no ar que a tabela "Comparativo completo" de Assinatura ainda mostrava MegaIA (a REVISÃO 108 só tinha mexido nos cards de cima). Trocada por Radar de Ofertas e Clone Post, espelhando os cards. Falta deploy e conferir a tabela em `/painel/assinatura` | 30/08 |
+| **P110** | 🟡 **CODADA, VALIDADA E PUSHADA (REVISÃO 112) — NÃO DEPLOYADA NEM MEDIDA.** Cabeçalho do post e emoji de "De"/"Por" customizáveis em Postar Agora e no modal "Adicionar produto ao Grupo de Oferta" (Radar); Layout Post removido (era campo órfão — gravava e nada lia). Ver REVISÃO 112. Falta: deploy do `app` no EasyPanel; testar preview e disparo real com cabeçalho/emoji customizados em Postar Agora; salvar um produto com cabeçalho customizado pelo modal do Radar e confirmar que um disparo automático posterior sai com ele (não o padrão); confirmar visualmente que "Layout Post" sumiu de Editar Grupo | 31/08 |
 | **P2** | 🔵 **REDESENHADA 03/08 — as duas saídas originais estavam mal postas.** ~~Decidir entre `GRANT EXECUTE` a `anon` ou trocar a credencial do engine para service role.~~ O Érico escolheu service role em 03/08, e ao ir codar apareceu que **isso reverte uma decisão deliberada que já está escrita no código**: `wa-engine/server.js` linha 1516 — *"Não usamos a SERVICE_ROLE_KEY aqui de propósito: ela daria a este container acesso irrestrito ao banco. Autenticamos na Edge Function `wa-heartbeat` com o `WA_ENGINE_TOKEN`"*. Pior ainda depois da P16: esse container é reiniciado por qualquer push. **Terceira saída, que nenhum dos dois tinha listado e que segue o desenho que já existe: o rate limit vira Edge Function**, chamada pelo engine com `WA_ENGINE_TOKEN`, exatamente como o `wa-heartbeat`. Sem `GRANT` para `anon`, sem service role no container. **Falta o Érico confirmar essa saída e alguém codar** | 30/07 |
 | ~~P3~~ | ✅ **FECHADA 03/08 à tarde, MEDIDA NO PAINEL LOGADO.** Token de 43 chars preenchido num load limpo, `/sessions` **200** (não 401), card "Sessões ativas" **visível e populado** com a instância do dono, console limpo. ⚠️ **O que isto prova e o que não prova:** prova que **funciona hoje**; não prova que o conserto foi a causa, porque o sintoma nunca foi reproduzido ANTES do patch. Ver "P3 — medida" acima. Registro original abaixo. ~~🟡 DIAGNOSTICADA, CONSERTADA E DEPLOYADA 03/08 — AGUARDANDO REPRODUÇÃO LOGADA — e a hipótese da raiz comum com a P2 está ERRADA.** O engine valida certo (`token !== WA_ENGINE_TOKEN` → 401) e o `get-wa-engine-token` está protegido (`verify_jwt: true`, **medido**). O 401 vem de `Bearer ` **vazio**: o painel declara `WA_ENGINE_TOKEN=""` e (a) a linha top-level `renderAdminVisao();...renderInstancias();...` rodava na carga do script, antes de `enterApp` buscar o token; (b) `fetchWAEngineToken` devolve `false` em três caminhos e **ninguém lia o retorno** — o `.catch` só pega exceção —, então uma falha deixava o token vazio pela sessão inteira, sem retry e sem aviso; (c) a re-renderização pós-token cobria `renderInstancias` mas **não** `renderInstCard`, que é o card "Sessões ativas", exatamente a tela cega. Consertados os três, **deployados em 03/08 às 12:13 UTC e conferidos no código servido** (os três marcadores estão no `index.html` que o nginx entrega; console limpo num load completo, porém **deslogado**). ⚠️ **Sintoma NÃO reproduzido** — o mecanismo está lido no código, mas ninguém carregou a página e leu o console (ver P15). O smoke test dá "não piorou", não "funciona". **Consequência para a P2: ela perde o argumento de "resolve duas de uma vez" e volta a ser decisão isolada de rate limit** | 30/07 |
 | ~~P4~~ | ✅ **RESOLVIDA 03/08 — não era OOM nem healthcheck. É o auto-deploy da P16.** O log do EasyPanel de 03/08 mostra **quatro** boots do `wa-engine` em 35 minutos, cada um com hostname de container novo: **12:04**, **12:13:26**, **12:29:32**, **12:39:34**. O de 12:13:26 casa **ao segundo** com o `### Success ###` do build do serviço `app` (o frontend); os de 12:29 e 12:39 casam com os **dois pushes deste chat** para o `main`. Depois das 12:39, **53 minutos sem push e sem restart** — controle negativo. **Deployar o `app` derruba e sobe o `wa-engine` junto**, e como o auto-deploy dispara a cada push, **todo commit — inclusive commit só de documentação — reinicia o WhatsApp em produção.** O `CLONE_FILA` mora em memória e vai junto. Ver "P4/P16" acima. A frase do registro antigo, *"sem deploy"*, era inferência: ninguém tinha cruzado o horário com os pushes | 30/07 |

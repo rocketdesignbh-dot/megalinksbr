@@ -891,6 +891,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 </div>
               </div>
               <div class="field"><label>Nome do produto</label><input id="prNome" oninput="prUpdatePreview()"></div>
+              <div class="field"><label>Cabeçalho do post</label><input id="prHead" value="🔥 OFERTA RELÂMPAGO 🔥" oninput="prUpdatePreview()"></div>
+              <div class="g2">
+                <div class="field"><label>Emoji antes de "De"</label><input id="prEmojiDe" value="💸" maxlength="16" oninput="prUpdatePreview()"></div>
+                <div class="field"><label>Emoji antes de "Por"</label><input id="prEmojiPor" value="" maxlength="16" oninput="prUpdatePreview()"></div>
+              </div>
               <div class="g2">
                 <div class="field"><label>Preço De (R$)</label><input id="prDe" placeholder="0,00" oninput="prUpdatePreview()"></div>
                 <div class="field"><label>Preço Por (R$)</label><input id="prPor" placeholder="0,00" oninput="prUpdatePreview()"></div>
@@ -2164,6 +2169,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="field"><label>Nome do produto</label><input id="rgNome" oninput="rgUpdatePreview()">
           <small style="color:var(--mut);display:block;margin-top:3px">Deixe o nome abreviado para caber melhor no post.</small>
         </div>
+        <div class="field"><label>Cabeçalho do post</label><input id="rgHead" value="🔥 OFERTA RELÂMPAGO 🔥" oninput="rgUpdatePreview()"></div>
+        <div class="g2">
+          <div class="field"><label>Emoji antes de "De"</label><input id="rgEmojiDe" value="💸" maxlength="16" oninput="rgUpdatePreview()"></div>
+          <div class="field"><label>Emoji antes de "Por"</label><input id="rgEmojiPor" value="" maxlength="16" oninput="rgUpdatePreview()"></div>
+        </div>
         <div class="g2">
           <div class="field"><label>Preço De (R$)</label><input id="rgDe" placeholder="0,00" oninput="rgUpdatePreview()"></div>
           <div class="field"><label>Preço Por (R$)</label><input id="rgPor" placeholder="0,00" oninput="rgUpdatePreview()"></div>
@@ -2383,8 +2393,8 @@ function renderCupons(){
   // Atualiza badge no menu
   const badge=document.getElementById("cuponsBadge");
   if(badge){badge.textContent=COUPONS.length;badge.style.display=COUPONS.length?"":"none";}
-  // Atualiza selects legados (lpCupomSel, rgCupomSel, prCupomSel, lpCupomSel)
-  ["lpCupomSel","rgCupomSel","prCupomSel"].forEach(selId=>{
+  // Atualiza selects legados (rgCupomSel, prCupomSel)
+  ["rgCupomSel","prCupomSel"].forEach(selId=>{
     const sel=document.getElementById(selId);
     if(!sel)return;
     const cur=sel.value;
@@ -3615,6 +3625,10 @@ function abrirAdicionarGrupo(o){
   // Linhas extras — reset
   ["rgChkExtra1","rgChkExtra2","rgChkExtra3"].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   ["rgExtra1Texto","rgExtra2Texto","rgExtra3Texto"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  // Cabeçalho e emojis de preço — reset para o padrão
+  const rgHeadEl=document.getElementById("rgHead");if(rgHeadEl)rgHeadEl.value="🔥 OFERTA RELÂMPAGO 🔥";
+  const rgEmojiDeEl=document.getElementById("rgEmojiDe");if(rgEmojiDeEl)rgEmojiDeEl.value="💸";
+  const rgEmojiPorEl=document.getElementById("rgEmojiPor");if(rgEmojiPorEl)rgEmojiPorEl.value="";
   // Cor personalizada — reset
   const chkCor=document.getElementById("rgChkCorPersonalizada");if(chkCor)chkCor.checked=false;
   rgTogglePainelCor(false);
@@ -3648,7 +3662,10 @@ function rgUpdatePreview(){
   const gNomeEl=document.getElementById("rgGrupoNomePreview");
   if(gNomeEl)gNomeEl.textContent=grupo?.nome||"Grupo de Afiliados";
   const fotoHtml=img?`<img src="${img}" style="width:100%;height:80px;object-fit:cover;border-radius:2px;margin-bottom:6px">`:'<span class="img">🛍️</span>';
-  const deHtml=de?`<s>De R$ ${esc(de)}</s> por `:"";
+  const head=document.getElementById("rgHead")?.value||"🔥 OFERTA RELÂMPAGO 🔥";
+  const emojiDe=document.getElementById("rgEmojiDe")?.value||"";
+  const emojiPor=document.getElementById("rgEmojiPor")?.value||"";
+  const deHtml=de?`${emojiDe?esc(emojiDe)+" ":""}<s>De R$ ${esc(de)}</s> ${emojiPor?esc(emojiPor)+" ":""}por `:(emojiPor?esc(emojiPor)+" ":"");
   const cupomId=document.getElementById("rgCupomSel")?.value;
   const cupom=COUPONS.find(c=>c.id===cupomId);
   const cupomHtml=cupom?`\n🏷️ Utilize o cupom: <b>${esc(cupom.code)}</b>`:"";
@@ -3663,7 +3680,7 @@ function rgUpdatePreview(){
   const extra3=document.getElementById("rgChkExtra3")?.checked&&document.getElementById("rgExtra3Texto")?.value?.trim()?`\n\n🔗 ${esc(document.getElementById("rgExtra3Texto").value.trim())}`:"";
   const bub=document.getElementById("rgPreviewBub");
   if(bub){
-    bub.innerHTML=`${fotoHtml}🔥 <b>OFERTA</b> 🔥\n<b>${esc(nome)}</b>\n💸 ${deHtml}<b>R$ ${esc(por)}</b>${cupomHtml}${extrasHtml}${ctaHtml}\n🛒 Compre Aqui 👉 <span class="lnk">${link||"link aqui"}</span>${extra3}<span class="tm">${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})} ✓✓</span>`;
+    bub.innerHTML=`${fotoHtml}${esc(head)}\n<b>${esc(nome)}</b>\n${deHtml}<b>R$ ${esc(por)}</b>${cupomHtml}${extrasHtml}${ctaHtml}\n🛒 Compre Aqui 👉 <span class="lnk">${link||"link aqui"}</span>${extra3}<span class="tm">${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})} ✓✓</span>`;
     const cor=PR_CORES[RG_COR_IDX];
     if(cor&&cor.bg){bub.style.background=cor.bg;bub.style.color=cor.tx;}
     else{bub.style.background="";bub.style.color="";}
@@ -3694,7 +3711,10 @@ async function rgSalvarNoGrupo(){
   const extra1=document.getElementById("rgChkExtra1")?.checked?document.getElementById("rgExtra1Texto")?.value?.trim()||"":"";
   const extra2=document.getElementById("rgChkExtra2")?.checked?document.getElementById("rgExtra2Texto")?.value?.trim()||"":"";
   const extra3=document.getElementById("rgChkExtra3")?.checked?document.getElementById("rgExtra3Texto")?.value?.trim()||"":"";
-  const descExtras=(extra1||extra2||extra3)?JSON.stringify({extra1,extra2,extra3}):null;
+  const headRg=document.getElementById("rgHead")?.value?.trim()||"";
+  const emojiDeRg=document.getElementById("rgEmojiDe")?.value?.trim()||"";
+  const emojiPorRg=document.getElementById("rgEmojiPor")?.value?.trim()||"";
+  const descExtras=(extra1||extra2||extra3||headRg||emojiDeRg||emojiPorRg)?JSON.stringify({extra1,extra2,extra3,header:headRg,emojiDe:emojiDeRg,emojiPor:emojiPorRg}):null;
   const gidDb=grupo.db_id||grupo.id;
   // Re-gera o link de afiliado com as credenciais do usuário LOGADO (não a credencial
   // compartilhada que alimentou o Radar) — essencial pra comissão cair pra quem postou,
@@ -5249,8 +5269,7 @@ function dispararGrupoMostrarErros(nomeGrupo,d){
 /* ================= ABAS EDITAR GRUPO ================= */
 const TAB_GROUPS=[
   {id:"config",label:"⚙️ Configuração",tabs:[
-    {id:"geral",label:"🤖 Automação de Posts"},
-    {id:"layout",label:"Layout Post"}
+    {id:"geral",label:"🤖 Automação de Posts"}
   ]},
   {id:"dist",label:"📡 Distribuição",tabs:[
     {id:"wagrupos",label:"WhatsApp-GRUPOS"},
@@ -5344,95 +5363,6 @@ wacanais:`
     <div id="wcResult" style="margin-top:14px"></div>
   </div></div>
   <div class="card"><div class="ch">📡 Canais vinculados</div><div class="cb" id="wcList"><p style="color:var(--mut);text-align:center;padding:20px">Nenhum canal vinculado ainda.</p></div></div>`,
-layout:`
-  <div class="g23">
-    <!-- Coluna esquerda: edição -->
-    <div>
-      <div class="card" style="margin:0 0 16px">
-        <div class="ch">🖼️ Dados do post <span class="r" style="font-size:11px;color:var(--mut)">edite e veja ao vivo →</span></div>
-        <div class="cb">
-          <div class="alert b" style="font-size:12px;margin-bottom:12px">💡 <span class="kbd">*negrito*</span> <span class="kbd">_itálico_</span> <span class="kbd">~riscado~</span></div>
-          <!-- Foto + upload -->
-          <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:16px">
-            <div id="lpFotoWrap" style="width:90px;height:90px;border-radius:2px;background:var(--bg2);border:1px solid var(--bd2);overflow:hidden;flex:none;display:grid;place-items:center;font-size:32px">🛍️</div>
-            <div style="flex:1">
-              <label style="font-size:11px;color:var(--mut);margin-bottom:4px;display:block">Ou faça upload da foto</label>
-              <input type="file" id="lpFotoUpload" accept="image/*" onchange="lpUploadFoto(this)" style="font-size:12px;padding:6px">
-            </div>
-          </div>
-          <!-- Nome -->
-          <div class="field"><label>Nome do produto</label><input id="lpTitle" placeholder="Ex: Fone Bluetooth XYZ" oninput="rp()"></div>
-          <!-- Preços -->
-          <div class="g2">
-            <div class="field"><label>Preço De (R$)</label><input id="lpDe" placeholder="29,90" oninput="rp()"></div>
-            <div class="field"><label>Preço Por (R$)</label><input id="lpPor" placeholder="9,99" oninput="rp()"></div>
-          </div>
-          <!-- Cabeçalho -->
-          <div class="field"><label>Cabeçalho</label><input id="lpHead" value="🔥 OFERTA RELÂMPAGO 🔥" oninput="rp()"></div>
-          <!-- Sufixo + Parcelado -->
-          <div class="g2">
-            <div class="field"><label>Sufixo preço</label><input id="lpSuf" placeholder="no Pix" oninput="rp()"></div>
-            <div class="field"><label>Parcelado</label><input id="lpParc" placeholder="10x de R$ 0,99" oninput="rp()"></div>
-          </div>
-          <!-- Linhas extras opcionais -->
-          <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--bd2)">
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
-              <input type="checkbox" id="lpChkExtra1" onchange="lpToggleExtra('extra1',this.checked)" style="width:auto">
-              <input id="lpExtra1Texto" type="text" placeholder="Ex: Adicione 2 ou mais unidades" oninput="rp()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
-              <input type="checkbox" id="lpChkExtra2" onchange="lpToggleExtra('extra2',this.checked)" style="width:auto">
-              <input id="lpExtra2Texto" type="text" placeholder="Ex: Frete grátis acima de R$ 79" oninput="rp()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
-              <input type="checkbox" id="lpChkCupom" onchange="lpToggleExtra('cupom',this.checked)" style="width:auto">
-              <span style="font-size:13px;white-space:nowrap">Utilize o cupom:</span>
-              <select id="lpCupomSel" onchange="rp()" style="flex:1;padding:4px 6px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
-                <option value="">— Nenhum cadastrado —</option>
-              </select>
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-              <input type="checkbox" id="lpChkExtra3" onchange="lpToggleExtra('extra3',this.checked)" style="width:auto">
-              <input id="lpExtra3Texto" type="text" placeholder="Insira aqui seu link para compartilhar seu Grupo" oninput="rp()" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <!-- CTA -->
-      <div class="card" style="margin:0 0 16px">
-        <div class="ch">🎯 Escolha o CTA</div>
-        <div class="cb">
-          <div id="lpCtaGrid" style="display:grid;gap:8px"></div>
-          <div class="field" style="margin-top:12px"><label>Ou escreva seu próprio</label><input id="lpCta" data-cta-manual="1" placeholder="Ex: Corre que acaba!" oninput="rp()"></div>
-          <!-- CTA Randômico -->
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:12px">
-            <input type="checkbox" id="lpChkCtaRandom" onchange="lpToggleCtaRandom(this.checked)" style="width:auto">
-            <span style="font-size:13px">🎲 CTA aleatório a cada disparo automático</span>
-          </label>
-          <!-- Cor personalizada -->
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:10px">
-            <input type="checkbox" id="lpChkCorPersonalizada" onchange="lpTogglePainelCor(this.checked)" style="width:auto">
-            <span style="font-size:13px">🎨 Personalizar cor do post</span>
-          </label>
-          <div id="lpPainelCor" style="display:none;gap:8px;margin-top:10px;flex-wrap:wrap"></div>
-        </div>
-      </div>
-
-      <button class="btn btn-volt" onclick="lpSalvarLayout()">💾 Salvar layout do grupo</button>
-      <span id="lpSalvoMsg" style="display:none;font-size:12px;color:var(--volt-tx);margin-left:10px">✅ Salvo!</span>
-    </div>
-
-    <!-- Coluna direita: preview -->
-    <div>
-      <div class="card" style="margin:0;position:sticky;top:80px">
-        <div class="ch">📱 Preview ao vivo</div>
-        <div class="cb" style="display:flex;justify-content:center">
-          <div class="phone"><div class="notch"></div><div class="scr"><div class="wah"><span class="gp">G</span> Seu canal</div><div class="bub" id="lpBub">Preencha os dados para ver o preview.</div></div></div>
-        </div>
-      </div>
-    </div>
-  </div>`,
 ia:`
   <div class="alert y">🧪 <strong>MegaIA — BETA.</strong> Reescreve e formata suas mensagens automaticamente para converter mais.</div>
   <div class="g2"><div class="card" style="margin:0"><div class="ch">Antes</div><div class="cb"><div class="msg ai" style="max-width:100%">fone bluetooth barato 9,99 link https://loja.com aproveita</div></div></div>
@@ -5755,7 +5685,6 @@ function buildTabs(){
       b.classList.add("active");
       document.querySelectorAll(".tp").forEach(p=>p.classList.remove("on"));
       document.getElementById("pane-"+b.dataset.tab).classList.add("on");
-      if(b.dataset.tab==="layout"){rp();lpInitCtaGrid();}
       if(b.dataset.tab==="wacanais")wireWaCanais();
       if(MARKET_STORES.some(s=>s.id===b.dataset.tab))impRenderAlert(b.dataset.tab);
       if(b.dataset.tab==="wagrupos")wireWaGrupos();
@@ -5764,7 +5693,6 @@ function buildTabs(){
       if(b.dataset.tab==="prod-add"){wireProdAdd();prodIdeaisCalc();prodCupomTipoChange();}
     });
     // dispara wire da primeira tab se necessário
-    if(first.id==="layout"){rp();lpInitCtaGrid();}
     if(MARKET_STORES.some(s=>s.id===first.id))impRenderAlert(first.id);
     if(first.id==="wagrupos")wireWaGrupos();
     if(first.id==="prod-lista")wireProdLista();
@@ -7109,110 +7037,6 @@ async function prodRemover(id){
 
 /* Preview */
 function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
-// Estado do Layout Post
-let LP={ctaSel:0,extras:{extra1:false,extra2:false,cupom:false,extra3:false},ctaRandom:false,corIdx:0,fotoDataUrl:null};
-function rp(){
-  const g=id=>document.getElementById(id);
-  if(!g("lpBub"))return;
-  const head=g("lpHead")?.value||"";
-  const title=g("lpTitle")?.value||"Produto";
-  const de=g("lpDe")?.value||"";
-  const por=g("lpPor")?.value||"";
-  const suf=g("lpSuf")?.value||"";
-  const parc=g("lpParc")?.value||"";
-  const ctaRandom=g("lpChkCtaRandom")?.checked;
-  const ctaCustom=g("lpCta")?.value||"";
-  const ctaTexto=ctaRandom?"🎲 CTA aleatório a cada disparo":ctaCustom||(PR_CTAS[LP.ctaSel]||"");
-  let txt=``;
-  if(head)txt+=esc(head)+"\n";
-  txt+=`<b>${esc(title)}</b>\n`;
-  if(de&&por)txt+=`<s>De R$ ${esc(de)}</s> por <b>R$ ${esc(por)}${suf?" "+esc(suf):""}</b>\n`;
-  else if(por)txt+=`<b>R$ ${esc(por)}${suf?" "+esc(suf):""}</b>\n`;
-  if(parc)txt+=`💳 ${esc(parc)}\n`;
-  if(LP.extras.extra1&&g("lpExtra1Texto")?.value)txt+=`✅ ${esc(g("lpExtra1Texto").value)}\n`;
-  if(LP.extras.extra2&&g("lpExtra2Texto")?.value)txt+=`✅ ${esc(g("lpExtra2Texto").value)}\n`;
-  if(LP.extras.cupom){const sel=g("lpCupomSel");const opt=sel?.options[sel?.selectedIndex];if(opt?.value)txt+=`🏷️ Cupom: ${esc(opt.text)}\n`;}
-  if(LP.extras.extra3&&g("lpExtra3Texto")?.value)txt+=`\n${esc(g("lpExtra3Texto").value)}\n`;
-  txt+=`\n${esc(ctaTexto)}\n`;
-  txt+=`<span class="lnk">👉 shope.ee/abc</span><span class="tm">14:32 ✓✓</span>`;
-  const foto=LP.fotoDataUrl;
-  const imgHtml=foto?`<img src="${foto}" style="width:100%;border-radius:2px;margin-bottom:6px">`:'<span class="img">🛍️</span>';
-  g("lpBub").innerHTML=imgHtml+txt;
-}
-function lpToggleExtra(tipo,on){LP.extras[tipo]=on;rp();}
-function lpToggleCtaRandom(on){
-  LP.ctaRandom=on;
-  const grid=document.getElementById("lpCtaGrid");
-  if(grid)grid.style.opacity=on?"0.4":"1";
-  const ctaInput=document.getElementById("lpCta");
-  if(ctaInput)ctaInput.disabled=on;
-  rp();
-}
-function lpSelectCta(i){
-  LP.ctaSel=i;
-  document.getElementById("lpCta").value="";
-  document.querySelectorAll("[id^='lpCtaBtn']").forEach((b,j)=>{
-    b.className=`btn ${j===i?"btn-volt":"btn-ghost"} btn-sm`;
-    b.style.cssText="text-align:left;justify-content:flex-start;white-space:normal;height:auto;padding:9px 12px";
-  });
-  rp();
-}
-function lpTogglePainelCor(on){
-  const p=document.getElementById("lpPainelCor");if(!p)return;
-  p.style.display=on?"flex":"none";
-  if(on&&!p.children.length){
-    p.innerHTML=PR_CORES.map((c,i)=>`<button onclick="lpSelecionarCor(${i})" style="padding:4px 10px;border-radius:2px;border:2px solid ${i===LP.corIdx?"var(--volt)":"transparent"};background:${c.bg||"var(--surf)"};color:${c.tx||"var(--tx)"};font-size:12px;cursor:pointer" id="lpCorBtn${i}">${c.nome}</button>`).join("");
-  }
-}
-function lpSelecionarCor(i){
-  LP.corIdx=i;
-  document.querySelectorAll("[id^='lpCorBtn']").forEach((b,j)=>b.style.border=`2px solid ${j===i?"var(--volt)":"transparent"}`);
-  rp();
-}
-function lpUploadFoto(input){
-  const file=input?.files?.[0];if(!file)return;
-  const r=new FileReader();
-  r.onload=e=>{LP.fotoDataUrl=e.target.result;const w=document.getElementById("lpFotoWrap");if(w)w.innerHTML=`<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover">`;rp();};
-  r.readAsDataURL(file);
-}
-function lpInitCtaGrid(){
-  const grid=document.getElementById("lpCtaGrid");if(!grid)return;
-  grid.innerHTML=PR_CTAS.map((c,i)=>`<button class="btn ${i===0?"btn-volt":"btn-ghost"} btn-sm" id="lpCtaBtn${i}" onclick="lpSelectCta(${i})" style="text-align:left;justify-content:flex-start;white-space:normal;height:auto;padding:9px 12px">${c}</button>`).join("");
-  // Preenche select de cupom
-  const sel=document.getElementById("lpCupomSel");
-  if(sel){sel.innerHTML='<option value="">— Nenhum —</option>'+COUPONS.map(c=>`<option value="${c.id}">${esc(c.code)}${c.label?" — "+esc(c.label):""}</option>`).join("");}
-  // Cor
-  lpTogglePainelCor(document.getElementById("lpChkCorPersonalizada")?.checked||false);
-  rp();
-}
-async function lpSalvarLayout(){
-  const g=S.grupoAtual;if(!g?.db_id){toast("Salve o grupo primeiro.","⚠️");return;}
-  const ctaRandom=document.getElementById("lpChkCtaRandom")?.checked||false;
-  const ctaTexto=ctaRandom?null:(document.getElementById("lpCta")?.value||PR_CTAS[LP.ctaSel]||null);
-  const extra1=document.getElementById("lpChkExtra1")?.checked?document.getElementById("lpExtra1Texto")?.value||null:null;
-  const extra2=document.getElementById("lpChkExtra2")?.checked?document.getElementById("lpExtra2Texto")?.value||null:null;
-  const extra3=document.getElementById("lpChkExtra3")?.checked?document.getElementById("lpExtra3Texto")?.value||null:null;
-  const head=document.getElementById("lpHead")?.value||null;
-  const suf=document.getElementById("lpSuf")?.value||null;
-  const parc=document.getElementById("lpParc")?.value||null;
-  const corIdx=LP.corIdx||0;
-  try{
-    await SB.from("niche_groups").update({
-      post_header:head,
-      price_suffix:suf,
-      price_installment:parc,
-      cta_text:ctaTexto,
-      cta_random:ctaRandom,
-      extra_line1:extra1,
-      extra_line2:extra2,
-      extra_line3:extra3,
-      color_index:corIdx
-    }).eq("id",g.db_id);
-    const msg=document.getElementById("lpSalvoMsg");if(msg){msg.style.display="inline";setTimeout(()=>msg.style.display="none",2500);}
-    toast("Layout salvo!","✅");
-  }catch(e){toast("Erro ao salvar: "+e.message,"⚠️");}
-}
-
 /* ================= PLANOS ================= */
 // Monta os cards de planos a partir da plan_features real (Starter/Pro/Elite/Premium)
 function buildPlansFromFeatures(){
@@ -7743,7 +7567,7 @@ fabAI.onclick=openDrawer;
    é a presença de um campo marcado com data-cta-manual visível na tela. Assim
    um CTA manual novo em qualquer aba passa a ligar a MegaIA sozinho, e um que
    sair de cena a desliga, sem ninguém ter que lembrar de atualizar a lista.
-   Hoje são dois: #prCtaCustom (Postar Agora) e #lpCta (Editar Grupo → Layout). */
+   Hoje é um: #prCtaCustom (Postar Agora). */
 function ctaManualVisivel(){
   return Array.from(document.querySelectorAll("[data-cta-manual]")).some(el=>{
     // A conta é por TELA, não por pixel visível: o campo de CTA do Postar Agora
@@ -10578,11 +10402,20 @@ function prSelectAll(on){
 function prMontarTexto({nome,de,por,cta,link,htmlMode=false}){
   const b=(s)=>htmlMode?`<b>${s}</b>`:s;
   const n=(s)=>htmlMode?esc(s):s;
-  const deStr=de?(htmlMode?`<s>De R$ ${esc(de)}</s> por `:`~De R$ ${de}~ por `):"";
+  const head=document.getElementById("prHead")?.value||"🔥 OFERTA RELÂMPAGO 🔥";
+  const emojiDe=document.getElementById("prEmojiDe")?.value||"";
+  const emojiPor=document.getElementById("prEmojiPor")?.value||"";
+  let precoLinha;
+  if(de){
+    const deTxt=htmlMode?`<s>De R$ ${esc(de)}</s>`:`~De R$ ${de}~`;
+    precoLinha=`${emojiDe?n(emojiDe)+" ":""}${deTxt} ${emojiPor?n(emojiPor)+" ":""}por ${b("R$ "+n(por))}`;
+  }else{
+    precoLinha=`${emojiPor?n(emojiPor)+" ":""}${b("R$ "+n(por))}`;
+  }
   let linhas=[];
-  linhas.push(`🔥 ${b("OFERTA RELÂMPAGO")} 🔥`);
+  linhas.push(n(head));
   linhas.push(b(n(nome)));
-  linhas.push(`💸 ${deStr}${b("R$ "+n(por))}`);
+  linhas.push(precoLinha);
   if(PR.extras?.extra1){
     const txt=document.getElementById("prExtra1Texto")?.value?.trim();
     if(txt)linhas.push(`📦 ${n(txt)}`);

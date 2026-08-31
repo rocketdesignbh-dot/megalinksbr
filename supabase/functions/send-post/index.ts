@@ -260,16 +260,17 @@ function montarTexto(p: {
 }): string {
   const brl = (v: number) => v.toFixed(2).replace(".", ",");
   const cta = p.cta_random ? sortearCta() : (p.cta_text || sortearCta());
-  let extra1 = "", extra2 = "", extra3 = "";
-  if (p.description) { try { const d = JSON.parse(p.description); extra1=d.extra1||""; extra2=d.extra2||""; extra3=d.extra3||""; } catch {/**/} }
+  let extra1 = "", extra2 = "", extra3 = "", header = "", emojiDe = "", emojiPor = "";
+  if (p.description) { try { const d = JSON.parse(p.description); extra1=d.extra1||""; extra2=d.extra2||""; extra3=d.extra3||""; header=d.header||""; emojiDe=d.emojiDe||""; emojiPor=d.emojiPor||""; } catch {/**/} }
+  const headStr = header || "🔥 OFERTA RELÂMPAGO 🔥";
   const porStr = p.price ? `R$ ${brl(Number(p.price))}` : "";
   const sufStr = p.price_suffix ? ` ${p.price_suffix}` : "";
-  const deStr  = p.price_original ? `~De R$ ${brl(Number(p.price_original))}~ por ` : "";
+  const deStr  = p.price_original ? `${emojiDe ? emojiDe + " " : ""}~De R$ ${brl(Number(p.price_original))}~ ${emojiPor ? emojiPor + " " : ""}por ` : (emojiPor ? emojiPor + " " : "");
   const lojaLabel: Record<string,string> = { shopee:"Shopee", mercado_livre:"Mercado Livre", amazon:"Amazon", aliexpress:"AliExpress", magalu:"Magalu", shein:"Shein", awin:"AWIN", natura:"Natura", terabyte:"TerabyteShop" };
   const loja = p.source ? (lojaLabel[p.source] ?? "") : "";
   const linhas: string[] = [];
-  linhas.push("🔥 OFERTA RELÂMPAGO 🔥"); linhas.push(p.title);
-  if (porStr) linhas.push(`💸 ${deStr}${porStr}${sufStr}`);
+  linhas.push(headStr); linhas.push(p.title);
+  if (porStr) linhas.push(`${deStr}${porStr}${sufStr}`);
   if (p.price_installment) linhas.push(`💳 ${p.price_installment}`);
   if (extra1) linhas.push(`📦 ${extra1}`);
   if (extra2) linhas.push(`🚚 ${extra2}`);
