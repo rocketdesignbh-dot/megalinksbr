@@ -405,7 +405,10 @@ tr:hover td{background:var(--surf2)}
 
 /* ── TOAST ── */
 #tw{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-.toast{background:var(--surf2);border:1px solid var(--bd2);border-radius:2px;padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;box-shadow:none;animation:toastIn .2s ease;max-width:340px;pointer-events:auto}
+.toast{background:var(--surf2);border:1px solid var(--bd2);border-radius:2px;padding:12px 14px 12px 16px;display:flex;align-items:flex-start;gap:10px;font-size:13px;font-weight:500;line-height:1.5;box-shadow:none;animation:toastIn .2s ease;max-width:340px;pointer-events:auto}
+.toast-msg{flex:1;min-width:0}
+.toast-x{flex:none;background:none;border:0;color:var(--mut);font-size:12px;line-height:1;cursor:pointer;padding:3px 5px;margin:-2px -3px 0 0;border-radius:2px;font-weight:700}
+.toast-x:hover{color:var(--tx);background:rgba(255,255,255,.10)}
 @keyframes toastIn{from{opacity:0;transform:scale(.94) translateY(-6px)}to{opacity:1;transform:none}}
 .toast-ico{font-size:16px;flex:none}
 
@@ -3015,6 +3018,7 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('button,.btn,.fc,.nav-cta');
   if(b&&!b.classList.contains('pass-toggle')&&!b.classList.contains('mx'))_twAnchor=b.getBoundingClientRect();
 },true);
+const TOAST_MAX=4; // maximo de avisos abertos ao mesmo tempo
 function toast(msg,emoji){
   const isMobile=window.innerWidth<=768;
   if(!isMobile&&_twAnchor){
@@ -3026,8 +3030,20 @@ function toast(msg,emoji){
     else{tw.style.top='auto';tw.style.bottom=Math.round(vh-_twAnchor.top+8)+'px';}
     tw.style.left=lx+'px';tw.style.right='auto';
   }
-  const t=document.createElement("div");t.className="toast";t.textContent=(emoji||"✅")+" "+msg;tw.appendChild(t);
-  setTimeout(()=>{t.style.opacity="0";t.style.transition="opacity .3s";setTimeout(()=>t.remove(),320);},3400);}
+  // O toast NAO some sozinho: fica ate o usuario clicar no X. Pedido do Erico
+  // (01/09) -- o auto-dismiss de 3,4s nao dava tempo de ler avisos longos, como
+  // o "Falta: nenhum produto cadastrado" do gate do Post Automatico.
+  const texto=(emoji||"✅")+" "+msg;
+  // Sem auto-dismiss, o mesmo aviso repetido empilharia copias identicas.
+  if([...tw.querySelectorAll(".toast")].some(el=>el.dataset.msg===texto))return;
+  // ...e sem teto a coluna cresceria sem fim ate cobrir a tela.
+  while(tw.querySelectorAll(".toast").length>=TOAST_MAX)tw.firstElementChild.remove();
+  const t=document.createElement("div");t.className="toast";t.dataset.msg=texto;
+  const s=document.createElement("span");s.className="toast-msg";s.textContent=texto;
+  const x=document.createElement("button");x.type="button";x.className="toast-x";
+  x.setAttribute("aria-label","Fechar aviso");x.title="Fechar";x.textContent="✕";
+  x.addEventListener("click",()=>{t.style.opacity="0";t.style.transition="opacity .2s";setTimeout(()=>t.remove(),210);});
+  t.appendChild(s);t.appendChild(x);tw.appendChild(t);}
 
 /* ================= GREETING ================= */
 (function(){const h=new Date().getHours();const g=h<6?"Boa madrugada":h<12?"Bom dia":h<18?"Boa tarde":"Boa noite";greeting.textContent=g+" ⚡";})();
@@ -5781,6 +5797,13 @@ function pgCloneAutoApproveAlerta(){
 async function salvarGeral(){
   const g=S.grupoAtual;
   const hasPostAuto=!!(PLAN_FEATURES[MY_PLAN]||{}).wa_post_automation;
+  // Estado do Post Automatico ANTES deste salvar. O gate de pre-requisitos so
+  // vale na transicao desligado -> ligado (mesmo criterio do togglePostAuto da
+  // lista de grupos, que valida ao ligar e nunca desliga o que ja rodava).
+  // Sem isto, um grupo com "Excluir apos postar" -- que fica legitimamente com
+  // 0 produtos entre uma captura e a proxima -- era DESLIGADO no banco so por
+  // salvar qualquer outro ajuste da aba Geral, sem ninguem pedir.
+  const jaEstavaLigado=!!g.postAuto;
 
   // Salva horário e intervalo
   const ini=(document.getElementById("pgIni")?.value||"8h").replace("h","");
@@ -5809,7 +5832,7 @@ async function salvarGeral(){
     if(!S.waConnected)problemas.push("WhatsApp não conectado");
     if((g.produtos||0)<1)problemas.push("nenhum produto cadastrado");
     if((g.canais||0)<1&&(g.grupos_wa||0)<1)problemas.push("nenhum destino WA vinculado");
-    if(problemas.length){
+    if(problemas.length&&!jaEstavaLigado){
       toast(`⚠️ Falta: ${problemas.join(", ")}. Corrija antes de ativar.`,"⚠️");
       g.postAuto=false;
       if(document.getElementById("pgAuto"))document.getElementById("pgAuto").checked=false;

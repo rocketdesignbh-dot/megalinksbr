@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 117 — 31/08/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 118 — 01/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,129 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 118 — 01/09/2026 — dois consertos no `frontend/index.html`, PUSHADOS
+E PROVADOS NO CHROMIUM, NÃO DEPLOYADOS: (1) o toast não some mais sozinho —
+fecha só no ✕; (2) o gate do Post Automático passou a valer só na transição
+desligado→ligado, então "Excluir após postar" não derruba mais o Post
+Automático. Origem: pergunta do Érico sobre a diferença entre Post Automático
+e Auto-publicar do Clone Post.**
+
+### 0. A pergunta que abriu a sessão (sem mudança de código)
+
+Érico perguntou a diferença entre **Post Automático** (Grupo de Oferta →
+Postagem automática) e **Auto-publicar / Aprovação Automática** (Clone Post),
+e se um influencia o outro. Conferido no código servido e registrado aqui
+porque a confusão é natural e vai voltar:
+
+- **Post Automático** (`niche_groups.post_auto_enabled`) manda na **segunda**
+  etapa da esteira: se os produtos que já estão na lista do grupo saem sozinhos
+  no WhatsApp, via `send-post`. Não sabe de onde o produto veio.
+- **Auto-publicar** (`clone_sources.auto_publish`, por fonte) e **Aprovação
+  Automática** (`niche_groups.clone_auto_approve`, por grupo) mandam na
+  **primeira** etapa: se a oferta capturada pula a fila de revisão e vira
+  produto direto. Condição no `clone-ingest` v18:
+  `(fonte.auto_publish || grupoAprova) && dataSource === 'store'`.
+- **Como se ligam:** auto-publicar **não posta na hora** — só insere em
+  `products`. Quem posta é o `send-post`, ou seja, o Post Automático. Com os
+  dois ligados a esteira é fechada: captura confirmada na loja → vira produto →
+  sai no grupo, sem revisão humana. É essa combinação que o alerta vermelho de
+  isenção de responsabilidade existe para avisar.
+
+### 1. Toast: só fecha no ✕ (pedido explícito do Érico)
+
+Os avisos sobrepostos sumiam sozinhos em 3,4s. O Érico pediu que **parem de
+sumir** e fechem só no clique do ✕ — "assim dá tempo dele ler e entender a
+informação". Motivador concreto: o aviso longo do gate do Post Automático
+("⚠️ Falta: nenhum produto cadastrado…") não dava tempo de ler.
+
+- `setTimeout` de auto-dismiss **removido** da `toast()`.
+- Cada toast passou a ser `span.toast-msg` + `button.toast-x` (✕), com
+  `align-items:flex-start` para o ✕ não descer ao meio em aviso de 3 linhas.
+- Duas proteções que o auto-dismiss dava de graça e agora são explícitas:
+  **dedupe** (mensagem idêntica já na tela não empilha cópia, via
+  `dataset.msg`) e **teto de `TOAST_MAX=4`** avisos abertos (o mais antigo sai
+  quando entra o quinto). Sem isso a coluna cresceria sem fim até cobrir o
+  painel — é o custo real de tirar o auto-dismiss, não um enfeite.
+
+**Prova (Playwright + Chromium, harness montado com o CSS e o JS extraídos do
+arquivo do repo, não reescritos):** 2 toasts continuam **2 após 6 segundos**
+(antes sumiriam em 3,4s); repetir a mesma mensagem mantém 2; +6 mensagens
+diferentes param em **4**; clique no ✕ leva 4 → 3; fechando todos chega a
+**0**; **0 erros de console**. Screenshot conferida com texto de 3 linhas e o
+✕ alinhado no topo à direita.
+
+### 2. Gate do Post Automático só valida ao LIGAR — o defeito que o "Excluir após postar" expunha
+
+**Como o Érico achou:** "se eu coloquei excluir o produto assim que postar, o
+grupo de ofertas sempre estará vazio… aí como fica essa regra do Post
+Automático?" A pergunta é exata e o defeito era real.
+
+**O que estava errado.** O `salvarGeral()` rodava o gate de pré-requisitos
+(WhatsApp conectado · ≥1 produto · ≥1 destino WA) **toda vez** que salvava com
+o checkbox marcado, inclusive quando o Post Automático **já estava ligado** —
+e nesse caso **desmarcava e gravava `post_auto_enabled=false`**. Um grupo com
+`delete_after_post=true` fica legitimamente com 0 produtos entre uma captura e
+a próxima; bastava abrir a aba Geral e salvar qualquer outro ajuste (intervalo,
+Aprovação Automática) para o Post Automático ser **desligado sem ninguém
+pedir**. O `togglePostAuto()` da lista de grupos nunca teve esse defeito: lá o
+gate só roda dentro de `if(!g.postAuto)` e apenas recusa com `return`, sem
+desligar. As duas telas discordavam; a Geral é que estava errada.
+
+**O conserto.** `const jaEstavaLigado=!!g.postAuto` capturado no topo do
+`salvarGeral()`, e a recusa passou a ser `if(problemas.length&&!jaEstavaLigado)`.
+Mesmo critério das duas telas: valida na transição desligado→ligado, nunca
+desliga o que já rodava.
+
+**O que NÃO muda, e é o que sustenta o conserto.** O `send-post` **nunca**
+desligou nada: ele seleciona `post_auto_enabled=true` e, sem produto elegível,
+faz `totalSkipped++; continue` (linha 447) e volta a postar quando chegar
+oferta nova. O gate sempre foi só do painel. Medido no banco de produção nesta
+sessão: **"Achadinhos Geral"** e **"Achadinhos Beleza"** estão agora com
+`post_auto_enabled=true`, `delete_after_post=true` e **0 produtos** — se o gate
+valesse continuamente, já teriam sido desligados; não foram.
+
+**Prova (Playwright + Chromium, `salvarGeral()` extraída do arquivo do repo,
+com stubs de `SB`/`toast`/`S`), 4 cenários:**
+
+| cenário | resultado |
+|---|---|
+| A. já ligado, grupo esvaziado (0 prod, 1 destino) | continua ligado — `post_auto_enabled: true` gravado |
+| B. desligado, tentando ligar com 0 prod | recusado com o aviso, `false` gravado — gate preservado |
+| C. desligado, ligando com 10 prod | liga, `true` gravado |
+| D. ligado, usuário **desmarca de propósito** | desliga, `false` gravado — a vontade do usuário sempre vale |
+
+No cenário B o `clone_auto_approve: true` **foi gravado junto** — a recusa do
+Post Automático não leva o resto das configurações embora. 0 erros de console
+nos quatro.
+
+### Achado registrado, NÃO consertado (escopo estrito) — vira P118
+
+Ainda no `salvarGeral()`, o ramo do plano sem `wa_post_automation` (Starter)
+faz `await persistGroups(); renderGrupos(); return;` **antes** do
+`update` de `niche_groups`. Nesse caminho, tudo que foi mexido junto —
+`clone_auto_approve`, `loop_enabled`, `delete_after_post`, intervalo, horários,
+`smart_schedule`, validade — **é perdido em silêncio**, porque o
+`persistGroups()` só grava `name`, `post_auto_enabled` e `interval_minutes`.
+Não tocado nesta sessão por não fazer parte do pedido.
+
+### Estado dos componentes desta sessão
+
+| componente | estado |
+|---|---|
+| `frontend/index.html` | **commitado e pushado no `main`** — ⚠️ **NÃO deployado.** Falta o Deploy do `app` no EasyPanel (ação externa do Érico) e conferir no navegador logado |
+| `send-post` | **não tocado** — segue v21/v22, nenhuma mudança |
+| `clone-ingest` | **não tocado** — segue v18 em produção |
+| banco | **nenhuma migração** — nenhuma coluna nova, nenhum dado alterado |
+
+⚠️ **Regra de ouro:** as duas mudanças estão provadas **no Chromium contra o
+arquivo do repo**, não no painel logado em produção. Enquanto o Deploy do `app`
+não for feito e conferido no navegador do Érico, isto é "codado e provado em
+harness", não "no ar".
+
+---
+
+### Revisão anterior
 
 **REVISÃO 117 — 31/08/2026 — só documentação: a REVISÃO 115 foi DEPLOYADA E
 PROVADA no navegador logado do Érico. O filtro de grupos por dono funciona.
@@ -8158,6 +8281,8 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P119** | 🟡 **CODADA E PROVADA EM HARNESS (REVISÃO 118) — NÃO DEPLOYADA.** Toast que só fecha no ✕ (sem auto-dismiss, com dedupe e teto de 4) + gate do Post Automático validando só na transição desligado→ligado. Pushadas no `main`. **Falta:** Deploy do `app` no EasyPanel e conferir no painel logado — (a) que um aviso fica na tela até o clique no ✕, (b) que salvar a aba Geral de um grupo com "Excluir após postar" e 0 produtos **não** desliga mais o Post Automático (conferir `post_auto_enabled` no banco depois do Salvar) | 01/09 |
+| **P118** | 🟠 **BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 118).** `salvarGeral()`: no ramo do plano sem `wa_post_automation` (Starter), o `return` acontece **antes** do `update` de `niche_groups`, então `clone_auto_approve`, `loop_enabled`, `delete_after_post`, intervalo, horários, `smart_schedule` e validade são **perdidos em silêncio** — o `persistGroups()` só grava `name`, `post_auto_enabled` e `interval_minutes`. O usuário Starter mexe nas configurações, salva, e nada além do intervalo persiste. Conserto: gravar o `update` completo antes de sair, ou não sair cedo. Fora do escopo da REVISÃO 118 | 01/09 |
 | **P101** | 🟡 **CODADA E VALIDADA (REVISÃO 107) — NÃO DEPLOYADA.** Remoção das abas "Cabeçalho" e "Recursos de IA" de Editar Grupo e do "Cupom padrão" (campo órfão, `default_coupon_id` nunca lido pelo backend). Falta commit, push e deploy no EasyPanel | 30/08 |
 | **P102** | 🟡 **CODADA E VALIDADA (REVISÃO 107) — NÃO DEPLOYADA.** Radar: acumulador `RADAR_TOTAIS_LOJA` corrige o chip "(sem ofertas)" enganoso em Shopee/Amazon, que só aparecia porque a loja não tinha sido consultada na rodada atual do filtro. Falta deploy e confirmar clicando em cada loja que o chip para de "esquecer" total já visto | 30/08 |
 | **P103** | 🟡 **CODADA E VALIDADA (REVISÃO 107) — NÃO DEPLOYADA.** Config Afiliados: Awin removida por completo (`LOJAS`, `LOJA_EMOJI`, `LOJA_DOMINIO`, `MARKET_STORES`, filtro de Cupons); AliExpress, Magalu, Natura e TerabyteShop marcadas "🔜 Breve". Falta deploy e conferir visualmente os 4 cards "Breve" e que Awin sumiu de toda tela | 30/08 |
