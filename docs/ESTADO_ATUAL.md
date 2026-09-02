@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 120 — 02/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 121 — 02/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,57 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 121 — 02/09/2026, tarde — SEM MUDANÇA DE CÓDIGO. Diagnóstico do
+"Achadinhos Eletrodomésticos não está postando", pedido do Érico. MEDIDO NO
+BANCO: o grupo NÃO está parado — postou às 15:05 UTC (12:05 BR). Duas causas
+distintas, uma transitória e uma de configuração.**
+
+### Causa 1 — uma queda de sessão de segundos, às 14:50 UTC
+
+`scheduled_posts` do grupo `73493b98…` traz uma linha `failed` às 14:50:01 com
+`"WhatsApp +553175356865: sessão caiu no wa-engine — marcada como desconectada"`
+(HTTP 404 do `/send-group`, `Sessão não encontrada ou não pareada`). O
+`ehSessaoMorta`/`derrubarInstancia` do `send-post` v23 fez o que devia: gravou
+`status='disconnected'` na `whatsapp_instances`.
+
+**A sessão voltou sozinha em menos de 3 minutos** — `Achadinhos Geral` postou às
+14:53 pela MESMA instância, e às 15:01:35 a `whatsapp_instances` já estava
+`connected`. Nenhum outro grupo falhou na janela. **Foi um blip do wa-engine,
+não uma sessão caída.**
+
+⚠️ **Defeito colateral que isso expôs (P125):** o `insert` do `scheduled_posts`
+e o `update` de `cursor_index`/`last_post_at` acontecem **fora** do `if
+(groupSent > 0)` — post que falhou em TODOS os canais mesmo assim carimba
+`last_post_at`. Consequência: um blip de segundos custa um intervalo inteiro
+(15 min neste grupo), porque a próxima rodada cai no gate
+`Date.now() - lastPost < intervalMs`. Foi exatamente o que aconteceu: falhou
+14:50, só tentou de novo 15:05, e aí SAIU. O `delete_after_post` já tem a
+guarda `groupSent > 0`; o `last_post_at` não tem.
+
+### Causa 2 — configuração, e é a que explica o silêncio longo
+
+O grupo é **o único dos 12** do Érico com `no_repeat_daily = true` e
+`delete_after_post = false`. Todos os outros são o inverso. Com essa
+combinação e **1 produto por vez** no grupo:
+
+- o produto sai uma vez, **não é apagado** (delete desligado),
+- e **não pode sair de novo hoje** (não-repetir ligado),
+- então o grupo fica mudo até a captura trazer produto novo.
+
+E a captura desse nicho é lenta por natureza: nas 24h, `clone_ingest_log` da
+fonte `Eletrodomésticos #132` traz **7 publicados** (4 Amazon, 3 Shopee),
+**4 recusas de link** (3 vitrine de afiliado do Mercado Livre, 1 `linktr.ee`)
+e 3 de teto do dia — teto que era **10** ontem, não os 50 de hoje. Hoje até
+15:00 entrou **1** captura. Os 6 `clone_posts` aprovados anteriores estão com
+`product_id` NULO: os produtos foram apagados depois de postar, o que prova que
+`delete_after_post` esteve **ligado** até pouco tempo atrás.
+
+**Não é bug: é a configuração fazendo o que foi pedida.** Se o Érico quer o
+grupo postando com ritmo, o caminho é desligar "Não repetir produto" nesse
+grupo (aí o produto único volta ao rodízio) ou religar "Excluir após postar"
+e deixar a captura repor. As duas coisas juntas, com 1 produto, garantem
+silêncio.
 
 **REVISÃO 120 — 02/09/2026 — pedido do Érico: em `painel/clone-post`, o seletor
 "Grupo que você quer monitorar" passa a listar SÓ os grupos dos quais você NÃO
@@ -8601,6 +8652,7 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P125** | 🟠 **BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 121).** `send-post` v23: o `update` de `last_post_at` (e do `cursor_index`) roda mesmo quando `groupSent === 0`, isto é, quando o post falhou em todos os canais. Um blip de segundos no `wa-engine` passa a custar um intervalo inteiro de silêncio — medido em 02/09 no "Achadinhos Eletrodomésticos": `failed` 14:50, próxima tentativa só 15:05. O `delete_after_post` da v22 já tem a guarda `groupSent > 0`; o `last_post_at` não tem. Conserto: não carimbar `last_post_at` (nem avançar cursor) em rodada que não enviou nada. Parente da P123 | 02/09 |
 | **P124** | 🟡 **CODADA, NÃO DEPLOYADA (REVISÃO 120).** Clone Post → Nova fonte: o seletor "Grupo que você quer monitorar" passa a esconder os grupos dos quais o usuário é dono (`isOwner`), com as salvaguardas da REVISÃO 115 (engine antigo não filtra; fonte em edição não some; "ver todos" disponível). Falta commit, push, deploy do `app` no EasyPanel e conferir no painel logado que grupo próprio sumiu, grupo de terceiro ficou, e o link de convite continua cadastrando grupo fora da lista | 02/09 |
 | **P123** | 🟠 **BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 119).** `send-post`: com `delete_after_post` ligado, o produto postado é apagado e os seguintes deslizam uma posição, mas o `nextCursor` avança mesmo assim — um produto é pulado a cada disparo. Com o Loop ligado o `% total` mascarava (a v22 chamou de "absorvido"); com o Loop **desligado** (semântica nova) o grupo chega ao fim da lista mais cedo do que deveria. Conserto: não avançar o cursor quando a exclusão disparou. Fora do escopo da REVISÃO 119 | 02/09 |
 | **P122** | ✅ **FECHADA (02/09, adendo 2 da REVISÃO 119) — deployada e medida no painel logado:** arquivo servido com as peças novas e sem a antiga, código executando, os dois checkboxes no DOM na ordem pedida, `salvarGeral()` gravando as duas colunas ida e volta no banco, 0 erros de console. Era: codada, provada em harness e pushada. Frontend: checkbox de fim de semana do modo normal abaixo da caixa dos Horários Inteligentes, "Validade padrão das ofertas" descida para baixo da grade, checkbox "🚫 Não repetir produto", texto novo do "Post em Loop", e a Fila mostrando "seg–sex" / "🚫 sem repetir no dia". 13 asserções no Chromium com 0 erros de console. Pushada no `main` em `1f8b635` (SHA-256 do arquivo `a2a8e1c9…`), conferida com reclone limpo. **Falta:** Deploy do `app` no EasyPanel — que leva junto a REVISÃO 118, também parada | 02/09 |
