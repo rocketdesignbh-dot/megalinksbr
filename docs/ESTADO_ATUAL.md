@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 123 — 02/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 124 — 02/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,53 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 124 — 02/09/2026, noite — P125 FECHADA. `send-post` v24 (deploy 58)
+DEPLOYADO E MEDIDO EM PRODUÇÃO com um grupo de teste descartável, criado e
+apagado na mesma sessão — nenhum grupo real do Érico foi tocado.**
+
+### O que mudou (só a Edge Function `send-post`)
+
+Rodada que falha em TODOS os canais deixa de custar um intervalo inteiro de
+silêncio. Só entra em ação quando `groupSent === 0 && groupFailed > 0`:
+
+- **Cursor não avança** — o produto que não saiu continua sendo o próximo a
+  tentar, em vez de ser pulado.
+- **`last_post_at` é carimbado PARA TRÁS**, de modo que o próximo disparo caia
+  em `RETRY_GAP_MIN` (3 min) em vez do intervalo configurado inteiro.
+- **Trava de 3 tentativas (`RETRY_STRIKES`)**, contando as falhas consecutivas
+  em `scheduled_posts` — só consulta o banco quando a rodada falhou. Da 3ª
+  falha seguida em diante, a rodada volta ao comportamento da v23: cursor
+  avança e o intervalo cheio vale. Sem essa trava, um grupo permanentemente
+  quebrado (sessão não pareada, grupo sem `group_jid`, credencial faltando)
+  martelaria o `wa-engine` a cada 3 minutos para sempre.
+- Nada mexe no envio, na seleção de produto ou no `delete_after_post`.
+
+### Como foi medido — grupo de teste, 3 rodadas reais do cron, limpo depois
+
+Criado no banco um grupo `ZZ TESTE P125 (apagar)` do próprio Érico
+(`post_auto_enabled=true`, 2 produtos, um `whatsapp_groups` **sem `group_jid`**
+de propósito — falha garantida sem enviar WhatsApp real nenhum) e deixado para
+o cron das Edge Functions disparar sozinho, sem chamada manual:
+
+| Rodada | `created_at` | `cursor_index` gravado | `last_post_at` gravado | Leitura |
+|---|---|---|---|---|
+| 1ª falha | 15:37:00 | **0** (não avançou) | **15:25:00** (recuado ~12 min) | próxima tentativa liberada às 15:40 — 3 min depois, não 15 |
+| 2ª falha | 15:40:01 | **0** (não avançou) | **15:28:00** (recuado de novo) | de novo 3 min de gap, `product_id` idêntico às duas |
+| 3ª falha | 15:43:01 | **1** (avançou) | **15:43:00** (sem recuo) | 3ª consecutiva bateu `RETRY_STRIKES` — volta ao intervalo cheio (próxima só às 15:58) |
+
+As três rodadas foram do **cron real**, não chamadas forçadas. `product_id`
+ficou igual nas duas primeiras (prova de que o cursor não avançou) e mudou na
+terceira. O `last_post_at` bate a conta esperada:
+`intervalMs(15min) − RETRY_GAP_MIN(3min) = 12min` de recuo nas duas primeiras,
+zero na terceira. Grupo, produtos e vínculo de teste **apagados do banco** logo
+depois — nada de real ficou no ar.
+
+### O que continua sem prova
+
+- O comportamento com um grupo real que se recupera sozinho (como o
+  "Achadinhos Eletrodomésticos" da REVISÃO 121) ainda não foi observado com a
+  v24 no ar — o teste provou o mecanismo, não um caso de blip real.
 
 **REVISÃO 123 — 02/09/2026, noite — O DEPLOY FOI FEITO E MEDIDO NO PAINEL
 LOGADO. As REVISÕES 120 e 122 estão no ar e PROVADAS POR COMPORTAMENTO, com
@@ -8785,7 +8832,7 @@ código não relacionado.
 | # | Pendência | Origem |
 |---|---|---|
 | **P126** | ✅ **FECHADA (02/09, REVISÃO 123) — DEPLOYADA E MEDIDA NO PAINEL LOGADO:** caixa desenhando no "Achadinhos Eletrodomésticos" (1 produto, capacidade 60), 6 transições no DOM real todas corretas, incluindo o "não desenha" quando a capacidade cai para 1. Era: 🟡 CODADA, NÃO DEPLOYADA (REVISÃO 122). Aviso do "Não repetir produto" em Editar Grupo → Geral: quando a flag está ligada e o grupo tem menos produtos do que o ritmo configurado aguenta, a tela diz quantos posts por dia isso permite e o que fazer. Provado em harness (7 cenários), não na tela. Falta deploy do `app` no EasyPanel e conferir a caixa desenhando — e sumindo quando os produtos passam da capacidade | 02/09 |
-| **P125** | 🟠 **BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 121).** `send-post` v23: o `update` de `last_post_at` (e do `cursor_index`) roda mesmo quando `groupSent === 0`, isto é, quando o post falhou em todos os canais. Um blip de segundos no `wa-engine` passa a custar um intervalo inteiro de silêncio — medido em 02/09 no "Achadinhos Eletrodomésticos": `failed` 14:50, próxima tentativa só 15:05. O `delete_after_post` da v22 já tem a guarda `groupSent > 0`; o `last_post_at` não tem. Conserto: não carimbar `last_post_at` (nem avançar cursor) em rodada que não enviou nada. Parente da P123 | 02/09 |
+| **P125** | ✅ **FECHADA (02/09, REVISÃO 124) — DEPLOYADA E MEDIDA COM GRUPO DE TESTE DESCARTÁVEL EM 3 RODADAS REAIS DO CRON:** 1ª e 2ª falha seguida não avançam cursor e recuam `last_post_at` para reabrir em 3 min; 3ª falha seguida bate a trava e volta ao intervalo cheio com cursor avançado. Grupo de teste apagado depois. Era: 🟠 BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 121). `send-post` v23: o `update` de `last_post_at` (e do `cursor_index`) roda mesmo quando `groupSent === 0`, isto é, quando o post falhou em todos os canais. Um blip de segundos no `wa-engine` passa a custar um intervalo inteiro de silêncio — medido em 02/09 no "Achadinhos Eletrodomésticos": `failed` 14:50, próxima tentativa só 15:05. O `delete_after_post` da v22 já tem a guarda `groupSent > 0`; o `last_post_at` não tem. Conserto: não carimbar `last_post_at` (nem avançar cursor) em rodada que não enviou nada. Parente da P123 | 02/09 |
 | **P124** | ✅ **FECHADA (02/09, REVISÃO 123) — DEPLOYADA E MEDIDA COM DADO DE PRODUÇÃO:** `/groups` devolveu 24 grupos, 12 do Érico e 12 de terceiros; o seletor mostrou exatamente os 12 de terceiros e "ver todos" devolveu 24. Era: 🟡 CODADA, NÃO DEPLOYADA (REVISÃO 120). Clone Post → Nova fonte: o seletor "Grupo que você quer monitorar" passa a esconder os grupos dos quais o usuário é dono (`isOwner`), com as salvaguardas da REVISÃO 115 (engine antigo não filtra; fonte em edição não some; "ver todos" disponível). Falta commit, push, deploy do `app` no EasyPanel e conferir no painel logado que grupo próprio sumiu, grupo de terceiro ficou, e o link de convite continua cadastrando grupo fora da lista | 02/09 |
 | **P123** | 🟠 **BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 119).** `send-post`: com `delete_after_post` ligado, o produto postado é apagado e os seguintes deslizam uma posição, mas o `nextCursor` avança mesmo assim — um produto é pulado a cada disparo. Com o Loop ligado o `% total` mascarava (a v22 chamou de "absorvido"); com o Loop **desligado** (semântica nova) o grupo chega ao fim da lista mais cedo do que deveria. Conserto: não avançar o cursor quando a exclusão disparou. Fora do escopo da REVISÃO 119 | 02/09 |
 | **P122** | ✅ **FECHADA (02/09, adendo 2 da REVISÃO 119) — deployada e medida no painel logado:** arquivo servido com as peças novas e sem a antiga, código executando, os dois checkboxes no DOM na ordem pedida, `salvarGeral()` gravando as duas colunas ida e volta no banco, 0 erros de console. Era: codada, provada em harness e pushada. Frontend: checkbox de fim de semana do modo normal abaixo da caixa dos Horários Inteligentes, "Validade padrão das ofertas" descida para baixo da grade, checkbox "🚫 Não repetir produto", texto novo do "Post em Loop", e a Fila mostrando "seg–sex" / "🚫 sem repetir no dia". 13 asserções no Chromium com 0 erros de console. Pushada no `main` em `1f8b635` (SHA-256 do arquivo `a2a8e1c9…`), conferida com reclone limpo. **Falta:** Deploy do `app` no EasyPanel — que leva junto a REVISÃO 118, também parada | 02/09 |
