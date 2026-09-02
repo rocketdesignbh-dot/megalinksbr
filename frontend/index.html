@@ -2308,6 +2308,10 @@ async function loadGroups(){
       endHour:r.end_hour??22,
       smartSchedule:!!r.smart_schedule,
       smartWeekend:!!r.smart_weekend,
+      // v119: fim de semana do modo NORMAL. A coluna nasce true no banco; o
+      // `!==false` mantem true tambem para grupo lido antes da migracao.
+      weekendEnabled:r.weekend_enabled!==false,
+      noRepeatDaily:!!r.no_repeat_daily,
       validadeDias:r.default_validity_days??null,
       loopEnabled:!!r.loop_enabled,
       deleteAfterPost:!!r.delete_after_post,
@@ -5316,13 +5320,15 @@ geral:`
   <div class="g2">
     <div class="card" style="margin:0"><div class="ch">⚙️ Postagem automática</div><div class="cb">
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:10px"><input type="checkbox" id="pgAuto" style="width:auto"> Post Automático</label>
-      <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgLoop" style="width:auto"> Post em Loop <small style="color:var(--mut);font-weight:400">(ordem aleatória a cada disparo — desmarcado posta na ordem em que os produtos foram cadastrados)</small></label>
+      <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgLoop" style="width:auto"> 🔁 Post em Loop <small style="color:var(--mut);font-weight:400">(os produtos saem sempre na ordem em que foram cadastrados. Marcado, ao chegar no último a lista <strong>recomeça do primeiro</strong>; desmarcado, o grupo <strong>para de postar</strong> até você cadastrar produto novo.)</small></label>
+      <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgNaoRepetir" style="width:auto"> 🚫 Não repetir produto <small style="color:var(--mut);font-weight:400">(produto que já saiu hoje neste grupo não sai de novo hoje — amanhã ele volta ao rodízio)</small></label>
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgExcluirAposPostar" style="width:auto"> 🗑️ Excluir automaticamente após postar <small style="color:var(--mut);font-weight:400">(some do grupo assim que sai no disparo — libera espaço pra cadastrar produtos novos. Não tem desfazer.)</small></label>
       <div style="border:1px solid var(--bd);border-radius:2px;padding:11px 12px;margin-bottom:14px;background:rgba(139,92,246,.07)">
         <label style="display:flex;gap:9px;align-items:center;font-weight:600"><input type="checkbox" id="pgSmart" style="width:auto" onchange="pgSmartAplicar()"> 🧠 Horários Inteligentes <span class="pill" style="background:rgba(139,92,246,.18);color:#A78BFA;flex:none;font-size:10px;padding:1px 7px">ELITE+</span></label>
         <div style="font-size:12px;color:var(--tx2);margin-top:7px;line-height:1.65">Posta só nas janelas de maior audiência, dividindo seus produtos entre elas. <strong>Substitui intervalo e horário.</strong><br>${SMART_JANELAS.map(j=>j.rot).join(" · ")} <small style="color:var(--mut)">(a última é a melhor)</small><br>Até ${SMART_MAX_DIA} posts/dia, no mínimo ${SMART_PISO_MIN} min entre um e outro. O que não couber hoje entra amanhã.</div>
         <label id="pgSmartFdsBox" style="display:none;gap:9px;align-items:center;margin-top:10px;font-size:13px"><input type="checkbox" id="pgSmartFds" style="width:auto"> Aplicar também no fim de semana <small style="color:var(--mut)">(sem isso, sáb e dom não postam)</small></label>
       </div>
+      <label id="pgFimSemanaBox" style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgFimSemana" style="width:auto" checked> 📅 Aplicar também no fim de semana <small style="color:var(--mut);font-weight:400">(sem isso, sáb e dom não postam)</small></label>
       <div class="g2">
         <div class="field"><label>Intervalo (min)</label><select id="pgInt">
           <option value="10" selected>10 min</option>
@@ -5340,16 +5346,17 @@ geral:`
           ${Array.from({length:24},(_,h)=>`<option value="${h}h" ${h===22?"selected":""}>${h}h</option>`).join("")}
           <option value="24h">24h (dia todo)</option>
         </select></div>
-        <div class="field"><label>Validade padrão das ofertas</label><select id="pgValidade">
-          <option value="">— Sem prazo —</option>
-          <option value="1">1 dia</option>
-          <option value="3">3 dias</option>
-          <option value="7">7 dias</option>
-          <option value="15">15 dias</option>
-          <option value="30">30 dias</option>
-        </select><small style="color:var(--mut);display:block;margin-top:4px">Todo produto novo deste grupo já nasce com essa data no campo "Até". Vale só para os próximos — não altera os que já estão cadastrados.</small></div>
         <div class="field"><label>Idioma</label><select><option>Português (BR)</option></select></div>
-      </div></div></div>
+      </div>
+      <div class="field" style="margin-top:14px"><label>Validade padrão das ofertas</label><select id="pgValidade">
+        <option value="">— Sem prazo —</option>
+        <option value="1">1 dia</option>
+        <option value="3">3 dias</option>
+        <option value="7">7 dias</option>
+        <option value="15">15 dias</option>
+        <option value="30">30 dias</option>
+      </select><small style="color:var(--mut);display:block;margin-top:4px">Todo produto novo deste grupo já nasce com essa data no campo "Até". Vale só para os próximos — não altera os que já estão cadastrados.</small></div>
+      </div></div>
   </div>
   <!-- Clone Post — aprovação automática por grupo de destino -->
   <div class="card" style="margin-top:14px"><div class="ch">🤖 Clone Post — captura automática deste grupo</div><div class="cb">
@@ -5738,6 +5745,10 @@ function buildTabs(){
     if(pgSmart)pgSmart.checked=!!g.smartSchedule;
     const pgSmartFds=document.getElementById("pgSmartFds");
     if(pgSmartFds)pgSmartFds.checked=!!g.smartWeekend;
+    const pgFimSemana=document.getElementById("pgFimSemana");
+    if(pgFimSemana)pgFimSemana.checked=g.weekendEnabled!==false;
+    const pgNaoRep=document.getElementById("pgNaoRepetir");
+    if(pgNaoRep)pgNaoRep.checked=!!g.noRepeatDaily;
     pgSmartAplicar();
     const pgValidade=document.getElementById("pgValidade");
     if(pgValidade)pgValidade.value=g.validadeDias?String(g.validadeDias):"";
@@ -5815,6 +5826,8 @@ async function salvarGeral(){
   // basta ler. A trava de verdade é a do send-post, que confere o plano.
   g.smartSchedule=!!document.getElementById("pgSmart")?.checked&&smartTemPlano();
   g.smartWeekend=!!document.getElementById("pgSmartFds")?.checked;
+  g.weekendEnabled=!!document.getElementById("pgFimSemana")?.checked;
+  g.noRepeatDaily=!!document.getElementById("pgNaoRepetir")?.checked;
   g.loopEnabled=!!document.getElementById("pgLoop")?.checked;
   g.deleteAfterPost=!!document.getElementById("pgExcluirAposPostar")?.checked;
   g.cloneAutoApprove=!!document.getElementById("pgCloneAutoApprove")?.checked;
@@ -5853,6 +5866,8 @@ async function salvarGeral(){
         end_hour:g.endHour,
         smart_schedule:!!g.smartSchedule,
         smart_weekend:!!g.smartWeekend,
+        weekend_enabled:g.weekendEnabled!==false,
+        no_repeat_daily:!!g.noRepeatDaily,
         loop_enabled:!!g.loopEnabled,
         delete_after_post:!!g.deleteAfterPost,
         clone_auto_approve:!!g.cloneAutoApprove,
@@ -5872,7 +5887,7 @@ async function salvarGeral(){
 function pgResetGeral(){
   if(!confirm("Limpar todas as configurações deste grupo?"))return;
   const g=S.grupoAtual;
-  g.postAuto=false;g.intervalo="10 min";g.startHour=8;g.endHour=22;g.loopEnabled=false;g.deleteAfterPost=false;g.cloneAutoApprove=false;
+  g.postAuto=false;g.intervalo="10 min";g.startHour=8;g.endHour=22;g.loopEnabled=false;g.deleteAfterPost=false;g.cloneAutoApprove=false;g.weekendEnabled=true;g.noRepeatDaily=false;
   buildTabs();
   toast("Configurações limpas.","🗑️");
 }
@@ -6288,6 +6303,13 @@ function pgSmartAplicar(){
   }
   const fds=document.getElementById("pgSmartFdsBox");
   if(fds)fds.style.display=on?"flex":"none";
+  // Ligado o modo inteligente, quem manda no fim de semana e o pgSmartFds la
+  // dentro da caixa roxa. O do modo normal esmaece junto com intervalo e horas,
+  // pelo mesmo motivo: duas telas dizendo coisas diferentes sobre sabado seria
+  // pior do que uma so.
+  const fsBox=document.getElementById("pgFimSemanaBox"),fsCb=document.getElementById("pgFimSemana");
+  if(fsCb)fsCb.disabled=on;
+  if(fsBox){fsBox.style.opacity=on?".4":"";fsBox.style.pointerEvents=on?"none":"";}
   ["pgInt","pgIni","pgFim"].forEach(function(id){
     const el=document.getElementById(id);if(!el)return;
     el.disabled=on;
@@ -8014,6 +8036,10 @@ function filaEta(group,now){
     const prox=SMART_JANELAS.find(j=>j.ini>min);
     return{etaMin:prox?prox.ini-min:(24*60-min)+SMART_JANELAS[0].ini,inWindow:false,smart:true};
   }
+  // v119: fim de semana do modo normal. Mesma regra do send-post -- a Fila tem
+  // de dizer "pausado" no sabado de um grupo que nao posta no sabado.
+  const brFila=new Date(now.getTime()-3*3600*1000),dowFila=brFila.getUTCDay();
+  if((dowFila===0||dowFila===6)&&group.weekend_enabled===false)return{etaMin:0,inWindow:false,pausado:true};
   const startH=group.start_hour??0,endH=group.end_hour??23;
   const brHour=now.getUTCHours(); // painel exibe hora do servidor (UTC); ok p/ ordenação relativa
   const inWindow=startH<=endH?(brHour>=startH&&brHour<=endH):(brHour>=startH||brHour<=endH);
@@ -8033,7 +8059,7 @@ async function renderQueue(){
     const h24atras=new Date(now.getTime()-24*3600*1000);
 
     const [{data:groups},{data:hoje},{data:falhas24h},{data:log}]=await Promise.all([
-      SB.from("niche_groups").select("id,name,user_id,interval_minutes,start_hour,end_hour,cursor_index,last_post_at,post_auto_enabled,smart_schedule,smart_weekend").eq("post_auto_enabled",true),
+      SB.from("niche_groups").select("id,name,user_id,interval_minutes,start_hour,end_hour,cursor_index,last_post_at,post_auto_enabled,smart_schedule,smart_weekend,weekend_enabled,no_repeat_daily").eq("post_auto_enabled",true),
       SB.from("scheduled_posts").select("status",{count:"exact"}).gte("created_at",hojeInicio.toISOString()),
       SB.from("scheduled_posts").select("id",{count:"exact"}).eq("status","failed").gte("created_at",h24atras.toISOString()),
       SB.from("scheduled_posts").select("id,status,error,created_at,niche_groups(name),products(title),profiles(email)").order("created_at",{ascending:false}).limit(25)
@@ -8055,7 +8081,7 @@ async function renderQueue(){
     queueList.innerHTML=queueUpcoming.length?queueUpcoming.map((q,i)=>{
       const status=!q.inWindow?"fora da janela":i===0&&q.etaMin<=0?"disparando…":`em ${q.etaMin} min`;
       const pillClass=!q.inWindow?"gray":i===0&&q.etaMin<=0?"volt":"gray";
-      return `<div class="qrow"><span class="fic">${!q.inWindow?"🌙":i===0&&q.etaMin<=0?"🚀":"⏳"}</span><span style="flex:1"><strong>${esc(q.name||"Grupo")}</strong><br><small style="color:var(--mut)">${q.smart_schedule?("🧠 "+SMART_JANELAS.map(j=>j.rot.replace(/^\S+\s/,"")).join(" · ")+(q.smart_weekend?"":" · seg–sex")):("a cada "+(q.interval_minutes||10)+" min · "+(q.start_hour??0)+"h–"+(q.end_hour??23)+"h")}</small></span><span class="pill ${pillClass}">${status}</span></div>`;
+      return `<div class="qrow"><span class="fic">${!q.inWindow?"🌙":i===0&&q.etaMin<=0?"🚀":"⏳"}</span><span style="flex:1"><strong>${esc(q.name||"Grupo")}</strong><br><small style="color:var(--mut)">${q.smart_schedule?("🧠 "+SMART_JANELAS.map(j=>j.rot.replace(/^\S+\s/,"")).join(" · ")+(q.smart_weekend?"":" · seg–sex")):("a cada "+(q.interval_minutes||10)+" min · "+(q.start_hour??0)+"h–"+(q.end_hour??23)+"h"+(q.weekend_enabled===false?" · seg–sex":""))}${q.no_repeat_daily?" · 🚫 sem repetir no dia":""}</small></span><span class="pill ${pillClass}">${status}</span></div>`;
     }).join(""):'<div class="qrow"><span style="color:var(--mut)">Nenhuma automação ativa no momento.</span></div>';
 
     queueLogRows=log||[];

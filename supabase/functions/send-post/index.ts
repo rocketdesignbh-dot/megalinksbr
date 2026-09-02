@@ -1,4 +1,36 @@
-// Mega Links BR · Edge Function "send-post" v22
+// Mega Links BR · Edge Function "send-post" v23
+// v23: TRES mudancas pedidas pelo Erico em 02/09, todas sobre ORDEM e RITMO do
+//      rodizio automatico. Nenhuma toca o envio em si.
+//
+//      (a) "Post em Loop" mudou de SIGNIFICADO. Ate a v22 ele mandava na ORDEM
+//          (marcado = sorteio aleatorio a cada disparo) e o rodizio nunca
+//          parava nos dois casos. Agora a ordem e SEMPRE a de cadastro
+//          (products.position, o cursor_index de sempre) e o checkbox manda em
+//          PARAR OU RECOMECAR ao chegar no fim da lista:
+//            marcado   -> volta ao 1o produto e recomeca (rodizio infinito,
+//                         que e exatamente o que a plataforma inteira faz hoje)
+//            desmarcado-> PARA de postar ate entrar produto novo no grupo
+//          O Math.random() da selecao SUMIU -- e junto com ele o resorteio da
+//          v21 (nunca repetir o post imediatamente anterior), que existia so
+//          para consertar o sorteio. Ordem sequencial nao repete por
+//          construcao, entao a consulta extra a scheduled_posts saiu.
+//          ⚠️ MIGRACAO OBRIGATORIA ANTES DO DEPLOY: `loop_enabled` estava false
+//          em 22 de 24 grupos (resetado em 26/08 pela v20) e com o significado
+//          novo false quer dizer "para no fim da lista". Subir esta versao sem
+//          gravar loop_enabled=true faria a base inteira emudecer depois de uma
+//          passada. Ver ESTADO_ATUAL, REVISAO 119.
+//
+//      (b) "Nao repetir produto" (niche_groups.no_repeat_daily, coluna nova,
+//          default false). Ligado, produto que ja saiu HOJE neste grupo e
+//          pulado ate a virada do dia em Brasilia -- o mesmo todayBR que o teto
+//          diario ja usa. Desligado (padrao), nada muda. So consulta o banco
+//          quando a flag esta ligada.
+//
+//      (c) Fim de semana no modo NORMAL (niche_groups.weekend_enabled, coluna
+//          nova, default TRUE). O modo inteligente ja tinha isso desde a v19
+//          (smart_weekend); o modo de intervalo fixo postava sabado e domingo
+//          sem opcao. Default true de proposito: nascer false pararia o fim de
+//          semana de todo mundo sem ninguem pedir.
 // v22: "Excluir automaticamente após postar" (niche_groups.delete_after_post,
 //      checkbox novo ao lado de Post Automático/Post em Loop). Pedido do
 //      Érico: em grupo com muitos produtos, deixar o produto sumir do rodízio
@@ -373,7 +405,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: groups, error: gErr } = await sb
     .from("niche_groups")
-    .select("id, user_id, name, interval_minutes, start_hour, end_hour, cursor_index, last_post_at, smart_schedule, smart_weekend, loop_enabled, delete_after_post")
+    .select("id, user_id, name, interval_minutes, start_hour, end_hour, cursor_index, last_post_at, smart_schedule, smart_weekend, loop_enabled, delete_after_post, weekend_enabled, no_repeat_daily")
     .eq("post_auto_enabled", true);
   if (gErr) return new Response(JSON.stringify({ error: gErr.message }), { status: 500 });
   if (!groups?.length) return new Response(JSON.stringify({ processed: 0, msg: "no active groups" }));
@@ -400,6 +432,7 @@ Deno.serve(async (req: Request) => {
 
   let totalSent = 0, totalFailed = 0, totalSkipped = 0, totalBlocked = 0;
   let totalExpirados = 0, totalAgendados = 0, totalVencidos = 0;
+  let totalRepetidos = 0; // v23: pulos por "Nao repetir produto"
   const instanciasDerrubadas: string[] = [];
 
   for (const group of groups) {
@@ -426,6 +459,13 @@ Deno.serve(async (req: Request) => {
       // numero de produtos, que so e conhecido depois do filtro la embaixo.
       if (!janelaDe(brMinutos)) { totalSkipped++; continue; }
     } else {
+      // v23: fim de semana no modo normal. `weekend_enabled` nasce TRUE, entao
+      // este gate so recusa para quem desmarcou de proposito -- ninguem para de
+      // postar no sabado por causa do deploy. Mesma semantica do smart_weekend:
+      // "nao aplicar no fim de semana" significa NAO POSTAR, nao postar de
+      // outro jeito.
+      if ((brDow === 0 || brDow === 6) && group.weekend_enabled === false) { totalSkipped++; continue; }
+
       const startH = group.start_hour ?? 0, endH = group.end_hour ?? 23;
       const inWindow = startH <= endH ? brHour >= startH && brHour <= endH : brHour >= startH || brHour <= endH;
       if (!inWindow) { totalSkipped++; continue; }
@@ -509,54 +549,70 @@ Deno.serve(async (req: Request) => {
     }
 
     const total = products.length;
-    // "Post em Loop": desmarcado (padrao) posta na ORDEM em que os produtos
-    // foram cadastrados, usando o cursor_index salvo — mesmo comportamento de
-    // sempre. Marcado, sorteia um produto a cada disparo em vez de seguir a
-    // ordem. Em ambos os casos o rodizio nunca "acaba": o cursor sequencial
-    // sempre volta ao inicio da lista (% total) quando chega no fim — isso e
-    // o Post Automatico funcionando, nao o Loop. O Loop e so sobre ORDEM, nao
-    // sobre parar ou continuar.
-    //
-    // v21: o sorteio do Loop nao tinha memoria do que saiu por ultimo -- podia
-    // (e media 8,8% das vezes, no grupo "Achadinhos Geral") repetir o mesmo
-    // produto duas vezes seguidas, que e o post duplicado que os participantes
-    // dos grupos de WhatsApp reclamaram. So busca o ultimo "sent" quando o
-    // grupo esta em Loop e tem mais de 1 produto elegivel -- ordem sequencial
-    // nao muda em nada.
+
+    // ── v23: SELECAO DO PRODUTO ─────────────────────────────────────────────
+    // A ordem e SEMPRE a de cadastro (products.position, ja aplicado no
+    // .order("position") la em cima) percorrida pelo cursor_index. O que o
+    // "Post em Loop" decide agora nao e a ordem, e o que acontece ao chegar no
+    // FIM da lista:
+    //   loop_enabled = true  -> volta ao inicio (% total) e recomeca pra sempre
+    //   loop_enabled = false -> PARA de postar ate entrar produto novo
+    // O sorteio da v20 e o resorteio da v21 sairam junto: sem Math.random() nao
+    // ha como repetir o post anterior, entao a consulta a scheduled_posts que a
+    // v21 fazia a cada disparo de grupo em Loop deixou de existir.
     const loop = !!group.loop_enabled;
-    let cursor = loop ? Math.floor(Math.random() * total) : (group.cursor_index ?? 0) % total;
-    if (loop && total > 1) {
-      const { data: ultimoEnviado } = await sb.from("scheduled_posts")
+    const inicio = group.cursor_index ?? 0;
+
+    // "Nao repetir produto" (no_repeat_daily): produto que ja saiu HOJE neste
+    // grupo fica de fora ate a virada do dia em Brasilia. Mesmo todayBR do teto
+    // diario. So consulta o banco quando a flag esta ligada.
+    const postadosHoje = new Set<string>();
+    if (group.no_repeat_daily) {
+      const { data: jaSairamHoje } = await sb.from("scheduled_posts")
         .select("product_id")
         .eq("group_id", group.id).eq("is_manual", false).eq("status", "sent")
-        .order("sent_at", { ascending: false }).limit(1).maybeSingle();
-      const ultimoProductId = ultimoEnviado?.product_id ?? null;
-      if (ultimoProductId && products[cursor]?.id === ultimoProductId) {
-        // Resorteia só entre os (total - 1) restantes -- nunca reenvia o post
-        // imediatamente anterior. Desloca por 1 a (total-1) posições a partir
-        // do índice batido, cobrindo uniformemente todos os outros produtos.
-        cursor = (cursor + 1 + Math.floor(Math.random() * (total - 1))) % total;
-      }
+        .gte("sent_at", todayBR + "T00:00:00Z");
+      for (const r of jaSairamHoje ?? []) if (r?.product_id) postadosHoje.add(r.product_id);
     }
-    let product = null, tentativas = 0;
-    while (tentativas < total) {
-      const candidato = products[cursor];
+
+    // Loop ligado varre a lista inteira a partir do cursor, dando a volta.
+    // Loop desligado varre so o que falta do cursor ate o fim -- sem dar a
+    // volta, que e o "parar no fim". Com o cursor ja alem do fim a varredura e
+    // vazia e o grupo simplesmente nao posta.
+    const varredura = loop ? total : Math.max(0, total - inicio);
+    let cursor = 0, product = null;
+    let bloqueadoPorCredencial = false, puladoPorRepeticao = 0;
+    for (let i = 0; i < varredura; i++) {
+      const idx = loop ? (inicio + i) % total : inicio + i;
+      const candidato = products[idx];
       const src = candidato.source ?? "";
-      if (!LOJAS_QUE_EXIGEM_CREDENCIAL.has(src) || lojasComCredencial.has(src)) { product = candidato; break; }
-      console.warn(`[BLOQUEADO] grupo=${group.id} source=${src}`);
-      totalBlocked++; cursor = (cursor + 1) % total; tentativas++;
+      if (LOJAS_QUE_EXIGEM_CREDENCIAL.has(src) && !lojasComCredencial.has(src)) {
+        console.warn(`[BLOQUEADO] grupo=${group.id} source=${src}`);
+        bloqueadoPorCredencial = true; totalBlocked++; continue;
+      }
+      if (postadosHoje.has(candidato.id)) { puladoPorRepeticao++; totalRepetidos++; continue; }
+      cursor = idx; product = candidato; break;
     }
 
     if (!product) {
       totalSkipped++;
-      await sb.from("scheduled_posts").insert({ user_id:group.user_id, group_id:group.id, product_id:products[0].id, status:"failed", scheduled_for:now.toISOString(), sent_at:null, is_manual:false, error:"Nenhum produto pôde ser postado: configure suas credenciais." });
+      // Credencial faltando continua sendo FALHA visivel: o usuario tem o que
+      // consertar. Lista que acabou (loop desligado) ou dia ja cumprido (nao
+      // repetir) nao sao falha de ninguem -- ficam quietos, como o gate de
+      // horario ja fica.
+      if (bloqueadoPorCredencial) {
+        await sb.from("scheduled_posts").insert({ user_id:group.user_id, group_id:group.id, product_id:products[0].id, status:"failed", scheduled_for:now.toISOString(), sent_at:null, is_manual:false, error:"Nenhum produto pôde ser postado: configure suas credenciais." });
+      } else if (puladoPorRepeticao > 0) {
+        console.log(`[NAO-REPETIR] grupo=${group.id} todos os ${puladoPorRepeticao} produtos elegiveis ja sairam hoje`);
+      } else {
+        console.log(`[FIM-DA-LISTA] grupo=${group.id} cursor=${inicio} total=${total} — Post em Loop desligado, aguardando produto novo`);
+      }
       continue;
     }
 
-    // No modo Loop (aleatorio) o cursor_index sequencial fica congelado, sem
-    // avancar: assim, se o usuario desmarcar o Loop depois, a ordem retoma de
-    // onde parou em vez de perder o lugar.
-    const nextCursor = loop ? (group.cursor_index ?? 0) : (cursor + 1) % total;
+    // Sem Loop o cursor NAO da a volta: ele para em total, e e isso que segura
+    // o rodizio ate entrar produto novo. Com Loop, % total recomeca do 1o.
+    const nextCursor = loop ? (cursor + 1) % total : cursor + 1;
     // 1º regenera a afiliação com as credenciais ATUAIS, 2º encurta com o user_id do dono.
     product.affiliate_url = await encurtarLink(sb, group.user_id, linkFinalDoProduto(product, credsMap));
     const msg = montarTexto(product);
@@ -656,5 +712,5 @@ Deno.serve(async (req: Request) => {
     totalSent += groupSent; totalFailed += groupFailed;
   }
 
-  return new Response(JSON.stringify({ groups:groups.length, sent:totalSent, failed:totalFailed, skipped:totalSkipped, blocked:totalBlocked, pulados_expirados:totalExpirados, pulados_agendados:totalAgendados, pulados_vencidos:totalVencidos, instancias_derrubadas:instanciasDerrubadas }), { headers:{"content-type":"application/json"} });
+  return new Response(JSON.stringify({ groups:groups.length, sent:totalSent, failed:totalFailed, skipped:totalSkipped, blocked:totalBlocked, pulados_expirados:totalExpirados, pulados_agendados:totalAgendados, pulados_vencidos:totalVencidos, pulados_repetidos:totalRepetidos, instancias_derrubadas:instanciasDerrubadas }), { headers:{"content-type":"application/json"} });
 });

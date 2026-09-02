@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 118 — 01/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 119 — 02/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,151 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 119 — 02/09/2026 — três pedidos do Érico sobre ORDEM e RITMO do
+rodízio: fim de semana no modo normal, "Post em Loop" com significado novo
+(recomeçar ou parar no fim da lista) e "Não repetir produto" (no mesmo dia).
+`send-post` v23 DEPLOYADA E NO AR (deploy 57); frontend codado, provado em
+harness, NÃO deployado.**
+
+### O que o Érico pediu, textualmente
+
+1. *"abaixo do Horário Inteligente, inclua a mesma função do Horário de Final
+   de semana, pode ser no lugar de 'Validade padrão das ofertas' e desça essa
+   função mais abaixo"*
+2. *"os produtos quando estão Loop, não seria melhor iniciar lá do primeiro, ao
+   acabar de postar a Lista de Produtos"*
+3. *"Inserir em algum lugar do Grupo de ofertas, que não é pra Repetir Produto"*
+
+### As quatro decisões dele nesta sessão (não redecidir)
+
+| decisão | escolha |
+|---|---|
+| ordem no modo Loop | **sequencial pura** — o `Math.random()` sai da seleção |
+| o que o checkbox "Post em Loop" passa a controlar | **recomeçar ou parar no fim da lista**, não a ordem |
+| o que é "Não repetir produto" | **não repetir no mesmo dia** (amanhã o produto volta) |
+| default do fim de semana no modo normal | **marcado** — preserva o comportamento de todos os grupos |
+
+### 1. Fim de semana no modo NORMAL (`weekend_enabled`)
+
+O modo Inteligente tinha `smart_weekend` desde a v19; o modo de intervalo fixo
+postava sábado e domingo sem opção. Coluna nova `niche_groups.weekend_enabled`,
+**`not null default true`** — nascer `false` pararia o fim de semana da base
+inteira sem ninguém pedir. Gate no `send-post` só recusa com
+`weekend_enabled === false`, e a semântica é a mesma do smart: *não aplicar no
+fim de semana significa NÃO POSTAR*, não postar de outro jeito.
+
+Na tela: checkbox logo **abaixo** da caixa roxa dos Horários Inteligentes, e o
+"Validade padrão das ofertas" desceu para baixo da grade (pedido literal). Com
+o modo Inteligente ligado o checkbox novo **esmaece e fica inerte**, como
+intervalo e horas já ficavam — quem manda ali é o `pgSmartFds` de dentro da
+caixa. Duas telas discordando sobre sábado seria pior que uma só.
+
+### 2. "Post em Loop" mudou de significado
+
+| | até a v22 | a partir da v23 |
+|---|---|---|
+| ordem | marcado = sorteio; desmarcado = cadastro | **sempre** a de cadastro (`position` + `cursor_index`) |
+| fim da lista | recomeça nos dois casos | marcado recomeça; **desmarcado PARA** até entrar produto novo |
+
+Saiu o `Math.random()` da seleção e, junto, o resorteio da v21 (nunca repetir o
+post imediatamente anterior) e a consulta a `scheduled_posts` que ele exigia —
+ordem sequencial não repete por construção. Um pulo por credencial faltando
+continua gravando a linha `failed`; lista esgotada e dia já cumprido ficam
+**quietos** (só `console.log`), como o gate de horário já ficava.
+
+⚠️ **A MIGRAÇÃO DE DADOS QUE TORNOU O DEPLOY SEGURO — e que era obrigatória.**
+`loop_enabled` estava **false em 22 dos 24 grupos** (resetado em 26/08 pela
+v20). Com o significado novo, `false` quer dizer *"para no fim da lista"*: subir
+a v23 sem mexer nisso faria a base inteira emudecer depois de uma passada.
+"Achadinhos Geral" estava a **um disparo** disso (cursor 1, 2 produtos) e
+"Promos da Paty" no cursor 22 de 33. Rodado imediatamente após o deploy:
+`update niche_groups set loop_enabled=true where loop_enabled=false` — **24 de
+24 em true**, que é exatamente o comportamento que a plataforma já tinha
+(rodízio infinito). É o espelho do que a v20 fez em 26/08, pelo mesmo motivo.
+
+### 3. "Não repetir produto" (`no_repeat_daily`)
+
+Coluna nova, `not null default false` — subir não muda nada para ninguém.
+Ligado, produto com um `sent` de hoje neste grupo é pulado até a virada do dia
+em Brasília (o mesmo `todayBR` que o teto diário já usa). Só consulta o banco
+quando a flag está ligada. Checkbox no card "Postagem automática", logo abaixo
+do Post em Loop.
+
+### Prova — motor (14 cenários, seleção EXTRAÍDA do arquivo do repo)
+
+Harness em Node que recorta o bloco de seleção do `index.ts` real (não
+reescrito) e o executa com stubs de `sb`:
+
+| cenário | resultado |
+|---|---|
+| Loop ON, cursor 3/5 | posta p3, `nextCursor` 4 |
+| Loop ON, cursor 4/5 (último) | posta p4 e **recomeça**: `nextCursor` 0 |
+| Loop ON, cursor 9/5 (estourado) | não quebra, volta para p4 |
+| Loop OFF, cursor 4/5 | posta p4, `nextCursor` 5 |
+| Loop OFF, cursor 5/5 | **não posta** e **não grava `failed`** |
+| Loop OFF parado, entrou o 6º produto | volta a postar (p5) |
+| Não repetir ON, p0/p1 já saíram | posta p2 |
+| Não repetir ON, todos já saíram | não posta, sem linha `failed` |
+| Não repetir OFF (padrão) | ignora o histórico, posta p0 |
+| Amazon sem credencial | pula e posta o próximo |
+| Só Amazon sem credencial | linha `failed` de credencial preservada |
+| Amazon com credencial | posta normal |
+| `Math.random` no código de seleção | **0 ocorrências** (só em comentário) |
+
+### Prova — frontend (13 asserções, Playwright + Chromium)
+
+Pane `geral` renderizada a partir do template `PANES.geral` extraído do arquivo
+do repo, com `pgSmartAplicar()` e `salvarGeral()` também extraídas:
+
+- os dois checkboxes novos existem; o de fim de semana nasce **marcado**;
+- o de fim de semana fica **depois** da caixa dos Horários Inteligentes e o
+  "Validade padrão" fica **depois** do Idioma — as duas posições que o Érico
+  pediu, conferidas por índice no HTML e por screenshot;
+- Smart ON: `disabled=true` + `opacity .4` no checkbox novo e o `pgSmartFdsBox`
+  visível; Smart OFF devolve tudo;
+- `salvarGeral()` grava `weekend_enabled` e `no_repeat_daily` nos dois valores,
+  sem perder `loop_enabled`, `default_validity_days`, horas nem `smart_weekend`;
+- **0 erros de console** nas 13.
+
+### Prova — PRODUÇÃO, com baseline (ordem sequencial)
+
+Grupo **"ART Finds"** (Loop ligado, 140 produtos), mesmo dia, mesma máquina:
+
+| | `position` dos disparos |
+|---|---|
+| 12 rodadas **antes** do deploy (08:00→10:32) | 127 · 124 · 39 · 85 · 22 · 6 · 100 · 38 · 33 · 101 · 3 · 106 · 133 · 99 · 113 · 130 |
+| 2 rodadas **depois** (10:42, 10:52) | **1** · **2** (com `cursor_index` indo a 2) |
+
+O baseline é o que fecha: a única coisa que mudou entre as duas linhas foi a
+versão da função. Isso prova o item (a) da P121 — os itens (b) e (c) seguem sem
+medição.
+
+### Estado dos componentes desta sessão
+
+| componente | estado |
+|---|---|
+| banco | ✅ **migração aplicada em produção** — `weekend_enabled` (default true) e `no_repeat_daily` (default false), com `comment on column`. Mais o `update` de `loop_enabled` para true em 24 grupos |
+| `send-post` v23 | ✅ **DEPLOYADA E NO AR** — Supabase deploy **57**, `verify_jwt:false` (inalterado). Fonte publicada relida e conferida: cabeçalho `v23`, `weekend_enabled`/`no_repeat_daily` no `select`, bloco novo de seleção, `pulados_repetidos` na resposta |
+| `frontend/index.html` | 🟡 **codado e provado em harness, NÃO pushado, NÃO deployado** |
+| `clone-ingest` | **não tocado** |
+
+⚠️ **Regra de ouro.** A v23 está no ar e a fonte publicada foi lida, mas o
+**comportamento** dela em produção (ordem sequencial saindo no grupo, um sábado
+sem post num grupo desmarcado, um dia inteiro sem repetição) ainda **não foi
+medido** — vira P120/P121/P122.
+
+### Achado registrado, NÃO consertado (escopo estrito)
+
+`delete_after_post` + Loop desligado: quando o produto postado é apagado, os
+seguintes deslizam uma posição, mas o `nextCursor` avança mesmo assim — um
+produto é pulado por disparo. Com o Loop ligado o `% total` mascarava isso (a
+v22 chamava de "absorvido"); com o Loop desligado o efeito é o grupo chegar ao
+fim da lista mais cedo. Vira **P123**.
+
+---
+
+### Revisão anterior
 
 **REVISÃO 118 — 01/09/2026 — dois consertos no `frontend/index.html`, PUSHADOS
 E PROVADOS NO CHROMIUM, NÃO DEPLOYADOS: (1) o toast não some mais sozinho —
@@ -7961,18 +8106,23 @@ antigos; hoje é **Premium**).
 
 ## Componentes — estado
 
-### Post Automático — `send-post` v21 (29/08, REVISÃO 99)
+### Post Automático — `send-post` v23 (02/09, REVISÃO 119) — deploy 57, NO AR
 
-- **Ordem sequencial (`loop_enabled=false`, padrão):** `cursor_index % total`,
-  nunca repete até esgotar a lista. Comportamento intacto desde sempre.
-- **"Post em Loop" (`loop_enabled=true`):** sorteia produto a cada disparo;
-  desde a v21, se o sorteio bater com o último `sent` do grupo, resorteia
-  entre os demais — nunca repete o post imediatamente anterior. Provado em
-  produção: 64/64 disparos sem repetição consecutiva no grupo "Achadinhos
-  Geral" desde o deploy. Não elimina repetição não-consecutiva (ver REVISÃO 99
-  em "Última alteração").
-- Hoje só **1 grupo com produto ativo** está em modo Loop: "Achadinhos Geral"
-  (22 produtos). Os demais 15 grupos usam ordem sequencial.
+- **Ordem: sempre a de cadastro** (`products.position` + `cursor_index`). Não
+  existe mais sorteio na seleção — o `Math.random()` saiu na v23, e com ele o
+  resorteio da v21.
+- **"Post em Loop" (`loop_enabled`) manda no FIM DA LISTA, não na ordem:**
+  marcado, volta ao 1º produto e recomeça; desmarcado, **para de postar** até
+  entrar produto novo no grupo. ⚠️ Significado NOVO — o histórico desta linha
+  (v20/v21, "Loop é só sobre ordem") está superado.
+- **`loop_enabled` está `true` nos 24 grupos** desde 02/09, gravado junto com o
+  deploy da v23 para preservar o rodízio infinito que a plataforma já tinha.
+  Quem quiser "parar no fim" desmarca na tela.
+- **"Não repetir produto" (`no_repeat_daily`, default false):** ligado, produto
+  já postado hoje neste grupo é pulado até a virada do dia em Brasília.
+- **Fim de semana:** modo Inteligente usa `smart_weekend` (default false); modo
+  normal usa `weekend_enabled` (**default true**). Nos dois, desmarcado
+  significa NÃO POSTAR, não postar de outro jeito.
 
 ### Clone Post — auto-publicação (`clone-ingest` v18, 29/08, REVISÃO 101)
 
@@ -8321,6 +8471,10 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P123** | 🟠 **BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 119).** `send-post`: com `delete_after_post` ligado, o produto postado é apagado e os seguintes deslizam uma posição, mas o `nextCursor` avança mesmo assim — um produto é pulado a cada disparo. Com o Loop ligado o `% total` mascarava (a v22 chamou de "absorvido"); com o Loop **desligado** (semântica nova) o grupo chega ao fim da lista mais cedo do que deveria. Conserto: não avançar o cursor quando a exclusão disparou. Fora do escopo da REVISÃO 119 | 02/09 |
+| **P122** | 🟡 **CODADA E PROVADA EM HARNESS (REVISÃO 119) — NÃO PUSHADA, NÃO DEPLOYADA.** Frontend: checkbox de fim de semana do modo normal abaixo da caixa dos Horários Inteligentes, "Validade padrão das ofertas" descida para baixo da grade, checkbox "🚫 Não repetir produto", texto novo do "Post em Loop", e a Fila mostrando "seg–sex" / "🚫 sem repetir no dia". 13 asserções no Chromium com 0 erros de console. **Falta:** push (pela máquina do Érico) e Deploy do `app` no EasyPanel | 02/09 |
+| **P121** | 🟡 **PARCIALMENTE MEDIDA (REVISÃO 119).** ✅ **(a) ordem sequencial PROVADA em produção com baseline**: o "ART Finds" (Loop ligado) saía sorteado nas 12 rodadas anteriores ao deploy (127, 124, 39, 85, 22, 6, 100, 38, 33, 101, 3, 106, 133, 99, 113, 130) e, nas duas primeiras rodadas depois, saiu **`position` 1 às 10:42 e `position` 2 às 10:52**, com `cursor_index` indo a 2. Mesma máquina, mesmo grupo, mesmo dia — o que mudou foi só a versão. **Falta:** (b) um sábado sem post num grupo com `weekend_enabled=false`; (c) um dia inteiro sem repetição num grupo com `no_repeat_daily=true` | 02/09 |
+| **P120** | 🟡 **NÃO MEDIDO (REVISÃO 119).** O ramo `loop_enabled=false` — "para de postar no fim da lista" — nunca disparou em produção, porque os 24 grupos foram gravados em `true` no mesmo minuto do deploy, de propósito. A prova exige um grupo desmarcado de propósito, com o cursor levado até o fim, e o `[FIM-DA-LISTA]` aparecendo no log sem gravar linha `failed` | 02/09 |
 | **P119** | 🟡 **CODADA E PROVADA EM HARNESS (REVISÃO 118) — NÃO DEPLOYADA.** Toast que só fecha no ✕ (sem auto-dismiss, com dedupe e teto de 4) + gate do Post Automático validando só na transição desligado→ligado. Pushadas no `main` em `8f23183` (SHA-256 do arquivo `1ae8ddfd…`), conferidas com reclone limpo. **Falta:** Deploy do `app` no EasyPanel e conferir no painel logado — (a) que um aviso fica na tela até o clique no ✕, (b) que salvar a aba Geral de um grupo com "Excluir após postar" e 0 produtos **não** desliga mais o Post Automático (conferir `post_auto_enabled` no banco depois do Salvar) | 01/09 |
 | **P118** | 🟠 **BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 118).** `salvarGeral()`: no ramo do plano sem `wa_post_automation` (Starter), o `return` acontece **antes** do `update` de `niche_groups`, então `clone_auto_approve`, `loop_enabled`, `delete_after_post`, intervalo, horários, `smart_schedule` e validade são **perdidos em silêncio** — o `persistGroups()` só grava `name`, `post_auto_enabled` e `interval_minutes`. O usuário Starter mexe nas configurações, salva, e nada além do intervalo persiste. Conserto: gravar o `update` completo antes de sair, ou não sair cedo. Fora do escopo da REVISÃO 118 | 01/09 |
 | **P101** | 🟡 **CODADA E VALIDADA (REVISÃO 107) — NÃO DEPLOYADA.** Remoção das abas "Cabeçalho" e "Recursos de IA" de Editar Grupo e do "Cupom padrão" (campo órfão, `default_coupon_id` nunca lido pelo backend). Falta commit, push e deploy no EasyPanel | 30/08 |
