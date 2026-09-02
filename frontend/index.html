@@ -9689,6 +9689,9 @@ async function cloneRejeitar(id){
 // a captura automática consulta a loja sozinha, sem ninguém olhando.
 let CS_FONTES=[];
 let CS_GRUPOS_WA=[];
+// Escape do filtro "so grupos que eu NAO criei" no seletor de fonte de captura.
+let CS_MOSTRAR_TODOS=false;
+let CS_EDIT_ATUAL=null; // fonte sendo editada, pra reconstruir o select sem refetch
 // Veredito das ultimas 24h por grupo-fonte, vindo de clone_ingest_log.
 // A chave e o source_jid e nao o clone_source_id: as recusas que acontecem ANTES
 // de a fonte ser localizada (mensagem antiga, mensagem sem link) chegam com
@@ -10060,6 +10063,8 @@ async function csAbrirForm(editId){
   const el=document.getElementById("csForm");
   if(!el)return;
   const editando=editId?CS_FONTES.find(x=>String(x.id)===String(editId)):null;
+  CS_EDIT_ATUAL=editando;
+  CS_MOSTRAR_TODOS=false; // cada abertura do formulario volta ao filtro padrao
   // Barrar aqui, antes de ir buscar os grupos no engine: nao faz sentido gastar
   // a ida e volta pra depois recusar o salvamento. So vale para fonte NOVA —
   // editar uma fonte que ja existe nao aumenta a contagem do plano.
@@ -10106,12 +10111,20 @@ async function csAbrirForm(editId){
     CS_GRUPOS_WA.push({id:editando.source_jid,name:editando.source_label||editando.source_jid});
   }
   const jaTem=new Set(CS_FONTES.filter(f=>!editando||String(f.id)!==String(editando.id)).map(f=>f.source_jid));
-  const opts=CS_GRUPOS_WA.map(g=>{
-    const jid=g.id||g.jid||"";
-    const nome=(g.subject||g.name||jid).replace(/</g,"&lt;");
-    const atual=!!(editando&&editando.source_jid===jid);
-    return `<option value="${jid}"${(jaTem.has(jid)&&!atual)?" disabled":""}${atual?" selected":""}>${nome}${(jaTem.has(jid)&&!atual)?" (já é fonte)":""}</option>`;
-  }).join("");
+  // Regra pedida pelo Erico (mesma familia da Distribuicao, ao contrario): fonte de
+  // captura serve pra monitorar grupo de TERCEIRO. Grupo criado por voce nao tem o
+  // que clonar e estava confundindo o usuario. Salvaguardas iguais as da REVISAO 115:
+  // engine antigo (sem isOwner) nao filtra nada; a fonte que esta sendo editada nunca
+  // some da lista; e sobra sempre uma saida "mostrar todos".
+  const opts=csOpcoesGrupos(editando,jaTem);
+  const engineTemDono=CS_GRUPOS_WA.some(g=>typeof g.isOwner==="boolean");
+  const filtraDono=engineTemDono&&!CS_MOSTRAR_TODOS;
+  const visiveis=csGruposVisiveis(editando).length;
+  const ocultos=CS_GRUPOS_WA.length-visiveis;
+  const donoHint=filtraDono?`<small id="csDonoHint" style="display:block;margin-top:6px;color:var(--tx2);line-height:1.5"><span title="Grupos que voce mesmo criou nao aparecem aqui">Só grupos que <strong>você não criou</strong></span>${ocultos>0?` · <a href="javascript:void(0)" onclick="csMostrarTodosGrupos()" style="color:var(--tx2);text-decoration:underline">ver todos (${CS_GRUPOS_WA.length})</a>`:""}</small>`:"";
+  if(filtraDono&&!visiveis&&CS_GRUPOS_WA.length){
+    avisoLista+=`<div class="alert y" id="csDonoAviso" style="margin:0 0 12px"><span>Nesta sessão todos os ${CS_GRUPOS_WA.length} grupo${CS_GRUPOS_WA.length>1?"s são":" é"} <strong>seu${CS_GRUPOS_WA.length>1?"s":""}</strong>. A fonte de captura existe para monitorar grupo de <strong>outra pessoa</strong> — clonar o próprio grupo não traz oferta nova.<br><small style="opacity:.85">Use o link de convite ali embaixo, ou <a href="javascript:void(0)" onclick="csMostrarTodosGrupos()" style="text-decoration:underline">mostre todos mesmo assim</a>.</small></span></div>`;
+  }
   el.innerHTML=`
     <div class="card" style="margin:0">
       <div class="cb">
@@ -10121,6 +10134,7 @@ async function csAbrirForm(editId){
           <div>
             <label>Grupo que você quer monitorar</label>
             <select id="csJid" style="width:100%">${opts}</select>
+            ${donoHint}
           </div>
           <div>
             <label>Mandar as ofertas para</label>
@@ -10175,6 +10189,37 @@ async function csAbrirForm(editId){
 // mensagem": depois de um teste, quem vai colar uma mensagem NOVA pra testar de
 // novo (outro grupo, ou confirmar depois de mudar as lojas permitidas) precisa
 // de um jeito de esvaziar sem apagar manualmente.
+// Lista de candidatos a fonte, ja com a regra de dono aplicada. Grupo criado por
+// voce sai fora; a fonte que esta sendo editada fica sempre.
+function csGruposVisiveis(editando){
+  const temDono=CS_GRUPOS_WA.some(g=>typeof g.isOwner==="boolean");
+  if(!temDono||CS_MOSTRAR_TODOS)return CS_GRUPOS_WA;
+  return CS_GRUPOS_WA.filter(g=>{
+    const jid=g.id||g.jid||"";
+    return !g.isOwner||!!(editando&&editando.source_jid===jid);
+  });
+}
+function csOpcoesGrupos(editando,jaTem){
+  return csGruposVisiveis(editando).map(g=>{
+    const jid=g.id||g.jid||"";
+    const nome=(g.subject||g.name||jid).replace(/</g,"&lt;");
+    const atual=!!(editando&&editando.source_jid===jid);
+    return `<option value="${jid}"${(jaTem.has(jid)&&!atual)?" disabled":""}${atual?" selected":""}>${nome}${(jaTem.has(jid)&&!atual)?" (já é fonte)":""}</option>`;
+  }).join("");
+}
+// Saida de emergencia: reconstroi so o select, sem refazer a chamada ao engine.
+function csMostrarTodosGrupos(){
+  CS_MOSTRAR_TODOS=true;
+  const sel=document.getElementById("csJid");
+  if(sel){
+    const editando=CS_EDIT_ATUAL;
+    const jaTem=new Set(CS_FONTES.filter(f=>!editando||String(f.id)!==String(editando.id)).map(f=>f.source_jid));
+    sel.innerHTML=csOpcoesGrupos(editando,jaTem);
+  }
+  const h=document.getElementById("csDonoHint");if(h)h.remove();
+  const a=document.getElementById("csDonoAviso");if(a)a.remove();
+}
+
 function csLimparTeste(){
   const t=document.getElementById("csTeste");if(t)t.value="";
   const r=document.getElementById("csTesteRes");if(r){r.style.display="none";r.innerHTML="";}

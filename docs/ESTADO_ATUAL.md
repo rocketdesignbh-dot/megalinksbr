@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 119 — 02/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 120 — 02/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,55 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 120 — 02/09/2026 — pedido do Érico: em `painel/clone-post`, o seletor
+"Grupo que você quer monitorar" passa a listar SÓ os grupos dos quais você NÃO
+é dono. Motivo: estava confundindo o usuário — é a mesma regra da REVISÃO 115
+(Editar Grupo → Distribuição), invertida. CÓDIGO EDITADO em
+`frontend/index.html` — falta commit/push/deploy e conferência no navegador.**
+
+### O raciocínio
+
+Distribuição responde "para onde eu mando" — lá só faz sentido grupo **meu**
+(REVISÃO 115). Fonte de captura responde "de onde eu clono" — clonar o próprio
+grupo não traz oferta nenhuma, então lá só faz sentido grupo de **terceiro**.
+Mesmo campo (`isOwner`, vindo do `GET /groups` do `wa-engine` desde a REVISÃO
+115), critério espelhado.
+
+### O que mudou (só frontend)
+
+- **`csAbrirForm()`** monta as opções por `csOpcoesGrupos()` / `csGruposVisiveis()`
+  (funções novas) em vez do `.map()` inline. O filtro exclui `g.isOwner === true`.
+- **Três salvaguardas, iguais às da REVISÃO 115** — a lição da 113 é que filtro
+  sem saída de emergência zera a tela: (a) se o engine não mandar `isOwner`
+  (`typeof g.isOwner === "boolean"` em nenhum item), **não filtra nada**;
+  (b) a fonte que está sendo **editada** nunca some da lista, mesmo sendo sua;
+  (c) `csMostrarTodosGrupos()` reconstrói o `<select>` sem refazer a chamada ao
+  engine, e está oferecido em dois lugares.
+- **Duas superfícies novas na tela:** um hint sob o select ("Só grupos que você
+  não criou · ver todos (N)") e, quando TODOS os grupos da sessão são do próprio
+  usuário, um aviso amarelo explicando o critério com o link "mostre todos mesmo
+  assim" — em vez do select vazio e mudo.
+- **Estado novo:** `CS_MOSTRAR_TODOS` (volta a `false` a cada abertura do
+  formulário) e `CS_EDIT_ATUAL` (guarda a fonte em edição para reconstruir o
+  select sem refetch).
+- **Nada mudou no `wa-engine`.** O `GET /groups` já devolve `isOwner` desde a
+  REVISÃO 115 e continua sem filtrar no servidor.
+- **Não mexe** no cadastro por link de convite (`csResolverConvite`), que
+  acrescenta a `<option>` direto no select e portanto atravessa o filtro de
+  propósito — é a rota para grupo grande que o WhatsApp não lista.
+
+### ⚠️ Isto NÃO é prova de que funciona
+
+Rodado: `node --check` nos 5 blocos `<script>` (limpo) e
+`tools/smoke-index.mjs`, que devolve **1 erro de top-level — o MESMO do
+baseline do `main`** (`String.prototype.includes` com regex, no bloco 2),
+ou seja, não piorou. **Nenhum grupo real foi listado.** Falta: commit, push,
+deploy do `app` no EasyPanel e abrir Clone Post → Nova fonte com sessão
+pareada de verdade para conferir (a) que grupo criado pelo Érico sumiu da
+lista, (b) que grupo de terceiro continua lá e salvável, (c) que editar uma
+fonte já existente não perde o valor atual do select, (d) que "ver todos"
+traz a lista inteira de volta.
 
 **REVISÃO 119 (adendo 2) — 02/09/2026, tarde — O DEPLOY FOI FEITO E MEDIDO NO
 PAINEL LOGADO. As REVISÕES 118 e 119 estão as duas no ar e PROVADAS por
@@ -8237,6 +8286,11 @@ Captura ofertas de grupos-fonte de terceiros e replica nos grupos do usuário.
   - ⚠️ **A chave de leitura no painel é `source_jid`, não `clone_source_id`** — as
     recusas anteriores à localização da fonte chegam com `source_id` nulo, e são
     justamente elas que explicam o silêncio.
+- **Frontend — seletor de fonte (REVISÃO 120, NÃO DEPLOYADO):** "Grupo que você
+  quer monitorar" lista só grupos onde `isOwner` é falso — grupo próprio não é
+  fonte de nada. Engine sem `isOwner` não filtra; fonte em edição fica sempre;
+  `csMostrarTodosGrupos()` é a saída. O cadastro por link de convite não passa
+  pelo filtro, de propósito.
 - **Frontend — fila de clones (REVISÃO 41):** modo de seleção **opt-in** pelo botão
   "☑️ Selecionar". Ligado, mostra checkbox por linha, "Selecionar todos" e dois
   botões em lote; os botões de linha somem enquanto ele estiver ligado. **Aprovar
@@ -8547,6 +8601,7 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P124** | 🟡 **CODADA, NÃO DEPLOYADA (REVISÃO 120).** Clone Post → Nova fonte: o seletor "Grupo que você quer monitorar" passa a esconder os grupos dos quais o usuário é dono (`isOwner`), com as salvaguardas da REVISÃO 115 (engine antigo não filtra; fonte em edição não some; "ver todos" disponível). Falta commit, push, deploy do `app` no EasyPanel e conferir no painel logado que grupo próprio sumiu, grupo de terceiro ficou, e o link de convite continua cadastrando grupo fora da lista | 02/09 |
 | **P123** | 🟠 **BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 119).** `send-post`: com `delete_after_post` ligado, o produto postado é apagado e os seguintes deslizam uma posição, mas o `nextCursor` avança mesmo assim — um produto é pulado a cada disparo. Com o Loop ligado o `% total` mascarava (a v22 chamou de "absorvido"); com o Loop **desligado** (semântica nova) o grupo chega ao fim da lista mais cedo do que deveria. Conserto: não avançar o cursor quando a exclusão disparou. Fora do escopo da REVISÃO 119 | 02/09 |
 | **P122** | ✅ **FECHADA (02/09, adendo 2 da REVISÃO 119) — deployada e medida no painel logado:** arquivo servido com as peças novas e sem a antiga, código executando, os dois checkboxes no DOM na ordem pedida, `salvarGeral()` gravando as duas colunas ida e volta no banco, 0 erros de console. Era: codada, provada em harness e pushada. Frontend: checkbox de fim de semana do modo normal abaixo da caixa dos Horários Inteligentes, "Validade padrão das ofertas" descida para baixo da grade, checkbox "🚫 Não repetir produto", texto novo do "Post em Loop", e a Fila mostrando "seg–sex" / "🚫 sem repetir no dia". 13 asserções no Chromium com 0 erros de console. Pushada no `main` em `1f8b635` (SHA-256 do arquivo `a2a8e1c9…`), conferida com reclone limpo. **Falta:** Deploy do `app` no EasyPanel — que leva junto a REVISÃO 118, também parada | 02/09 |
 | **P121** | 🟡 **PARCIALMENTE MEDIDA (REVISÃO 119).** ⏳ Sobram só os itens que dependem de tempo, não de clique. ✅ **(a) ordem sequencial PROVADA em produção com baseline**: o "ART Finds" (Loop ligado) saía sorteado nas 12 rodadas anteriores ao deploy (127, 124, 39, 85, 22, 6, 100, 38, 33, 101, 3, 106, 133, 99, 113, 130) e, nas duas primeiras rodadas depois, saiu **`position` 1 às 10:42 e `position` 2 às 10:52**, com `cursor_index` indo a 2. Mesma máquina, mesmo grupo, mesmo dia — o que mudou foi só a versão. **Falta:** (b) um sábado sem post num grupo com `weekend_enabled=false`; (c) um dia inteiro sem repetição num grupo com `no_repeat_daily=true` | 02/09 |
