@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 122 — 02/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 123 — 02/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,72 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 123 — 02/09/2026, noite — O DEPLOY FOI FEITO E MEDIDO NO PAINEL
+LOGADO. As REVISÕES 120 e 122 estão no ar e PROVADAS POR COMPORTAMENTO, com
+dado de produção. P124 e P126 fecham.**
+
+### Como foi medido
+
+Painel aberto logado no navegador (`megalinksbr.com.br/painel/clone-post`),
+JavaScript executado na página real. **Nada foi salvo** — nenhum clique em
+Salvar; os toggles usados no teste foram devolvidos ao estado original e
+conferidos no fim.
+
+**Peças novas presentes no arquivo servido:** `csGruposVisiveis`,
+`csOpcoesGrupos`, `csMostrarTodosGrupos`, `CS_MOSTRAR_TODOS` (REVISÃO 120),
+`pgCapacidadeDiaria`, `pgNaoRepetirAlerta` (REVISÃO 122) e `TOAST_MAX`
+(REVISÃO 118, que estava parada junto). **0 erros de console** num load
+completo.
+
+### ✅ P124 — filtro de dono no seletor de fonte (REVISÃO 120), com dado real
+
+`GET /groups` respondeu **200 com 24 grupos**, todos os 24 anotados com
+`isOwner` booleano. Destes, **12 são do Érico** e **12 são de terceiros**.
+
+- `csGruposVisiveis()` devolveu **exatamente os 12 que não são dele** — os que
+  aparecem são "Melhores Ofertas da Internet", "Pet #92 @ofertinhapet",
+  "Promos do Dia #255 @espiadeofertinhas", "Mercado #112 @espiadeofertinhas",
+  "Cabelo #41 @espiadeofertinhas"…
+- Os 12 ocultados são os "Achadinhos … #001", que são justamente os grupos de
+  DESTINO dele — exatamente o que confundia o usuário.
+- Com `CS_MOSTRAR_TODOS = true` a lista volta a **24**. A saída de emergência
+  funciona.
+
+### ✅ P126 — aviso do "Não repetir produto" (REVISÃO 122), no grupo do caso real
+
+Aberto Editar Grupo → Geral do "Achadinhos Eletrodomésticos" (1 produto,
+`no_repeat_daily` ligado, intervalo 15 min, janela 8h–22h). `pgCapacidadeDiaria()`
+devolveu **60** e a caixa amarela desenhou na tela, conferida em captura:
+
+> *"Este grupo tem 1 produto. Com 'Não repetir produto' ligado, ele posta no
+> máximo 1 vez por dia — uma por produto. O ritmo que você configurou daria até
+> 60 posts/dia, então depois do 1º post o grupo fica em silêncio até a virada do
+> dia (horário de Brasília)."*
+
+Seis transições exercitadas no DOM real, todas batendo:
+
+| # | Ação | Resultado |
+|---|---|---|
+| 1 | estado inicial (não-repetir ON, excluir OFF) | aviso visível, saída "desmarque / cadastre mais produtos" |
+| 2 | desmarcar "Não repetir produto" | aviso **some** |
+| 3 | não-repetir ON + "Excluir após postar" ON | aviso visível com a **outra** saída (redundância) |
+| 4 | voltar excluir OFF | volta a saída original |
+| 5 | janela 8h–8h e intervalo 60 min → capacidade **1** | aviso **some** (1 produto ≥ capacidade 1) |
+| 6 | restaurar 15 min / 8h–22h → capacidade **60** | aviso volta |
+
+O passo 5 é a prova de que o gatilho é a CONTAGEM contra a capacidade, e não a
+combinação de checkboxes.
+
+### O que continua sem prova
+
+- **P125** (o `last_post_at` carimbado em post que falhou) segue **em aberto** —
+  identificada, não consertada.
+- **P120** (o ramo `loop_enabled=false`) e os itens de tempo da **P121** seguem
+  como estavam: dependem de um dia passar, não de um clique.
+- O aviso foi visto num grupo com 1 produto. **Grupo com muitos produtos não
+  foi aberto na tela** — o caso "não desenha" foi provado forçando a capacidade
+  para baixo (passo 5), que é o mesmo ramo do código, mas não é a mesma tela.
 
 **REVISÃO 122 — 02/09/2026, fim de tarde — duas coisas: (1) o "link não
 clicável" foi RESOLVIDO E MEDIDO, e não era nosso; (2) aviso novo no "Não
@@ -8718,9 +8784,9 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
-| **P126** | 🟡 **CODADA, NÃO DEPLOYADA (REVISÃO 122).** Aviso do "Não repetir produto" em Editar Grupo → Geral: quando a flag está ligada e o grupo tem menos produtos do que o ritmo configurado aguenta, a tela diz quantos posts por dia isso permite e o que fazer. Provado em harness (7 cenários), não na tela. Falta deploy do `app` no EasyPanel e conferir a caixa desenhando — e sumindo quando os produtos passam da capacidade | 02/09 |
+| **P126** | ✅ **FECHADA (02/09, REVISÃO 123) — DEPLOYADA E MEDIDA NO PAINEL LOGADO:** caixa desenhando no "Achadinhos Eletrodomésticos" (1 produto, capacidade 60), 6 transições no DOM real todas corretas, incluindo o "não desenha" quando a capacidade cai para 1. Era: 🟡 CODADA, NÃO DEPLOYADA (REVISÃO 122). Aviso do "Não repetir produto" em Editar Grupo → Geral: quando a flag está ligada e o grupo tem menos produtos do que o ritmo configurado aguenta, a tela diz quantos posts por dia isso permite e o que fazer. Provado em harness (7 cenários), não na tela. Falta deploy do `app` no EasyPanel e conferir a caixa desenhando — e sumindo quando os produtos passam da capacidade | 02/09 |
 | **P125** | 🟠 **BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 121).** `send-post` v23: o `update` de `last_post_at` (e do `cursor_index`) roda mesmo quando `groupSent === 0`, isto é, quando o post falhou em todos os canais. Um blip de segundos no `wa-engine` passa a custar um intervalo inteiro de silêncio — medido em 02/09 no "Achadinhos Eletrodomésticos": `failed` 14:50, próxima tentativa só 15:05. O `delete_after_post` da v22 já tem a guarda `groupSent > 0`; o `last_post_at` não tem. Conserto: não carimbar `last_post_at` (nem avançar cursor) em rodada que não enviou nada. Parente da P123 | 02/09 |
-| **P124** | 🟡 **CODADA, NÃO DEPLOYADA (REVISÃO 120).** Clone Post → Nova fonte: o seletor "Grupo que você quer monitorar" passa a esconder os grupos dos quais o usuário é dono (`isOwner`), com as salvaguardas da REVISÃO 115 (engine antigo não filtra; fonte em edição não some; "ver todos" disponível). Falta commit, push, deploy do `app` no EasyPanel e conferir no painel logado que grupo próprio sumiu, grupo de terceiro ficou, e o link de convite continua cadastrando grupo fora da lista | 02/09 |
+| **P124** | ✅ **FECHADA (02/09, REVISÃO 123) — DEPLOYADA E MEDIDA COM DADO DE PRODUÇÃO:** `/groups` devolveu 24 grupos, 12 do Érico e 12 de terceiros; o seletor mostrou exatamente os 12 de terceiros e "ver todos" devolveu 24. Era: 🟡 CODADA, NÃO DEPLOYADA (REVISÃO 120). Clone Post → Nova fonte: o seletor "Grupo que você quer monitorar" passa a esconder os grupos dos quais o usuário é dono (`isOwner`), com as salvaguardas da REVISÃO 115 (engine antigo não filtra; fonte em edição não some; "ver todos" disponível). Falta commit, push, deploy do `app` no EasyPanel e conferir no painel logado que grupo próprio sumiu, grupo de terceiro ficou, e o link de convite continua cadastrando grupo fora da lista | 02/09 |
 | **P123** | 🟠 **BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 119).** `send-post`: com `delete_after_post` ligado, o produto postado é apagado e os seguintes deslizam uma posição, mas o `nextCursor` avança mesmo assim — um produto é pulado a cada disparo. Com o Loop ligado o `% total` mascarava (a v22 chamou de "absorvido"); com o Loop **desligado** (semântica nova) o grupo chega ao fim da lista mais cedo do que deveria. Conserto: não avançar o cursor quando a exclusão disparou. Fora do escopo da REVISÃO 119 | 02/09 |
 | **P122** | ✅ **FECHADA (02/09, adendo 2 da REVISÃO 119) — deployada e medida no painel logado:** arquivo servido com as peças novas e sem a antiga, código executando, os dois checkboxes no DOM na ordem pedida, `salvarGeral()` gravando as duas colunas ida e volta no banco, 0 erros de console. Era: codada, provada em harness e pushada. Frontend: checkbox de fim de semana do modo normal abaixo da caixa dos Horários Inteligentes, "Validade padrão das ofertas" descida para baixo da grade, checkbox "🚫 Não repetir produto", texto novo do "Post em Loop", e a Fila mostrando "seg–sex" / "🚫 sem repetir no dia". 13 asserções no Chromium com 0 erros de console. Pushada no `main` em `1f8b635` (SHA-256 do arquivo `a2a8e1c9…`), conferida com reclone limpo. **Falta:** Deploy do `app` no EasyPanel — que leva junto a REVISÃO 118, também parada | 02/09 |
 | **P121** | 🟡 **PARCIALMENTE MEDIDA (REVISÃO 119).** ⏳ Sobram só os itens que dependem de tempo, não de clique. ✅ **(a) ordem sequencial PROVADA em produção com baseline**: o "ART Finds" (Loop ligado) saía sorteado nas 12 rodadas anteriores ao deploy (127, 124, 39, 85, 22, 6, 100, 38, 33, 101, 3, 106, 133, 99, 113, 130) e, nas duas primeiras rodadas depois, saiu **`position` 1 às 10:42 e `position` 2 às 10:52**, com `cursor_index` indo a 2. Mesma máquina, mesmo grupo, mesmo dia — o que mudou foi só a versão. **Falta:** (b) um sábado sem post num grupo com `weekend_enabled=false`; (c) um dia inteiro sem repetição num grupo com `no_repeat_daily=true` | 02/09 |
