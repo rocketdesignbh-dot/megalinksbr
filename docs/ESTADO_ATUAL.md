@@ -1695,6 +1695,82 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
+**REVISÃO 119 (adendo 2) — 02/09/2026, tarde — O DEPLOY FOI FEITO E MEDIDO NO
+PAINEL LOGADO. As REVISÕES 118 e 119 estão as duas no ar e PROVADAS por
+comportamento. P119 e P122 fecham; a P121 fecha o que dependia da tela.**
+
+O `app` foi deployado no EasyPanel pelo Érico e a medição foi feita no navegador
+dele, logado, contra a produção — não em harness.
+
+### O arquivo servido (com cache-busting, receita do repo)
+
+`fetch('/index.html?b='+Date.now(), {cache:'reload'})` → **200, 745.528 bytes**:
+
+| o que | resultado |
+|---|---|
+| `id="pgFimSemana"` · `id="pgNaoRepetir"` | presentes |
+| `weekend_enabled:` · `no_repeat_daily:` no update | presentes |
+| `pgValidade` depois de `>Idioma<` | sim |
+| texto novo do Loop ("recomeça do primeiro") | presente |
+| texto **antigo** ("ordem aleatória a cada disparo") | **sumiu** |
+| `TOAST_MAX` · `jaEstavaLigado` (REVISÃO 118) | presentes |
+| controle `prOgDoProduto` | presente — o bloco não morreu no meio |
+
+⚠️ **Pegadinha da rota, registrada porque custou uma medição errada:** a raiz
+`/` serve a **landing** (37 KB), não o painel. Medir na `/` dá "nada existe" com
+o painel perfeitamente no ar. O painel é `/index.html` (857 KB no DOM).
+
+### O código EXECUTA (bytes não são execução — lição da v19/TDZ)
+
+No painel logado: `SMART_MAX_DIA === 33`, `TOAST_MAX === 4`,
+`typeof pgSmartAplicar === "function"`, `typeof salvarGeral === "function"`,
+e o `PANES.geral` em memória traz os dois controles novos na ordem certa.
+
+### Editar Grupo aberto de verdade ("Achadinhos Geral")
+
+- Os dois checkboxes novos **existem no DOM**; o de fim de semana veio
+  **marcado** e habilitado; o "Não repetir produto" veio desmarcado; o Loop veio
+  marcado (efeito da migração).
+- Ordem dos campos lida do DOM: `Intervalo (min) | Hora início | Hora fim |
+  Idioma | Validade padrão das ofertas` — a Validade é a **última**, que é o que
+  o Érico pediu.
+- `pgSmartAplicar()` com Smart ligado: `disabled=true` e `opacity .4` no
+  checkbox novo, `pgSmartFdsBox` em `flex`; desligando, tudo volta.
+- **0 erros de console** em toda a sequência.
+
+### A gravação, ida e volta, conferida no banco
+
+`salvarGeral()` disparada na tela real:
+
+| momento | `weekend_enabled` | `no_repeat_daily` | `post_auto_enabled` |
+|---|---|---|---|
+| antes | true | false | true |
+| depois de salvar desmarcando/marcando | **false** | **true** | **true** |
+| depois de restaurar | true | false | true |
+
+O grupo foi **devolvido ao estado original** — a alteração existiu só para
+medir. E o `post_auto_enabled` ficando `true` nas duas gravações, num grupo com
+**0 produtos** e `delete_after_post`, é a **P119 (REVISÃO 118) fechada em
+produção**: antes da 118 esse mesmo salvamento teria desligado o Post
+Automático.
+
+### Toast (REVISÃO 118) medido no painel
+
+3 toasts com 1 repetido → **2 na tela** (dedupe); **2 ainda na tela depois de 6
+segundos** (antes sumiriam em 3,4s); clique no ✕ → **1**. Fecha a outra metade
+da P119.
+
+### O que continua sem medição
+
+Só o que depende de tempo, não de clique: **P120** (o ramo "Loop desligado para
+no fim da lista", que nenhum grupo exercita hoje) e os itens (b) e (c) da
+**P121** — um sábado sem post com `weekend_enabled=false` e um dia inteiro sem
+repetição com `no_repeat_daily=true`.
+
+---
+
+### Revisão anterior
+
 **REVISÃO 119 — 02/09/2026 — três pedidos do Érico sobre ORDEM e RITMO do
 rodízio: fim de semana no modo normal, "Post em Loop" com significado novo
 (recomeçar ou parar no fim da lista) e "Não repetir produto" (no mesmo dia).
@@ -8472,10 +8548,10 @@ código não relacionado.
 | # | Pendência | Origem |
 |---|---|---|
 | **P123** | 🟠 **BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 119).** `send-post`: com `delete_after_post` ligado, o produto postado é apagado e os seguintes deslizam uma posição, mas o `nextCursor` avança mesmo assim — um produto é pulado a cada disparo. Com o Loop ligado o `% total` mascarava (a v22 chamou de "absorvido"); com o Loop **desligado** (semântica nova) o grupo chega ao fim da lista mais cedo do que deveria. Conserto: não avançar o cursor quando a exclusão disparou. Fora do escopo da REVISÃO 119 | 02/09 |
-| **P122** | 🟡 **CODADA, PROVADA EM HARNESS E PUSHADA (REVISÃO 119) — NÃO DEPLOYADA.** Frontend: checkbox de fim de semana do modo normal abaixo da caixa dos Horários Inteligentes, "Validade padrão das ofertas" descida para baixo da grade, checkbox "🚫 Não repetir produto", texto novo do "Post em Loop", e a Fila mostrando "seg–sex" / "🚫 sem repetir no dia". 13 asserções no Chromium com 0 erros de console. Pushada no `main` em `1f8b635` (SHA-256 do arquivo `a2a8e1c9…`), conferida com reclone limpo. **Falta:** Deploy do `app` no EasyPanel — que leva junto a REVISÃO 118, também parada | 02/09 |
-| **P121** | 🟡 **PARCIALMENTE MEDIDA (REVISÃO 119).** ✅ **(a) ordem sequencial PROVADA em produção com baseline**: o "ART Finds" (Loop ligado) saía sorteado nas 12 rodadas anteriores ao deploy (127, 124, 39, 85, 22, 6, 100, 38, 33, 101, 3, 106, 133, 99, 113, 130) e, nas duas primeiras rodadas depois, saiu **`position` 1 às 10:42 e `position` 2 às 10:52**, com `cursor_index` indo a 2. Mesma máquina, mesmo grupo, mesmo dia — o que mudou foi só a versão. **Falta:** (b) um sábado sem post num grupo com `weekend_enabled=false`; (c) um dia inteiro sem repetição num grupo com `no_repeat_daily=true` | 02/09 |
+| **P122** | ✅ **FECHADA (02/09, adendo 2 da REVISÃO 119) — deployada e medida no painel logado:** arquivo servido com as peças novas e sem a antiga, código executando, os dois checkboxes no DOM na ordem pedida, `salvarGeral()` gravando as duas colunas ida e volta no banco, 0 erros de console. Era: codada, provada em harness e pushada. Frontend: checkbox de fim de semana do modo normal abaixo da caixa dos Horários Inteligentes, "Validade padrão das ofertas" descida para baixo da grade, checkbox "🚫 Não repetir produto", texto novo do "Post em Loop", e a Fila mostrando "seg–sex" / "🚫 sem repetir no dia". 13 asserções no Chromium com 0 erros de console. Pushada no `main` em `1f8b635` (SHA-256 do arquivo `a2a8e1c9…`), conferida com reclone limpo. **Falta:** Deploy do `app` no EasyPanel — que leva junto a REVISÃO 118, também parada | 02/09 |
+| **P121** | 🟡 **PARCIALMENTE MEDIDA (REVISÃO 119).** ⏳ Sobram só os itens que dependem de tempo, não de clique. ✅ **(a) ordem sequencial PROVADA em produção com baseline**: o "ART Finds" (Loop ligado) saía sorteado nas 12 rodadas anteriores ao deploy (127, 124, 39, 85, 22, 6, 100, 38, 33, 101, 3, 106, 133, 99, 113, 130) e, nas duas primeiras rodadas depois, saiu **`position` 1 às 10:42 e `position` 2 às 10:52**, com `cursor_index` indo a 2. Mesma máquina, mesmo grupo, mesmo dia — o que mudou foi só a versão. **Falta:** (b) um sábado sem post num grupo com `weekend_enabled=false`; (c) um dia inteiro sem repetição num grupo com `no_repeat_daily=true` | 02/09 |
 | **P120** | 🟡 **NÃO MEDIDO (REVISÃO 119).** O ramo `loop_enabled=false` — "para de postar no fim da lista" — nunca disparou em produção, porque os 24 grupos foram gravados em `true` no mesmo minuto do deploy, de propósito. A prova exige um grupo desmarcado de propósito, com o cursor levado até o fim, e o `[FIM-DA-LISTA]` aparecendo no log sem gravar linha `failed` | 02/09 |
-| **P119** | 🟡 **CODADA E PROVADA EM HARNESS (REVISÃO 118) — NÃO DEPLOYADA.** Toast que só fecha no ✕ (sem auto-dismiss, com dedupe e teto de 4) + gate do Post Automático validando só na transição desligado→ligado. Pushadas no `main` em `8f23183` (SHA-256 do arquivo `1ae8ddfd…`), conferidas com reclone limpo. **Falta:** Deploy do `app` no EasyPanel e conferir no painel logado — (a) que um aviso fica na tela até o clique no ✕, (b) que salvar a aba Geral de um grupo com "Excluir após postar" e 0 produtos **não** desliga mais o Post Automático (conferir `post_auto_enabled` no banco depois do Salvar) | 01/09 |
+| **P119** | ✅ **FECHADA (02/09, adendo 2 da REVISÃO 119) — deployada e provada no painel logado:** o toast fica na tela depois de 6s e some no ✕, o dedupe segura a cópia, e salvar a aba Geral de um grupo com 0 produtos manteve `post_auto_enabled=true` no banco. Era: codada e provada em harness (REVISÃO 118). Toast que só fecha no ✕ (sem auto-dismiss, com dedupe e teto de 4) + gate do Post Automático validando só na transição desligado→ligado. Pushadas no `main` em `8f23183` (SHA-256 do arquivo `1ae8ddfd…`), conferidas com reclone limpo. **Falta:** Deploy do `app` no EasyPanel e conferir no painel logado — (a) que um aviso fica na tela até o clique no ✕, (b) que salvar a aba Geral de um grupo com "Excluir após postar" e 0 produtos **não** desliga mais o Post Automático (conferir `post_auto_enabled` no banco depois do Salvar) | 01/09 |
 | **P118** | 🟠 **BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 118).** `salvarGeral()`: no ramo do plano sem `wa_post_automation` (Starter), o `return` acontece **antes** do `update` de `niche_groups`, então `clone_auto_approve`, `loop_enabled`, `delete_after_post`, intervalo, horários, `smart_schedule` e validade são **perdidos em silêncio** — o `persistGroups()` só grava `name`, `post_auto_enabled` e `interval_minutes`. O usuário Starter mexe nas configurações, salva, e nada além do intervalo persiste. Conserto: gravar o `update` completo antes de sair, ou não sair cedo. Fora do escopo da REVISÃO 118 | 01/09 |
 | **P101** | 🟡 **CODADA E VALIDADA (REVISÃO 107) — NÃO DEPLOYADA.** Remoção das abas "Cabeçalho" e "Recursos de IA" de Editar Grupo e do "Cupom padrão" (campo órfão, `default_coupon_id` nunca lido pelo backend). Falta commit, push e deploy no EasyPanel | 30/08 |
 | **P102** | 🟡 **CODADA E VALIDADA (REVISÃO 107) — NÃO DEPLOYADA.** Radar: acumulador `RADAR_TOTAIS_LOJA` corrige o chip "(sem ofertas)" enganoso em Shopee/Amazon, que só aparecia porque a loja não tinha sido consultada na rodada atual do filtro. Falta deploy e confirmar clicando em cada loja que o chip para de "esquecer" total já visto | 30/08 |
