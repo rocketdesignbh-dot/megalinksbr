@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 121 — 02/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 122 — 02/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,72 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 122 — 02/09/2026, fim de tarde — duas coisas: (1) o "link não
+clicável" foi RESOLVIDO E MEDIDO, e não era nosso; (2) aviso novo no "Não
+repetir produto", pedido do Érico. CÓDIGO EDITADO em `frontend/index.html` —
+falta deploy.**
+
+### (1) ✅ "O link não está clicável" — era o WhatsApp, não o código
+
+Sintoma: o post do "Achadinhos Eletrodomésticos" saiu com foto e texto, mas a
+URL apareceu como texto puro num aparelho que não era o do envio. **Só nesse
+grupo.**
+
+Diferencial levantado no banco: o caminho do código é idêntico ao dos outros
+dez grupos (mesmo `send-post` v23, mesmo `montarTexto`, mesmo `/send-group`
+com `sendMessage({image, caption})`, mesmo encurtador `megalinksbr.com.br/r/`).
+A ÚNICA diferença era a idade do grupo: `whatsapp_groups` mostra que
+"Achadinhos Eletrodomésticos - #001" (`120363430242351151@g.us`) foi vinculado
+**em 02/09 às 14:30 UTC** — o mais novo por dias; os outros são de 23/08 a
+01/09.
+
+**Medido:** o Érico salvou o número remetente (`+553175356865`) nos contatos do
+aparelho e **o link virou clicável na mesma mensagem**. É a proteção antispam do
+cliente WhatsApp para remetente não salvo em conversa nova. **Nada a consertar
+no nosso lado** — e nada a "melhorar" no texto do post, porque o texto nunca foi
+o problema.
+
+📌 **Não repetir:** antes de mexer no payload por causa de link não clicável,
+conferir a idade do grupo e se o remetente está salvo. Três horas de suspeita
+sobre `caption`, markdown e encurtador não teriam achado isso.
+
+### (2) Aviso do "Não repetir produto" — a lição da REVISÃO 121 virou tela
+
+A REVISÃO 121 mediu o caso: grupo com **1 produto** e `no_repeat_daily` ligado
+posta uma vez e cala até a virada do dia. O `send-post` fez exatamente o que a
+configuração mandava — mas do lado de quem olha, isso é indistinguível de "o
+grupo parou de funcionar", e foi assim que chegou como bug.
+
+**A regra que morde é a CONTAGEM, não a combinação de checkboxes** — decisão do
+Érico, contra a alternativa de avisar sempre que "Não repetir" + "Excluir após
+postar" divergissem. Grupo com produto de sobra não precisa ler nada.
+
+- **`pgCapacidadeDiaria()`** calcula quantos posts/dia o ritmo configurado
+  permite: modo normal `floor(horas_da_janela * 60 / interval_minutes)`; modo
+  Inteligente, o `SMART_MAX_DIA` (33) que a própria tela já expõe.
+- **`pgNaoRepetirAlerta()`** só desenha quando `pgNaoRepetir` está marcado **e**
+  `produtos < capacidade`. Diz o número exato: *"Este grupo tem N produtos …
+  posta no máximo N vezes por dia … o ritmo que você configurou daria até C
+  posts/dia, então depois do Nº post o grupo fica em silêncio até a virada do
+  dia."* Com 0 produtos, texto próprio. Com "Excluir após postar" também
+  ligado, a saída sugerida muda (aí "Não repetir" é redundante — o produto some
+  de qualquer forma).
+- **Nunca bloqueia o Salvar.** Mesma linha das REVISÕES 115 e 120: explica o
+  critério e devolve a decisão ao usuário.
+- Recalcula ao mexer em qualquer entrada da conta: os dois checkboxes, o
+  intervalo e as duas horas da janela.
+
+### ⚠️ O que está provado e o que não está
+
+Rodado: `node --check` limpo nos 5 blocos `<script>`; `tools/smoke-index.mjs`
+com **1 erro de top-level, o MESMO do baseline** (não piorou); e um **harness
+em Node com as duas funções reais extraídas do arquivo**, 7 cenários, todos
+batendo: 1 produto/15 min/8h–22h → "máximo 1 vez por dia … até 60 posts/dia"
+(o caso real medido na 121); 0 produtos → texto próprio; 60 produtos com
+capacidade 60 → **não desenha**; checkbox desmarcado → **não desenha**; modo
+Inteligente → capacidade 33. **Falta:** deploy do `app` no EasyPanel e ver a
+caixa amarela na tela de Editar Grupo → Geral do "Achadinhos Eletrodomésticos".
 
 **REVISÃO 121 — 02/09/2026, tarde — SEM MUDANÇA DE CÓDIGO. Diagnóstico do
 "Achadinhos Eletrodomésticos não está postando", pedido do Érico. MEDIDO NO
@@ -8652,6 +8718,7 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P126** | 🟡 **CODADA, NÃO DEPLOYADA (REVISÃO 122).** Aviso do "Não repetir produto" em Editar Grupo → Geral: quando a flag está ligada e o grupo tem menos produtos do que o ritmo configurado aguenta, a tela diz quantos posts por dia isso permite e o que fazer. Provado em harness (7 cenários), não na tela. Falta deploy do `app` no EasyPanel e conferir a caixa desenhando — e sumindo quando os produtos passam da capacidade | 02/09 |
 | **P125** | 🟠 **BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 121).** `send-post` v23: o `update` de `last_post_at` (e do `cursor_index`) roda mesmo quando `groupSent === 0`, isto é, quando o post falhou em todos os canais. Um blip de segundos no `wa-engine` passa a custar um intervalo inteiro de silêncio — medido em 02/09 no "Achadinhos Eletrodomésticos": `failed` 14:50, próxima tentativa só 15:05. O `delete_after_post` da v22 já tem a guarda `groupSent > 0`; o `last_post_at` não tem. Conserto: não carimbar `last_post_at` (nem avançar cursor) em rodada que não enviou nada. Parente da P123 | 02/09 |
 | **P124** | 🟡 **CODADA, NÃO DEPLOYADA (REVISÃO 120).** Clone Post → Nova fonte: o seletor "Grupo que você quer monitorar" passa a esconder os grupos dos quais o usuário é dono (`isOwner`), com as salvaguardas da REVISÃO 115 (engine antigo não filtra; fonte em edição não some; "ver todos" disponível). Falta commit, push, deploy do `app` no EasyPanel e conferir no painel logado que grupo próprio sumiu, grupo de terceiro ficou, e o link de convite continua cadastrando grupo fora da lista | 02/09 |
 | **P123** | 🟠 **BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 119).** `send-post`: com `delete_after_post` ligado, o produto postado é apagado e os seguintes deslizam uma posição, mas o `nextCursor` avança mesmo assim — um produto é pulado a cada disparo. Com o Loop ligado o `% total` mascarava (a v22 chamou de "absorvido"); com o Loop **desligado** (semântica nova) o grupo chega ao fim da lista mais cedo do que deveria. Conserto: não avançar o cursor quando a exclusão disparou. Fora do escopo da REVISÃO 119 | 02/09 |

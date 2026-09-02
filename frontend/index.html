@@ -5321,8 +5321,9 @@ geral:`
     <div class="card" style="margin:0"><div class="ch">⚙️ Postagem automática</div><div class="cb">
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:10px"><input type="checkbox" id="pgAuto" style="width:auto"> Post Automático</label>
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgLoop" style="width:auto"> 🔁 Post em Loop <small style="color:var(--mut);font-weight:400">(os produtos saem sempre na ordem em que foram cadastrados. Marcado, ao chegar no último a lista <strong>recomeça do primeiro</strong>; desmarcado, o grupo <strong>para de postar</strong> até você cadastrar produto novo.)</small></label>
-      <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgNaoRepetir" style="width:auto"> 🚫 Não repetir produto <small style="color:var(--mut);font-weight:400">(produto que já saiu hoje neste grupo não sai de novo hoje — amanhã ele volta ao rodízio)</small></label>
-      <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgExcluirAposPostar" style="width:auto"> 🗑️ Excluir automaticamente após postar <small style="color:var(--mut);font-weight:400">(some do grupo assim que sai no disparo — libera espaço pra cadastrar produtos novos. Não tem desfazer.)</small></label>
+      <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:6px"><input type="checkbox" id="pgNaoRepetir" style="width:auto" onchange="pgNaoRepetirAlerta()"> 🚫 Não repetir produto <small style="color:var(--mut);font-weight:400">(produto que já saiu hoje neste grupo não sai de novo hoje — amanhã ele volta ao rodízio)</small></label>
+      <div id="pgNaoRepetirAviso" class="alert y" style="display:none;margin:0 0 14px"></div>
+      <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgExcluirAposPostar" style="width:auto" onchange="pgNaoRepetirAlerta()"> 🗑️ Excluir automaticamente após postar <small style="color:var(--mut);font-weight:400">(some do grupo assim que sai no disparo — libera espaço pra cadastrar produtos novos. Não tem desfazer.)</small></label>
       <div style="border:1px solid var(--bd);border-radius:2px;padding:11px 12px;margin-bottom:14px;background:rgba(139,92,246,.07)">
         <label style="display:flex;gap:9px;align-items:center;font-weight:600"><input type="checkbox" id="pgSmart" style="width:auto" onchange="pgSmartAplicar()"> 🧠 Horários Inteligentes <span class="pill" style="background:rgba(139,92,246,.18);color:#A78BFA;flex:none;font-size:10px;padding:1px 7px">ELITE+</span></label>
         <div style="font-size:12px;color:var(--tx2);margin-top:7px;line-height:1.65">Posta só nas janelas de maior audiência, dividindo seus produtos entre elas. <strong>Substitui intervalo e horário.</strong><br>${SMART_JANELAS.map(j=>j.rot).join(" · ")} <small style="color:var(--mut)">(a última é a melhor)</small><br>Até ${SMART_MAX_DIA} posts/dia, no mínimo ${SMART_PISO_MIN} min entre um e outro. O que não couber hoje entra amanhã.</div>
@@ -5330,7 +5331,7 @@ geral:`
       </div>
       <label id="pgFimSemanaBox" style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgFimSemana" style="width:auto" checked> 📅 Aplicar também no fim de semana <small style="color:var(--mut);font-weight:400">(sem isso, sáb e dom não postam)</small></label>
       <div class="g2">
-        <div class="field"><label>Intervalo (min)</label><select id="pgInt">
+        <div class="field"><label>Intervalo (min)</label><select id="pgInt" onchange="pgNaoRepetirAlerta()">
           <option value="10" selected>10 min</option>
           <option value="15">15 min</option>
           <option value="30">30 min</option>
@@ -5338,11 +5339,11 @@ geral:`
           <option value="120">120 min</option>
           <option value="180">180 min</option>
         </select></div>
-        <div class="field"><label>Hora início</label><select id="pgIni">
+        <div class="field"><label>Hora início</label><select id="pgIni" onchange="pgNaoRepetirAlerta()">
           <option value="0h">0h (meia-noite)</option>
           ${Array.from({length:24},(_,h)=>`<option value="${h}h" ${h===8?"selected":""}>${h}h</option>`).join("")}
         </select></div>
-        <div class="field"><label>Hora fim</label><select id="pgFim">
+        <div class="field"><label>Hora fim</label><select id="pgFim" onchange="pgNaoRepetirAlerta()">
           ${Array.from({length:24},(_,h)=>`<option value="${h}h" ${h===22?"selected":""}>${h}h</option>`).join("")}
           <option value="24h">24h (dia todo)</option>
         </select></div>
@@ -5749,6 +5750,7 @@ function buildTabs(){
     if(pgFimSemana)pgFimSemana.checked=g.weekendEnabled!==false;
     const pgNaoRep=document.getElementById("pgNaoRepetir");
     if(pgNaoRep)pgNaoRep.checked=!!g.noRepeatDaily;
+    pgNaoRepetirAlerta();
     pgSmartAplicar();
     const pgValidade=document.getElementById("pgValidade");
     if(pgValidade)pgValidade.value=g.validadeDias?String(g.validadeDias):"";
@@ -5800,6 +5802,42 @@ function prodPreencherValidade(){
 // dados postados nessa função"). Fica ligado ao estado do checkbox, não a um
 // "já vi isso": desligar e religar mostra o aviso de novo, de propósito — é
 // o tipo de coisa que vale reler cada vez que alguém for ligar.
+// ── Aviso do "Não repetir produto" (REVISÃO 122) ────────────────────────
+// Motivo medido em 02/09 (REVISÃO 121): o "Achadinhos Eletrodomésticos" tinha 1
+// produto e "Não repetir produto" ligado. O send-post fez exatamente o que a
+// configuração mandava — postou uma vez e calou até a virada do dia — e do lado
+// de quem olha isso é indistinguível de "o grupo parou de funcionar".
+// A regra que morde é a CONTAGEM, não a combinação de checkboxes: com N produtos,
+// "não repetir" limita o dia a N posts. Só avisa quando N é menor que o ritmo
+// configurado aguenta — grupo com produto de sobra não precisa ler nada.
+// NUNCA bloqueia o Salvar: mesma linha das REVISÕES 115/120, o usuário decide.
+function pgCapacidadeDiaria(){
+  if(document.getElementById("pgSmart")?.checked&&smartTemPlano())return SMART_MAX_DIA;
+  const mins=Number(document.getElementById("pgInt")?.value||S.grupoAtual?.intervalo?.replace(/\D/g,"")||10)||10;
+  const ini=Number((document.getElementById("pgIni")?.value||"8h").replace("h",""));
+  const fim=Number((document.getElementById("pgFim")?.value||"22h").replace("h",""));
+  const horas=fim>=ini?(fim-ini+1):(24-ini+fim+1);
+  return Math.max(1,Math.floor(horas*60/mins));
+}
+function pgNaoRepetirAlerta(){
+  const box=document.getElementById("pgNaoRepetirAviso");
+  const chk=document.getElementById("pgNaoRepetir");
+  if(!box)return;
+  if(!chk||!chk.checked){box.style.display="none";box.innerHTML="";return;}
+  const n=Number(S.grupoAtual?.produtos||0);
+  const cap=pgCapacidadeDiaria();
+  const excluir=!!document.getElementById("pgExcluirAposPostar")?.checked;
+  if(n>=cap){box.style.display="none";box.innerHTML="";return;}
+  const saida=excluir
+    ?'Com <strong>Excluir automaticamente após postar</strong> também ligado, o produto some do grupo assim que sai — então "Não repetir" não acrescenta nada aqui, e o grupo depende inteiramente da captura repor.'
+    :'Para o grupo voltar a postar no ritmo configurado, <strong>desmarque "Não repetir produto"</strong> (o mesmo produto volta ao rodízio) ou <strong>cadastre mais produtos</strong>.';
+  const cabeca=n===0
+    ?'Este grupo está <strong>sem produtos</strong>. Com "Não repetir produto" ligado ele não vai postar nada até entrar produto novo.'
+    :`Este grupo tem <strong>${n} produto${n>1?"s":""}</strong>. Com "Não repetir produto" ligado, ele posta <strong>no máximo ${n} vez${n>1?"es":""} por dia</strong> — uma por produto. O ritmo que você configurou daria até <strong>${cap} posts/dia</strong>, então depois do ${n>1?n+"º":"1º"} post o grupo fica <strong>em silêncio até a virada do dia</strong> (horário de Brasília).`;
+  box.innerHTML=`<span>⚠️ ${cabeca}<br><small style="opacity:.9">${saida}</small></span>`;
+  box.style.display="block";
+}
+
 function pgCloneAutoApproveAlerta(){
   const chk=document.getElementById("pgCloneAutoApprove");
   const al=document.getElementById("pgCloneAutoApproveAlerta");
