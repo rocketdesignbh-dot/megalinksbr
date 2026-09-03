@@ -6272,6 +6272,7 @@ async function desvincular(n){
 let wgVinculados=[]; // grupos vinculados a este grupo de configuração
 let wgTodosGrupos=[]; // todos os grupos WA retornados pela engine
 let WG_MOSTRAR_TODOS=false; // escape do filtro "só grupos que eu criei"
+let WG_TEL_ESCOLHIDO=null; // numero (digitos) cujos grupos estao na lista agora — REVISAO 129
 function wgMostrarTodos(){WG_MOSTRAR_TODOS=true;renderWgDisp(wgTodosGrupos);}
 async function wireWaGrupos(){
   const pane=document.getElementById("wagruposPane");
@@ -6290,10 +6291,22 @@ async function wireWaGrupos(){
     return;
   }
 
+  // Multi-conexao (REVISAO 129): mesma logica do Clone Post — grupo vinculado
+  // aqui manda a oferta pela conexao ESCOLHIDA (whatsapp_groups.instance_id),
+  // nao sempre pela principal. Precisa saber de qual numero listar primeiro.
+  await waCarregarInstancias();
+  const wgConectadas=INSTANCIAS.filter(l=>l.status==="connected");
+  WG_TEL_ESCOLHIDO=waDigits(waPrincipal()?.phone);
+  const seletorNumero=wgConectadas.length>1?`<div style="margin-bottom:12px">
+      <label style="font-size:12px;color:var(--tx2)">Buscar grupos de qual número?</label>
+      <select id="wgNumero" style="width:100%;margin-top:4px" onchange="wgTrocarNumero(this.value)">${wgConectadas.map(l=>{const p=waPrincipal();return `<option value="${waDigits(l.phone)}"${waDigits(l.phone)===WG_TEL_ESCOLHIDO?" selected":""}>${l.phone}${p&&p.id===l.id?" · principal":""}</option>`;}).join("")}</select>
+    </div>`:"";
+
   // ── conectado: busca grupos reais no wa-engine ──
   pane.innerHTML=`<div class="card"><div class="ch">💬 Seus grupos WhatsApp
     <span class="r"><span class="pill volt"><span class="d"></span>${S.waNumber}</span> <span id="wgVincCount" style="font-size:11px;color:var(--mut);margin-left:8px"></span></span>
   </div><div class="cb">
+    ${seletorNumero}
     <div id="wgStatus" style="text-align:center;padding:20px;color:var(--mut)">
       <span class="typing"><i></i><i></i><i></i></span> Buscando seus grupos…
     </div>
@@ -6302,15 +6315,22 @@ async function wireWaGrupos(){
   // Carrega grupos vinculados do banco para este grupo de oferta
   const gid=S.grupoAtual?.db_id;
   if(gid){
-    const{data:dbGrps}=await SB.from("whatsapp_groups").select("id,name,group_jid,participants").eq("niche_group_id",gid);
-    wgVinculados=(dbGrps||[]).map(r=>({id:r.group_jid,db_id:r.id,nome:r.name,part:r.participants||0}));
+    const{data:dbGrps}=await SB.from("whatsapp_groups").select("id,name,group_jid,participants,instance_id").eq("niche_group_id",gid);
+    wgVinculados=(dbGrps||[]).map(r=>({id:r.group_jid,db_id:r.id,nome:r.name,part:r.participants||0,instance_id:r.instance_id}));
     S.grupoAtual.grupos_wa=wgVinculados.length;
   }
 
+  await wgBuscarGrupos();
+}
+
+// Busca /groups pro WG_TEL_ESCOLHIDO atual e redesenha a lista. Separado do
+// wireWaGrupos (que refaz o pane inteiro) pra trocar de numero no seletor sem
+// perder o campo de busca nem reconsultar `whatsapp_groups` do banco.
+async function wgBuscarGrupos(){
   try{
     // Sem o numero da sessao nao da pra pedir grupo nenhum: o engine nao tem como
     // saber de quem responder, e antes ele devolvia os grupos de outro usuario.
-    const waPhone=(S.waNumber||"").replace(/\D/g,"");
+    const waPhone=WG_TEL_ESCOLHIDO;
     if(!waPhone)throw new Error("conecte seu WhatsApp antes de vincular grupos");
     const r=await fetch(`${WA_ENGINE_URL}/groups?phone=${waPhone}`,{
       headers:waAuthHeaders()
@@ -6331,6 +6351,14 @@ async function wireWaGrupos(){
       </div>`;
     }
   }
+}
+
+async function wgTrocarNumero(tel){
+  WG_TEL_ESCOLHIDO=waDigits(tel);
+  WG_MOSTRAR_TODOS=false;
+  const st=document.getElementById("wgStatus");
+  if(st)st.innerHTML='<span class="typing"><i></i><i></i><i></i></span> Buscando grupos deste número…';
+  await wgBuscarGrupos();
 }
 
 function renderWgDisp(grupos,filtro){
@@ -6385,10 +6413,13 @@ function renderWgDisp(grupos,filtro){
       const gid=g.id||g.jid||"";
       const vinculado=jaVinc.has(gid);
       const vincIdx=vinculado?wgVinculados.findIndex(v=>v.id===gid):-1;
+      // Mostra por qual numero o grupo dispara so quando ha mais de uma
+      // conexao — com uma so, so poluiria a linha sem informar nada novo.
+      const viaTel=(vinculado&&INSTANCIAS.length>1)?(()=>{const inst=INSTANCIAS.find(l=>l.id===wgVinculados[vincIdx]?.instance_id);return inst?` · via ${inst.phone}`:"";})():"";
       return `<div class="prod" style="${vinculado?'background:rgba(245,197,24,.06);border-radius:2px;padding:8px':''}">
         <div class="pimg">💬</div>
         <div style="flex:1"><strong>${nome}</strong><br>
-          <small style="color:var(--mut)">${part} participantes · ${gid.split("@")[0]}</small>
+          <small style="color:var(--mut)">${part} participantes · ${gid.split("@")[0]}${viaTel}</small>
         </div>
         ${vinculado
           ?`<span class="pill volt" style="margin-right:8px"><span class="d"></span> Vinculado</span><button class="btn btn-ghost btn-sm" style="color:var(--red,#ef4444);border-color:var(--red,#ef4444);font-size:11px" onclick="desvincularGrupoWa(${vincIdx})">Desvincular</button>`
@@ -6407,14 +6438,21 @@ async function vincularGrupoWa(gid,nome,part){
   if(wgVinculados.find(g=>g.id===gid)){toast("Grupo já vinculado.","ℹ️");return;}
   const uid=CURRENT_USER?.id;
   const ngid=S.grupoAtual?.db_id;
+  // Grava DE QUAL conexao este grupo é (REVISAO 129) — é o que o send-post e o
+  // group-blast usam pra disparar pelo numero certo, em vez de sempre pela
+  // principal. WG_TEL_ESCOLHIDO é o numero que estava selecionado quando o
+  // usuario clicou Vincular; se por algum motivo não bater com nenhuma
+  // instância carregada, cai pra principal (nunca fica sem dono).
+  const instAlvo=INSTANCIAS.find(l=>waMesmoNumero(l.phone,WG_TEL_ESCOLHIDO))||waPrincipal();
   let db_id=null;
   if(uid&&ngid){
     const{data}=await SB.from("whatsapp_groups").upsert({
-      user_id:uid,niche_group_id:ngid,name:nome,group_jid:gid,participants:part||0
+      user_id:uid,niche_group_id:ngid,name:nome,group_jid:gid,participants:part||0,
+      instance_id:instAlvo?instAlvo.id:null
     },{onConflict:"niche_group_id,group_jid"}).select("id").single();
     db_id=data?.id;
   }
-  wgVinculados.push({id:gid,db_id,nome,part});
+  wgVinculados.push({id:gid,db_id,nome,part,instance_id:instAlvo?instAlvo.id:null});
   S.grupoAtual.grupos_wa=wgVinculados.length;
   renderGrupos();renderWgDisp(wgTodosGrupos);
   toast(`Grupo "${nome}" vinculado!`,"💬");
@@ -9908,6 +9946,7 @@ let CS_GRUPOS_WA=[];
 // Escape do filtro "so grupos que eu NAO criei" no seletor de fonte de captura.
 let CS_MOSTRAR_TODOS=false;
 let CS_EDIT_ATUAL=null; // fonte sendo editada, pra reconstruir o select sem refetch
+let CS_TEL_ESCOLHIDO=null; // numero (digitos) cujos grupos estao na lista agora — REVISAO 129
 // Veredito das ultimas 24h por grupo-fonte, vindo de clone_ingest_log.
 // A chave e o source_jid e nao o clone_source_id: as recusas que acontecem ANTES
 // de a fonte ser localizada (mensagem antiga, mensagem sem link) chegam com
@@ -10295,9 +10334,22 @@ async function csAbrirForm(editId){
     el.innerHTML='<div class="alert y" style="margin:0"><span>Crie um Grupo de Oferta antes: é pra ele que as ofertas capturadas vão.</span></div>';
     return;
   }
-  const waPhone=(S.waNumber||"").replace(/\D/g,"");
+  // Multi-conexao (REVISAO 129): com N numeros pareados, cada um enxerga um
+  // conjunto diferente de grupos no WhatsApp — nao tem como listar "os grupos
+  // do usuario" sem antes saber DE QUAL numero. Se a fonte ja existe, comeca
+  // pelo numero gravado nela (session_phone); senao, pela principal.
+  await waCarregarInstancias();
+  const conectadas=INSTANCIAS.filter(l=>l.status==="connected");
+  if(!conectadas.length){
+    el.innerHTML='<div class="alert y" style="margin:0"><span>Conecte seu WhatsApp primeiro. Só dá pra monitorar grupos de uma conexão <strong>sua</strong>.</span></div>';
+    return;
+  }
+  const telSalvo=editando?.session_phone?waDigits(editando.session_phone):"";
+  const telPrincipal=waDigits(waPrincipal()?.phone);
+  CS_TEL_ESCOLHIDO=(telSalvo&&conectadas.some(l=>waMesmoNumero(l.phone,telSalvo)))?telSalvo:telPrincipal;
+  const waPhone=CS_TEL_ESCOLHIDO;
   if(!waPhone){
-    el.innerHTML='<div class="alert y" style="margin:0"><span>Conecte seu WhatsApp primeiro. Só dá pra monitorar grupos da <strong>sua</strong> conexão.</span></div>';
+    el.innerHTML='<div class="alert y" style="margin:0"><span>Conecte seu WhatsApp primeiro. Só dá pra monitorar grupos de uma conexão <strong>sua</strong>.</span></div>';
     return;
   }
   // A lista do engine pode vir incompleta ou nem vir. Isso deixou de ser motivo
@@ -10341,13 +10393,19 @@ async function csAbrirForm(editId){
   if(filtraDono&&!visiveis&&CS_GRUPOS_WA.length){
     avisoLista+=`<div class="alert y" id="csDonoAviso" style="margin:0 0 12px"><span>Nesta sessão todos os ${CS_GRUPOS_WA.length} grupo${CS_GRUPOS_WA.length>1?"s são":" é"} <strong>seu${CS_GRUPOS_WA.length>1?"s":""}</strong>. A fonte de captura existe para monitorar grupo de <strong>outra pessoa</strong> — clonar o próprio grupo não traz oferta nova.<br><small style="opacity:.85">Use o link de convite ali embaixo, ou <a href="javascript:void(0)" onclick="csMostrarTodosGrupos()" style="text-decoration:underline">mostre todos mesmo assim</a>.</small></span></div>`;
   }
+  const seletorNumero=conectadas.length>1?`<div style="grid-column:1/-1;margin-bottom:2px">
+          <label>Buscar grupos de qual número?</label>
+          <select id="csNumero" style="width:100%" onchange="csTrocarNumero(this.value)">${conectadas.map(l=>{const p=waPrincipal();return `<option value="${waDigits(l.phone)}"${waDigits(l.phone)===waPhone?" selected":""}>${l.phone}${p&&p.id===l.id?" · principal":""}</option>`;}).join("")}</select>
+          <small style="display:block;margin-top:6px;color:var(--tx2)">Cada número vê grupos diferentes no WhatsApp — escolha o que participa do grupo que você quer monitorar.</small>
+        </div>`:"";
   el.innerHTML=`
     <div class="card" style="margin:0">
       <div class="cb">
         ${editando?'<div class="ch" style="padding:0;border:0;margin-bottom:12px">✏️ Editando: '+esc(editando.source_label||editando.source_jid)+'</div>':''}
         ${avisoLista}
         <div class="g2">
-          <div>
+          ${seletorNumero}
+          <div id="csGrupoWrap">
             <label>Grupo que você quer monitorar</label>
             <select id="csJid" style="width:100%">${opts}</select>
             ${donoHint}
@@ -10399,6 +10457,39 @@ async function csAbrirForm(editId){
         </div>
       </div>
     </div>`;
+}
+
+// Troca de numero dentro do formulario de Nova Fonte (REVISAO 129): busca de
+// novo em /groups com o numero escolhido e redesenha SO o select de grupo —
+// nao mexe no resto do formulario (destino, lojas, teste ja preenchidos).
+async function csTrocarNumero(tel){
+  CS_TEL_ESCOLHIDO=waDigits(tel);
+  CS_MOSTRAR_TODOS=false;
+  const wrap=document.getElementById("csGrupoWrap");
+  if(!wrap)return;
+  wrap.innerHTML='<label>Grupo que você quer monitorar</label><div style="color:var(--tx2);font-size:13px;margin-top:6px">Buscando grupos deste número…</div>';
+  const editando=CS_EDIT_ATUAL;
+  try{
+    const r=await fetch(`${WA_ENGINE_URL}/groups?phone=${CS_TEL_ESCOLHIDO}`,{headers:waAuthHeaders()});
+    if(!r.ok){const dd=await r.json().catch(()=>({}));throw new Error(dd.error||("HTTP "+r.status));}
+    const d=await r.json();
+    CS_GRUPOS_WA=Array.isArray(d)?d:d.groups||[];
+  }catch(e){
+    CS_GRUPOS_WA=[];
+    wrap.innerHTML=`<label>Grupo que você quer monitorar</label><div class="alert r" style="margin-top:6px"><span>Não consegui listar os grupos deste número: ${e.message}</span></div>`;
+    return;
+  }
+  if(editando&&!CS_GRUPOS_WA.some(g=>(g.id||g.jid)===editando.source_jid)){
+    CS_GRUPOS_WA.push({id:editando.source_jid,name:editando.source_label||editando.source_jid});
+  }
+  const jaTem=new Set(CS_FONTES.filter(f=>!editando||String(f.id)!==String(editando.id)).map(f=>f.source_jid));
+  const opts=csOpcoesGrupos(editando,jaTem);
+  const engineTemDono=CS_GRUPOS_WA.some(g=>typeof g.isOwner==="boolean");
+  const filtraDono=engineTemDono&&!CS_MOSTRAR_TODOS;
+  const visiveis=csGruposVisiveis(editando).length;
+  const ocultos=CS_GRUPOS_WA.length-visiveis;
+  const donoHint=filtraDono?`<small id="csDonoHint" style="display:block;margin-top:6px;color:var(--tx2);line-height:1.5"><span title="Grupos que voce mesmo criou nao aparecem aqui">Só grupos que <strong>você não criou</strong></span>${ocultos>0?` · <a href="javascript:void(0)" onclick="csMostrarTodosGrupos()" style="color:var(--tx2);text-decoration:underline">ver todos (${CS_GRUPOS_WA.length})</a>`:""}</small>`:"";
+  wrap.innerHTML=`<label>Grupo que você quer monitorar</label><select id="csJid" style="width:100%">${opts}</select>${donoHint}${(!CS_GRUPOS_WA.length)?'<small style="display:block;margin-top:6px;color:var(--tx2)">Este número não devolveu grupos — cadastre pelo link de convite ali embaixo.</small>':""}`;
 }
 
 // Limpa o textarea de teste e o resultado — pedido separado do "Testar
@@ -10580,7 +10671,7 @@ async function csSalvar(){
     niche_group_id:destino,
     source_jid:jid,
     source_label:(g?.subject||g?.name||jid).slice(0,120),
-    session_phone:(S.waNumber||"").replace(/\D/g,"")||null,
+    session_phone:CS_TEL_ESCOLHIDO||(S.waNumber||"").replace(/\D/g,"")||null,
     max_per_day:Math.min(Math.max(max,1),50),
     lojas_permitidas:lojas,
   });
@@ -10604,6 +10695,12 @@ async function csSalvarEdicao(id){
   if(!editando||editando.source_jid!==jid){
     const g=CS_GRUPOS_WA.find(x=>(x.id||x.jid)===jid);
     patch.source_label=(g?.subject||g?.name||jid).slice(0,120);
+  }
+  // Se o numero mudou no seletor (REVISAO 129), grava o novo — senao o
+  // clone-ingest continua exigindo captura vinda do numero antigo (fonte presa
+  // a outro numero do mesmo dono) mesmo apos trocar de grupo pra outro numero.
+  if(CS_TEL_ESCOLHIDO&&(!editando||waDigits(editando.session_phone)!==CS_TEL_ESCOLHIDO)){
+    patch.session_phone=CS_TEL_ESCOLHIDO;
   }
   const{error}=await SB.from("clone_sources").update(patch).eq("id",id);
   if(error){toast("Não consegui salvar: "+error.message,"⚠️");return;}

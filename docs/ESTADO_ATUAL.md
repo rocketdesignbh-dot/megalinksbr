@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 128 — 03/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 129 — 03/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,76 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 129 — 03/09/2026 — FATIA 2 DA MULTI-CONEXÃO: roteamento por
+destino para grupos de WhatsApp (Clone Post e Distribuição), pedido
+explícito do Érico: "Vc cria por favor formas do usuario escolher".**
+
+### O pedido
+
+Em `/painel/clone-post` → "+ Nova Fonte": mostrar os grupos a clonar
+separados por número pareado. Em `/painel/editar-grupo` → "Distribuição":
+o mesmo — vincular grupo a um número específico, não sempre à conexão
+principal.
+
+### O que foi feito
+
+- **Banco.** Nova coluna `whatsapp_groups.instance_id` (migração
+  `whatsapp_groups_instance_id_roteamento_por_numero`, aplicada via
+  `apply_migration` e mirrorada em `supabase/migrations/`), espelhando o
+  padrão já existente (mas nunca usado) em `whatsapp_channels.instance_id`.
+  Nula = usa a conexão principal (compatível com todo grupo vinculado antes
+  desta revisão).
+- **Frontend — Clone Post → Nova Fonte (`csAbrirForm`).** Quando o usuário
+  tem mais de uma conexão conectada, aparece um seletor de número acima da
+  lista de grupos; trocar o número (`csTrocarNumero`) refaz o
+  `/groups?phone=` e redesenha só a lista (`#csGrupoWrap`). `csSalvar` e
+  `csSalvarEdicao` gravam `clone_sources.session_phone` com o número
+  ESCOLHIDO (`CS_TEL_ESCOLHIDO`) em vez de sempre `S.waNumber` — essa
+  coluna já existia e já era lida pelo `clone-ingest` pra validar de qual
+  sessão a captura pode vir; antes disso o frontend sempre gravava o
+  número da principal, então clonar pelo número secundário nunca validava.
+- **Frontend — Editar Grupo → Distribuição → WhatsApp-GRUPOS
+  (`wireWaGrupos`/`wgBuscarGrupos`/`wgTrocarNumero`).** Mesmo padrão:
+  seletor de número quando há mais de uma conexão, `wgTrocarNumero` refaz
+  a busca. `vincularGrupoWa` grava `instance_id` no upsert de
+  `whatsapp_groups` a partir do número escolhido. `renderWgDisp` mostra
+  "· via `<número>`" ao lado de cada grupo vinculado quando há mais de uma
+  conexão, pra deixar visível por qual número aquele grupo dispara.
+- **Backend — `send-post` v27 e `group-blast` v7.** Passam a ler
+  `whatsapp_groups.instance_id` por grupo: se apontar pra uma conexão
+  diferente da principal, o disparo desse grupo específico sai por ELA
+  (checando se está `connected`, e derrubando-a com o mesmo tratamento de
+  "sessão morta" que a principal já tinha). `instance_id` nulo (todo grupo
+  vinculado antes desta revisão) segue **exatamente** o caminho de antes —
+  nenhuma linha do fluxo antigo foi tocada, só uma ramificação nova por
+  cima. `whatsapp_channels` **não foi mexido** (fora do pedido — continua
+  saindo só pela principal, como P127 já registrava).
+
+### Deploy
+
+- `send-post`: v60 → **v61** (`deploy_edge_function`, sha novo
+  `6f36cd81…`). Primeira tentativa falhou com `import map path does not
+  exist` — a API concatenava o diretório da versão nova com o
+  `file://…deno.json` absoluto da versão ANTIGA. Conserto: passar
+  `import_map_path: "deno.json"` explícito (caminho relativo, não incluído
+  automaticamente a partir de `files`) — funcionou de primeira na 2ª
+  tentativa.
+- `group-blast`: v16 → **v17** (sha `db7d26b3…`), mesmo `import_map_path`
+  explícito, sem erro.
+- Frontend, migração-mirror e este arquivo: commitados e pushados juntos;
+  deploy do `app` no EasyPanel via `ep deploy megalinksbr app app` e
+  conferência por fetch direto do HTML servido (marcadores `csTrocarNumero`,
+  `wgTrocarNumero`, `CS_TEL_ESCOLHIDO`, `WG_TEL_ESCOLHIDO`).
+
+### Regra de prova — o que NÃO está provado ainda
+
+Só código + esbuild (0 erros) + fetch do HTML servido. **Nenhum teste real**
+com dois números pareados de verdade: escolher o secundário numa fonte do
+Clone Post e ver uma captura validar por ele; vincular um grupo ao
+secundário em Distribuição e ver um disparo real sair por aquele número
+(e não pela principal). Isso exige contas com 2+ números pareados de
+verdade — só o Érico pode gerar. Registrado como P132.
 
 **REVISÃO 128 — 03/09/2026 — BUG REAL ACHADO E CORRIGIDO: card de conexão já
 desconectada ficava preso em "VERIFICANDO" pra sempre — não era um conflito de
@@ -9163,12 +9233,16 @@ código não relacionado.
   reconectar, desconectar e **remover** são todos por linha. Teto do plano
   (`wa_connections`) aplicado com contador "N de M" — client-side.
 - **Conexão principal** = `whatsapp_instances.is_primary` (índice único parcial
-  por usuário). É ela que o `S.waNumber` espelha, que lista grupos, e **que o
-  `send-post`/`group-blast` usam para disparar**.
-- **Roteamento por destino é a FATIA 2 e não existe ainda** (P127):
-  `whatsapp_channels.instance_id` já existe no banco e segue **nulo**;
-  `whatsapp_groups` **não tem** a coluna. Hoje todos os destinos de todos os
-  grupos saem pela mesma conexão — a principal.
+  por usuário). É ela que o `S.waNumber` espelha, que lista grupos, e que o
+  `send-post`/`group-blast` usam para disparar **quando o grupo não tem
+  `instance_id` próprio**.
+- **Roteamento por destino (FATIA 2) — GRUPOS DE WHATSAPP ENTREGUE (REVISÃO
+  129, 03/09).** `whatsapp_groups.instance_id` (nova coluna) + seletor de
+  número em Clone Post → Nova Fonte e em Editar Grupo → Distribuição +
+  `send-post` v27/`group-blast` v7 roteando por ela. Deployado (código+HTML
+  servido conferidos), **falta prova end-to-end com números reais** (P132).
+  `whatsapp_channels.instance_id` **continua nula, fora do escopo pedido** —
+  canais de WhatsApp continuam saindo só pela principal.
 
 ### WhatsApp
 
@@ -9183,7 +9257,8 @@ código não relacionado.
 | **P128** | 🟠 **O REPO FICOU ATRÁS DA PRODUÇÃO — DUAS VEZES SEGUIDAS.** 1ª (REVISÃO 124→125): a própria sessão que deployou não pushou. 2ª (REVISÃO 125→126): uma sessão CONCORRENTE deployou por cima (prévia OG em `send-post`/`group-blast`) sem pushar — descoberta e corrigida na REVISÃO 126 via `list_edge_functions`/`updated_at` antes de deployar por cima. `send-post` e `group-blast` reconciliados (repo = código publicado, conferido linha a linha). ⚠️ **Ainda não medido para o restante do catálogo** (`clone-ingest`, `radar`, `product-search`, `resolve-link`, `mega-results` etc. — 34 funções não tocadas nesta janela, mas nunca auditadas contra o repo desde que este arquivo existe). **Ação permanente adotada:** todo `deploy_edge_function` passa a ser precedido de `list_edge_functions` comparando `updated_at`/`version` — nunca mais assumir que o repo é o que está no ar | 03/09 |
 | **P131** | 🟢 **RESOLVIDA (03/09, REVISÃO 128) — card de conexão desconectada preso em "VERIFICANDO" pra sempre.** Relatado pela usuária Ana Luiza (conta premium, `08a269c8-…`). Não era conflito de pareamento — o `whatsapp_instances` já mostrava `disconnected` desde 27/08, o desconectar tinha funcionado. O bug era só de rótulo: `waPintarInstancia()` mostrava "verificando" pra qualquer linha sem sessão viva no engine, mesmo com o banco já dizendo `disconnected`. Corrigido para mostrar "DESCONECTADA" nesse caso. Deployado e conferido no HTML servido. **Não medido na conta real dela** (sem login) — se ela ainda achar confuso, a saída é "🗑 Remover" na linha órfã, que apaga de vez | 03/09 |
 | **P130** | 🟡 **FATIA 1 DEPLOYADA (REVISÃO 127), FALTA PROVA END-TO-END NO PAINEL.** O `app` foi deployado no EasyPanel via `ep deploy` e o HTML servido em produção já contém o código multi-conexão (marcadores conferidos por fetch direto ao vivo). O que ainda não foi medido: parear um 2º número numa conta Elite/Premium e ver "2 de 3" na tela, desconectar uma instância sem afetar as outras, remover a principal e ver a promoção automática — tudo isso com números de WhatsApp reais, que só o Érico (ou um teste dedicado) pode gerar. `wa-engine` não reiniciou com este deploy (uptime maior que o deploy, 8/8 sessões seguiram conectadas) | 03/09 |
-| **P127** | 🟡 **FATIA 2 DA MULTI-CONEXÃO — roteamento por destino.** A fatia 1 (REVISÃO 125) entrega parear N números; ela NÃO entrega escolher qual número dispara para qual destino — hoje tudo sai pela conexão principal. Decisão já tomada com o Érico: **vínculo por destino, no momento de vincular** (o WhatsApp só deixa postar em grupo do qual o número participa, e o `/groups?phone=` já lista por número). Escopo: coluna `instance_id` em `whatsapp_groups` (a de `whatsapp_channels` **já existe** e está nula), seletor de conexão no vínculo de grupos/canais, e `send-post`/`group-blast` roteando por `instance_id` com fallback para a principal quando nulo (compatível com tudo que já está vinculado) | 03/09 |
+| **P132** | 🟡 **ROTEAMENTO POR DESTINO (GRUPOS) DEPLOYADO (REVISÃO 129), FALTA PROVA END-TO-END COM NÚMEROS REAIS.** `whatsapp_groups.instance_id` + seletor de número em Clone Post → Nova Fonte e Editar Grupo → Distribuição + `send-post` v27/`group-blast` v7 roteando por grupo. Código validado por esbuild e HTML servido conferido por marcador. **Não medido**: escolher o número secundário numa fonte do Clone Post e ver uma captura validar por ele (`clone-ingest` já rejeita `outra_sessao` quando não bate); vincular um grupo ao secundário em Distribuição e ver um disparo real sair por aquele número em vez da principal. Exige conta com 2+ números pareados de verdade | 03/09 |
+| **P127** | ✅ **FECHADA — GRUPOS (REVISÃO 129, 03/09).** Fatia 2 da multi-conexão entregue para `whatsapp_groups`: coluna `instance_id`, seletor de conexão no vínculo (Clone Post e Distribuição), `send-post`/`group-blast` roteando com fallback pra principal quando nulo. Ver P132 para a prova end-to-end pendente. **`whatsapp_channels` ficou de fora, não foi pedido** — continua saindo só pela principal, `instance_id` nulo | 03/09 |
 | **P129** | 🟡 **Teto de conexões é só client-side (REVISÃO 125).** `waAplicarTeto()` e o guard do `btnGenQR` bloqueiam no navegador; nada impede um POST direto em `whatsapp_instances` criando a 11ª linha. É a mesma classe da **P5**, e o conserto natural é o mesmo: uma checagem no servidor. Sem urgência (exige usuário mal-intencionado com JWT válido), mas registrado para não ser "descoberto" de novo | 03/09 |
 | **P126** | ✅ **FECHADA (02/09, REVISÃO 123) — DEPLOYADA E MEDIDA NO PAINEL LOGADO:** caixa desenhando no "Achadinhos Eletrodomésticos" (1 produto, capacidade 60), 6 transições no DOM real todas corretas, incluindo o "não desenha" quando a capacidade cai para 1. Era: 🟡 CODADA, NÃO DEPLOYADA (REVISÃO 122). Aviso do "Não repetir produto" em Editar Grupo → Geral: quando a flag está ligada e o grupo tem menos produtos do que o ritmo configurado aguenta, a tela diz quantos posts por dia isso permite e o que fazer. Provado em harness (7 cenários), não na tela. Falta deploy do `app` no EasyPanel e conferir a caixa desenhando — e sumindo quando os produtos passam da capacidade | 02/09 |
 | **P125** | ✅ **FECHADA (02/09, REVISÃO 124) — DEPLOYADA E MEDIDA COM GRUPO DE TESTE DESCARTÁVEL EM 3 RODADAS REAIS DO CRON:** 1ª e 2ª falha seguida não avançam cursor e recuam `last_post_at` para reabrir em 3 min; 3ª falha seguida bate a trava e volta ao intervalo cheio com cursor avançado. Grupo de teste apagado depois. Era: 🟠 BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 121). `send-post` v23: o `update` de `last_post_at` (e do `cursor_index`) roda mesmo quando `groupSent === 0`, isto é, quando o post falhou em todos os canais. Um blip de segundos no `wa-engine` passa a custar um intervalo inteiro de silêncio — medido em 02/09 no "Achadinhos Eletrodomésticos": `failed` 14:50, próxima tentativa só 15:05. O `delete_after_post` da v22 já tem a guarda `groupSent > 0`; o `last_post_at` não tem. Conserto: não carimbar `last_post_at` (nem avançar cursor) em rodada que não enviou nada. Parente da P123 | 02/09 |
