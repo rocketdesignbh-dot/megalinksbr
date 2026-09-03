@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 126 — 03/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 127 — 03/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,48 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 127 — 03/09/2026 — DEPLOY DO `app` NO EASYPANEL (multi-conexão WhatsApp
+ao vivo). Fatia 1 completa: código no ar, medido pelo HTML servido.**
+
+### O que foi feito
+
+Érico configurou uma CLI própria (`ep`, tRPC contra a API do EasyPanel, token
+persistente em `C:\Users\PC\github\.ep`, mesmo padrão do `gh` para o GitHub) e
+avisou que a sessão já tinha permissão para deployar. Antes de disparar,
+confirmei que o serviço `app` do projeto `megalinksbr` apontava para o `main`
+(`ep status megalinksbr app app`) — mas o campo `commit` ali é só metadado do
+rastreamento do Git, **não prova que o build foi refeito** (regra de prova).
+Então busquei o HTML servido de verdade (`https://www.megalinksbr.com.br/`,
+via Browser pane — o container não tem egress pra esse domínio, e o
+`device_bash` também não) e confirmei que os marcadores do multi-conexão
+(`waCarregarInstancias`, `waDefinirPrincipal`, `waAplicarTeto`, `instCount`,
+o comentário `SESSÕES WHATSAPP — MULTI-CONEXÃO`) **não estavam presentes** —
+produção ainda servia a versão anterior.
+
+Rodei `ep deploy megalinksbr app app`. Esperei o build, refiz o fetch do HTML
+servido (com `cache:'no-store'` e querystring de cache-bust) e **agora todos os
+marcadores aparecem** — a REVISÃO 125/126 do frontend está no ar.
+
+Conferi também o `wa-engine` antes de declarar isso seguro: `GET /health`
+mostrou `uptime: 698s` (~11,6 min), **mais velho que o deploy** — ou seja,
+desta vez o deploy do `app` **não reiniciou** o `wa-engine` (ao contrário do
+que a P16 registra ter acontecido em ocasiões anteriores), e `sessions: 8,
+connected: 8` — as 8 sessões WhatsApp que já estavam no ar continuaram
+conectadas, sem interrupção observada.
+
+### O que NÃO foi medido ainda (regra de prova)
+
+Confirmei que o **código novo está sendo servido**, não que o **recurso
+funciona na tela**. Ainda falta, no painel logado: parear um segundo número
+numa conta Elite/Premium e ver o contador mudar de "1 de 3" pra "2 de 3";
+desconectar um dos dois e confirmar que o outro continua conectado; remover
+uma instância e ver a principal ser promovida automaticamente quando
+necessário. Isso é comportamento observável que só um teste real, com números
+de WhatsApp de verdade, prova — não posso simular isso sozinho sem parear um
+número de teste. Fica como próximo passo.
+
+---
 
 **REVISÃO 126 — 03/09/2026 — RECONCILIAÇÃO: outra sessão deployou por cima da
 REVISÃO 125 sem pushar. O `main` foi sincronizado com o que estava no ar. Depois
@@ -9044,12 +9086,16 @@ código não relacionado.
 - `index.ts` **e** `deno.json` precisam estar no array `files` do deploy.
 - **Nunca usar `pause_project`** — não restaura sozinho de forma confiável.
 
-### Conexão WhatsApp — `/conexao` (REVISÃO 125) — CODADA, NÃO DEPLOYADA (frontend)
+### Conexão WhatsApp — `/conexao` (REVISÃO 125/126) — DEPLOYADA (REVISÃO 127, 03/09) — falta prova end-to-end
 
-> Backend já está no ar: `send-post` v26, `group-blast` v6 e `product-refresh`
-> (deploy desta revisão) já disparam pela conexão principal (`is_primary`).
-> O que falta é só o `app` (frontend) no EasyPanel — sem ele a tela `/conexao`
-> continua mono-sessão na tela, mesmo com o backend já pronto para N conexões.
+> Backend e frontend estão os dois no ar: `send-post` v26, `group-blast` v6 e
+> `product-refresh` v28 disparam pela conexão principal (`is_primary`); o
+> `app` no EasyPanel foi deployado na REVISÃO 127 e o HTML servido em produção
+> já contém o código multi-conexão (conferido por fetch direto, marcadores
+> presentes). **Ainda não medido no painel logado**: pareamento de um segundo
+> número, contador "N de M" mudando na tela, desconectar/remover por linha
+> com número real. `wa-engine` não reiniciou com este deploy — as 8 sessões
+> que já estavam conectadas continuaram conectadas.
 
 - **Multi-conexão (fatia 1).** Lista com uma linha por instância; adicionar,
   reconectar, desconectar e **remover** são todos por linha. Teto do plano
@@ -9073,6 +9119,7 @@ código não relacionado.
 | # | Pendência | Origem |
 |---|---|---|
 | **P128** | 🟠 **O REPO FICOU ATRÁS DA PRODUÇÃO — DUAS VEZES SEGUIDAS.** 1ª (REVISÃO 124→125): a própria sessão que deployou não pushou. 2ª (REVISÃO 125→126): uma sessão CONCORRENTE deployou por cima (prévia OG em `send-post`/`group-blast`) sem pushar — descoberta e corrigida na REVISÃO 126 via `list_edge_functions`/`updated_at` antes de deployar por cima. `send-post` e `group-blast` reconciliados (repo = código publicado, conferido linha a linha). ⚠️ **Ainda não medido para o restante do catálogo** (`clone-ingest`, `radar`, `product-search`, `resolve-link`, `mega-results` etc. — 34 funções não tocadas nesta janela, mas nunca auditadas contra o repo desde que este arquivo existe). **Ação permanente adotada:** todo `deploy_edge_function` passa a ser precedido de `list_edge_functions` comparando `updated_at`/`version` — nunca mais assumir que o repo é o que está no ar | 03/09 |
+| **P130** | 🟡 **FATIA 1 DEPLOYADA (REVISÃO 127), FALTA PROVA END-TO-END NO PAINEL.** O `app` foi deployado no EasyPanel via `ep deploy` e o HTML servido em produção já contém o código multi-conexão (marcadores conferidos por fetch direto ao vivo). O que ainda não foi medido: parear um 2º número numa conta Elite/Premium e ver "2 de 3" na tela, desconectar uma instância sem afetar as outras, remover a principal e ver a promoção automática — tudo isso com números de WhatsApp reais, que só o Érico (ou um teste dedicado) pode gerar. `wa-engine` não reiniciou com este deploy (uptime maior que o deploy, 8/8 sessões seguiram conectadas) | 03/09 |
 | **P127** | 🟡 **FATIA 2 DA MULTI-CONEXÃO — roteamento por destino.** A fatia 1 (REVISÃO 125) entrega parear N números; ela NÃO entrega escolher qual número dispara para qual destino — hoje tudo sai pela conexão principal. Decisão já tomada com o Érico: **vínculo por destino, no momento de vincular** (o WhatsApp só deixa postar em grupo do qual o número participa, e o `/groups?phone=` já lista por número). Escopo: coluna `instance_id` em `whatsapp_groups` (a de `whatsapp_channels` **já existe** e está nula), seletor de conexão no vínculo de grupos/canais, e `send-post`/`group-blast` roteando por `instance_id` com fallback para a principal quando nulo (compatível com tudo que já está vinculado) | 03/09 |
 | **P129** | 🟡 **Teto de conexões é só client-side (REVISÃO 125).** `waAplicarTeto()` e o guard do `btnGenQR` bloqueiam no navegador; nada impede um POST direto em `whatsapp_instances` criando a 11ª linha. É a mesma classe da **P5**, e o conserto natural é o mesmo: uma checagem no servidor. Sem urgência (exige usuário mal-intencionado com JWT válido), mas registrado para não ser "descoberto" de novo | 03/09 |
 | **P126** | ✅ **FECHADA (02/09, REVISÃO 123) — DEPLOYADA E MEDIDA NO PAINEL LOGADO:** caixa desenhando no "Achadinhos Eletrodomésticos" (1 produto, capacidade 60), 6 transições no DOM real todas corretas, incluindo o "não desenha" quando a capacidade cai para 1. Era: 🟡 CODADA, NÃO DEPLOYADA (REVISÃO 122). Aviso do "Não repetir produto" em Editar Grupo → Geral: quando a flag está ligada e o grupo tem menos produtos do que o ritmo configurado aguenta, a tela diz quantos posts por dia isso permite e o que fazer. Provado em harness (7 cenários), não na tela. Falta deploy do `app` no EasyPanel e conferir a caixa desenhando — e sumindo quando os produtos passam da capacidade | 02/09 |
