@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 125 — 03/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 126 — 03/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,79 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 126 — 03/09/2026 — RECONCILIAÇÃO: outra sessão deployou por cima da
+REVISÃO 125 sem pushar. O `main` foi sincronizado com o que estava no ar. Depois
+disso, deploy de `product-refresh` (única função que ainda não tinha o conserto
+multi-conexão no ar) e commit final. Ver P128 — é a SEGUNDA vez que este padrão
+acontece, agora medido em tempo real.**
+
+### O que aconteceu, na ordem
+
+1. REVISÃO 125 pushou `send-post` v25 e `group-blast` (multi-conexão) — não
+   deployados ainda, só no repo.
+2. Entre o push e esta sessão retomar (uma janela de ~36 min, 02:41–02:42 UTC),
+   **outra sessão** (ou o próprio Érico por outro canal) pegou o v25/v5 do repo,
+   **deployou**, e construiu em cima um recurso novo: **prévia própria (Open
+   Graph) nos links curtos**, virando `send-post` v26 (deploy 60) e `group-blast`
+   v6 (deploy 16) — **sem pushar**.
+2. Esta sessão notou porque conferiu `list_edge_functions` antes de deployar
+   (hábito criado exatamente pela P128 da revisão anterior) e viu `send-post`
+   em versão 60 quando o esperado, vindo do push próprio, era a versão do v25.
+   Os `updated_at` (02:41 e 02:42 UTC) isolaram exatamente quais funções tinham
+   mudado — só essas duas; todo o resto do catálogo (34 funções) datava de antes
+   de hoje.
+
+### O achado do OG (documentado pela outra sessão no próprio código, e conferido aqui)
+
+`redirect` v16 (P60) já sabia servir tags Open Graph próprias em vez do 302
+cru, mas só o "Link Rápido" manual do frontend gravava `og_title/og_description/
+og_image` em `short_links` — `send-post` e `group-blast` sempre inseriam só
+`{code, long_url, destination, user_id}`. Medido pela outra sessão: 1610 links
+no banco, 44 (2,7%) com `og_title`; nas últimas 24h, 222 de 224 links novos
+nasceram sem prévia. Conserto: `encurtarLink` ganha um `og` opcional montado do
+produto, grava no insert, e completa por UPDATE quando o link é reaproveitado
+(mesma `long_url`+`user_id`) e ainda não tem `og_title` — sem migração em lote.
+As colunas `og_*` já existiam desde `20260816151919_short_links_og_tags`;
+nenhuma migration nova foi necessária.
+
+### Verificação feita antes de tocar em qualquer coisa
+
+- `list_edge_functions` → só `send-post` e `group-blast` com `updated_at` de
+  hoje; todas as outras 34 datam de antes de 03/09. `product-refresh` seguia
+  parado desde 13/08 — a única das três que eu ainda precisava deployar.
+- `get_edge_function` no conteúdo completo de ambas: **o próprio cabeçalho do
+  código** já registra "aplicado por cima da v25/v5 (multi-conexão, is_primary)
+  — nenhuma linha dela foi tocada". Conferido linha a linha: o bloco de seleção
+  de instância por `is_primary desc, created_at asc, limit 1` está intacto nas
+  duas.
+- `information_schema.columns` confirmou `short_links.og_title/og_description/
+  og_image` já existentes — o código publicado não inventou coluna nenhuma.
+- `list_migrations` confirmou que **nenhuma migration nova** entrou depois das
+  duas da REVISÃO 125 — a mudança foi só de Edge Function.
+
+### O que foi feito nesta sessão
+
+- `supabase/functions/send-post/index.ts` e `group-blast/index.ts` no repo
+  foram **substituídos pelo conteúdo exato lido do `get_edge_function`** (v26 /
+  v6) — não reescritos de memória. O repo agora é espelho do que está no ar.
+- `product-refresh` **deployado** a partir do conserto da REVISÃO 125 (ainda
+  não tinha ido ao ar): instância escolhida por `is_primary desc, created_at
+  asc, limit 1` + filtro `status='connected'` que faltava.
+- Nenhuma linha do frontend ou das migrations desta revisão muda nada do que já
+  foi descrito na REVISÃO 125 — só a reconciliação dos dois arquivos e o deploy
+  que faltava.
+
+### P128 — o padrão se repetiu, agora com um detalhe novo
+
+Da primeira vez (REVISÃO 124→125) o repo ficou atrás por uma sessão não ter
+pushado o que ELA MESMA deployou. Desta vez foi **outra sessão inteira**,
+concorrente, que nem sabia desta conversa. **Regra que fica mais forte:**
+antes de qualquer `deploy_edge_function`, rodar `list_edge_functions` e
+comparar `updated_at`/`version` contra o que se espera — nunca assumir que o
+que está no ar é o que a última sessão deixou lá.
+
+---
 
 **REVISÃO 125 — 03/09/2026 — MULTI-CONEXÃO WhatsApp, FATIA 1. Pergunta do Érico
 ("não estamos seguindo o Plano de Assinaturas? não vejo opção de parear mais
@@ -8605,12 +8678,13 @@ antigos; hoje é **Premium**).
 
 ## Componentes — estado
 
-### Post Automático — `send-post` v24 (deploy 58) NO AR · **v25 no repo, NÃO deployada**
+### Post Automático — `send-post` v26 (deploy 60) NO AR E NO REPO
 
-> ⚠️ **Este cabeçalho estava desatualizado até a REVISÃO 125** (dizia "v23,
-> deploy 57"). No ar está a **v24** (P125, REVISÃO 124). No repo está a **v25**
-> (v24 + multi-conexão da REVISÃO 125), ainda sem deploy. Ver **P128** — o repo
-> chegou a ficar atrás da produção.
+> ⚠️ Histórico de desalinhamentos deste componente: REVISÃO 124 deployou v24
+> sem pushar (corrigido na 125); entre a 125 e a 126, outra sessão deployou v26
+> (prévia OG em links) sem pushar (corrigido agora). **v25 nunca chegou a ficar
+> sozinha no ar** — v26 já veio construída em cima dela. Repo e produção
+> conferidos linha a linha nesta revisão: iguais.
 
 - **Ordem: sempre a de cadastro** (`products.position` + `cursor_index`). Não
   existe mais sorteio na seleção — o `Math.random()` saiu na v23, e com ele o
@@ -8970,7 +9044,12 @@ código não relacionado.
 - `index.ts` **e** `deno.json` precisam estar no array `files` do deploy.
 - **Nunca usar `pause_project`** — não restaura sozinho de forma confiável.
 
-### Conexão WhatsApp — `/conexao` (REVISÃO 125) — CODADA, NÃO DEPLOYADA
+### Conexão WhatsApp — `/conexao` (REVISÃO 125) — CODADA, NÃO DEPLOYADA (frontend)
+
+> Backend já está no ar: `send-post` v26, `group-blast` v6 e `product-refresh`
+> (deploy desta revisão) já disparam pela conexão principal (`is_primary`).
+> O que falta é só o `app` (frontend) no EasyPanel — sem ele a tela `/conexao`
+> continua mono-sessão na tela, mesmo com o backend já pronto para N conexões.
 
 - **Multi-conexão (fatia 1).** Lista com uma linha por instância; adicionar,
   reconectar, desconectar e **remover** são todos por linha. Teto do plano
@@ -8993,7 +9072,7 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
-| **P128** | 🔴 **O REPO FICOU ATRÁS DA PRODUÇÃO — e quase custou código no ar.** Descoberto em 03/09 (REVISÃO 125): `supabase/functions/send-post/index.ts` no `main` era **v23**, enquanto o deploy 58 rodava **v24** (P125, `RETRY_STRIKES`). A REVISÃO 124 deployou e não pushou. Um push de qualquer sessão em cima do arquivo velho, seguido de redeploy pelo repo, teria **apagado a lógica de retry da P125 sem ninguém perceber**. Corrigido para o `send-post` (repo reconstruído a partir do `get_edge_function` do deploy 58). ⚠️ **NÃO MEDIDO para as OUTRAS Edge Functions:** ninguém conferiu se `clone-ingest`, `radar`, `product-search`, `resolve-link`, `group-blast`, `mega-results` etc. estão iguais no repo e no ar. **Ação:** varrer todas com `get_edge_function` e comparar. Regra que fica: **deploy sem push é deploy incompleto**, do mesmo jeito que push sem ESTADO_ATUAL é push incompleto | 03/09 |
+| **P128** | 🟠 **O REPO FICOU ATRÁS DA PRODUÇÃO — DUAS VEZES SEGUIDAS.** 1ª (REVISÃO 124→125): a própria sessão que deployou não pushou. 2ª (REVISÃO 125→126): uma sessão CONCORRENTE deployou por cima (prévia OG em `send-post`/`group-blast`) sem pushar — descoberta e corrigida na REVISÃO 126 via `list_edge_functions`/`updated_at` antes de deployar por cima. `send-post` e `group-blast` reconciliados (repo = código publicado, conferido linha a linha). ⚠️ **Ainda não medido para o restante do catálogo** (`clone-ingest`, `radar`, `product-search`, `resolve-link`, `mega-results` etc. — 34 funções não tocadas nesta janela, mas nunca auditadas contra o repo desde que este arquivo existe). **Ação permanente adotada:** todo `deploy_edge_function` passa a ser precedido de `list_edge_functions` comparando `updated_at`/`version` — nunca mais assumir que o repo é o que está no ar | 03/09 |
 | **P127** | 🟡 **FATIA 2 DA MULTI-CONEXÃO — roteamento por destino.** A fatia 1 (REVISÃO 125) entrega parear N números; ela NÃO entrega escolher qual número dispara para qual destino — hoje tudo sai pela conexão principal. Decisão já tomada com o Érico: **vínculo por destino, no momento de vincular** (o WhatsApp só deixa postar em grupo do qual o número participa, e o `/groups?phone=` já lista por número). Escopo: coluna `instance_id` em `whatsapp_groups` (a de `whatsapp_channels` **já existe** e está nula), seletor de conexão no vínculo de grupos/canais, e `send-post`/`group-blast` roteando por `instance_id` com fallback para a principal quando nulo (compatível com tudo que já está vinculado) | 03/09 |
 | **P129** | 🟡 **Teto de conexões é só client-side (REVISÃO 125).** `waAplicarTeto()` e o guard do `btnGenQR` bloqueiam no navegador; nada impede um POST direto em `whatsapp_instances` criando a 11ª linha. É a mesma classe da **P5**, e o conserto natural é o mesmo: uma checagem no servidor. Sem urgência (exige usuário mal-intencionado com JWT válido), mas registrado para não ser "descoberto" de novo | 03/09 |
 | **P126** | ✅ **FECHADA (02/09, REVISÃO 123) — DEPLOYADA E MEDIDA NO PAINEL LOGADO:** caixa desenhando no "Achadinhos Eletrodomésticos" (1 produto, capacidade 60), 6 transições no DOM real todas corretas, incluindo o "não desenha" quando a capacidade cai para 1. Era: 🟡 CODADA, NÃO DEPLOYADA (REVISÃO 122). Aviso do "Não repetir produto" em Editar Grupo → Geral: quando a flag está ligada e o grupo tem menos produtos do que o ritmo configurado aguenta, a tela diz quantos posts por dia isso permite e o que fazer. Provado em harness (7 cenários), não na tela. Falta deploy do `app` no EasyPanel e conferir a caixa desenhando — e sumindo quando os produtos passam da capacidade | 02/09 |

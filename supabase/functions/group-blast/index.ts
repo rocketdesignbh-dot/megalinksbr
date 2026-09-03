@@ -1,7 +1,11 @@
-// Mega Links BR · Edge Function "group-blast" v4 — regenera link de afiliado E encurta no momento do post
-// Disparo manual imediato de TODOS os produtos de um Grupo de Oferta.
-// Uso: planos sem automação 24/7 (ex.: Starter) — limitado a 1x/24h por grupo.
-// Ignora start_hour/end_hour/loop/interval propositalmente (é um disparo único, não automação).
+// Mega Links BR · Edge Function "group-blast" v6 — previa propria (OG) no short link
+// v6: mesmo conserto do send-post v26. `encurtarLink` aqui tambem inseria
+//     short_links sem og_title/og_description/og_image -- ganha um `og`
+//     opcional (montado do produto, com discount_pct em vez de
+//     price_original porque e o campo que este disparo realmente seleciona)
+//     e completa por UPDATE no caminho de reuso quando o registro encontrado
+//     ainda nao tem og_title. Aplicado por CIMA da v5 (multi-conexao
+//     WhatsApp, is_primary) -- nenhuma linha dela foi tocada.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "@supabase/supabase-js";
 
@@ -90,6 +94,24 @@ function ehLinkCurtoProprio(url: string): boolean {
   } catch { return false; }
 }
 
+// v6: previa propria (og_title/og_description/og_image) montada a partir do
+// PRODUTO deste disparo. discount_pct (nao price_original) porque e o campo
+// que este select realmente traz -- ver montarMsg logo abaixo.
+const LOJA_LABEL: Record<string, string> = { shopee:"Shopee", mercado_livre:"Mercado Livre", amazon:"Amazon", aliexpress:"AliExpress", magalu:"Magalu", shein:"Shein", awin:"AWIN", natura:"Natura", terabyte:"TerabyteShop" };
+function montarOg(p: any): { title: string; description: string; image: string } {
+  const brl = (v: number) => Number(v).toFixed(2).replace(".", ",");
+  const partes: string[] = [];
+  if (p.price) partes.push(`R$ ${brl(p.price)}`);
+  if (p.discount_pct) partes.push(`${p.discount_pct}% OFF`);
+  const loja = p.source ? (LOJA_LABEL[p.source] ?? "") : "";
+  if (loja) partes.push(loja);
+  return {
+    title: String(p.title || "").slice(0, 200),
+    description: partes.join(" · ").slice(0, 200),
+    image: String(p.image_url || ""),
+  };
+}
+
 // ── Encurtamento (mesmo padrão do Postar Agora) ────────────────────────────────
 function gerarCode(len = 7): string {
   const chars = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -101,13 +123,20 @@ function gerarCode(len = 7): string {
 // Encurta no MOMENTO do disparo usando o user_id do usuário LOGADO que disparou —
 // assim o clique é atribuído a ele em link_clicks. Reaproveita o code já existente
 // para a mesma URL para não criar uma linha nova de short_links a cada disparo.
-async function encurtarLink(sb: any, userId: string, url: string): Promise<string> {
+// v6: recebe `og` opcional -- grava no insert e completa por UPDATE no reuso
+// quando o registro encontrado ainda nao tem og_title.
+async function encurtarLink(sb: any, userId: string, url: string, og?: { title: string; description: string; image: string }): Promise<string> {
   if (!url) return url;
   if (ehLinkCurtoProprio(url)) return url;
   try {
     const { data: existing } = await sb.from("short_links")
-      .select("code").eq("long_url", url).eq("user_id", userId).limit(1).maybeSingle();
-    if (existing?.code) return `${SHORT_DOMAIN}/r/${existing.code}`;
+      .select("code, og_title").eq("long_url", url).eq("user_id", userId).limit(1).maybeSingle();
+    if (existing?.code) {
+      if (og?.title && !String(existing.og_title ?? "").trim()) {
+        sb.from("short_links").update({ og_title: og.title, og_description: og.description || null, og_image: og.image || null }).eq("code", existing.code).then(() => {});
+      }
+      return `${SHORT_DOMAIN}/r/${existing.code}`;
+    }
 
     let code = gerarCode();
     for (let i = 0; i < 5; i++) {
@@ -116,7 +145,7 @@ async function encurtarLink(sb: any, userId: string, url: string): Promise<strin
       code = gerarCode();
     }
     const { error } = await sb.from("short_links")
-      .insert({ code, long_url: url, destination: url, user_id: userId });
+      .insert({ code, long_url: url, destination: url, user_id: userId, og_title: og?.title || null, og_description: og?.description || null, og_image: og?.image || null });
     if (error) { console.warn("[short-link] insert falhou:", error.message); return url; }
     return `${SHORT_DOMAIN}/r/${code}`;
   } catch (e) {
@@ -290,7 +319,7 @@ Deno.serve(async (req: Request) => {
 
   for (const product of products) {
     // 1º regenera a afiliação com as credenciais ATUAIS, 2º encurta com o user_id do logado.
-    const linkFinal = await encurtarLink(sb, userId, linkFinalDoProduto(product, credsMap));
+    const linkFinal = await encurtarLink(sb, userId, linkFinalDoProduto(product, credsMap), montarOg(product));
     const msg = montarMsg(product, linkFinal);
     let sent = 0, failed = 0;
     const errosProduto: string[] = [];

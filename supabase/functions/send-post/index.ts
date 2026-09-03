@@ -1,4 +1,25 @@
-// Mega Links BR · Edge Function "send-post" v25
+// Mega Links BR · Edge Function "send-post" v26
+// v26: PREVIA PROPRIA NUNCA saia para o Post Automatico. A `redirect` v16 (P60)
+//      foi desenhada pra servir tags OG proprias em vez do 302 pelado -- so que
+//      SO o "Link Rapido" manual do frontend gravava `og_title/og_description/
+//      og_image` no `short_links`. O `send-post` (e o `group-blast`) sempre
+//      inseriram so `{code, long_url, destination, user_id}`. Medido em 03/09:
+//      1610 links no banco, 44 (2,7%) com og_title; nas ultimas 24h, 222 de 224
+//      links novos nasceram sem previa -- a maioria vem do rodizio automatico.
+//      Achado a partir de um `facebookexternalhit` batendo 302 pelado num link
+//      SHEIN de 28/08 que nunca teve og_title.
+//      Conserto: `encurtarLink` ganha um `og` opcional (title/description/image
+//      montados do PRODUTO, que ja esta em maos no disparo) e grava no insert.
+//      **E completa quem ja existia:** no caminho de REUSO (mesma `long_url` +
+//      `user_id`, que e o caminho mais comum -- produto que ja tem link so
+//      reaproveita o code), se o registro encontrado nao tem `og_title`, um
+//      UPDATE preenche antes de devolver -- assim o link do SHEIN de 28/08 e
+//      todo o resto do historico ganham previa na PROXIMA vez que saem, sem
+//      migracao em lote. Sem imagem/preco -> og.title ainda existe (sempre tem
+//      titulo de produto), og.image fica vazio e a `redirect` ja trata isso
+//      (tag og:image so aparece quando ha valor).
+//      Camada aplicada por CIMA da v25 (multi-conexao WhatsApp, is_primary) --
+//      nenhuma linha do v25 foi tocada.
 // v25: MULTI-CONEXAO WhatsApp. A busca da instancia era
 //      `.eq("status","connected").maybeSingle()` SEM limite: com DUAS
 //      instancias conectadas o PostgREST devolve 406/PGRST116 ("Cannot coerce
@@ -274,17 +295,45 @@ function gerarCode(len = 7): string {
   return s;
 }
 
+// v26: previa propria (og_title/og_description/og_image) montada a partir do
+// PRODUTO que esta sendo disparado. Sem preco/imagem o title ainda existe
+// (sempre ha titulo de produto); description/image ficam vazios e a `redirect`
+// ja trata isso (tag so aparece quando ha valor).
+const LOJA_LABEL: Record<string, string> = { shopee:"Shopee", mercado_livre:"Mercado Livre", amazon:"Amazon", aliexpress:"AliExpress", magalu:"Magalu", shein:"Shein", awin:"AWIN", natura:"Natura", terabyte:"TerabyteShop" };
+function montarOg(p: any): { title: string; description: string; image: string } {
+  const brl = (v: number) => Number(v).toFixed(2).replace(".", ",");
+  const partes: string[] = [];
+  if (p.price) partes.push(`R$ ${brl(p.price)}`);
+  if (p.price_original && Number(p.price_original) > Number(p.price || 0)) partes.push(`(de R$ ${brl(p.price_original)})`);
+  const loja = p.source ? (LOJA_LABEL[p.source] ?? "") : "";
+  if (loja) partes.push(loja);
+  return {
+    title: String(p.title || "").slice(0, 200),
+    description: partes.join(" · ").slice(0, 200),
+    image: String(p.image_url || ""),
+  };
+}
+
 // Encurta no MOMENTO do disparo usando o user_id do DONO do grupo (o usuário logado
 // que cadastrou o produto) — assim o clique é atribuído a ele em link_clicks.
 // Reaproveita o code já existente para a mesma URL: o cron roda a cada poucos minutos
 // e não pode criar uma linha nova de short_links a cada disparo do mesmo produto.
-async function encurtarLink(sb: any, userId: string, url: string): Promise<string> {
+// v26: recebe `og` opcional. No insert, grava og_title/og_description/og_image.
+// No reuso (code ja existe pra essa long_url+user_id), se o registro encontrado
+// AINDA nao tem og_title, um UPDATE completa antes de devolver -- assim link
+// antigo ganha previa na proxima vez que sai, sem precisar de migracao em lote.
+async function encurtarLink(sb: any, userId: string, url: string, og?: { title: string; description: string; image: string }): Promise<string> {
   if (!url) return url;
   if (ehLinkCurtoProprio(url)) return url;
   try {
     const { data: existing } = await sb.from("short_links")
-      .select("code").eq("long_url", url).eq("user_id", userId).limit(1).maybeSingle();
-    if (existing?.code) return `${SHORT_DOMAIN}/r/${existing.code}`;
+      .select("code, og_title").eq("long_url", url).eq("user_id", userId).limit(1).maybeSingle();
+    if (existing?.code) {
+      if (og?.title && !String(existing.og_title ?? "").trim()) {
+        sb.from("short_links").update({ og_title: og.title, og_description: og.description || null, og_image: og.image || null }).eq("code", existing.code).then(() => {});
+      }
+      return `${SHORT_DOMAIN}/r/${existing.code}`;
+    }
 
     let code = gerarCode();
     for (let i = 0; i < 5; i++) {
@@ -293,7 +342,7 @@ async function encurtarLink(sb: any, userId: string, url: string): Promise<strin
       code = gerarCode();
     }
     const { error } = await sb.from("short_links")
-      .insert({ code, long_url: url, destination: url, user_id: userId });
+      .insert({ code, long_url: url, destination: url, user_id: userId, og_title: og?.title || null, og_description: og?.description || null, og_image: og?.image || null });
     if (error) { console.warn("[short-link] insert falhou:", error.message); return url; }
     return `${SHORT_DOMAIN}/r/${code}`;
   } catch (e) {
@@ -654,7 +703,7 @@ Deno.serve(async (req: Request) => {
     // o rodizio ate entrar produto novo. Com Loop, % total recomeca do 1o.
     const nextCursor = loop ? (cursor + 1) % total : cursor + 1;
     // 1º regenera a afiliação com as credenciais ATUAIS, 2º encurta com o user_id do dono.
-    product.affiliate_url = await encurtarLink(sb, group.user_id, linkFinalDoProduto(product, credsMap));
+    product.affiliate_url = await encurtarLink(sb, group.user_id, linkFinalDoProduto(product, credsMap), montarOg(product));
     const msg = montarTexto(product);
     let groupSent = 0, groupFailed = 0;
     const falhas: string[] = [];
