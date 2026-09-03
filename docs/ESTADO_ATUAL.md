@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 127 — 03/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 128 — 03/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,68 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 128 — 03/09/2026 — BUG REAL ACHADO E CORRIGIDO: card de conexão já
+desconectada ficava preso em "VERIFICANDO" pra sempre — não era um conflito de
+pareamento, era rótulo errado. Relatado pelo Érico a partir do que a usuária
+Ana Luiza (conta premium) viu na tela.**
+
+### O que a Ana Luiza relatou (via Érico)
+
+Conta com 2 pareamentos, "deu algum conflito", ela pediu para desconectar o
+`31991797069` e a tela "fica verificando........." (sem resolver).
+
+### O que a investigação encontrou
+
+Consultei `whatsapp_instances` da conta dela (`08a269c8-…`, e-mail
+`ana.luizafialho@yahoo.com.br`, plano premium): só existem **duas** linhas,
+as duas criadas em **27/08** (nenhuma criada hoje) —
+`+553175353203` (conectada, principal, `last_seen_at` de agora) e
+`+553191797069` (**já `disconnected` desde 27/08**, nunca tocada hoje). Ou
+seja: o desconectar que ela pediu **já tinha funcionado há dias** — o banco
+prova isso.
+
+O que não tinha era um estado visual pra essa combinação. `waCarregarInstancias()`
+lista TODAS as linhas do usuário sem filtrar por status (por desenho, desde a
+REVISÃO 120 — é assim que uma linha "offline mas reconectável" continua
+visível). Antes da REVISÃO 127 essa segunda linha nunca aparecia porque a tela
+antiga era mono-sessão e só desenhava `S.waNumber`. A partir do deploy do
+`app` de hoje (REVISÃO 127), a tela nova passou a listar as duas linhas — e
+essa segunda, órfã desde agosto, apareceu pela primeira vez.
+
+`waPintarInstancia()` tinha só um branch para "engine não tem sessão viva
+para este número": sempre mostrava `⟳ VERIFICANDO` / "Sessão salva ·
+verificando no servidor…", **mesmo quando o banco já dizia `disconnected`** —
+o `waTentarRestaurar()` (que de fato tenta algo) só roda quando
+`l.status==="connected"`, mas o RÓTULO era o mesmo nos dois casos. Resultado:
+uma conexão desconectada de propósito ficava com uma etiqueta que promete
+"verificando", sugerindo algo em andamento, para sempre — e clicar
+"Desconectar" de novo nela é um no-op idempotente (`status` já é
+`disconnected`) que não muda o rótulo, reforçando a sensação de trava.
+
+### O fix
+
+`frontend/index.html`, `waPintarInstancia()`: separei os dois casos.
+`l.status==="connected"` sem sessão viva continua mostrando `⟳ VERIFICANDO` e
+chamando `waTentarRestaurar()` (igual antes). `l.status!=="connected"` sem
+sessão viva agora mostra um estado terminal calmo, `DESCONECTADA` / "sem
+sessão ativa" — sem tentar restaurar nada, porque não há nada para restaurar.
+Escopo mínimo: só o texto/rótulo mudou, nenhuma mudança de comportamento nos
+botões (Reconectar/Desconectar/Remover continuam os mesmos). Commit `b208ba5`,
+push verificado, deploy do `app` no EasyPanel via `ep deploy` (a API do
+EasyPanel deu um 502 passageiro no meio do processo — reconferido com `ep
+ping` antes de repetir), e o HTML servido em produção já contém o texto novo
+(`"Desconectada · sem sessão ativa"`), conferido por fetch direto.
+
+### O que não foi medido
+
+Não vi a tela da Ana Luiza ao vivo (não tenho login dela) — a prova aqui é
+código+banco+HTML servido, não um clique real na conta dela. Se ela ainda
+achar a tela confusa depois desta correção, o próximo passo é ela mandar um
+print, ou pedir pra ela clicar em "🗑 Remover" nessa linha órfã (isso some com
+o card de vez, já que "Desconectar" só muda o status, não apaga a linha).
+
+---
 
 **REVISÃO 127 — 03/09/2026 — DEPLOY DO `app` NO EASYPANEL (multi-conexão WhatsApp
 ao vivo). Fatia 1 completa: código no ar, medido pelo HTML servido.**
@@ -9119,6 +9181,7 @@ código não relacionado.
 | # | Pendência | Origem |
 |---|---|---|
 | **P128** | 🟠 **O REPO FICOU ATRÁS DA PRODUÇÃO — DUAS VEZES SEGUIDAS.** 1ª (REVISÃO 124→125): a própria sessão que deployou não pushou. 2ª (REVISÃO 125→126): uma sessão CONCORRENTE deployou por cima (prévia OG em `send-post`/`group-blast`) sem pushar — descoberta e corrigida na REVISÃO 126 via `list_edge_functions`/`updated_at` antes de deployar por cima. `send-post` e `group-blast` reconciliados (repo = código publicado, conferido linha a linha). ⚠️ **Ainda não medido para o restante do catálogo** (`clone-ingest`, `radar`, `product-search`, `resolve-link`, `mega-results` etc. — 34 funções não tocadas nesta janela, mas nunca auditadas contra o repo desde que este arquivo existe). **Ação permanente adotada:** todo `deploy_edge_function` passa a ser precedido de `list_edge_functions` comparando `updated_at`/`version` — nunca mais assumir que o repo é o que está no ar | 03/09 |
+| **P131** | 🟢 **RESOLVIDA (03/09, REVISÃO 128) — card de conexão desconectada preso em "VERIFICANDO" pra sempre.** Relatado pela usuária Ana Luiza (conta premium, `08a269c8-…`). Não era conflito de pareamento — o `whatsapp_instances` já mostrava `disconnected` desde 27/08, o desconectar tinha funcionado. O bug era só de rótulo: `waPintarInstancia()` mostrava "verificando" pra qualquer linha sem sessão viva no engine, mesmo com o banco já dizendo `disconnected`. Corrigido para mostrar "DESCONECTADA" nesse caso. Deployado e conferido no HTML servido. **Não medido na conta real dela** (sem login) — se ela ainda achar confuso, a saída é "🗑 Remover" na linha órfã, que apaga de vez | 03/09 |
 | **P130** | 🟡 **FATIA 1 DEPLOYADA (REVISÃO 127), FALTA PROVA END-TO-END NO PAINEL.** O `app` foi deployado no EasyPanel via `ep deploy` e o HTML servido em produção já contém o código multi-conexão (marcadores conferidos por fetch direto ao vivo). O que ainda não foi medido: parear um 2º número numa conta Elite/Premium e ver "2 de 3" na tela, desconectar uma instância sem afetar as outras, remover a principal e ver a promoção automática — tudo isso com números de WhatsApp reais, que só o Érico (ou um teste dedicado) pode gerar. `wa-engine` não reiniciou com este deploy (uptime maior que o deploy, 8/8 sessões seguiram conectadas) | 03/09 |
 | **P127** | 🟡 **FATIA 2 DA MULTI-CONEXÃO — roteamento por destino.** A fatia 1 (REVISÃO 125) entrega parear N números; ela NÃO entrega escolher qual número dispara para qual destino — hoje tudo sai pela conexão principal. Decisão já tomada com o Érico: **vínculo por destino, no momento de vincular** (o WhatsApp só deixa postar em grupo do qual o número participa, e o `/groups?phone=` já lista por número). Escopo: coluna `instance_id` em `whatsapp_groups` (a de `whatsapp_channels` **já existe** e está nula), seletor de conexão no vínculo de grupos/canais, e `send-post`/`group-blast` roteando por `instance_id` com fallback para a principal quando nulo (compatível com tudo que já está vinculado) | 03/09 |
 | **P129** | 🟡 **Teto de conexões é só client-side (REVISÃO 125).** `waAplicarTeto()` e o guard do `btnGenQR` bloqueiam no navegador; nada impede um POST direto em `whatsapp_instances` criando a 11ª linha. É a mesma classe da **P5**, e o conserto natural é o mesmo: uma checagem no servidor. Sem urgência (exige usuário mal-intencionado com JWT válido), mas registrado para não ser "descoberto" de novo | 03/09 |
