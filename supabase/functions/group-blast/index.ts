@@ -246,11 +246,17 @@ Deno.serve(async (req: Request) => {
   const credsMap = await carregarCredenciais(sb, userId);
 
   // Destinos
+  // MULTI-CONEXÃO (03/09): `.maybeSingle()` sem limite dá PGRST116 quando o
+  // usuário tem DUAS instâncias conectadas — o disparo em massa parava inteiro.
+  // Quem dispara é a conexão principal (`is_primary`); `created_at` desempata.
   const { data: instance } = await sb
     .from("whatsapp_instances")
     .select("phone")
     .eq("user_id", userId)
     .eq("status", "connected")
+    .order("is_primary", { ascending: false })
+    .order("created_at", { ascending: true })
+    .limit(1)
     .maybeSingle();
 
   const { data: waGroups } = await sb

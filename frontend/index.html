@@ -1366,10 +1366,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="phead"><div><h1 class="pt">Conexão WhatsApp</h1><div class="psub">Pareie seu número para publicar automaticamente em grupos e canais.
       <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button></div></div></div>
     <!-- Sessões conectadas (aparece primeiro quando há conexão) -->
-    <div class="card" id="instCard" style="display:none;border-color:rgba(245,197,24,.25)"><div class="ch">📱 Sessões ativas <span class="r"><button class="btn btn-ghost btn-sm" onclick="renderInstCard()" style="font-size:11px">↻ Atualizar</button></span></div><div class="cb" id="instList"></div></div>
+    <div class="card" id="instCard" style="display:none;border-color:rgba(245,197,24,.25)"><div class="ch">📱 Suas conexões <span class="pill gray" id="instCount" style="margin-left:6px"></span> <span class="r"><button class="btn btn-ghost btn-sm" onclick="renderInstCard()" style="font-size:11px">↻ Atualizar</button></span></div><div class="cb" id="instList"></div></div>
     <!-- Parear novo número -->
     <div class="g2">
-      <div class="card" style="margin:0"><div class="ch">📲 Parear novo número</div><div class="cb">
+      <div class="card" id="cardParear" style="margin:0"><div class="ch">📲 Parear novo número</div><div class="cb">
+        <div id="pareaTetoAviso" style="display:none;background:rgba(255,176,32,.12);border:1px solid rgba(255,176,32,.4);border-radius:2px;padding:12px 16px;align-items:center;gap:12px;margin-bottom:14px;font-size:13px"></div>
         <div class="g2" style="gap:12px">
           <div class="field"><label>Código do país</label><select><option>+55 BR</option><option>+351 PT</option></select></div>
           <div class="field"><label>DDD</label><input id="waDDD" value="31" maxlength="3"></div>
@@ -4701,173 +4702,310 @@ async function fetchWAEngineTokenComRetry(){
 }
 let waPollTimer=null;
 
-function waMostraConectado(){
+async function waMostraConectado(){
   qrbox.style.display="none";qrmsg_show();
   qrMsg.innerHTML='<div style="font-size:42px">✅</div><h3 style="margin:8px 0 4px">Número conectado!</h3><p style="color:var(--mut)">'+S.waNumber+'</p>';
   waStatus.innerHTML='<span class="pill volt"><span class="d"></span> conectado</span>';
-  INSTANCIAS.length=0;INSTANCIAS.push({phone:S.waNumber,status:"connected"});
   // Pareou: a faixa de queda sai na hora, sem esperar o ciclo de 60s.
   try{waQuedaBarra(false);setTimeout(()=>{try{waQuedaCheck();}catch(e){}},1500);}catch(e){}
-  // persiste instância no Supabase
+  // persiste instância no Supabase.
+  // AGUARDA o upsert: com multi-conexão o `renderInstCard` relê a lista do
+  // BANCO (antes ele só desenhava o `S.waNumber` que já estava em memória).
+  // Disparar os dois em paralelo fazia o número recém-pareado não aparecer.
   const uid=CURRENT_USER?.id;
   if(uid){
-    SB.from("whatsapp_instances").upsert({user_id:uid,phone:S.waNumber,status:"connected",last_seen_at:new Date().toISOString()},{onConflict:"user_id,phone"}).then(()=>{});
+    try{
+      await SB.from("whatsapp_instances").upsert({user_id:uid,phone:S.waNumber,status:"connected",last_seen_at:new Date().toISOString()},{onConflict:"user_id,phone"});
+      // Primeira conexão da conta: ela vira a principal. Um número adicional
+      // NÃO rouba a principal de quem já tinha uma — quem troca é o usuário,
+      // no botão "★ Tornar principal".
+      await waCarregarInstancias();
+      await waGarantirPrincipal();
+    }catch(e){console.warn("upsert instancia:",e);}
   }
-  renderInstCard();
+  await renderInstCard();
   renderOnb();toast("WhatsApp pareado com sucesso!","🎉");
 }
 
-/* Renderiza o card de instâncias conectadas na aba Conexão WhatsApp.
-   Verifica status real na wa-engine e exibe botão de desconectar. */
-async function renderInstCard(){
-  if(!S.waConnected||!S.waNumber){instCard.style.display="none";return;}
-  instCard.style.display="block";
-  // Render imediato com dados do estado local
-  instList.innerHTML=`
-    <div class="prod" style="align-items:center;flex-wrap:wrap;gap:8px">
-      <div class="pimg">📱</div>
-      <div style="flex:1;min-width:140px">
-        <strong>${S.waNumber}</strong><br>
-        <small style="color:var(--mut)" id="instStatusTxt">Verificando conexão…</small>
-      </div>
-      <span class="pill volt" id="instPill"><span class="d"></span> CONECTADO</span>
-      <div id="instActions" style="display:flex;gap:8px;margin-left:8px">
-        <button class="btn btn-ghost btn-sm" style="color:var(--red,#ef4444);border-color:var(--red,#ef4444)" onclick="waDesconectar()">Desconectar</button>
-      </div>
-    </div>`;
-  // Verifica status real na wa-engine em background
+/* ===== SESSÕES WHATSAPP — MULTI-CONEXÃO (REVISÃO 120, 03/09/2026) =====
+   Até aqui esta tela era mono-sessão POR CONSTRUÇÃO, não por bloqueio: um
+   único card, um único `S.waNumber` (string, não lista), e um
+   `waDesconectar()` que fazia `.eq("user_id",uid)` SEM `id` — derrubava todas
+   as linhas do usuário de uma vez. O `plan_features.wa_connections`
+   (Starter 1, Pro 1, Elite 3, Premium 10) era vendido nos cards de plano e na
+   tabela comparativa e não tinha como ser usado: não existia "adicionar
+   número".
+
+   O que NÃO precisou mudar, medido antes de escrever uma linha:
+   - o `wa-engine` já é multi-sessão (o `SESSIONS` Map é por sessionId e a
+     deduplicação é por TELEFONE, não por usuário), e o `donoAutorizado()`
+     dele já autoriza contra TODOS os telefones que o usuário enxerga em
+     `whatsapp_instances` — um usuário com 3 linhas já operava 3 sessões;
+   - a tabela já tem `UNIQUE (user_id, phone)` e RLS `owner_all`, então N
+     linhas por usuário sempre foram legais. **Nenhuma migration nesta fatia.**
+
+   Escopo desta fatia (1 de 2): parear / reconectar / desconectar / remover N
+   números com o teto do plano aplicado. O ROTEAMENTO por destino (qual número
+   dispara para qual grupo) é a fatia 2 — `whatsapp_channels.instance_id` já
+   existe no banco e segue nulo; `whatsapp_groups` ainda não tem a coluna.
+   Enquanto isso quem dispara e quem lista grupos é a conexão marcada como
+   PRINCIPAL, que é o que `S.waNumber` passa a significar. */
+
+function waDigits(x){return String(x||"").replace(/\D/g,"");}
+// Cauda de 8 dígitos: o WhatsApp devolve o mesmo número ora com, ora sem o 9º
+// dígito do celular BR (REVISÃO 115). Comparar por 8 casa as duas grafias.
+function waMesmoNumero(a,b){const A=waDigits(a),B=waDigits(b);return !!A&&!!B&&A.slice(-8)===B.slice(-8);}
+
+function waTetoConexoes(){
+  let n=1;
+  try{const f=myFeatures();if(f&&f.wa_connections!=null)n=f.wa_connections;}catch(e){}
+  return n===-1?9999:(Number(n)||1);
+}
+
+async function waCarregarInstancias(){
+  INSTANCIAS.length=0;
+  const uid=CURRENT_USER?.id;
+  if(!uid)return INSTANCIAS;
   try{
-    const r=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:waAuthHeaders()});
-    if(!r.ok)throw new Error("HTTP "+r.status);
-    const d=await r.json();
-    const sessions=Array.isArray(d)?d:d.sessions||[];
-    const myDigits=S.waNumber.replace(/\D/g,"");
-    const myTail=myDigits.slice(-9);
-    const activeSessions=sessions.filter(s=>s.status!=="expired"||s.phone);
-    const sorted=activeSessions.sort((a,b)=>{
-      const rank={connected:0,paired:1,open:2,reconnecting:3}[a.status]??4;
-      const rankB={connected:0,paired:1,open:2,reconnecting:3}[b.status]??4;
-      return rank-rankB;
-    });
-    const sess=sorted.find(s=>{
-      const sd=(s.phone||s.jid||s.userId||"").replace(/\D/g,"");
-      if(!sd)return false;
-      return sd.slice(-9)===myTail||sd.includes(myTail)||myDigits.includes(sd.slice(-9));
-    })||sorted.find(s=>s.status==="connected"||s.status==="paired"||s.status==="open");
-    const online=sess&&(sess.status==="connected"||sess.status==="open"||sess.status==="paired");
-    const reconnecting=sess&&(sess.status==="reconnecting");
-    const txt=document.getElementById("instStatusTxt");
-    const pill=document.getElementById("instPill");
-    const acts=document.getElementById("instActions");
-    if(txt&&pill){
-      if(online){
-        txt.textContent="Sessão ativa · pronto para postar";
-        pill.className="pill volt";pill.innerHTML='<span class="d"></span> ONLINE';
-        waStatus.innerHTML='<span class="pill volt"><span class="d"></span> conectado</span>';
-      }else if(reconnecting){
-        txt.textContent="Reconectando automaticamente…";
-        pill.className="pill" ;pill.style.background="var(--volt)";pill.style.color="#000";pill.innerHTML='⟳ RECONECTANDO';
-        waStatus.innerHTML='<span class="pill" style="background:var(--volt);color:#000">⟳ reconectando</span>';
-      }else if(sess){
-        txt.textContent="Sessão encontrada mas offline · tentando reconectar";
-        pill.className="pill red";pill.innerHTML='<span class="d"></span> OFFLINE';
-        waStatus.innerHTML='<span class="pill red"><span class="d"></span> offline</span>';
-        if(acts)acts.innerHTML=`
-          <div style="width:100%;margin-bottom:8px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.3);border-radius:2px;padding:10px 12px;font-size:12px;line-height:1.6;display:flex;gap:8px;align-items:flex-start">
-            <span style="font-size:18px">⚠️</span>
-            <div>
-              <strong style="color:#ef4444">Sessão derrubada?</strong><br>
-              ✅ <strong>Celular</strong> pode ficar ligado normalmente — não interfere.<br>
-              ⚠️ <strong>WA Desktop ou WA Web</strong> aberto no celular derruba esta sessão. Feche-os antes de reconectar.<br><small style="color:var(--mut)">Se Reconectar não funcionar, o WhatsApp invalidou as credenciais remotamente — use Gerar QR Code.</small>
-            </div>
-          </div>
-          <button class="btn btn-volt btn-sm" onclick="waReconectar()">⟳ Reconectar</button><button class="btn btn-ghost btn-sm" style="color:var(--red,#ef4444);border-color:var(--red,#ef4444)" onclick="waDesconectar()">Desconectar</button>`;
-      }else{
-        // Sessão não encontrada no servidor MAS o banco diz conectado.
-        // NÃO derruba o card — mostra como "verificando" e tenta reconectar em background.
-        txt.innerHTML="Sessão salva · verificando no servidor…<br><small>Se não reconectar sozinho, clique em Reconectar.</small>";
-        pill.className="pill" ;pill.style.background="var(--volt)";pill.style.color="#000";pill.innerHTML='⟳ VERIFICANDO';
-        waStatus.innerHTML='<span class="pill" style="background:var(--volt);color:#000">⟳ verificando</span>';
-        if(acts)acts.innerHTML=`
-          <div style="width:100%;margin-bottom:8px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.3);border-radius:2px;padding:10px 12px;font-size:12px;line-height:1.6;display:flex;gap:8px;align-items:flex-start">
-            <span style="font-size:18px">⚠️</span>
-            <div>
-              <strong style="color:#ef4444">Sessão derrubada?</strong><br>
-              ✅ <strong>Celular</strong> pode ficar ligado normalmente — não interfere.<br>
-              ⚠️ <strong>WA Desktop ou WA Web</strong> aberto no celular derruba esta sessão. Feche-os antes de reconectar.<br><small style="color:var(--mut)">Se Reconectar não funcionar, o WhatsApp invalidou as credenciais remotamente — use Gerar QR Code.</small>
-            </div>
-          </div>
-          <button class="btn btn-volt btn-sm" onclick="waReconectar()">⟳ Reconectar</button><button class="btn btn-ghost btn-sm" style="color:var(--red,#ef4444);border-color:var(--red,#ef4444)" onclick="waDesconectar()">Desconectar</button>`;
-        // Auto-reconnect em background: tenta restaurar sessão das credenciais em disco
-        // sem interromper o usuário. Se falhar (404), ele usa o botão Reconectar.
-        (async()=>{
-          try{
-            const phone=(S.waNumber||"").replace(/\D/g,"");
-            if(!phone)return;
-            const rr=await fetch(`${WA_ENGINE_URL}/reconnect/${phone}`,{method:"POST",headers:waAuthHeaders()});
-            if(rr.status===404)return;
-            if(rr.ok){
-              // Aguarda até 20s verificando a cada 2s
-              for(let i=0;i<10;i++){
-                await new Promise(r=>setTimeout(r,2000));
-                const rs=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:waAuthHeaders()});
-                if(!rs.ok)break;
-                const dd=await rs.json();
-                const slist=Array.isArray(dd)?dd:dd.sessions||[];
-                const myTail=(S.waNumber||"").replace(/\D/g,"").slice(-11);
-                const found=slist.find(s=>(s.phone||"").replace(/\D/g,"").slice(-11)===myTail);
-                if(found&&(found.status==="connected"||found.status==="open"||found.status==="paired")){
-                  await renderInstCard();
-                  return;
-                }
-              }
-            }
-          }catch(_){}
-        })();
-      }
+    const{data}=await SB.from("whatsapp_instances")
+      .select("id,phone,status,last_seen_at,is_primary")
+      .eq("user_id",uid)
+      .order("created_at",{ascending:true});
+    (data||[]).forEach(l=>INSTANCIAS.push(l));
+  }catch(e){console.warn("waCarregarInstancias:",e);}
+  return INSTANCIAS;
+}
+
+/* Conexão PRINCIPAL — a que o resto do painel usa via `S.waNumber` para listar
+   grupos e resolver convites, E a que o `send-post`/`group-blast` usam para
+   disparar. Por isso ela mora no BANCO (`whatsapp_instances.is_primary`, com
+   índice único parcial por usuário) e não no localStorage: o painel roda no
+   navegador e o disparo roda no servidor — guardar a escolha só no navegador
+   faria o usuário marcar um número e os posts saírem por outro, calados.
+   Fallback quando nenhuma linha está marcada (conta nova): primeira conectada,
+   e só então a primeira da lista. */
+function waPrincipal(){
+  if(!INSTANCIAS.length)return null;
+  return INSTANCIAS.find(l=>l.is_primary)
+      || INSTANCIAS.find(l=>l.status==="connected")
+      || INSTANCIAS[0];
+}
+async function waDefinirPrincipal(id){
+  const uid=CURRENT_USER?.id;
+  if(!uid)return;
+  // Duas etapas por causa do índice único parcial: zera todas antes de marcar
+  // a nova, senão a marcação bate com a principal antiga.
+  const{error:e1}=await SB.from("whatsapp_instances").update({is_primary:false}).eq("user_id",uid).eq("is_primary",true);
+  if(e1){toast("Não consegui trocar a conexão principal: "+e1.message,"❌");return;}
+  const{error:e2}=await SB.from("whatsapp_instances").update({is_primary:true}).eq("id",id);
+  if(e2){toast("Não consegui trocar a conexão principal: "+e2.message,"❌");await renderInstCard();return;}
+  await renderInstCard();
+  const p=waPrincipal();
+  toast("Conexão principal: "+(p?p.phone:"—"),"⭐");
+}
+
+/* Garante que exista UMA principal. Chamado depois de parear e depois de
+   remover: sem isso, uma conta que removeu a principal ficaria sem nenhuma e o
+   servidor voltaria a decidir sozinho pelo `created_at`. */
+async function waGarantirPrincipal(){
+  const uid=CURRENT_USER?.id;
+  if(!uid||!INSTANCIAS.length)return;
+  if(INSTANCIAS.some(l=>l.is_primary))return;
+  const alvo=INSTANCIAS.find(l=>l.status==="connected")||INSTANCIAS[0];
+  try{
+    await SB.from("whatsapp_instances").update({is_primary:true}).eq("id",alvo.id);
+    alvo.is_primary=true;
+  }catch(e){console.warn("waGarantirPrincipal:",e);}
+}
+
+/* Espelha a lista no estado global que o resto do painel já lê. Não toca no
+   pill de pareamento enquanto um QR está em andamento (waPollTimer ativo),
+   senão sobrescreve "aguardando leitura" no meio do pareamento. */
+function waSincronizarGlobal(){
+  const p=waPrincipal();
+  const conectada=INSTANCIAS.some(l=>l.status==="connected");
+  S.waConnected=conectada;
+  S.waNumber=p?p.phone:"";
+  if(waPollTimer)return;
+  try{
+    if(typeof waStatus!=="undefined"&&waStatus)waStatus.innerHTML=conectada
+      ?'<span class="pill volt"><span class="d"></span> conectado</span>'
+      :'<span class="pill gray"><span class="d"></span> aguardando</span>';
+  }catch(e){}
+}
+
+/* Contador de uso + gate do card "Parear novo número" contra o teto do plano.
+   Client-side, como todo o resto do gate de plano hoje — o enforcement
+   server-side segue na Pendência P5. */
+function waAplicarTeto(){
+  const teto=waTetoConexoes();
+  const usadas=INSTANCIAS.length;
+  const cont=document.getElementById("instCount");
+  if(cont){
+    cont.textContent=usadas+" de "+(teto>=9999?"∞":teto);
+    cont.className="pill "+(usadas>=teto?"gray":"volt");
+  }
+  const card=document.getElementById("cardParear");
+  const btn=document.getElementById("btnGenQR");
+  const aviso=document.getElementById("pareaTetoAviso");
+  const noTeto=usadas>=teto;
+  if(btn){
+    // Não briga com o cooldown de QR: enquanto ele roda, quem manda no
+    // `disabled` é o tick dele. O guard dentro do onclick é a checagem que
+    // vale de verdade.
+    if(typeof _qrCooldownTimer==="undefined"||!_qrCooldownTimer)btn.disabled=noTeto;
+    btn.style.opacity=noTeto?"0.45":"";
+    btn.title=noTeto?"Você atingiu o limite de conexões do seu plano.":"";
+  }
+  if(aviso){
+    if(noTeto){
+      let f=null;try{f=myFeatures();}catch(e){}
+      const nome=(f&&f.label)?f.label:"seu plano";
+      aviso.style.display="flex";
+      aviso.innerHTML='<span style="font-size:18px">🔒</span><span style="flex:1">Você está usando <strong>'+usadas+' de '+(teto>=9999?"∞":teto)+'</strong> conexões do plano <strong>'+nome+'</strong>. Remova uma conexão para parear outro número, ou faça upgrade.</span><button class="btn btn-gold btn-sm" onclick="go(\'assinatura\')" style="flex:none">Ver planos</button>';
+    }else{
+      aviso.style.display="none";aviso.innerHTML="";
     }
-  }catch(e){
-    // Erro de rede ao validar — NÃO derruba o card. Banco é a fonte de verdade.
-    const txt=document.getElementById("instStatusTxt");
-    const pill=document.getElementById("instPill");
-    if(txt)txt.innerHTML="Sessão salva · sem conexão com o servidor agora<br><small>O card permanece. Atualize para revalidar.</small>";
-    if(pill){pill.className="pill";pill.style.background="var(--mut)";pill.style.color="#fff";pill.innerHTML="SALVO";}
+  }
+  if(card)card.style.opacity=noTeto?"0.75":"";
+}
+
+function waCardInstancia(l,i){
+  const p=waPrincipal();
+  const ehPrincipal=p&&p.id===l.id;
+  return '<div class="prod" style="align-items:center;flex-wrap:wrap;gap:8px" data-inst="'+l.id+'">'
+    +'<div class="pimg">📱</div>'
+    +'<div style="flex:1;min-width:150px"><strong>'+l.phone+'</strong>'
+    +(ehPrincipal?' <span class="pill volt" style="font-size:9px;vertical-align:middle">★ PRINCIPAL</span>':'')
+    +'<br><small style="color:var(--mut)" id="instStatusTxt-'+i+'">Verificando conexão…</small></div>'
+    +'<span class="pill gray" id="instPill-'+i+'"><span class="d"></span> …</span>'
+    +'<div id="instActions-'+i+'" style="display:flex;gap:8px;margin-left:8px;flex-wrap:wrap"></div>'
+    +'</div>';
+}
+
+function waBotoes(l,estado){
+  const p=waPrincipal();
+  const ehPrincipal=p&&p.id===l.id;
+  const rec='<button class="btn btn-volt btn-sm" onclick="waReconectar(\''+l.phone.replace(/'/g,"")+'\')">⟳ Reconectar</button>';
+  const desc='<button class="btn btn-ghost btn-sm" style="color:#ef4444;border-color:#ef4444" onclick="waDesconectar(\''+l.id+'\')">Desconectar</button>';
+  const rem='<button class="btn btn-ghost btn-sm" style="color:var(--mut)" onclick="waRemoverInstancia(\''+l.id+'\')">🗑 Remover</button>';
+  const princ=(!ehPrincipal&&estado==="online")?'<button class="btn btn-ghost btn-sm" onclick="waDefinirPrincipal(\''+l.id+'\')">★ Tornar principal</button>':'';
+  if(estado==="online")return princ+desc;
+  if(estado==="reconectando")return desc;
+  if(estado==="offline")return rec+desc+rem;
+  if(estado==="expirado")return '<button class="btn btn-volt btn-sm" onclick="go(\'conexao\');document.getElementById(\'waNum\')&&document.getElementById(\'waNum\').focus()">📱 Novo QR</button>'+rem;
+  return desc+rem;
+}
+
+const WA_DICA_QUEDA='<div style="width:100%;margin-bottom:8px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.3);border-radius:2px;padding:10px 12px;font-size:12px;line-height:1.6;display:flex;gap:8px;align-items:flex-start">'
+  +'<span style="font-size:18px">⚠️</span><div><strong style="color:#ef4444">Sessão derrubada?</strong><br>'
+  +'✅ <strong>Celular</strong> pode ficar ligado normalmente — não interfere.<br>'
+  +'⚠️ <strong>WA Desktop ou WA Web</strong> aberto no celular derruba esta sessão. Feche-os antes de reconectar.'
+  +'<br><small style="color:var(--mut)">Se Reconectar não funcionar, o WhatsApp invalidou as credenciais remotamente — use Gerar QR Code.</small></div></div>';
+
+/* Pinta UMA instância com o que o wa-engine respondeu. `sessoes` null = não
+   deu para falar com o engine: o card NÃO cai (o banco é a fonte de verdade),
+   só avisa que não deu para revalidar agora. */
+function waPintarInstancia(l,i,sessoes){
+  const txt=document.getElementById("instStatusTxt-"+i);
+  const pill=document.getElementById("instPill-"+i);
+  const acts=document.getElementById("instActions-"+i);
+  if(!txt||!pill||!acts)return;
+  if(sessoes===null){
+    txt.innerHTML="Sessão salva · sem conexão com o servidor agora<br><small>O card permanece. Atualize para revalidar.</small>";
+    pill.className="pill";pill.style.background="var(--mut)";pill.style.color="#fff";pill.innerHTML="SALVO";
+    acts.innerHTML=waBotoes(l,"salvo");
+    return;
+  }
+  const viva=sessoes.filter(s=>s.status!=="expired"||s.phone)
+    .find(s=>waMesmoNumero(s.phone||s.jid||s.userId,l.phone));
+  const st=viva&&viva.status;
+  const online=st==="connected"||st==="open"||st==="paired";
+  if(online){
+    txt.textContent="Sessão ativa · pronto para postar";
+    pill.className="pill volt";pill.style.background="";pill.style.color="";pill.innerHTML='<span class="d"></span> ONLINE';
+    acts.innerHTML=waBotoes(l,"online");
+  }else if(st==="reconnecting"){
+    txt.textContent="Reconectando automaticamente…";
+    pill.className="pill";pill.style.background="var(--volt)";pill.style.color="#000";pill.innerHTML='⟳ RECONECTANDO';
+    acts.innerHTML=waBotoes(l,"reconectando");
+  }else if(viva){
+    txt.textContent="Sessão encontrada mas offline · tentando reconectar";
+    pill.className="pill red";pill.style.background="";pill.style.color="";pill.innerHTML='<span class="d"></span> OFFLINE';
+    acts.innerHTML=WA_DICA_QUEDA+waBotoes(l,"offline");
+  }else{
+    // Não achou a sessão no engine. Se o banco diz "connected", tenta
+    // restaurar das credenciais em disco sem incomodar o usuário.
+    txt.innerHTML="Sessão salva · verificando no servidor…<br><small>Se não reconectar sozinho, clique em Reconectar.</small>";
+    pill.className="pill";pill.style.background="var(--volt)";pill.style.color="#000";pill.innerHTML='⟳ VERIFICANDO';
+    acts.innerHTML=WA_DICA_QUEDA+waBotoes(l,"offline");
+    if(l.status==="connected")waTentarRestaurar(l);
   }
 }
 
-/* Tenta reconectar sessão perdida via endpoint /reconnect/:phone */
-async function waReconectar(){
-  // Se S.waNumber não estiver preenchido, tenta buscar do banco
-  let phone=(S.waNumber||"").replace(/\D/g,"");
-  if(!phone){
-    try{
-      const uid=CURRENT_USER?.id;
-      if(uid){
-        const{data}=await SB.from("whatsapp_instances").select("phone").eq("user_id",uid).eq("status","connected").order("last_seen_at",{ascending:false}).limit(1).maybeSingle();
-        if(data?.phone){phone=data.phone.replace(/\D/g,"");S.waNumber=data.phone;}
+async function waTentarRestaurar(l){
+  try{
+    const phone=waDigits(l.phone);
+    if(!phone)return;
+    const rr=await fetch(`${WA_ENGINE_URL}/reconnect/${phone}`,{method:"POST",headers:waAuthHeaders()});
+    if(!rr.ok)return; // 404 = credenciais não existem mais no disco: precisa de QR
+    for(let i=0;i<10;i++){
+      await new Promise(r=>setTimeout(r,2000));
+      const rs=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:waAuthHeaders()});
+      if(!rs.ok)break;
+      const dd=await rs.json();
+      const slist=Array.isArray(dd)?dd:dd.sessions||[];
+      const found=slist.find(s=>waMesmoNumero(s.phone,l.phone));
+      if(found&&(found.status==="connected"||found.status==="open"||found.status==="paired")){
+        await renderInstCard();
+        return;
       }
-    }catch(_){}
+    }
+  }catch(_){}
+}
+
+/* Renderiza a lista de conexões na aba Conexão WhatsApp. Uma única chamada a
+   GET /sessions serve todas as instâncias — antes era uma por card porque só
+   havia um card. */
+async function renderInstCard(){
+  const card=document.getElementById("instCard");
+  const lista=document.getElementById("instList");
+  const linhas=await waCarregarInstancias();
+  waSincronizarGlobal();
+  waAplicarTeto();
+  if(!card||!lista)return;
+  if(!linhas.length){card.style.display="none";return;}
+  card.style.display="block";
+  lista.innerHTML=linhas.map((l,i)=>waCardInstancia(l,i)).join("");
+  let sessoes=null;
+  try{
+    const r=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:waAuthHeaders()});
+    if(r.ok){const d=await r.json();sessoes=Array.isArray(d)?d:(d.sessions||[]);}
+  }catch(e){/* sessoes fica null — ver waPintarInstancia */}
+  linhas.forEach((l,i)=>waPintarInstancia(l,i,sessoes));
+}
+
+/* Reconecta UMA sessão pelo telefone. Sem argumento, usa a principal — é como
+   os chamadores antigos (wireWaGrupos) ainda chamam. */
+async function waReconectar(phoneArg){
+  let phone=waDigits(phoneArg||S.waNumber);
+  if(!phone){
+    const p=waPrincipal();
+    if(p)phone=waDigits(p.phone);
   }
   if(!phone){toast("Número não encontrado. Conecte o WhatsApp primeiro.","⚠️");return;}
-  const txt=document.getElementById("instStatusTxt");
-  const pill=document.getElementById("instPill");
-  if(txt)txt.textContent="Reconectando… aguarde";
-  if(pill){pill.className="pill";pill.style.background="var(--volt)";pill.style.color="#000";pill.innerHTML='⟳ RECONECTANDO';}
+  toast("Reconectando "+phone+"…","⟳");
   try{
     const r=await fetch(`${WA_ENGINE_URL}/reconnect/${phone}`,{method:"POST",headers:waAuthHeaders()});
-    const d=await r.json().catch(()=>({}));
     if(r.ok){
-      toast("Reconexão iniciada! Aguardando confirmação…","⟳");
-      // Polling até 20s verificando a cada 2s
-      const myTail=phone.slice(-11);
       for(let i=0;i<10;i++){
-        await new Promise(r=>setTimeout(r,2000));
+        await new Promise(r2=>setTimeout(r2,2000));
         try{
           const rs=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:waAuthHeaders()});
           if(!rs.ok)continue;
           const dd=await rs.json();
           const slist=Array.isArray(dd)?dd:dd.sessions||[];
-          const found=slist.find(s=>(s.phone||"").replace(/\D/g,"").slice(-11)===myTail);
+          const found=slist.find(s=>waMesmoNumero(s.phone,phone));
           if(found&&(found.status==="connected"||found.status==="open"||found.status==="paired")){
             toast("✅ WhatsApp reconectado!","🟢");
             await renderInstCard();
@@ -4875,55 +5013,73 @@ async function waReconectar(){
           }
         }catch(_){}
       }
-      // Após 20s ainda não confirmou — mostra status atual sem derrubar
       await renderInstCard();
     }else{
-      // 404 = credenciais não existem no disco da wa-engine — precisa novo QR
-      // Mas NÃO derruba o estado — apenas informa o usuário
-      toast("Credenciais expiradas. Use Gerar QR Code para reconectar.","⚠️");
-      const txt2=document.getElementById("instStatusTxt");
-      const pill2=document.getElementById("instPill");
-      const acts=document.getElementById("instActions");
-      if(txt2)txt2.textContent="Credenciais expiradas · necessário novo QR Code";
-      if(pill2){pill2.className="pill red";pill2.innerHTML='<span class="d"></span> EXPIRADO';}
-      if(acts)acts.innerHTML=`
-        <button class="btn btn-volt btn-sm" onclick="go('conexao')">📱 Gerar QR Code</button>
-        <button class="btn btn-ghost btn-sm" style="color:var(--red,#ef4444);border-color:var(--red,#ef4444)" onclick="waDesconectar()">Desconectar</button>`;
+      // 404 = credenciais não existem no disco da wa-engine — precisa novo QR.
+      // NÃO derruba a linha do banco: quem decide desconectar é o usuário.
+      toast("Credenciais expiradas. Use Gerar QR Code para reconectar este número.","⚠️");
+      await renderInstCard();
     }
   }catch(e){
     toast("Erro ao reconectar: "+e.message,"❌");
-    if(txt)txt.textContent="Falha na reconexão: "+e.message;
   }
 }
 
-async function waDesconectar(){
-  if(!confirm("Desconectar o WhatsApp? Você precisará escanear o QR novamente para postar."))return;
-  // Desconecta na wa-engine
+/* Desconecta UMA instância. Recebe o id da linha; sem id, cai na principal —
+   antes disto a função fazia `.eq("user_id",uid)` sem id e derrubava TODAS as
+   conexões do usuário de uma vez, o que com N números seria destrutivo. */
+async function waDesconectar(instId){
+  const alvo=INSTANCIAS.find(l=>l.id===instId)||waPrincipal();
+  if(!alvo){toast("Nenhuma conexão para desconectar.","⚠️");return;}
+  if(!confirm("Desconectar o número "+alvo.phone+"? Você precisará escanear o QR novamente para postar por ele."))return;
   try{
     const r=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:waAuthHeaders()});
     if(r.ok){
       const d=await r.json();
       const sessions=Array.isArray(d)?d:d.sessions||[];
-      const myDigits=S.waNumber.replace(/\D/g,"");
       for(const s of sessions){
-        const sPhone=(s.phone||s.jid||"").replace(/\D/g,"");
-        if(sPhone.includes(myDigits)&&s.sessionId){
+        if(s.sessionId&&waMesmoNumero(s.phone||s.jid,alvo.phone)){
           await fetch(`${WA_ENGINE_URL}/disconnect/${s.sessionId}`,{method:"POST",headers:waAuthHeaders()}).catch(()=>{});
         }
       }
     }
   }catch(e){console.warn("Erro ao desconectar na wa-engine:",e);}
-  // Atualiza banco
-  const uid=CURRENT_USER?.id;
-  if(uid){
-    await SB.from("whatsapp_instances").update({status:"disconnected"}).eq("user_id",uid);
-  }
-  S.waConnected=false;S.waNumber="";INSTANCIAS.length=0;
-  instCard.style.display="none";
-  waStatus.innerHTML='<span class="pill gray"><span class="d"></span> aguardando</span>';
-  qrMsg.innerHTML='<p style="color:var(--mut);padding:40px 10px">Preencha o número e clique em <strong>Gerar QR Code</strong> para iniciar o pareamento.</p>';
-  qrMsg.style.display="block";qrbox.style.display="none";
-  renderOnb();toast("WhatsApp desconectado.","🔌");
+  try{
+    await SB.from("whatsapp_instances").update({status:"disconnected"}).eq("id",alvo.id);
+  }catch(e){console.warn("Erro ao marcar desconectada:",e);}
+  await renderInstCard();
+  renderOnb();
+  toast(alvo.phone+" desconectado.","🔌");
+}
+
+/* Remove a linha de vez, liberando a vaga do plano. Só faz sentido para uma
+   conexão já desconectada — com ela conectada, desconecta antes. O FK de
+   `whatsapp_channels.instance_id` é ON DELETE SET NULL, então canais
+   vinculados não somem junto. */
+async function waRemoverInstancia(instId){
+  const alvo=INSTANCIAS.find(l=>l.id===instId);
+  if(!alvo)return;
+  if(!confirm("Remover "+alvo.phone+" da sua lista de conexões? Isso libera uma vaga do seu plano. O número pode ser pareado de novo depois."))return;
+  try{
+    const r=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:waAuthHeaders()});
+    if(r.ok){
+      const d=await r.json();
+      const sessions=Array.isArray(d)?d:d.sessions||[];
+      for(const s of sessions){
+        if(s.sessionId&&waMesmoNumero(s.phone||s.jid,alvo.phone)){
+          await fetch(`${WA_ENGINE_URL}/disconnect/${s.sessionId}`,{method:"POST",headers:waAuthHeaders()}).catch(()=>{});
+        }
+      }
+    }
+  }catch(e){console.warn("Erro ao desconectar antes de remover:",e);}
+  const{error}=await SB.from("whatsapp_instances").delete().eq("id",alvo.id);
+  if(error){toast("Não consegui remover: "+error.message,"❌");return;}
+  // Removeu a principal: promove outra na hora, senão o disparo fica sem dono.
+  await waCarregarInstancias();
+  await waGarantirPrincipal();
+  await renderInstCard();
+  renderOnb();
+  toast(alvo.phone+" removido.","🗑");
 }
 function qrmsg_show(){qrMsg.style.display="block";}
 
@@ -4995,6 +5151,18 @@ function _qrCooldownCheck(){
 _qrCooldownCheck();
 btnGenQR.onclick=async()=>{
   const num=waNum.value.trim();if(!num){toast("Informe o número.","⚠️");return;}
+  // Teto de conexões do plano (`plan_features.wa_connections`). Client-side,
+  // como todo o gate de plano hoje — o enforcement server-side é a P5.
+  // Relê a lista antes de decidir: outra aba pode ter pareado ou removido.
+  await waCarregarInstancias();
+  const teto=waTetoConexoes();
+  const jaTem=INSTANCIAS.some(l=>waMesmoNumero(l.phone,num));
+  if(!jaTem&&INSTANCIAS.length>=teto){
+    waAplicarTeto();
+    let f=null;try{f=myFeatures();}catch(e){}
+    toast("Seu plano "+((f&&f.label)||"")+" permite "+teto+" conexão"+(teto>1?"ões":"")+". Remova uma para parear outro número.","🔒");
+    return;
+  }
   S.waNumber="+55 "+waDDD.value+" "+num;
   waPararPolling(); // cancela qualquer pareamento anterior em andamento
   qrMsg.style.display="block";qrbox.style.display="none";
@@ -11234,16 +11402,11 @@ async function enterApp(profile){
   // carrega dados persistidos do usuário
   await loadGroups();await loadCreds();await loadCoupons();renderLojas();prRenderLojas();carregarScrapeDoStatus();
   try{renderCupons();cupomRenderLista();}catch(e){}
-  // restaura instância WA do banco
-  const uid=profile.id||CURRENT_USER?.id;
-  if(uid){
-    const{data:instData}=await SB.from("whatsapp_instances").select("phone,status").eq("user_id",uid).eq("status","connected").order("last_seen_at",{ascending:false}).limit(1).maybeSingle();
-    if(instData?.phone){S.waConnected=true;S.waNumber=instData.phone;
-      INSTANCIAS.length=0;INSTANCIAS.push({phone:instData.phone,status:"connected"});
-      if(typeof waStatus!=="undefined")waStatus.innerHTML='<span class="pill volt"><span class="d"></span> conectado</span>';
-      await renderInstCard().catch(e=>console.warn("renderInstCard:",e));
-    }
-  }
+  // restaura as instâncias WA do banco.
+  // Era um `.limit(1).maybeSingle()` que trazia UMA conexão e mandava direto
+  // pro `S.waNumber`; com multi-conexão quem lê a lista inteira, escolhe a
+  // principal e espelha no estado global é o próprio `renderInstCard`.
+  try{await renderInstCard();}catch(e){console.warn("renderInstCard:",e);}
   // Faixa de queda do WhatsApp: some sozinha quando a sessao volta.
   waQuedaIniciar();
   // aplica o limite real de grupos do plano
@@ -11418,17 +11581,23 @@ function applyPlanGating(){
   // Atualiza o pill de contagem
   if(typeof renderGrupos==="function")try{renderGrupos();}catch(e){}
 
-  /* ── 2. CONEXÕES WhatsApp ── */
+  /* ── 2. CONEXÕES WhatsApp ──
+     Até a REVISÃO 119 este bloco era CÓDIGO MORTO: a única condição era
+     `maxConn < 1`, e o menor `wa_connections` da tabela `plan_features` é 1 —
+     nunca entrava. Não havia teto, não havia contagem, e não havia como
+     adicionar um segundo número: a tela era mono-sessão por construção.
+     Agora o teto é aplicado de verdade em `waAplicarTeto()`, que desenha o
+     contador "N de M" e trava o botão de QR quando a cota acabou. */
   const maxConn = f.wa_connections===-1?9999:f.wa_connections;
   const connPage = document.getElementById("page-conexao");
   if(connPage){
-    const connCb = connPage.querySelector(".cb")||connPage;
     if(maxConn<1){
       showUpgradeBanner(connPage,"Seu plano não inclui conexão WhatsApp. Faça upgrade para parear um número.");
       gateBtn(document.getElementById("btnGenQR"),false,"Faça upgrade para conectar WhatsApp.");
     } else {
       removeGateBanner(connPage);
       gateBtn(document.getElementById("btnGenQR"),true);
+      try{waAplicarTeto();}catch(e){}
     }
   }
 

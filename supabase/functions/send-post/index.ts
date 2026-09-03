@@ -1,4 +1,35 @@
-// Mega Links BR · Edge Function "send-post" v23
+// Mega Links BR · Edge Function "send-post" v25
+// v25: MULTI-CONEXAO WhatsApp. A busca da instancia era
+//      `.eq("status","connected").maybeSingle()` SEM limite: com DUAS
+//      instancias conectadas o PostgREST devolve 406/PGRST116 ("Cannot coerce
+//      the result to a single JSON object" — medido em 03/09 contra o
+//      PostgREST deste projeto), `instance` vinha null e o grupo inteiro
+//      falhava com "nenhuma instancia conectada" na cara de quem tinha duas.
+//      Era a trava que impedia o teto `plan_features.wa_connections` (Elite 3,
+//      Premium 10) de valer na pratica. Agora dispara a conexao PRINCIPAL
+//      (`whatsapp_instances.is_primary`, uma por usuario garantida por indice
+//      unico parcial), com `created_at` como desempate. O roteamento POR
+//      DESTINO (qual numero para qual grupo) e a fatia 2.
+// v24: P125 -- rodada que NAO enviou nada parava de tentar por um intervalo
+//      inteiro. Medido em 02/09 (REVISAO 121): o wa-engine devolveu 404 de
+//      sessao por alguns segundos as 14:50 UTC, o post falhou, e como o
+//      `last_post_at` era carimbado igual, o gate de intervalo segurou o grupo
+//      ate 15:05 -- 15 minutos de silencio por um blip de segundos. A sessao
+//      ja estava de pe as 14:53 (outro grupo postou por ela).
+//      Duas coisas mudam, so no caso `groupSent === 0 && groupFailed > 0`:
+//        (a) o cursor NAO avanca -- o produto que nao saiu e o proximo a tentar,
+//            em vez de ser pulado (ate a v23 uma falha consumia o produto);
+//        (b) o `last_post_at` e carimbado PARA TRAS, de modo que o proximo
+//            disparo caia em RETRY_GAP_MIN minutos em vez de um intervalo cheio.
+//      ⚠️ Com TRAVA DE 3 TENTATIVAS, e ela e o ponto do desenho: sem trava, um
+//      grupo permanentemente quebrado (sessao nao pareada, grupo sem group_jid,
+//      credencial faltando) passaria a tentar a cada RETRY_GAP_MIN PARA SEMPRE,
+//      enchendo `scheduled_posts` de linhas `failed` e martelando o wa-engine.
+//      Entao contamos as falhas consecutivas do grupo (consulta feita SO quando
+//      a rodada falhou) e, da 3a em diante, a rodada volta a se comportar como
+//      na v23: cursor avanca e o intervalo cheio vale. Blip curto = recuperacao
+//      rapida; defeito de configuracao = mesmo ritmo de antes.
+//      Nao mexe em nada do envio, da selecao de produto nem do delete_after_post.
 // v23: TRES mudancas pedidas pelo Erico em 02/09, todas sobre ORDEM e RITMO do
 //      rodizio automatico. Nenhuma toca o envio em si.
 //
@@ -126,6 +157,14 @@ const SHORT_DOMAIN = "https://megalinksbr.com.br";
 // v16: o wa-engine baixa a imagem do produto antes de enviar pelo Baileys.
 // Imagem grande ou CDN lenta estoura 10s com facilidade.
 const ENGINE_TIMEOUT_MS = 20000;
+
+// v24 (P125): quando a rodada falha em TODOS os canais, o proximo disparo deste
+// grupo e antecipado para daqui a RETRY_GAP_MIN minutos em vez de esperar o
+// intervalo configurado. RETRY_STRIKES limita quantas rodadas seguidas ganham
+// essa pressa: a partir dela o grupo volta ao intervalo normal, para que
+// defeito permanente nao vire marretada de 3 em 3 minutos.
+const RETRY_GAP_MIN = 3;
+const RETRY_STRIKES = 3;
 
 const LOJAS_QUE_EXIGEM_CREDENCIAL = new Set([
   "shopee", "amazon", "mercado_livre", "aliexpress",
@@ -433,6 +472,7 @@ Deno.serve(async (req: Request) => {
   let totalSent = 0, totalFailed = 0, totalSkipped = 0, totalBlocked = 0;
   let totalExpirados = 0, totalAgendados = 0, totalVencidos = 0;
   let totalRepetidos = 0; // v23: pulos por "Nao repetir produto"
+  let totalRetentativas = 0; // v24: rodadas que falharam e ganharam retry rapido
   const instanciasDerrubadas: string[] = [];
 
   for (const group of groups) {
@@ -620,7 +660,22 @@ Deno.serve(async (req: Request) => {
     const falhas: string[] = [];
 
     if (ENGINE_URL) {
-      const { data: instance } = await sb.from("whatsapp_instances").select("id, phone").eq("user_id", group.user_id).eq("status", "connected").maybeSingle();
+      // MULTI-CONEXÃO (03/09). Até aqui isto era `.maybeSingle()` sem limite:
+      // com DUAS instâncias conectadas o PostgREST não devolve a primeira, ele
+      // devolve ERRO (PGRST116) — `instance` vinha null e o disparo do usuário
+      // parava inteiro, com "nenhuma instância conectada" na cara de quem tinha
+      // duas. Era a trava real que impedia o plano de valer.
+      // Quem dispara é a conexão PRINCIPAL (`is_primary`, uma por usuário por
+      // índice único parcial); `created_at` desempata quando nenhuma está
+      // marcada. O roteamento POR DESTINO é a fatia 2.
+      const { data: instance } = await sb.from("whatsapp_instances")
+        .select("id, phone")
+        .eq("user_id", group.user_id)
+        .eq("status", "connected")
+        .order("is_primary", { ascending: false })
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
       if (!instance) {
         falhas.push("WhatsApp: nenhuma instância conectada — repareie o aparelho");
         groupFailed++;
@@ -696,7 +751,45 @@ Deno.serve(async (req: Request) => {
       : null;
 
     await sb.from("scheduled_posts").insert({ user_id:group.user_id, group_id:group.id, product_id:product.id, status:groupSent>0?"sent":"failed", scheduled_for:now.toISOString(), sent_at:groupSent>0?now.toISOString():null, is_manual:false, error:erroDetalhado });
-    await sb.from("niche_groups").update({ cursor_index:nextCursor, last_post_at:now.toISOString() }).eq("id", group.id);
+
+    // ── v24 (P125): rodada que nao enviou nada nao consome o intervalo ───────
+    // A linha `failed` acima ja esta gravada, entao ela entra na contagem de
+    // falhas consecutivas -- por isso o corte e `< RETRY_STRIKES` e nao `<=`.
+    // A consulta so acontece quando a rodada falhou, que e o caso raro.
+    const falhouTudo = groupSent === 0 && groupFailed > 0;
+    let cursorFinal = nextCursor;
+    let carimbo = now.toISOString();
+    if (falhouTudo) {
+      let consecutivas = 1;
+      try {
+        const { data: ultimas } = await sb.from("scheduled_posts")
+          .select("status").eq("group_id", group.id).eq("is_manual", false)
+          .order("created_at", { ascending: false }).limit(RETRY_STRIKES + 1);
+        consecutivas = 0;
+        for (const r of ultimas ?? []) { if (r?.status === "failed") consecutivas++; else break; }
+      } catch (e) {
+        // Sem a contagem nao da pra decidir com seguranca: cai no comportamento
+        // da v23 (intervalo cheio), que e o conservador.
+        console.warn(`[P125] nao consegui contar falhas do grupo=${group.id}: ${e instanceof Error ? e.message : String(e)}`);
+        consecutivas = RETRY_STRIKES;
+      }
+      if (consecutivas < RETRY_STRIKES) {
+        // Produto que nao saiu continua sendo o proximo da fila.
+        cursorFinal = group.cursor_index ?? 0;
+        // Carimbo para tras: o gate `Date.now() - lastPost < intervalMs` volta a
+        // liberar em RETRY_GAP_MIN minutos. Nunca para a FRENTE -- se o
+        // intervalo for menor que RETRY_GAP_MIN, o recuo e zero e o
+        // comportamento e o de sempre.
+        const intervalMs = (group.interval_minutes ?? 10) * 60 * 1000;
+        const recuo = Math.max(0, intervalMs - RETRY_GAP_MIN * 60 * 1000);
+        carimbo = new Date(now.getTime() - recuo).toISOString();
+        totalRetentativas++;
+        console.log(`[P125] grupo=${group.id} falhou (${consecutivas}/${RETRY_STRIKES}) — cursor mantido em ${cursorFinal}, nova tentativa em ~${RETRY_GAP_MIN} min`);
+      } else {
+        console.log(`[P125] grupo=${group.id} ja falhou ${consecutivas}x seguidas — voltando ao intervalo normal`);
+      }
+    }
+    await sb.from("niche_groups").update({ cursor_index:cursorFinal, last_post_at:carimbo }).eq("id", group.id);
     // v22: "Excluir automaticamente após postar" (niche_groups.delete_after_post).
     // So apaga em post que de fato saiu (groupSent>0) -- falha em todos os canais
     // nao consome o produto. product_id em scheduled_posts e clone_posts e
@@ -712,5 +805,5 @@ Deno.serve(async (req: Request) => {
     totalSent += groupSent; totalFailed += groupFailed;
   }
 
-  return new Response(JSON.stringify({ groups:groups.length, sent:totalSent, failed:totalFailed, skipped:totalSkipped, blocked:totalBlocked, pulados_expirados:totalExpirados, pulados_agendados:totalAgendados, pulados_vencidos:totalVencidos, pulados_repetidos:totalRepetidos, instancias_derrubadas:instanciasDerrubadas }), { headers:{"content-type":"application/json"} });
+  return new Response(JSON.stringify({ groups:groups.length, sent:totalSent, failed:totalFailed, skipped:totalSkipped, blocked:totalBlocked, pulados_expirados:totalExpirados, pulados_agendados:totalAgendados, pulados_vencidos:totalVencidos, pulados_repetidos:totalRepetidos, retry_rapido:totalRetentativas, instancias_derrubadas:instanciasDerrubadas }), { headers:{"content-type":"application/json"} });
 });

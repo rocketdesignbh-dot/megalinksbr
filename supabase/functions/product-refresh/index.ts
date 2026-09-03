@@ -505,8 +505,16 @@ async function avisarDona(
 
   if (!admin?.phone) return (await porEmail()) === 'email' ? 'email_sem_admin_wa' : 'sem_canal';
 
+  // MULTI-CONEXÃO (03/09). Este `.maybeSingle()` sem filtro nem limite JÁ
+  // estava quebrado antes da fatia 1: as duas contas que tinham 2 linhas
+  // (uma conectada + uma antiga desconectada) tomavam PGRST116 aqui, `inst`
+  // vinha null e o aviso de produto fora do ar caía calado no telefone do
+  // perfil. Agora escolhe a conexão principal conectada, com fallback igual.
   const { data: inst } = await SB.from('whatsapp_instances')
-    .select('phone').eq('user_id', dono.id).maybeSingle();
+    .select('phone').eq('user_id', dono.id).eq('status', 'connected')
+    .order('is_primary', { ascending: false })
+    .order('created_at', { ascending: true })
+    .limit(1).maybeSingle();
   const destino = normalizarBR(inst?.phone ?? '') ?? normalizarBR(dono.phone ?? '');
 
   if (!destino) return (await porEmail()) === 'email' ? 'email_sem_telefone' : 'sem_canal';

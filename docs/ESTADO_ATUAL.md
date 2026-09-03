@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 124 — 02/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 125 — 03/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,142 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 125 — 03/09/2026 — MULTI-CONEXÃO WhatsApp, FATIA 1. Pergunta do Érico
+("não estamos seguindo o Plano de Assinaturas? não vejo opção de parear mais
+números") virou achado grande: o teto era vendido e não existia. CODADO,
+MIGRATIONS APLICADAS EM PRODUÇÃO, PROVADO EM BANCADA — NÃO DEPLOYADO.**
+
+### O achado — o recurso era vendido e não existia
+
+`plan_features.wa_connections` vale **Starter 1, Pro 1, Elite 3, Premium 10** e
+é mostrado ao cliente em DOIS lugares do `index.html`: a linha `"✅ N Conexões
+WhatsApp"` nos cards de plano (~7143) e a linha **"Conexões WhatsApp"** na
+tabela comparativa (~7226). Só que:
+
+- a tela `/conexao` era **mono-sessão por construção, não por bloqueio**: um
+  único `#instCard`, `S.waNumber` como **string**, e `waDesconectar()` fazendo
+  `.eq("user_id", uid)` **sem `id`** — derrubava TODAS as linhas do usuário de
+  uma vez. Não havia botão de "adicionar número";
+- o gate de plano (`applyPlanGating`, bloco 2C) era **código morto**: a única
+  condição era `maxConn < 1`, e o menor `wa_connections` da tabela é 1.
+
+Ou seja: Elite e Premium estavam **subentregues**. Não era falta de enforcement
+(P5) — era falta do recurso.
+
+### O que NÃO precisou mudar (medido antes de escrever código)
+
+- **`wa-engine`: nenhuma alteração.** O `SESSIONS` Map é por `sessionId` e a
+  deduplicação é **por telefone, não por usuário**; o `donoAutorizado()` já
+  autoriza contra TODOS os telefones que o usuário enxerga em
+  `whatsapp_instances`. Um usuário com 3 linhas já operava 3 sessões.
+- **`whatsapp_instances` já aceitava N linhas por usuário**: `UNIQUE (user_id,
+  phone)` e RLS `owner_all`. Nunca foi o banco que travava.
+
+### A trava real — e ela foi MEDIDA, não deduzida
+
+`send-post`, `group-blast` e `product-refresh` buscavam a instância com
+`.maybeSingle()` **sem limite**. Com duas linhas conectadas o PostgREST **não
+devolve a primeira: devolve erro**. Medido em 03/09 contra o PostgREST deste
+projeto (`Accept: application/vnd.pgrst.object+json` em `plan_features`, 4
+linhas):
+
+| Chamada | Resposta |
+|---|---|
+| sem `limit` (= `.maybeSingle()`) | **HTTP 406**, `PGRST116` — *"Cannot coerce the result to a single JSON object"*, `details: "The result contains 4 rows"` |
+| com `&limit=1` (o conserto) | **HTTP 200**, um objeto |
+
+Consequência: no dia em que o segundo número pareasse, **o disparo do usuário
+pararia inteiro**, com "nenhuma instância conectada" na tela de quem tinha duas.
+No `product-refresh` isso **já estava acontecendo**: as duas contas com 2 linhas
+(uma conectada + uma antiga desconectada) tomavam PGRST116 e o aviso de produto
+fora do ar caía calado no telefone do perfil.
+
+### O que mudou
+
+**Banco — 2 migrations aplicadas em produção:**
+
+- `20260903020450_multi_conexao_wa_instancia_principal` — coluna
+  `whatsapp_instances.is_primary boolean not null default false` + índice único
+  **parcial** `(user_id) where is_primary` (no máximo uma principal por conta).
+- `20260903020512_multi_conexao_wa_corrige_backfill_principal` — ⚠️ **o backfill
+  da primeira estava errado.** "A mais antiga" elegeu, em DUAS contas (a do
+  Érico inclusive), uma linha **desconectada de junho** como principal, enquanto
+  a conexão que está no ar (pareada em agosto) ficava secundária. Critério
+  corrigido para **conectada primeiro, mais antiga como desempate**. Conferido
+  linha a linha depois: `+553175356865` (Érico) e `+553175353203` são as
+  principais das suas contas, ambas `connected`.
+
+Por que a escolha mora no **banco** e não no `localStorage`: o painel roda no
+navegador e o `send-post`/`group-blast` rodam no servidor. Guardar a principal
+só no navegador faria o usuário marcar um número e os posts saírem por outro,
+**em silêncio**.
+
+**Edge Functions (3):**
+
+- `send-post` **v25** — instância escolhida por `is_primary desc, created_at
+  asc, limit 1`.
+- `group-blast` — mesmo conserto.
+- `product-refresh` — mesmo conserto, mais o filtro `status = 'connected'` que
+  faltava.
+
+**Frontend (`frontend/index.html`) — a tela `/conexao` virou lista:**
+
+- `renderInstCard()` relê `whatsapp_instances` do banco e desenha **uma linha
+  por conexão**, com ids por índice (`instPill-N` etc.). **Uma única** chamada a
+  `GET /sessions` serve todas as linhas — antes era uma por card porque só havia
+  um card.
+- **Desconectar é por linha** (`.eq("id", ...)`), e desconecta no engine só a
+  `sessionId` daquele número.
+- **Remover** (novo) apaga a linha e libera a vaga do plano.
+  `whatsapp_channels.instance_id` é `ON DELETE SET NULL`, então canal vinculado
+  não some junto.
+- **★ Tornar principal** grava no banco em duas etapas (zera todas, marca a
+  nova) por causa do índice único parcial.
+- **Contador "N de M"** no cabeçalho e **gate real**: com a cota cheia, o botão
+  Gerar QR fica desabilitado e aparece o aviso com "Ver planos". O `btnGenQR`
+  ainda relê a lista antes de decidir (outra aba pode ter pareado).
+- `waMostraConectado()` virou `async` e **aguarda** o upsert: com a lista vindo
+  do banco, disparar upsert e render em paralelo faria o número recém-pareado
+  não aparecer.
+
+### Como foi provado — bancada com jsdom, 40 asserções, 0 falhas
+
+O bloco novo foi **executado de verdade** (`node:vm` + jsdom) com `SB` e `fetch`
+instrumentados, em 9 cenários:
+
+| Cenário | O que provou |
+|---|---|
+| Elite, 1 conexão | card visível, "1 de 3", botão liberado, ONLINE, `S.waConnected`/`S.waNumber` corretos |
+| Elite, 3 conexões | 3 linhas, "3 de 3", **botão bloqueado**, aviso citando "Elite", ★ PRINCIPAL em exatamente uma |
+| Starter, 1 conexão | "1 de 1", botão bloqueado, aviso citando "Starter" |
+| Desconectar uma | i2 vira `disconnected`, **i1 continua `connected`**, `update` filtrou por `id` e não por `user_id`, engine recebeu `/disconnect/s2` e **não** `/disconnect/s1` |
+| Trocar principal | grava no banco, exatamente uma principal, zera antes de marcar, `S.waNumber` segue |
+| Remover a principal | linha some e **outra é promovida** |
+| Engine fora do ar | cards **não caem**, pill "SALVO" |
+| 9º dígito | engine `553198979069` casa com banco `+55 31 99897-9069` → ONLINE |
+| Zero conexões | card escondido, "0 de 1", botão liberado |
+
+### ⚠️ ACHADO DE LADO, E É SÉRIO: o repo estava ATRÁS da produção
+
+Ao editar o `send-post` descobri que **o repo tinha v23 e a produção tinha v24**
+(deploy 58, `RETRY_STRIKES` ausente do arquivo do repo). A REVISÃO 124 deployou
+a v24 e **não pushou**. Se esta sessão tivesse pushado em cima do v23, um
+redeploy pelo repo teria **apagado a lógica de retry da P125**.
+
+Corrigido: o `index.ts` do repo foi reconstruído a partir do **código lido com
+`get_edge_function` (deploy 58)** e só então recebeu a mudança de multi-conexão.
+O arquivo no repo agora é v24 + multi-conexão = **v25**. Virou a **P128**.
+
+### O que falta (nada disto está no ar)
+
+1. Commit + push (esta sessão **não tinha PAT**).
+2. Deploy do `app` no EasyPanel — ⚠️ reinicia o WhatsApp de produção (P16).
+3. Deploy das 3 Edge Functions.
+4. Medir no painel logado: parear um **segundo** número numa conta Elite,
+   conferir "2 de 3", desconectar só um, e confirmar que o outro sobrevive.
+
+---
 
 **REVISÃO 124 — 02/09/2026, noite — P125 FECHADA. `send-post` v24 (deploy 58)
 DEPLOYADO E MEDIDO EM PRODUÇÃO com um grupo de teste descartável, criado e
@@ -8448,6 +8584,9 @@ antigos; hoje é **Premium**).
 | Grupos | 1 | 3 | 8 | 20 |
 | Produtos | 15 | 50 | 150 | 300 |
 | Fontes de clone (`clone_sources_max`) | 0 | 1 | 3 | 10 |
+| **Conexões WhatsApp** (`wa_connections`) | **1** | **1** | **3** | **10** |
+| Canais WhatsApp (`wa_channels`) | 2 | 6 | 20 | 50 |
+| Canais Telegram (`tg_channels`) | 1 | 4 | 12 | 30 |
 | Marketplaces (Radar / Postar Agora) | todos | todos | todos | todos |
 | Post Automático | só Shopee | todos | todos | todos |
 
@@ -8455,13 +8594,23 @@ antigos; hoje é **Premium**).
 - Limites vivem em `plan_features`, espelhados no `PLAN_FALLBACK` das **duas** cópias
   do `index.html`.
 - Enforcement server-side **ainda incompleto**: canais WhatsApp/Telegram e grupos WA
-  seguem só client-side (ver Pendência P5).
+  seguem só client-side (ver Pendência P5). **Conexões WhatsApp** também: o teto
+  é aplicado no navegador desde a REVISÃO 125, não no servidor.
+- ⚠️ Até a REVISÃO 125 as três últimas linhas desta tabela **não existiam aqui**,
+  e foi por isso que ninguém notou que `wa_connections` era vendido (cards de
+  plano e tabela comparativa do painel) sem existir na aplicação. Ao mexer em
+  `plan_features`, conferir contra ESTA tabela e contra o `PLAN_FALLBACK`.
 
 ---
 
 ## Componentes — estado
 
-### Post Automático — `send-post` v23 (02/09, REVISÃO 119) — deploy 57, NO AR
+### Post Automático — `send-post` v24 (deploy 58) NO AR · **v25 no repo, NÃO deployada**
+
+> ⚠️ **Este cabeçalho estava desatualizado até a REVISÃO 125** (dizia "v23,
+> deploy 57"). No ar está a **v24** (P125, REVISÃO 124). No repo está a **v25**
+> (v24 + multi-conexão da REVISÃO 125), ainda sem deploy. Ver **P128** — o repo
+> chegou a ficar atrás da produção.
 
 - **Ordem: sempre a de cadastro** (`products.position` + `cursor_index`). Não
   existe mais sorteio na seleção — o `Math.random()` saiu na v23, e com ele o
@@ -8821,6 +8970,19 @@ código não relacionado.
 - `index.ts` **e** `deno.json` precisam estar no array `files` do deploy.
 - **Nunca usar `pause_project`** — não restaura sozinho de forma confiável.
 
+### Conexão WhatsApp — `/conexao` (REVISÃO 125) — CODADA, NÃO DEPLOYADA
+
+- **Multi-conexão (fatia 1).** Lista com uma linha por instância; adicionar,
+  reconectar, desconectar e **remover** são todos por linha. Teto do plano
+  (`wa_connections`) aplicado com contador "N de M" — client-side.
+- **Conexão principal** = `whatsapp_instances.is_primary` (índice único parcial
+  por usuário). É ela que o `S.waNumber` espelha, que lista grupos, e **que o
+  `send-post`/`group-blast` usam para disparar**.
+- **Roteamento por destino é a FATIA 2 e não existe ainda** (P127):
+  `whatsapp_channels.instance_id` já existe no banco e segue **nulo**;
+  `whatsapp_groups` **não tem** a coluna. Hoje todos os destinos de todos os
+  grupos saem pela mesma conexão — a principal.
+
 ### WhatsApp
 
 **Nunca alterar estado de conexão por conta própria.** Só o Érico decide desconectar.
@@ -8831,6 +8993,9 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P128** | 🔴 **O REPO FICOU ATRÁS DA PRODUÇÃO — e quase custou código no ar.** Descoberto em 03/09 (REVISÃO 125): `supabase/functions/send-post/index.ts` no `main` era **v23**, enquanto o deploy 58 rodava **v24** (P125, `RETRY_STRIKES`). A REVISÃO 124 deployou e não pushou. Um push de qualquer sessão em cima do arquivo velho, seguido de redeploy pelo repo, teria **apagado a lógica de retry da P125 sem ninguém perceber**. Corrigido para o `send-post` (repo reconstruído a partir do `get_edge_function` do deploy 58). ⚠️ **NÃO MEDIDO para as OUTRAS Edge Functions:** ninguém conferiu se `clone-ingest`, `radar`, `product-search`, `resolve-link`, `group-blast`, `mega-results` etc. estão iguais no repo e no ar. **Ação:** varrer todas com `get_edge_function` e comparar. Regra que fica: **deploy sem push é deploy incompleto**, do mesmo jeito que push sem ESTADO_ATUAL é push incompleto | 03/09 |
+| **P127** | 🟡 **FATIA 2 DA MULTI-CONEXÃO — roteamento por destino.** A fatia 1 (REVISÃO 125) entrega parear N números; ela NÃO entrega escolher qual número dispara para qual destino — hoje tudo sai pela conexão principal. Decisão já tomada com o Érico: **vínculo por destino, no momento de vincular** (o WhatsApp só deixa postar em grupo do qual o número participa, e o `/groups?phone=` já lista por número). Escopo: coluna `instance_id` em `whatsapp_groups` (a de `whatsapp_channels` **já existe** e está nula), seletor de conexão no vínculo de grupos/canais, e `send-post`/`group-blast` roteando por `instance_id` com fallback para a principal quando nulo (compatível com tudo que já está vinculado) | 03/09 |
+| **P129** | 🟡 **Teto de conexões é só client-side (REVISÃO 125).** `waAplicarTeto()` e o guard do `btnGenQR` bloqueiam no navegador; nada impede um POST direto em `whatsapp_instances` criando a 11ª linha. É a mesma classe da **P5**, e o conserto natural é o mesmo: uma checagem no servidor. Sem urgência (exige usuário mal-intencionado com JWT válido), mas registrado para não ser "descoberto" de novo | 03/09 |
 | **P126** | ✅ **FECHADA (02/09, REVISÃO 123) — DEPLOYADA E MEDIDA NO PAINEL LOGADO:** caixa desenhando no "Achadinhos Eletrodomésticos" (1 produto, capacidade 60), 6 transições no DOM real todas corretas, incluindo o "não desenha" quando a capacidade cai para 1. Era: 🟡 CODADA, NÃO DEPLOYADA (REVISÃO 122). Aviso do "Não repetir produto" em Editar Grupo → Geral: quando a flag está ligada e o grupo tem menos produtos do que o ritmo configurado aguenta, a tela diz quantos posts por dia isso permite e o que fazer. Provado em harness (7 cenários), não na tela. Falta deploy do `app` no EasyPanel e conferir a caixa desenhando — e sumindo quando os produtos passam da capacidade | 02/09 |
 | **P125** | ✅ **FECHADA (02/09, REVISÃO 124) — DEPLOYADA E MEDIDA COM GRUPO DE TESTE DESCARTÁVEL EM 3 RODADAS REAIS DO CRON:** 1ª e 2ª falha seguida não avançam cursor e recuam `last_post_at` para reabrir em 3 min; 3ª falha seguida bate a trava e volta ao intervalo cheio com cursor avançado. Grupo de teste apagado depois. Era: 🟠 BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 121). `send-post` v23: o `update` de `last_post_at` (e do `cursor_index`) roda mesmo quando `groupSent === 0`, isto é, quando o post falhou em todos os canais. Um blip de segundos no `wa-engine` passa a custar um intervalo inteiro de silêncio — medido em 02/09 no "Achadinhos Eletrodomésticos": `failed` 14:50, próxima tentativa só 15:05. O `delete_after_post` da v22 já tem a guarda `groupSent > 0`; o `last_post_at` não tem. Conserto: não carimbar `last_post_at` (nem avançar cursor) em rodada que não enviou nada. Parente da P123 | 02/09 |
 | **P124** | ✅ **FECHADA (02/09, REVISÃO 123) — DEPLOYADA E MEDIDA COM DADO DE PRODUÇÃO:** `/groups` devolveu 24 grupos, 12 do Érico e 12 de terceiros; o seletor mostrou exatamente os 12 de terceiros e "ver todos" devolveu 24. Era: 🟡 CODADA, NÃO DEPLOYADA (REVISÃO 120). Clone Post → Nova fonte: o seletor "Grupo que você quer monitorar" passa a esconder os grupos dos quais o usuário é dono (`isOwner`), com as salvaguardas da REVISÃO 115 (engine antigo não filtra; fonte em edição não some; "ver todos" disponível). Falta commit, push, deploy do `app` no EasyPanel e conferir no painel logado que grupo próprio sumiu, grupo de terceiro ficou, e o link de convite continua cadastrando grupo fora da lista | 02/09 |
