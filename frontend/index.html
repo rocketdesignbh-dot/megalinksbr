@@ -4933,13 +4933,23 @@ function waPintarInstancia(l,i,sessoes){
     txt.textContent="Sessão encontrada mas offline · tentando reconectar";
     pill.className="pill red";pill.style.background="";pill.style.color="";pill.innerHTML='<span class="d"></span> OFFLINE';
     acts.innerHTML=WA_DICA_QUEDA+waBotoes(l,"offline");
-  }else{
-    // Não achou a sessão no engine. Se o banco diz "connected", tenta
+  }else if(l.status==="connected"){
+    // Não achou a sessão no engine, mas o banco diz "connected" — tenta
     // restaurar das credenciais em disco sem incomodar o usuário.
     txt.innerHTML="Sessão salva · verificando no servidor…<br><small>Se não reconectar sozinho, clique em Reconectar.</small>";
     pill.className="pill";pill.style.background="var(--volt)";pill.style.color="#000";pill.innerHTML='⟳ VERIFICANDO';
     acts.innerHTML=WA_DICA_QUEDA+waBotoes(l,"offline");
-    if(l.status==="connected")waTentarRestaurar(l);
+    waTentarRestaurar(l);
+  }else{
+    // O banco já diz "disconnected" e o engine não tem sessão nenhuma: não há
+    // nada em andamento. Mostrar "VERIFICANDO" pra sempre aqui (REVISÃO 127)
+    // confundia quem já tinha desconectado de propósito — parecia travado
+    // (relatado pela Ana Luiza em 03/09: pediu para desconectar e a tela
+    // "ficava verificando"). O desconectar em si sempre funcionou — só o
+    // rótulo mentia dizendo que algo ainda estava em curso.
+    txt.textContent="Desconectada · sem sessão ativa";
+    pill.className="pill";pill.style.background="var(--mut)";pill.style.color="#fff";pill.innerHTML="DESCONECTADA";
+    acts.innerHTML=waBotoes(l,"offline");
   }
 }
 
