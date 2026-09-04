@@ -143,6 +143,18 @@
 //    for deployar a v17/P36 a partir daqui precisa levar a v18 junto, ou vai
 //    reverter a aprovacao automatica por grupo que ja esta em producao.
 //
+//  * v20 — REVISÃO 132, 04/09: `acharCupom()` para de atravessar linha em
+//    branco atras do codigo. Consequencia direta da v19 (que passou a chamar
+//    `acharCupom` sempre, nao so no fallback): MEDIDO em producao com fontes
+//    de Shopee, coupon_code saiu "CUSTA" em duas capturas — a mencao "usando
+//    o CUPOM" vinha ANTES do preco riscado ("~Custa R$99,90~") e SO DEPOIS o
+//    codigo de verdade ("🏷️ CUPOM\nC0RR1D499"). A classe de limpeza velha
+//    (`[`*~_\s]*`) incluia `~` e `\s` (que cobre `\n`), entao o regex
+//    atravessava o bloco riscado inteiro e capturava a primeira palavra
+//    depois dele ("Custa") como se fosse o codigo. Agora o regex nao
+//    atravessa mais de UMA quebra de linha entre "cupom" e o codigo — ver
+//    comentario detalhado em cima da funcao.
+//
 //  * v19 — REVISÃO 131, 04/09: cupom deixa de depender da loja ter falhado.
 //    Relatado pelo Erico com print do app da Amazon: a Loja (Amazon) confirma
 //    o preco de pagina certo (por desenho, P21), mas varias ofertas da fonte
@@ -431,8 +443,23 @@ function acharTitulo(texto: string): string | null {
   return pool[0].slice(0, 120);
 }
 
+// v20 — REVISÃO 132: nao atravessa linha em branco (paragrafo) atras do codigo.
+// MEDIDO em produção com fontes de Shopee (04/09): "*Por R$56,31 usando o
+// CUPOM*\n\n~Custa R$99,90~\n\n🏷️ *CUPOM*\nC0RR1D499" tinha DOIS avisos de
+// "cupom" antes do codigo de verdade — o primeiro e so a MENCAO ("usando o
+// CUPOM"), o codigo real vem so depois de uma linha em branco e do preco
+// riscado. A classe de limpeza `[`*~_\s]*` incluia `~` (usado no riscado de
+// preco, "~R$99,90~") e `\s` (que cobre `\n`), entao o regex atravessava o
+// "~Custa R$99,90~" inteiro pulando por cima dele e capturava a PRIMEIRA
+// palavra depois — "Custa" — como se fosse o codigo do cupom. Resultado
+// gravado: coupon_code="CUSTA" em vez de "C0RR1D499". Mesmo padrao em outra
+// captura da mesma fonte: "D14D3V3ND3R" tambem saiu "CUSTA".
+// O conserto restringe a MESMA linha (no maximo UMA quebra de linha) entre a
+// palavra "cupom" e o codigo — código de verdade sempre vem colado ("cupom:
+// X", "cupom\nX"); atravessar uma linha em branco e sinal de que o texto
+// mudou de assunto (preço riscado, disclaimer, outro parágrafo).
 function acharCupom(texto: string): string | null {
-  const re = /cupom\s*(?:de\s*desconto\s*)?[:\-–]?\s*[`*~_\s]*([A-Za-z0-9][A-Za-z0-9._-]{2,24})/i;
+  const re = /cupom\s*(?:de\s*desconto\s*)?[:\-–]?\s*[`*~_]*\n?[`*~_ \t]*([A-Za-z0-9][A-Za-z0-9._-]{2,24})/i;
   const m = texto.match(re);
   if (!m) return null;
   const c = m[1].replace(/[`*~_.\-]+$/, "").toUpperCase();

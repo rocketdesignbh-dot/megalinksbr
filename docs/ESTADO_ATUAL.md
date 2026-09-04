@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 131 — 04/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 132 — 04/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,73 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 132 — 04/09/2026 — `clone-ingest` v20: `acharCupom()` para de
+atravessar linha em branco, bug exposto pela própria v19.**
+
+Érico relatou que um post de Shopee "veio com valor diferente". Investigação
+nos `clone_posts` de Shopee capturados depois do deploy da v19 (ver REVISÃO
+131) achou dois casos com `coupon_code='CUSTA'` — claramente errado, "CUSTA"
+não é um código de cupom, é a palavra que sobrou de "~Custa R$99,90~" (o
+preço riscado da mensagem).
+
+**Causa:** o texto da fonte tem esse formato —
+
+```
+*Por R$56,31 usando o CUPOM*
+
+~Custa R$99,90~
+
+🏷️ *CUPOM*
+C0RR1D499
+```
+
+A palavra "cupom" aparece duas vezes: uma vez só MENCIONANDO que há cupom
+("usando o CUPOM"), e só depois — atravessando uma linha em branco e o preço
+riscado — vem o código de verdade. O regex antigo de `acharCupom()` tinha `~`
+e `\s` (que cobre quebra de linha) na classe de limpeza entre a palavra
+"cupom" e o código, então ele atravessava o `~Custa R$99,90~` inteiro e
+capturava a primeira palavra depois dele. **Isso sempre foi um bug do
+extrator**, só que ficava inofensivo até a v19: antes, `acharCupom()` só era
+chamado no fallback de texto (quando a loja falhava), e Shopee/ML raramente
+falham — a Amazon é que falha sempre, e as mensagens dela não têm esse padrão
+de "menciona cupom, preço riscado, só depois o código". A v19 passou a chamar
+`acharCupom()` sempre, e aí o bug pré-existente ficou visível pela primeira
+vez.
+
+**Conserto:** o regex não atravessa mais de UMA quebra de linha entre a
+palavra "cupom" e o código. Testado com Node contra os 2 textos reais que
+geraram "CUSTA" (Cama Pet e Ferro de Passar) — os dois agora extraem o código
+certo (`C0RR1D499` e `D14D3V3ND3R`) — e reconferido que os 4 casos da Amazon
+da REVISÃO 131 continuam corretos.
+
+**Deployado:** `clone-ingest` v20, Supabase function version **26**, conferido
+por `get_edge_function` contra o repo (o regex novo e o comentário de
+explicação estão os dois na fonte publicada).
+
+⚠️ **Um segundo caso do mesmo relato NÃO é bug e não tem conserto por
+código.** A oferta "Máquina de Lavar Electrolux" saiu com preço R$ 1.799 —
+não bate nem com o "por" da mensagem (R$ 1.563,08, que já embute um cupom de
+R$ 100 "vinculado ao produto", sem código nenhum pra copiar) nem com o "de"
+riscado (R$ 1.899 − R$ 100 = R$ 1.799 bate exato). O preço publicado é o da
+página da Shopee DEPOIS do cupom automático da loja, mas ANTES de algum
+desconto adicional (provavelmente de banco/parcelamento) que só aparece no
+carrinho — mesma categoria do "Programe e Poupe" da Amazon (REVISÃO 131):
+desconto condicional, sem código extraível, que a plataforma não afirma por
+desenho (P21). Não fazer nada aqui a não ser que o Érico peça explicitamente
+para tentar capturar esse tipo de desconto — é o mesmo trade-off já decidido.
+
+⚠️ **Regra de prova — o que falta.** Não observado ainda com uma captura NOVA
+de Shopee ou Mercado Livre depois do deploy (nenhuma chegou no intervalo até
+o fim desta sessão). Conferir `clone_posts.coupon_code` da próxima captura
+dessas duas lojas que mencionar cupom, e confirmar que não vem mais lixo tipo
+"CUSTA".
+
+⚠️ **Push:** feito por este mesmo caminho (clone em `C:\Users\PC\github` na
+máquina do Érico, `gh auth setup-git`, commit e push de lá) — ver REVISÃO 131
+para o motivo (git proxy da sessão nega push direto neste repo).
+
+---
 
 **REVISÃO 131 — 04/09/2026 — `clone-ingest` v19: cupom deixa de depender da
 loja ter falhado, e o grupo "Bebe Clone" foi destravado ponta a ponta.**
@@ -9001,7 +9068,7 @@ antigos; hoje é **Premium**).
   normal usa `weekend_enabled` (**default true**). Nos dois, desmarcado
   significa NÃO POSTAR, não postar de outro jeito.
 
-### Clone Post — auto-publicação (`clone-ingest` v19, 04/09, REVISÃO 131)
+### Clone Post — auto-publicação (`clone-ingest` v20, 04/09, REVISÃO 132)
 
 - **Duas chaves independentes, mesmo critério de segurança.** Uma captura só
   pula a fila de revisão quando **(`clone_sources.auto_publish` OU
@@ -9020,22 +9087,29 @@ antigos; hoje é **Premium**).
   Amazon respondia certo — que é o caso comum. Preço publicado continua sendo
   o da página (não muda); só o código do cupom passa a acompanhar quando a
   mensagem original trouxer um. Ver `acharCupom()` no cabeçalho do arquivo.
-- Supabase function version **25**. Repo e produção **NÃO batem** —
-  ver "Push pendente" na "Última alteração" desta revisão: código deployado
-  e commitado localmente, mas não empurrado para o GitHub (sem PAT na sessão).
-- ⚠️ **v19 não observada com captura nova de verdade** — só testada a função
-  `acharCupom()` isolada (Node) contra os 4 textos reais já capturados hoje.
-  Nenhuma mensagem nova chegou da fonte no intervalo entre o deploy e o fim da
-  sessão. Conferir `clone_posts.coupon_code` da próxima captura
-  `data_source='store'` antes de dar como provado.
+- **v20 (REVISÃO 132): `acharCupom()` para de atravessar linha em branco.**
+  Bug pré-existente exposto pela própria v19 (que passou a chamar
+  `acharCupom` sempre): mensagem com "menciona cupom → preço riscado → código
+  de verdade" fazia o regex antigo pular o preço riscado e capturar a
+  palavra errada ("CUSTA", de "~Custa R$99,90~"). Medido em produção com 2
+  capturas de Shopee. Ver detalhe completo na "Última alteração" desta
+  revisão.
+- Supabase function version **26**. Repo e produção **batem** (v19 e v20
+  foram ambas empurradas pelo mesmo caminho — clone na máquina do Érico com
+  `gh auth setup-git`, ver REVISÃO 131).
+- ⚠️ **v19 e v20 não observadas com captura NOVA de verdade** — só testadas
+  isoladas (Node) contra textos já capturados antes do deploy de cada uma.
+  Conferir `clone_posts.coupon_code` da próxima captura de Shopee/ML que
+  mencionar cupom, e da próxima captura Amazon com cupom, antes de dar como
+  provado em produção.
 - ⚠️ **O repo tem, sem deploy, uma feature não relacionada codada em 03/08
   (v17/P36 — pré-filtro por domínio do link cru).** A v18 foi deployada
   sozinha, por cima da v16 em produção, sem levar a v17/P36 — de propósito,
-  fora do escopo deste pedido. A v19 manteve o mesmo recorte: só a mudança do
-  cupom foi ao ar, o pré-filtro P36 segue codado e não deployado. Ver a
-  pendência P36 mais abaixo antes de reemitir este arquivo de novo: o
-  `index.ts` do repo já tem as três (v17 + v18 + v19) juntas, é ele que deve
-  servir de base, nunca uma cópia antiga.
+  fora do escopo deste pedido. v19 e v20 mantiveram o mesmo recorte: só a
+  mudança do cupom foi ao ar, o pré-filtro P36 segue codado e não deployado.
+  Ver a pendência P36 mais abaixo antes de reemitir este arquivo de novo: o
+  `index.ts` do repo já tem as quatro (v17 + v18 + v19 + v20) juntas, é ele
+  que deve servir de base, nunca uma cópia antiga.
 - ⚠️ **`clone_auto_approve` agora medido em produção** — o grupo "Bebe Clone"
   (Érico) rodou com ele ligado nesta sessão, com 3 envios `sent` confirmados
   em `scheduled_posts`, sem erro.
