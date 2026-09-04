@@ -4947,9 +4947,25 @@ function waPintarInstancia(l,i,sessoes){
     // (relatado pela Ana Luiza em 03/09: pediu para desconectar e a tela
     // "ficava verificando"). O desconectar em si sempre funcionou — só o
     // rótulo mentia dizendo que algo ainda estava em curso.
-    txt.textContent="Desconectada · sem sessão ativa";
+    //
+    // REVISÃO 130 (04/09): até aqui este estado usava waBotoes(l,"offline"),
+    // que oferece Reconectar + Desconectar. Os dois são um beco sem saída
+    // aqui. Reconectar chama POST /reconnect/:phone, que só acha algo se
+    // sobrar uma pasta de credenciais em disco -- e o próprio wa-engine
+    // restaura sozinho no boot (restoreSessions()) qualquer sessão cuja
+    // pasta ainda exista, o que já teria posto essa sessão de volta em
+    // GET /sessions. Se ela não está lá (este "else"), não sobrou nada pra
+    // restaurar. Confirmado ao vivo contra o caso da Ana Luiza
+    // (31991797069): POST /reconnect devolveu 404 "Nenhuma sessão salva
+    // para esse número. Necessário novo QR code." — era exatamente o
+    // "dando erro" que ela relatou ao tentar reconectar. Desconectar
+    // também não faz sentido pra algo que o próprio banco já diz que está
+    // desconectado. O estado "expirado" de waBotoes já existia com o botão
+    // certo (📱 Novo QR + Remover) e nunca era chamado por ninguém -- é
+    // exatamente este caso.
+    txt.textContent="Desconectada · não há sessão salva para restaurar. Leia um novo QR Code para reconectar este número.";
     pill.className="pill";pill.style.background="var(--mut)";pill.style.color="#fff";pill.innerHTML="DESCONECTADA";
-    acts.innerHTML=waBotoes(l,"offline");
+    acts.innerHTML=waBotoes(l,"expirado");
   }
 }
 

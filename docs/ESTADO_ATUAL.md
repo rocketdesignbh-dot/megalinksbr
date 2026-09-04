@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 129 — 03/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 130 — 04/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,74 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 130 — 04/09/2026 — BUG REAL ACHADO E CORRIGIDO: "Reconectar" era um
+beco sem saída para conexão morta de vez, e "Desconectar" aparecia em card já
+desconectado.** Relatado pelo Érico a partir de novo contato da usuária Ana
+Luiza: tentou reconectar o `31991797069` (o mesmo número do caso da REVISÃO
+128) e "dá erro"; e ele mesmo reparou que o card já desconectado ainda mostra
+o botão "Desconectar", e que "Reconectar" clicado nele não reconecta.
+
+### Investigação
+
+`whatsapp_instances` da Ana Luiza: `31991797069` segue `disconnected` desde
+27/08 (mesma linha da REVISÃO 128), `disconnect_reason` nulo (não foi corte
+automático da `wa-idle-reaper`). Testado AO VIVO contra o wa-engine em
+produção (`GET /sessions` com o token de serviço): as 8 sessões atuais não
+incluem esse número — não existe entrada nenhuma pra ele, nem "reconnecting"
+nem "waiting". Testado então o próprio `POST /reconnect/553191797069`: **404
+— "Nenhuma sessão salva para esse número. Necessário novo QR code."**
+
+Isso fecha o caso: o `wa-engine` restaura sozinho, no boot
+(`restoreSessions()`), qualquer sessão cuja pasta de credenciais ainda exista
+em disco — se a pasta desse número ainda existisse, ela já estaria em
+`GET /sessions`. Como não está, e o `wa-engine` não reiniciou desde então
+(mesmo uptime já confirmado nas REVISÕES 127/128), **não sobrou nenhuma
+credencial pra restaurar**. O "erro" que a Ana Luiza via ao clicar
+Reconectar era exatamente essa resposta 404 sendo mostrada como toast —
+o sistema estava certo, a UI que oferecia a ação errada.
+
+### O bug
+
+`waPintarInstancia()`: quando o banco diz `disconnected` **e** o engine não
+tem sessão nenhuma pra esse número (nem viva, nem tentando), o card caía no
+mesmo `waBotoes(l,"offline")` usado para uma queda temporária — Reconectar +
+Desconectar + Remover. Só que aqui Reconectar está estruturalmente fadado a
+falhar (ver acima), e Desconectar não faz sentido pra algo que o próprio
+banco já diz que está desconectado. `waBotoes()` já tinha um estado
+`"expirado"` com o botão certo (📱 Novo QR + Remover) — só que **nunca era
+chamado por ninguém** (código morto desde que foi escrito).
+
+### O conserto
+
+Este estado final de `waPintarInstancia()` passa a chamar
+`waBotoes(l,"expirado")` em vez de `waBotoes(l,"offline")`. O texto do card
+também muda para deixar explícito que é preciso ler um QR novo. Gerar QR
+Code para o MESMO número não perde histórico nem duplica linha — o botão
+"Novo QR" só leva para `/conexao` e foca o campo de número; `btnGenQR`
+já trata "número já cadastrado" como caso à parte (`jaTem`), isento do teto
+do plano, e o pareamento atualiza a linha existente pelo telefone.
+
+Os outros dois estados que ainda usam `waBotoes(l,"offline")` (sessão viva
+no engine mas caída, e banco dizendo "connected" enquanto verifica) foram
+deixados como estavam — ali Reconectar/Desconectar continuam fazendo
+sentido, porque pode haver algo de fato para reconectar ou para interromper.
+
+### Deploy
+
+Frontend commitado e pushado; deploy do `app` no EasyPanel via
+`ep deploy megalinksbr app app`; conferido por fetch direto do HTML servido
+(marcador da nova mensagem de texto e da chamada `waBotoes(l,"expirado")`).
+
+### Regra de prova — o que falta
+
+Não vi a tela da Ana Luiza ao vivo nem apliquei o clique dela. A prova aqui
+é: leitura do banco + teste direto contra o wa-engine em produção (o mesmo
+`POST /reconnect` que o botão dela chamaria, com o mesmo resultado 404) +
+o código do botão trocado e conferido no HTML servido. Falta ela mesma
+tentar de novo — agora deve ver "📱 Novo QR" em vez de "Reconectar", e ler o
+QR Code deve reconectar o número normalmente. Se persistir problema, é caso
+novo, não este.
 
 **REVISÃO 129 — 03/09/2026 — FATIA 2 DA MULTI-CONEXÃO: roteamento por
 destino para grupos de WhatsApp (Clone Post e Distribuição), pedido
@@ -9232,6 +9300,11 @@ código não relacionado.
 - **Multi-conexão (fatia 1).** Lista com uma linha por instância; adicionar,
   reconectar, desconectar e **remover** são todos por linha. Teto do plano
   (`wa_connections`) aplicado com contador "N de M" — client-side.
+- **Card de conexão morta oferece "Novo QR", não mais "Reconectar" (REVISÃO
+  130, 04/09).** Quando o banco diz `disconnected` e o `wa-engine` não tem
+  sessão nenhuma pra esse número, não há credencial pra restaurar — testado
+  ao vivo (`POST /reconnect` → 404). O card mostra 📱 Novo QR + 🗑 Remover em
+  vez de Reconectar + Desconectar, que eram um beco sem saída.
 - **Conexão principal** = `whatsapp_instances.is_primary` (índice único parcial
   por usuário). É ela que o `S.waNumber` espelha, que lista grupos, e que o
   `send-post`/`group-blast` usam para disparar **quando o grupo não tem
@@ -9255,6 +9328,8 @@ código não relacionado.
 | # | Pendência | Origem |
 |---|---|---|
 | **P128** | 🟠 **O REPO FICOU ATRÁS DA PRODUÇÃO — DUAS VEZES SEGUIDAS.** 1ª (REVISÃO 124→125): a própria sessão que deployou não pushou. 2ª (REVISÃO 125→126): uma sessão CONCORRENTE deployou por cima (prévia OG em `send-post`/`group-blast`) sem pushar — descoberta e corrigida na REVISÃO 126 via `list_edge_functions`/`updated_at` antes de deployar por cima. `send-post` e `group-blast` reconciliados (repo = código publicado, conferido linha a linha). ⚠️ **Ainda não medido para o restante do catálogo** (`clone-ingest`, `radar`, `product-search`, `resolve-link`, `mega-results` etc. — 34 funções não tocadas nesta janela, mas nunca auditadas contra o repo desde que este arquivo existe). **Ação permanente adotada:** todo `deploy_edge_function` passa a ser precedido de `list_edge_functions` comparando `updated_at`/`version` — nunca mais assumir que o repo é o que está no ar | 03/09 |
+| **P133** | 🟡 **CONFIRMAR COM A ANA LUIZA (REVISÃO 130).** Ela precisa tentar de novo: agora o card do `31991797069` deve mostrar "📱 Novo QR" em vez de "Reconectar", e ler o QR Code deve reparear o número normalmente (o `btnGenQR` trata número já cadastrado como caso à parte, isento do teto do plano, e atualiza a linha existente pelo telefone — não deveria duplicar nem exigir Remover antes). Se ela ainda tomar erro, é caso novo — a causa desta rodada (nenhuma credencial salva pra restaurar, confirmado por `POST /reconnect` ao vivo) está fechada | 04/09 |
+| **P132** | 🟢 **RESOLVIDA (04/09, REVISÃO 130) — "Reconectar" era beco sem saída e "Desconectar" aparecia em card já morto.** Mesma conta da Ana Luiza (`31991797069`, `disconnected` desde 27/08). Testado ao vivo contra o wa-engine: `GET /sessions` não lista o número (das 8 sessões atuais) e `POST /reconnect/553191797069` devolve 404 "Nenhuma sessão salva para esse número" — não sobrou credencial nenhuma pra restaurar (o `wa-engine` restaura sozinho no boot qualquer sessão cuja pasta ainda exista; se não está em `/sessions`, não existe pasta). `waPintarInstancia()` oferecia Reconectar+Desconectar (`waBotoes(l,"offline")`) pra esse estado terminal; passou a oferecer 📱 Novo QR + 🗑 Remover (`waBotoes(l,"expirado")`, estado que já existia no código e nunca era chamado). Deployado e conferido no HTML servido. **Falta a Ana Luiza confirmar na conta real** — ver P133 | 04/09 |
 | **P131** | 🟢 **RESOLVIDA (03/09, REVISÃO 128) — card de conexão desconectada preso em "VERIFICANDO" pra sempre.** Relatado pela usuária Ana Luiza (conta premium, `08a269c8-…`). Não era conflito de pareamento — o `whatsapp_instances` já mostrava `disconnected` desde 27/08, o desconectar tinha funcionado. O bug era só de rótulo: `waPintarInstancia()` mostrava "verificando" pra qualquer linha sem sessão viva no engine, mesmo com o banco já dizendo `disconnected`. Corrigido para mostrar "DESCONECTADA" nesse caso. Deployado e conferido no HTML servido. **Não medido na conta real dela** (sem login) — se ela ainda achar confuso, a saída é "🗑 Remover" na linha órfã, que apaga de vez | 03/09 |
 | **P130** | 🟡 **FATIA 1 DEPLOYADA (REVISÃO 127), FALTA PROVA END-TO-END NO PAINEL.** O `app` foi deployado no EasyPanel via `ep deploy` e o HTML servido em produção já contém o código multi-conexão (marcadores conferidos por fetch direto ao vivo). O que ainda não foi medido: parear um 2º número numa conta Elite/Premium e ver "2 de 3" na tela, desconectar uma instância sem afetar as outras, remover a principal e ver a promoção automática — tudo isso com números de WhatsApp reais, que só o Érico (ou um teste dedicado) pode gerar. `wa-engine` não reiniciou com este deploy (uptime maior que o deploy, 8/8 sessões seguiram conectadas) | 03/09 |
 | **P132** | 🟡 **ROTEAMENTO POR DESTINO (GRUPOS) DEPLOYADO (REVISÃO 129), FALTA PROVA END-TO-END COM NÚMEROS REAIS.** `whatsapp_groups.instance_id` + seletor de número em Clone Post → Nova Fonte e Editar Grupo → Distribuição + `send-post` v27/`group-blast` v7 roteando por grupo. Código validado por esbuild e HTML servido conferido por marcador. **Não medido**: escolher o número secundário numa fonte do Clone Post e ver uma captura validar por ele (`clone-ingest` já rejeita `outra_sessao` quando não bate); vincular um grupo ao secundário em Distribuição e ver um disparo real sair por aquele número em vez da principal. Exige conta com 2+ números pareados de verdade | 03/09 |
