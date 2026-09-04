@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 130 — 04/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 131 — 04/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,63 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 131 — 04/09/2026 — `clone-ingest` v19: cupom deixa de depender da
+loja ter falhado, e o grupo "Bebe Clone" foi destravado ponta a ponta.**
+
+Sessão começou com Érico reportando "o clone da Promoçãozinha BB 52 não está
+postando". Investigação em duas camadas, as duas medidas no banco antes de
+qualquer conserto:
+
+1. **`niche_groups.post_auto_enabled` do grupo "Bebe Clone" estava `false`**
+   (comparado com "Achadinhos Beleza", `true`). A captura e a aprovação
+   estavam certas — 7 `clone_posts` já viravam `products` — mas o `send-post`
+   só dispara para grupo com essa chave ligada, então nada saía no WhatsApp.
+   Érico ligou pela tela (`post_auto_enabled` e `clone_auto_approve` → `true`);
+   conferido depois no banco e em `scheduled_posts`: 3 envios `status='sent'`,
+   sem erro, no intervalo certo (15 em 15 min), confirmados no grupo real
+   "Achadinhos Bebê" no WhatsApp do Érico. **Não era bug, era configuração do
+   grupo de destino — resolvido sem deploy.**
+
+2. **Preço publicado mais alto que o preço anunciado pela fonte, em 7 de 8
+   ofertas.** Érico trouxe print do app da Amazon: a página mostra R$ 10,79
+   (preço de prateleira) e, junto, um cupom clicável "Resgatar Promoção — Salve
+   o cupom 20%: 20LIVROS" que só é aplicado no checkout — a mensagem do
+   grupo-fonte anuncia o preço JÁ COM esse cupom (ou com "Programe e Poupe",
+   outro desconto só-no-checkout). Não é bug de pipeline: `clone_posts.price`
+   e `products.price` batiam exatos em toda a cadeia. É comportamento
+   documentado por desenho (P21): a Amazon é lida da página, nunca do que o
+   grupo-fonte digitou. O gap real: o extrator `acharCupom()` só rodava dentro
+   do `if (lojaFalhou)` — quando a loja respondia certo (o caso daqui), o
+   cupom escrito na mensagem original era descartado sem motivo, mesmo sendo
+   dado independente do preço. Ver "v19" no cabeçalho do `clone-ingest`.
+
+**Conserto: `clone-ingest` v19**, deployado (Supabase function version 25,
+`verify_jwt=false`, sem `deno.json`, conferido por `get_edge_function` contra
+o repo). Agora `acharCupom(texto)` roda sempre que `cupom` ainda está vazio,
+loja tendo respondido ou não — preço publicado continua o da página
+(conferido), só passa a vir acompanhado do código do cupom quando a mensagem
+original trouxer um. `send-post` já sabia exibir a linha "🏷️ Utilize o cupom:
+..." antes desta versão; não precisou mexer nele.
+
+⚠️ **Regra de prova — o que falta.** Testado com Node fora do Supabase que
+`acharCupom()` extrai certo dos 4 textos reais capturados hoje (2 com cupom,
+2 sem) e confirmado por `get_edge_function` que a v19 está no ar. **Não
+observado ainda com uma captura NOVA de verdade**: nenhuma mensagem chegou da
+fonte "Promoçãozinha BB 52" nos ~10 min entre o deploy e o fim da sessão. A
+próxima sessão que mexer aqui deve conferir `clone_posts.coupon_code` de uma
+captura `data_source='store'` posterior a este deploy antes de dar como
+comprovado.
+
+⚠️ **Push pendente — PAT não fornecido nesta sessão.** O código está
+deployado em produção (Supabase, function v25) e commitado neste repo
+localmente, mas **não empurrado para o GitHub** — a sessão não tinha PAT
+clássico (`ghp_`) autorizado para push em `rocketdesignbh-dot/megalinksbr`.
+Repo e produção estão no mesmo estado de código; falta só o `git push`. Quem
+pegar a sessão seguinte: conferir `git log` local antes de assumir que o repo
+remoto já tem a v19.
+
+---
 
 **REVISÃO 130 — 04/09/2026 — BUG REAL ACHADO E CORRIGIDO: "Reconectar" era um
 beco sem saída para conexão morta de vez, e "Desconectar" aparecia em card já
@@ -8944,7 +9001,7 @@ antigos; hoje é **Premium**).
   normal usa `weekend_enabled` (**default true**). Nos dois, desmarcado
   significa NÃO POSTAR, não postar de outro jeito.
 
-### Clone Post — auto-publicação (`clone-ingest` v18, 29/08, REVISÃO 101)
+### Clone Post — auto-publicação (`clone-ingest` v19, 04/09, REVISÃO 131)
 
 - **Duas chaves independentes, mesmo critério de segurança.** Uma captura só
   pula a fila de revisão quando **(`clone_sources.auto_publish` OU
@@ -8956,15 +9013,32 @@ antigos; hoje é **Premium**).
   **por GRUPO de destino** (coluna órfã desde a Fase 2, agora com checkbox no
   Grupo de Oferta → Geral, com o alerta de responsabilidade que o Érico
   pediu).
-- Supabase function version **24**. Repo e produção **batem** neste arquivo.
+- **v19 (REVISÃO 131): cupom independente da loja ter respondido.** Até a v18,
+  `coupon_code` só vinha do texto quando a loja FALHAVA em responder. Fontes
+  Amazon que anunciam preço já com cupom/"Programe e Poupe" (desconto que só
+  aparece no checkout, não na página) tinham o cupom descartado sempre que a
+  Amazon respondia certo — que é o caso comum. Preço publicado continua sendo
+  o da página (não muda); só o código do cupom passa a acompanhar quando a
+  mensagem original trouxer um. Ver `acharCupom()` no cabeçalho do arquivo.
+- Supabase function version **25**. Repo e produção **NÃO batem** —
+  ver "Push pendente" na "Última alteração" desta revisão: código deployado
+  e commitado localmente, mas não empurrado para o GitHub (sem PAT na sessão).
+- ⚠️ **v19 não observada com captura nova de verdade** — só testada a função
+  `acharCupom()` isolada (Node) contra os 4 textos reais já capturados hoje.
+  Nenhuma mensagem nova chegou da fonte no intervalo entre o deploy e o fim da
+  sessão. Conferir `clone_posts.coupon_code` da próxima captura
+  `data_source='store'` antes de dar como provado.
 - ⚠️ **O repo tem, sem deploy, uma feature não relacionada codada em 03/08
   (v17/P36 — pré-filtro por domínio do link cru).** A v18 foi deployada
   sozinha, por cima da v16 em produção, sem levar a v17/P36 — de propósito,
-  fora do escopo deste pedido. Ver a pendência P36 mais abaixo antes de
-  reemitir este arquivo de novo: o `index.ts` do repo já tem as duas
-  (v17 + v18) juntas, é ele que deve servir de base, nunca uma cópia antiga.
-- ⚠️ **Não medido em produção.** Nenhum grupo tinha `clone_auto_approve`
-  ligado até o fim desta sessão.
+  fora do escopo deste pedido. A v19 manteve o mesmo recorte: só a mudança do
+  cupom foi ao ar, o pré-filtro P36 segue codado e não deployado. Ver a
+  pendência P36 mais abaixo antes de reemitir este arquivo de novo: o
+  `index.ts` do repo já tem as três (v17 + v18 + v19) juntas, é ele que deve
+  servir de base, nunca uma cópia antiga.
+- ⚠️ **`clone_auto_approve` agora medido em produção** — o grupo "Bebe Clone"
+  (Érico) rodou com ele ligado nesta sessão, com 3 envios `sent` confirmados
+  em `scheduled_posts`, sem erro.
 
 ### Clone Post (Fase 2 — foco atual)
 

@@ -143,6 +143,21 @@
 //    for deployar a v17/P36 a partir daqui precisa levar a v18 junto, ou vai
 //    reverter a aprovacao automatica por grupo que ja esta em producao.
 //
+//  * v19 — REVISÃO 131, 04/09: cupom deixa de depender da loja ter falhado.
+//    Relatado pelo Erico com print do app da Amazon: a Loja (Amazon) confirma
+//    o preco de pagina certo (por desenho, P21), mas varias ofertas da fonte
+//    "Promocaozinha BB 52" anunciam preco COM cupom ("Resgate ou insira o
+//    cupom: 20LIVROS") ou COM assinatura "Programe e Poupe" — preco que so
+//    aparece no checkout, nao na pagina. Ate a v18 o extrator `acharCupom()`
+//    so rodava dentro do `if (lojaFalhou)`, entao toda vez que a loja
+//    respondia certo (dataSource==='store'), o cupom escrito na mensagem
+//    original era descartado sem motivo — cupom vem do TEXTO, nao da loja,
+//    os dois sao independentes. Agora `acharCupom(texto)` roda sempre que
+//    `cupom` ainda esta vazio, loja tendo respondido ou nao. NAO muda o
+//    preco publicado (continua o da pagina, conferido) — so passa a
+//    preencher `coupon_code`, que o `send-post` ja sabia exibir ("🏷️ Utilize
+//    o cupom: ...") desde antes desta versao.
+//
 //  * v16 — P31: filtro de loja por fonte (clone_sources.lojas_permitidas).
 //    Grupo-fonte que presta para uma loja e nao para outra e o caso comum, nao a
 //    excecao. MEDIDO em 01/08 na "Melhores Ofertas da Internet", com o campo de
@@ -1306,6 +1321,19 @@ Deno.serve(async (req: Request) => {
           parcelamento = lido.price_installment;
           dataSource = "message";
         }
+      }
+
+      // ── v19 (REVISÃO 131): cupom NÃO depende da loja ter respondido ─────
+      // Ate aqui, `cupom` so vinha do texto quando a loja falhava — a Amazon
+      // muitas fontes anunciam preco COM cupom/"Programe e Poupe" que so
+      // aparece no checkout, e o parser lia certo o preco de pagina (por
+      // desenho, P21) mas descartava o cupom junto por estar dentro do
+      // `if (lojaFalhou)`. O cupom vem do TEXTO da mensagem, nao da loja —
+      // nao ha motivo pra um depender do outro. Preco publicado continua
+      // sendo o da pagina (conferido); so o codigo do cupom passa a
+      // acompanhar quando a mensagem original trouxer um.
+      if (!cupom) {
+        cupom = acharCupom(texto);
       }
 
       // ── v13/v14 · a foto e requisito, nao enfeite ───────────────────────
