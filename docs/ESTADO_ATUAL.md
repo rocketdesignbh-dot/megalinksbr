@@ -1695,6 +1695,69 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
+**REVISÃO 134 — 05/09/2026 — Toast com auto-dismiss (só crítico fica manual) +
+busca em tempo real no select de grupos WhatsApp do Clone Post. CODADO NESTA
+SESSÃO, AINDA NÃO CLICADO NO NAVEGADOR PELO ÉRICO.**
+
+### 1. Toast — volta o auto-dismiss, exceto pra crítico/erro
+
+**O pedido:** o toast sem auto-dismiss (REVISÃO/pedido de 01/09) virou
+problema — mensagem de rotina (produto salvo, config salva) empilhando e
+exigindo clique pra fechar. Pedido: manter "clica pra fechar" só pra alerta
+crítico/erro; o resto volta a sumir sozinho.
+
+**`frontend/index.html` (`toast()`, ~linha 3026).** Sem parâmetro de
+severidade explícito em cada uma das ~150 chamadas existentes no arquivo
+(escopo estrito não permite reclassificar cada uma agora), a distinção usa o
+emoji já passado em cada chamada — que já era usado visualmente pra marcar o
+tipo de aviso. `TOAST_EMOJI_CRITICO = new Set(["⚠️","⛔","❌","🔴","🚫","🔒"])`:
+toast com um desses emojis continua sem auto-dismiss (só o ✕ fecha); qualquer
+outro emoji (✅ padrão, 📋, 🚀, 🟢, 📤, 🗑️ etc.) fecha sozinho depois de
+`TOAST_AUTO_MS = 4500`ms. O botão ✕ continua funcionando em ambos os casos.
+
+⚠️ Isso é uma heurística por emoji, não uma reclassificação linha a linha —
+se alguma chamada usa `⚠️`/`⛔` pra um aviso que na real é rotina (ou o
+inverso, um `✅` que deveria ser crítico), ela herda o comportamento errado.
+Não auditei as ~150 chamadas pra achar exceções; se o Érico notar algum toast
+sumindo rápido demais (ou ficando preso à toa), é ajuste de emoji nessa
+chamada específica, não da lógica do `toast()`.
+
+**Prova:** só sintaxe (`node --check` no `<script>` extraído — SYNTAX_OK).
+Comportamento no navegador (o toast realmente some em ~4,5s e o crítico
+realmente fica) **NÃO FOI MEDIDO** — pendência aberta.
+
+### 2. Busca em tempo real no select de grupos do Clone Post
+
+**O pedido:** em listas grandes pra escolher um item (citado: Clone Post →
+achar Grupos de WhatsApp), filtrar conforme o usuário digita, em vez de rolar
+um `<select>` longo.
+
+**Onde:** o único `<select>` de grupos de WhatsApp sem filtro já embutido era
+o `#csJid` (Clone Post → Nova Fonte de captura automática → "Grupo que você
+quer monitorar", `csAbrirForm`/`csTrocarNumero` em `frontend/index.html`). A
+lista de "Seus grupos WhatsApp" (Distribuição, `wgBuscarGrupos`/
+`renderWgDisp`) **já tinha** busca (`#wgBusca`) — não mexi nela.
+
+**Implementação:** campo de texto `#csJidBusca` acima do `<select id="csJid">`
+(nos dois pontos onde ele é renderizado), com `oninput="csFiltrarJid(this.value)"`.
+`csFiltrarJid` reconstrói só o `innerHTML` do `<select>` chamando
+`csOpcoesGrupos(editando, jaTem, filtro)` — parâmetro `filtro` novo, filtra por
+`nome.includes(termo)` (case-insensitive) antes de montar as `<option>`; não
+mexe em disabled/selected. Sem chamada nova ao wa-engine — só filtra o array
+`CS_GRUPOS_WA` já carregado em memória.
+
+⚠️ **Não estendido a outras abas.** O pedido citou "Clone Post e outras abas",
+mas as únicas listas longas identificadas no código foram essa (`#csJid`) e a
+de Distribuição (que já tinha busca). Não risquei os demais `<select>` do
+sistema (Config Afiliados/loja, planos, etc.) porque são listas curtas e
+mudar cada um sem um pedido específico fugiria do escopo. Se o Érico tiver em
+mente uma lista específica que ficou de fora, é só apontar qual.
+
+**Prova:** só sintaxe. Digitar no campo e ver a lista filtrar de verdade no
+navegador **NÃO FOI MEDIDO** — pendência aberta.
+
+---
+
 **REVISÃO 133 — 05/09/2026 — DUAS FEATURES NOVAS pedidas pelo Érico: "Recados
 do Grupo" (posts intercalados) e Sub-ID de rastreamento na Shopee. CODADO E
 DEPLOYADO NESTA SESSÃO, AINDA NÃO MEDIDO EM PRODUÇÃO — falta o Érico ligar um
@@ -9177,10 +9240,22 @@ intercalado pelo `send-post` v28 (ver acima e a REVISÃO 133 completa).
 
 ### Sub-ID Shopee (Config Afiliados, REVISÃO 133)
 
-CODADO, NÃO MEDIDO — ver P135. Campo opcional dentro de `affiliate_credentials
-.credentials["Shopee"]["Sub-ID"]`; `shopeeSubId()` no frontend monta
-`sub_id=<rotulo>-<code>` quando preenchido, senão comportamento idêntico à
-P62 (só `<code>`). Só Shopee por enquanto — ver REVISÃO 133 pro porquê.
+🟢 **CONFIRMADO EM PRODUÇÃO (05/09).** Campo opcional dentro de
+`affiliate_credentials.credentials["Shopee"]["Sub-ID"]`; `shopeeSubId()` no
+frontend monta `sub_id=<rotulo>-<code>` quando preenchido, senão comportamento
+idêntico à P62 (só `<code>`). Só Shopee por enquanto — ver REVISÃO 133 pro
+porquê. Prova real: Érico gerou um link pelo encurtador (rótulo `eko`,
+produto Shopee via `flash_sale`) e o redirecionamento final da própria Shopee
+devolveu `utm_content=eko-oqkfsvz` e `mmp_pid=an_18344180897` — sub_id e
+affiliate_id corretos, comportamento observável, não só HTTP 200. Ver P135
+(fechada).
+
+### Toast auto-dismiss + busca em select de grupos (REVISÃO 134)
+
+CODADO, NÃO CLICADO NO NAVEGADOR — ver P136/P137. Toast só fica manual (sem
+auto-dismiss) pra emoji de alerta crítico/erro; resto some sozinho em ~4,5s.
+Select `#csJid` (Clone Post → Nova Fonte) ganhou campo de busca (`#csJidBusca`)
+que filtra as `<option>` conforme digita, sem chamada nova ao wa-engine.
 
 ### Clone Post — auto-publicação (`clone-ingest` v20, 04/09, REVISÃO 132)
 
@@ -9589,7 +9664,9 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
-| **P135** | 🟡 **CODADO E DEPLOYADO (REVISÃO 133), NÃO MEDIDO.** Sub-ID de rastreamento na Shopee (Config Afiliados → Shopee → Opções avançadas), gravado no `credentials` jsonb, some ao `sub_id` do link como `<rotulo>-<code>`. Falta: cadastrar um rótulo, gerar um link Shopee novo e conferir em `short_links.destination` que o `sub_id` saiu com o prefixo — sem isso o campo pode estar salvando e nunca sendo lido por um erro de nome de chave (`campos["Sub-ID"]` tem que bater exatamente com o que `salvarLoja` grava) | 05/09 |
+| **P137** | 🟡 **CODADO (REVISÃO 134), NÃO CLICADO NO NAVEGADOR.** Toast volta a fechar sozinho (~4,5s) pra tudo que não usa emoji de alerta crítico/erro (`⚠️⛔❌🔴🚫🔒` ficam manuais). Falta: salvar um produto/config qualquer e ver o toast sumir sozinho; forçar um erro (ex. campo obrigatório vazio) e ver o toast ficar até clicar no ✕. Heurística é por emoji da própria chamada — não foi auditada chamada a chamada (~150 no arquivo); se algum toast sumir rápido demais ou ficar preso à toa, é o emoji daquela chamada específica que está classificado errado, não a lógica do `toast()` | 05/09 |
+| **P136** | 🟡 **CODADO (REVISÃO 134), NÃO CLICADO NO NAVEGADOR.** Busca em tempo real (`#csJidBusca`) no select de grupo do Clone Post → Nova Fonte (`#csJid`). Falta: abrir Clone Post → Nova Fonte de captura automática, digitar parte do nome de um grupo e conferir que a lista do select filtra ao vivo. Só esse select foi alterado — a lista de "Seus grupos WhatsApp" em Distribuição já tinha busca própria (`#wgBusca`) e não foi tocada; outras listas curtas do sistema (Config Afiliados, planos etc.) também não, por não terem sido citadas como problema | 05/09 |
+| **P135** | 🟢 **RESOLVIDA (05/09) — CONFIRMADA EM PRODUÇÃO.** Sub-ID de rastreamento na Shopee. Érico gerou um link real pelo encurtador (rótulo `eko`) e o redirecionamento da própria Shopee devolveu `utm_content=eko-oqkfsvz` — sub_id com o prefixo certo, comportamento observado de ponta a ponta, não só o código lido | 05/09 |
 | **P134** | 🟡 **CODADO E DEPLOYADO (REVISÃO 133, `send-post` v28), NÃO MEDIDO EM PRODUÇÃO.** "Recados do Grupo" / "Cupom em Destaque" (`niche_group_extras`, aba nova em Editar Grupo). Falta: cadastrar um item de teste num grupo com Post Automático ligado, esperar o gatilho bater e conferir 3 coisas — a mensagem saiu no lugar de um produto; `posts_desde_ultimo` zerou; `cursor_index` do grupo NÃO andou. Ver REVISÃO 133 para o desenho completo e as limitações conhecidas (depende do Post Automático estar rodando; `horario_fixo` só dispara dentro da janela de postagem do grupo) | 05/09 |
 | **P128** | 🟠 **O REPO FICOU ATRÁS DA PRODUÇÃO — DUAS VEZES SEGUIDAS.** 1ª (REVISÃO 124→125): a própria sessão que deployou não pushou. 2ª (REVISÃO 125→126): uma sessão CONCORRENTE deployou por cima (prévia OG em `send-post`/`group-blast`) sem pushar — descoberta e corrigida na REVISÃO 126 via `list_edge_functions`/`updated_at` antes de deployar por cima. `send-post` e `group-blast` reconciliados (repo = código publicado, conferido linha a linha). ⚠️ **Ainda não medido para o restante do catálogo** (`clone-ingest`, `radar`, `product-search`, `resolve-link`, `mega-results` etc. — 34 funções não tocadas nesta janela, mas nunca auditadas contra o repo desde que este arquivo existe). **Ação permanente adotada:** todo `deploy_edge_function` passa a ser precedido de `list_edge_functions` comparando `updated_at`/`version` — nunca mais assumir que o repo é o que está no ar | 03/09 |
 | **P133** | 🟡 **CONFIRMAR COM A ANA LUIZA (REVISÃO 130).** Ela precisa tentar de novo: agora o card do `31991797069` deve mostrar "📱 Novo QR" em vez de "Reconectar", e ler o QR Code deve reparear o número normalmente (o `btnGenQR` trata número já cadastrado como caso à parte, isento do teto do plano, e atualiza a linha existente pelo telefone — não deveria duplicar nem exigir Remover antes). Se ela ainda tomar erro, é caso novo — a causa desta rodada (nenhuma credencial salva pra restaurar, confirmado por `POST /reconnect` ao vivo) está fechada | 04/09 |

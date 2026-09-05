@@ -3024,6 +3024,14 @@ document.addEventListener('click',e=>{
   if(b&&!b.classList.contains('pass-toggle')&&!b.classList.contains('mx'))_twAnchor=b.getBoundingClientRect();
 },true);
 const TOAST_MAX=4; // maximo de avisos abertos ao mesmo tempo
+// Emojis que marcam alerta critico/erro/bloqueio: esses ficam ate o usuario
+// fechar (pedido Erico 01/09 — nao dava tempo de ler avisos longos, tipo o
+// "Falta: nenhum produto cadastrado" do gate do Post Automatico). Os demais
+// (produto salvo, config salva, copiado, etc.) voltaram a fechar sozinhos
+// (pedido Erico 05/09 — empilhar toast de sucesso sem dispensa automatica
+// estava incomodando o usuario final).
+const TOAST_EMOJI_CRITICO=new Set(["⚠️","⛔","❌","🔴","🚫","🔒"]);
+const TOAST_AUTO_MS=4500;
 function toast(msg,emoji){
   const isMobile=window.innerWidth<=768;
   if(!isMobile&&_twAnchor){
@@ -3047,8 +3055,11 @@ function toast(msg,emoji){
   const s=document.createElement("span");s.className="toast-msg";s.textContent=texto;
   const x=document.createElement("button");x.type="button";x.className="toast-x";
   x.setAttribute("aria-label","Fechar aviso");x.title="Fechar";x.textContent="✕";
-  x.addEventListener("click",()=>{t.style.opacity="0";t.style.transition="opacity .2s";setTimeout(()=>t.remove(),210);});
-  t.appendChild(s);t.appendChild(x);tw.appendChild(t);}
+  const fechar=()=>{t.style.opacity="0";t.style.transition="opacity .2s";setTimeout(()=>t.remove(),210);};
+  x.addEventListener("click",fechar);
+  t.appendChild(s);t.appendChild(x);tw.appendChild(t);
+  if(!TOAST_EMOJI_CRITICO.has(emoji))setTimeout(fechar,TOAST_AUTO_MS);
+}
 
 /* ================= GREETING ================= */
 (function(){const h=new Date().getHours();const g=h<6?"Boa madrugada":h<12?"Bom dia":h<18?"Boa tarde":"Boa noite";greeting.textContent=g+" ⚡";})();
@@ -10525,6 +10536,7 @@ async function csAbrirForm(editId){
           ${seletorNumero}
           <div id="csGrupoWrap">
             <label>Grupo que você quer monitorar</label>
+            <input id="csJidBusca" type="text" placeholder="🔎 Digite pra filtrar…" style="width:100%;margin-bottom:6px" oninput="csFiltrarJid(this.value)">
             <select id="csJid" style="width:100%">${opts}</select>
             ${donoHint}
           </div>
@@ -10607,7 +10619,7 @@ async function csTrocarNumero(tel){
   const visiveis=csGruposVisiveis(editando).length;
   const ocultos=CS_GRUPOS_WA.length-visiveis;
   const donoHint=filtraDono?`<small id="csDonoHint" style="display:block;margin-top:6px;color:var(--tx2);line-height:1.5"><span title="Grupos que voce mesmo criou nao aparecem aqui">Só grupos que <strong>você não criou</strong></span>${ocultos>0?` · <a href="javascript:void(0)" onclick="csMostrarTodosGrupos()" style="color:var(--tx2);text-decoration:underline">ver todos (${CS_GRUPOS_WA.length})</a>`:""}</small>`:"";
-  wrap.innerHTML=`<label>Grupo que você quer monitorar</label><select id="csJid" style="width:100%">${opts}</select>${donoHint}${(!CS_GRUPOS_WA.length)?'<small style="display:block;margin-top:6px;color:var(--tx2)">Este número não devolveu grupos — cadastre pelo link de convite ali embaixo.</small>':""}`;
+  wrap.innerHTML=`<label>Grupo que você quer monitorar</label><input id="csJidBusca" type="text" placeholder="🔎 Digite pra filtrar…" style="width:100%;margin-bottom:6px" oninput="csFiltrarJid(this.value)"><select id="csJid" style="width:100%">${opts}</select>${donoHint}${(!CS_GRUPOS_WA.length)?'<small style="display:block;margin-top:6px;color:var(--tx2)">Este número não devolveu grupos — cadastre pelo link de convite ali embaixo.</small>':""}`;
 }
 
 // Limpa o textarea de teste e o resultado — pedido separado do "Testar
@@ -10624,8 +10636,15 @@ function csGruposVisiveis(editando){
     return !g.isOwner||!!(editando&&editando.source_jid===jid);
   });
 }
-function csOpcoesGrupos(editando,jaTem){
-  return csGruposVisiveis(editando).map(g=>{
+// `filtro` (05/09 — busca em tempo real): texto digitado pelo usuario em
+// `#csJidBusca`. So estreita as opcoes visiveis; nao mexe em disabled/selected.
+function csOpcoesGrupos(editando,jaTem,filtro){
+  const termo=(filtro||"").trim().toLowerCase();
+  return csGruposVisiveis(editando).filter(g=>{
+    if(!termo)return true;
+    const nome=(g.subject||g.name||g.id||g.jid||"").toLowerCase();
+    return nome.includes(termo);
+  }).map(g=>{
     const jid=g.id||g.jid||"";
     const nome=(g.subject||g.name||jid).replace(/</g,"&lt;");
     const atual=!!(editando&&editando.source_jid===jid);
@@ -10643,6 +10662,16 @@ function csMostrarTodosGrupos(){
   }
   const h=document.getElementById("csDonoHint");if(h)h.remove();
   const a=document.getElementById("csDonoAviso");if(a)a.remove();
+}
+// Busca em tempo real na lista de grupos do Clone Post (pedido Erico 05/09 —
+// lista de grupos de WhatsApp costuma ser grande). So reconstroi o <select>;
+// nao refaz a chamada ao engine.
+function csFiltrarJid(termo){
+  const sel=document.getElementById("csJid");
+  if(!sel)return;
+  const editando=CS_EDIT_ATUAL;
+  const jaTem=new Set(CS_FONTES.filter(f=>!editando||String(f.id)!==String(editando.id)).map(f=>f.source_jid));
+  sel.innerHTML=csOpcoesGrupos(editando,jaTem,termo)||'<option value="" disabled selected>Nenhum grupo com esse nome</option>';
 }
 
 function csLimparTeste(){
