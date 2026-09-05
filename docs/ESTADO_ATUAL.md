@@ -1696,8 +1696,14 @@ abaixo — cada linha ali tem o detalhe técnico.
 ## Última alteração
 
 **REVISÃO 134 — 05/09/2026 — Toast com auto-dismiss (só crítico fica manual) +
-busca em tempo real no select de grupos WhatsApp do Clone Post. CODADO NESTA
-SESSÃO, AINDA NÃO CLICADO NO NAVEGADOR PELO ÉRICO.**
+busca em tempo real no select de grupos WhatsApp do Clone Post. CODADO,
+PUSHADO (commit `51edf8f`) E DEPLOYADO NO EASYPANEL NESTA SESSÃO (via `ep`
+CLI). Confirmado via `javascript_tool` no navegador embutido, direto em
+`https://megalinksbr.com.br/painel`: `csOpcoesGrupos` já com o parâmetro
+`filtro`, e `TOAST_EMOJI_CRITICO`/`TOAST_AUTO_MS` presentes no runtime — não é
+só HTTP 200, é o código novo executando. AINDA ASSIM, comportamento clicado
+manualmente pelo Érico (o filtro realmente filtrando, o toast realmente
+sumindo/ficando) continua não medido — ver P136/P137.**
 
 ### 1. Toast — volta o auto-dismiss, exceto pra crítico/erro
 
