@@ -1695,6 +1695,104 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
+**REVISÃO 133 — 05/09/2026 — DUAS FEATURES NOVAS pedidas pelo Érico: "Recados
+do Grupo" (posts intercalados) e Sub-ID de rastreamento na Shopee. CODADO E
+DEPLOYADO NESTA SESSÃO, AINDA NÃO MEDIDO EM PRODUÇÃO — falta o Érico ligar um
+item de teste e conferir.**
+
+### 1. "Recados do Grupo" / "Cupom em Destaque" — intercalados no Post Automático
+
+**O pedido:** em Editar Grupo, dois tipos de mensagem que entram no rodízio
+normal entre os produtos — um "Bom dia" pros participantes, e os melhores
+cupons dos marketplaces — cada um com seu próprio gatilho (a cada X posts, ou
+horário fixo).
+
+**Banco.** Tabela nova `niche_group_extras` (migração
+`create_niche_group_extras`): `niche_group_id`, `user_id`, `tipo`
+(`recado`/`cupom`), `conteudo`, `modo_gatilho` (`a_cada_posts`/`horario_fixo`),
+`valor_posts`, `horario` (time), `ativo`, `ordem`, `posts_desde_ultimo`,
+`last_sent_at`, `last_sent_date`. RLS no mesmo padrão de `niche_groups`
+(`user_id = auth.uid() OR is_admin()`).
+
+**Frontend.** Aba nova **"📣 Recados do Grupo"** em Editar Grupo → Configuração
+(`frontend/index.html`, `PANES.recados` + `TAB_GROUPS`), com formulário de
+adicionar (tipo, mensagem, gatilho) e lista dos itens do grupo (pausar/ativar,
+remover). CRUD direto no Supabase client-side (`rgAdicionar`/`rgCarregar`/
+`rgAlternarAtivo`/`rgRemover`) — sem Edge Function própria, RLS já protege por
+`user_id`.
+
+**`send-post` v28 (deploy 62).** Antes de escolher o produto da rodada, busca
+os extras ativos do grupo e verifica se algum bate o gatilho
+(`a_cada_posts`: `posts_desde_ultimo >= valor_posts`; `horario_fixo`: bateu o
+horário e `last_sent_date` ainda não é hoje). Se bater, a rodada manda o
+`conteudo` do extra pelos MESMOS canais (WA grupos/canais, Telegram) em vez de
+escolher produto — sem tocar `cursor_index`, sem gerar link/afiliação. Só um
+extra por rodada. Contabilidade só quando `groupSent>0`: extra disparado zera
+o próprio `posts_desde_ultimo`; produto normal disparado anda +1 o contador de
+todo extra `a_cada_posts` ativo do grupo.
+
+⚠️ **Limitação por design, não bug:** extra depende do Post Automático estar
+rodando (grupo sem produto nenhum nunca chega no trecho que escolhe extras) e
+`horario_fixo` só dispara se cair dentro da janela de postagem do grupo
+(`start_hour`/`end_hour` ou Horários Inteligentes) — um horário fixo fora da
+janela do grupo nunca sai. O pedido era intercalar ENTRE posts normais, não um
+agendador à parte.
+
+**Prova do que foi feito:** deploy aplicado (`send-post` v28, function version
+62), confirmado ACTIVE; logs de `function_edge_logs` nos minutos seguintes ao
+deploy mostram só `200` (nenhum 500); `scheduled_posts` continuou gravando
+`status=sent` normalmente nos 15 min seguintes — como nenhum grupo tem extra
+cadastrado ainda, `extrasAtivos` vem vazio pra todo mundo e o comportamento de
+quem já usa a plataforma é IDÊNTICO ao de antes (extraEscolhido nunca dispara
+sem linha na tabela nova).
+
+**O que falta pra fechar (não medido ainda):** o Érico cadastrar um "Recado do
+Grupo" de teste num grupo com Post Automático ligado, esperar o gatilho bater
+(a_cada_posts é mais rápido de testar que horario_fixo) e conferir 3 coisas: a
+mensagem chegou no WhatsApp/Telegram no lugar de um produto; `posts_desde_ultimo`
+zerou depois do envio; o cursor de produtos (`niche_groups.cursor_index`) NÃO
+andou. Sem isso visto ao vivo, a REGRA DE PROVA deste documento não considera
+a feature fechada — só codada e sem erro de sintaxe/runtime até aqui.
+
+### 2. Sub-ID de rastreamento — Shopee, em Config Afiliados
+
+**O pedido:** criar Sub-IDs pros links dos marketplaces, pra identificar a
+origem do clique no relatório do próprio marketplace ou no MegaResults. Érico
+perguntou onde encaixar — Config Afiliados foi a escolha.
+
+**Contexto que já existia (P62, REVISÃO 52/53) e não estava documentado aqui
+fora do histórico de pendências:** todo link Shopee gerado pelo encurtador
+(`mlEncurtarLink`/`shopeeSubId`, `frontend/index.html`) já sai com
+`sub_id=<code>` automaticamente — o próprio código do link curto. Isso já
+identifica a origem por linha do banco (`link_clicks`/`short_links`), mas não
+deixa o Érico rotular por campanha/grupo no relatório da própria Shopee.
+
+**O que mudou nesta sessão:** campo novo **"Sub-ID de rastreamento"** dentro de
+Opções avançadas, em Config Afiliados → Shopee (array `LOJAS`, guardado dentro
+do `credentials` jsonb de `affiliate_credentials` como qualquer outro campo da
+loja — sem migração de banco). Quando preenchido, `shopeeSubId()` passa a
+montar `sub_id=<rotulo>-<code>` em vez de só `<code>`; o rótulo é limpo pra
+só letras/números (sub_id da Shopee usa `-` como separador de segmentos, então
+não pode sobrar no rótulo) e cortado em 20 caracteres. **Sem rótulo cadastrado
+o comportamento é idêntico ao de antes** (só `<code>`) — não regride a prova
+já feita da P62.
+
+**Por que só Shopee:** é o único marketplace com sub_id documentado e já
+medido em produção batendo no relatório de vendas (P62). Amazon usa tag de
+associado (não um sub-id livre por clique) e Mercado Livre não tem campo de
+sub-id aberto — estender pra eles exigiria descobrir e medir o mecanismo de
+cada um antes, que não foi feito agora.
+
+**Prova do que foi feito:** só de código/sintaxe (JS extraído do
+`frontend/index.html` passa em `node --check`). NADA disto foi testado num
+link real ainda — falta o Érico cadastrar um Sub-ID em Config Afiliados →
+Shopee, gerar um link novo (Postar Agora ou Post Automático) e conferir em
+`short_links.destination` que o `sub_id` saiu como `<rotulo>-<code>`.
+
+**Pendência aberta:** ver seção "Pendências abertas" — P133 e P134 abaixo.
+
+---
+
 **REVISÃO 132 — 04/09/2026 — `clone-ingest` v20: `acharCupom()` para de
 atravessar linha em branco, bug exposto pela própria v19.**
 
@@ -9044,13 +9142,16 @@ antigos; hoje é **Premium**).
 
 ## Componentes — estado
 
-### Post Automático — `send-post` v26 (deploy 60) NO AR E NO REPO
+### Post Automático — `send-post` v28 (deploy 62) NO AR, PENDENTE DE PUSH
 
 > ⚠️ Histórico de desalinhamentos deste componente: REVISÃO 124 deployou v24
 > sem pushar (corrigido na 125); entre a 125 e a 126, outra sessão deployou v26
 > (prévia OG em links) sem pushar (corrigido agora). **v25 nunca chegou a ficar
 > sozinha no ar** — v26 já veio construída em cima dela. Repo e produção
 > conferidos linha a linha nesta revisão: iguais.
+> **REVISÃO 133 (05/09): v28 no ar (deploy 62), com EXTRAS (P134) — o `.ts`
+> local está atualizado, mas o PUSH pro GitHub ainda não foi feito (sem PAT
+> nesta sessão até agora). Ver "Acesso" e a REVISÃO 133 acima.**
 
 - **Ordem: sempre a de cadastro** (`products.position` + `cursor_index`). Não
   existe mais sorteio na seleção — o `Math.random()` saiu na v23, e com ele o
@@ -9067,6 +9168,19 @@ antigos; hoje é **Premium**).
 - **Fim de semana:** modo Inteligente usa `smart_weekend` (default false); modo
   normal usa `weekend_enabled` (**default true**). Nos dois, desmarcado
   significa NÃO POSTAR, não postar de outro jeito.
+
+### Recados do Grupo / Cupom em Destaque (`niche_group_extras`, REVISÃO 133)
+
+CODADO E DEPLOYADO, NÃO MEDIDO — ver P134. Aba nova em Editar Grupo →
+Configuração; CRUD client-side direto na tabela (RLS por `user_id`); disparo
+intercalado pelo `send-post` v28 (ver acima e a REVISÃO 133 completa).
+
+### Sub-ID Shopee (Config Afiliados, REVISÃO 133)
+
+CODADO, NÃO MEDIDO — ver P135. Campo opcional dentro de `affiliate_credentials
+.credentials["Shopee"]["Sub-ID"]`; `shopeeSubId()` no frontend monta
+`sub_id=<rotulo>-<code>` quando preenchido, senão comportamento idêntico à
+P62 (só `<code>`). Só Shopee por enquanto — ver REVISÃO 133 pro porquê.
 
 ### Clone Post — auto-publicação (`clone-ingest` v20, 04/09, REVISÃO 132)
 
@@ -9475,6 +9589,8 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P135** | 🟡 **CODADO E DEPLOYADO (REVISÃO 133), NÃO MEDIDO.** Sub-ID de rastreamento na Shopee (Config Afiliados → Shopee → Opções avançadas), gravado no `credentials` jsonb, some ao `sub_id` do link como `<rotulo>-<code>`. Falta: cadastrar um rótulo, gerar um link Shopee novo e conferir em `short_links.destination` que o `sub_id` saiu com o prefixo — sem isso o campo pode estar salvando e nunca sendo lido por um erro de nome de chave (`campos["Sub-ID"]` tem que bater exatamente com o que `salvarLoja` grava) | 05/09 |
+| **P134** | 🟡 **CODADO E DEPLOYADO (REVISÃO 133, `send-post` v28), NÃO MEDIDO EM PRODUÇÃO.** "Recados do Grupo" / "Cupom em Destaque" (`niche_group_extras`, aba nova em Editar Grupo). Falta: cadastrar um item de teste num grupo com Post Automático ligado, esperar o gatilho bater e conferir 3 coisas — a mensagem saiu no lugar de um produto; `posts_desde_ultimo` zerou; `cursor_index` do grupo NÃO andou. Ver REVISÃO 133 para o desenho completo e as limitações conhecidas (depende do Post Automático estar rodando; `horario_fixo` só dispara dentro da janela de postagem do grupo) | 05/09 |
 | **P128** | 🟠 **O REPO FICOU ATRÁS DA PRODUÇÃO — DUAS VEZES SEGUIDAS.** 1ª (REVISÃO 124→125): a própria sessão que deployou não pushou. 2ª (REVISÃO 125→126): uma sessão CONCORRENTE deployou por cima (prévia OG em `send-post`/`group-blast`) sem pushar — descoberta e corrigida na REVISÃO 126 via `list_edge_functions`/`updated_at` antes de deployar por cima. `send-post` e `group-blast` reconciliados (repo = código publicado, conferido linha a linha). ⚠️ **Ainda não medido para o restante do catálogo** (`clone-ingest`, `radar`, `product-search`, `resolve-link`, `mega-results` etc. — 34 funções não tocadas nesta janela, mas nunca auditadas contra o repo desde que este arquivo existe). **Ação permanente adotada:** todo `deploy_edge_function` passa a ser precedido de `list_edge_functions` comparando `updated_at`/`version` — nunca mais assumir que o repo é o que está no ar | 03/09 |
 | **P133** | 🟡 **CONFIRMAR COM A ANA LUIZA (REVISÃO 130).** Ela precisa tentar de novo: agora o card do `31991797069` deve mostrar "📱 Novo QR" em vez de "Reconectar", e ler o QR Code deve reparear o número normalmente (o `btnGenQR` trata número já cadastrado como caso à parte, isento do teto do plano, e atualiza a linha existente pelo telefone — não deveria duplicar nem exigir Remover antes). Se ela ainda tomar erro, é caso novo — a causa desta rodada (nenhuma credencial salva pra restaurar, confirmado por `POST /reconnect` ao vivo) está fechada | 04/09 |
 | **P132** | 🟢 **RESOLVIDA (04/09, REVISÃO 130) — "Reconectar" era beco sem saída e "Desconectar" aparecia em card já morto.** Mesma conta da Ana Luiza (`31991797069`, `disconnected` desde 27/08). Testado ao vivo contra o wa-engine: `GET /sessions` não lista o número (das 8 sessões atuais) e `POST /reconnect/553191797069` devolve 404 "Nenhuma sessão salva para esse número" — não sobrou credencial nenhuma pra restaurar (o `wa-engine` restaura sozinho no boot qualquer sessão cuja pasta ainda exista; se não está em `/sessions`, não existe pasta). `waPintarInstancia()` oferecia Reconectar+Desconectar (`waBotoes(l,"offline")`) pra esse estado terminal; passou a oferecer 📱 Novo QR + 🗑 Remover (`waBotoes(l,"expirado")`, estado que já existia no código e nunca era chamado). Deployado e conferido no HTML servido. **Falta a Ana Luiza confirmar na conta real** — ver P133 | 04/09 |

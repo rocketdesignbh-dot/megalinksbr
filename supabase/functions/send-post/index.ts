@@ -1,4 +1,23 @@
-// Mega Links BR · Edge Function "send-post" v26
+// Mega Links BR · Edge Function "send-post" v28
+// v28: EXTRAS -- "Recados do Grupo" e "Cupom em Destaque" (niche_group_extras,
+//      tela Editar Grupo -> Recados do Grupo). Intercalados no rodizio normal,
+//      escolhidos ANTES da selecao de produto: se algum extra ativo do grupo
+//      bate o gatilho (a_cada_posts: posts_desde_ultimo>=valor_posts; ou
+//      horario_fixo: bateu o horario e ainda nao saiu hoje), a rodada envia o
+//      TEXTO do extra pelos mesmos canais (WA grupos/canais, Telegram) em vez
+//      de escolher um produto -- sem tocar cursor_index, sem gerar link. So um
+//      extra por rodada (o primeiro que bater, na ordem da tela). Contabilidade
+//      so ao confirmar envio (groupSent>0): extra disparado zera o proprio
+//      contador; produto normal disparado anda +1 o contador de todo extra
+//      "a_cada_posts" ativo do grupo. CODADO E DEPLOYADO NESTA REVISAO, AINDA
+//      NAO MEDIDO EM PRODUCAO COM UM GRUPO REAL -- falta ligar um extra de
+//      teste, rodar uma virada de cron e conferir a mensagem chegando e o
+//      contador andando (ver docs/ESTADO_ATUAL.md, Pendencias abertas).
+// v27: ROTEAMENTO POR DESTINO (fatia 2, REVISAO 129, 03/09). Grupo WA vinculado
+//      a uma conexao especifica (whatsapp_groups.instance_id, tela Editar Grupo
+//      -> Distribuicao) agora dispara por ELA em vez de sempre pela conexao
+//      PRINCIPAL. instance_id nulo (todo grupo vinculado antes desta revisao)
+//      segue exatamente o caminho de antes -- phoneClean da principal.
 // v26: PREVIA PROPRIA NUNCA saia para o Post Automatico. A `redirect` v16 (P60)
 //      foi desenhada pra servir tags OG proprias em vez do 302 pelado -- so que
 //      SO o "Link Rapido" manual do frontend gravava `og_title/og_description/
@@ -639,6 +658,39 @@ Deno.serve(async (req: Request) => {
 
     const total = products.length;
 
+    // ── EXTRAS (Recados do Grupo / Cupom em Destaque) ───────────────────────
+    // Intercalados no rodizio normal, sem consumir posicao de produto. Duas
+    // formas de disparo (niche_group_extras.modo_gatilho), lidas na tela
+    // Editar Grupo -> Recados do Grupo:
+    //   a_cada_posts  -> dispara quando posts_desde_ultimo >= valor_posts
+    //                    (contador andado so quando um PRODUTO normal sai, ver
+    //                    mais abaixo)
+    //   horario_fixo  -> dispara uma vez ao bater o horario (America/Sao_Paulo),
+    //                    guardado por last_sent_date pra nao repetir no mesmo
+    //                    dia. So e avaliado nas rodadas em que o grupo ja
+    //                    passou pelos gates de horario/intervalo acima -- um
+    //                    horario fixo fora da janela de postagem do grupo
+    //                    (start_hour/end_hour ou Horarios Inteligentes) nunca
+    //                    vai disparar; e isso e esperado, nao um bug.
+    // Sem produtos cadastrados o grupo nem chega aqui (gate da linha ~581),
+    // entao extras dependem do Post Automatico estar rodando -- e por design:
+    // o pedido era intercalar ENTRE postagens normais, nao um agendador a parte.
+    const { data: extrasAtivos } = await sb.from("niche_group_extras")
+      .select("id, tipo, conteudo, modo_gatilho, valor_posts, horario, posts_desde_ultimo, last_sent_date")
+      .eq("niche_group_id", group.id).eq("ativo", true).order("ordem");
+
+    let extraEscolhido: { id: string; tipo: string; conteudo: string } | null = null;
+    for (const ex of extrasAtivos ?? []) {
+      if (ex.modo_gatilho === "a_cada_posts") {
+        if ((ex.posts_desde_ultimo ?? 0) >= (ex.valor_posts ?? 1)) { extraEscolhido = ex; break; }
+      } else if (ex.modo_gatilho === "horario_fixo" && ex.horario) {
+        if (ex.last_sent_date === todayBR) continue; // ja saiu hoje, so 1x/dia
+        const [hh, mm] = String(ex.horario).split(":").map((n: string) => parseInt(n, 10));
+        const alvoMin = (hh || 0) * 60 + (mm || 0);
+        if (brMinutos >= alvoMin) { extraEscolhido = ex; break; }
+      }
+    }
+
     // ── v23: SELECAO DO PRODUTO ─────────────────────────────────────────────
     // A ordem e SEMPRE a de cadastro (products.position, ja aplicado no
     // .order("position") la em cima) percorrida pelo cursor_index. O que o
@@ -664,47 +716,59 @@ Deno.serve(async (req: Request) => {
       for (const r of jaSairamHoje ?? []) if (r?.product_id) postadosHoje.add(r.product_id);
     }
 
-    // Loop ligado varre a lista inteira a partir do cursor, dando a volta.
-    // Loop desligado varre so o que falta do cursor ate o fim -- sem dar a
-    // volta, que e o "parar no fim". Com o cursor ja alem do fim a varredura e
-    // vazia e o grupo simplesmente nao posta.
-    const varredura = loop ? total : Math.max(0, total - inicio);
-    let cursor = 0, product = null;
+    let cursor = 0;
+    let product: any = null;
+    let nextCursor = inicio;
+    let msg = "";
     let bloqueadoPorCredencial = false, puladoPorRepeticao = 0;
-    for (let i = 0; i < varredura; i++) {
-      const idx = loop ? (inicio + i) % total : inicio + i;
-      const candidato = products[idx];
-      const src = candidato.source ?? "";
-      if (LOJAS_QUE_EXIGEM_CREDENCIAL.has(src) && !lojasComCredencial.has(src)) {
-        console.warn(`[BLOQUEADO] grupo=${group.id} source=${src}`);
-        bloqueadoPorCredencial = true; totalBlocked++; continue;
-      }
-      if (postadosHoje.has(candidato.id)) { puladoPorRepeticao++; totalRepetidos++; continue; }
-      cursor = idx; product = candidato; break;
-    }
 
-    if (!product) {
-      totalSkipped++;
-      // Credencial faltando continua sendo FALHA visivel: o usuario tem o que
-      // consertar. Lista que acabou (loop desligado) ou dia ja cumprido (nao
-      // repetir) nao sao falha de ninguem -- ficam quietos, como o gate de
-      // horario ja fica.
-      if (bloqueadoPorCredencial) {
-        await sb.from("scheduled_posts").insert({ user_id:group.user_id, group_id:group.id, product_id:products[0].id, status:"failed", scheduled_for:now.toISOString(), sent_at:null, is_manual:false, error:"Nenhum produto pôde ser postado: configure suas credenciais." });
-      } else if (puladoPorRepeticao > 0) {
-        console.log(`[NAO-REPETIR] grupo=${group.id} todos os ${puladoPorRepeticao} produtos elegiveis ja sairam hoje`);
-      } else {
-        console.log(`[FIM-DA-LISTA] grupo=${group.id} cursor=${inicio} total=${total} — Post em Loop desligado, aguardando produto novo`);
+    if (extraEscolhido) {
+      // Extra nao consome produto nem anda o cursor -- so ocupa a vaga desta
+      // rodada nos mesmos canais (WA grupos/canais, Telegram) do post normal.
+      product = { id: null, image_url: null };
+      msg = extraEscolhido.conteudo;
+      nextCursor = inicio;
+    } else {
+      // Loop ligado varre a lista inteira a partir do cursor, dando a volta.
+      // Loop desligado varre so o que falta do cursor ate o fim -- sem dar a
+      // volta, que e o "parar no fim". Com o cursor ja alem do fim a varredura e
+      // vazia e o grupo simplesmente nao posta.
+      const varredura = loop ? total : Math.max(0, total - inicio);
+      for (let i = 0; i < varredura; i++) {
+        const idx = loop ? (inicio + i) % total : inicio + i;
+        const candidato = products[idx];
+        const src = candidato.source ?? "";
+        if (LOJAS_QUE_EXIGEM_CREDENCIAL.has(src) && !lojasComCredencial.has(src)) {
+          console.warn(`[BLOQUEADO] grupo=${group.id} source=${src}`);
+          bloqueadoPorCredencial = true; totalBlocked++; continue;
+        }
+        if (postadosHoje.has(candidato.id)) { puladoPorRepeticao++; totalRepetidos++; continue; }
+        cursor = idx; product = candidato; break;
       }
-      continue;
-    }
 
-    // Sem Loop o cursor NAO da a volta: ele para em total, e e isso que segura
-    // o rodizio ate entrar produto novo. Com Loop, % total recomeca do 1o.
-    const nextCursor = loop ? (cursor + 1) % total : cursor + 1;
-    // 1º regenera a afiliação com as credenciais ATUAIS, 2º encurta com o user_id do dono.
-    product.affiliate_url = await encurtarLink(sb, group.user_id, linkFinalDoProduto(product, credsMap), montarOg(product));
-    const msg = montarTexto(product);
+      if (!product) {
+        totalSkipped++;
+        // Credencial faltando continua sendo FALHA visivel: o usuario tem o que
+        // consertar. Lista que acabou (loop desligado) ou dia ja cumprido (nao
+        // repetir) nao sao falha de ninguem -- ficam quietos, como o gate de
+        // horario ja fica.
+        if (bloqueadoPorCredencial) {
+          await sb.from("scheduled_posts").insert({ user_id:group.user_id, group_id:group.id, product_id:products[0].id, status:"failed", scheduled_for:now.toISOString(), sent_at:null, is_manual:false, error:"Nenhum produto pôde ser postado: configure suas credenciais." });
+        } else if (puladoPorRepeticao > 0) {
+          console.log(`[NAO-REPETIR] grupo=${group.id} todos os ${puladoPorRepeticao} produtos elegiveis ja sairam hoje`);
+        } else {
+          console.log(`[FIM-DA-LISTA] grupo=${group.id} cursor=${inicio} total=${total} — Post em Loop desligado, aguardando produto novo`);
+        }
+        continue;
+      }
+
+      // Sem Loop o cursor NAO da a volta: ele para em total, e e isso que segura
+      // o rodizio ate entrar produto novo. Com Loop, % total recomeca do 1o.
+      nextCursor = loop ? (cursor + 1) % total : cursor + 1;
+      // 1º regenera a afiliação com as credenciais ATUAIS, 2º encurta com o user_id do dono.
+      product.affiliate_url = await encurtarLink(sb, group.user_id, linkFinalDoProduto(product, credsMap), montarOg(product));
+      msg = montarTexto(product);
+    }
     let groupSent = 0, groupFailed = 0;
     const falhas: string[] = [];
 
@@ -716,7 +780,7 @@ Deno.serve(async (req: Request) => {
       // duas. Era a trava real que impedia o plano de valer.
       // Quem dispara é a conexão PRINCIPAL (`is_primary`, uma por usuário por
       // índice único parcial); `created_at` desempata quando nenhuma está
-      // marcada. O roteamento POR DESTINO é a fatia 2.
+      // marcada.
       const { data: instance } = await sb.from("whatsapp_instances")
         .select("id, phone")
         .eq("user_id", group.user_id)
@@ -741,11 +805,46 @@ Deno.serve(async (req: Request) => {
           falhas.push(`WhatsApp ${instance.phone}: sessão caiu no wa-engine — marcada como desconectada. Repareie o QR Code. (${detalhe.slice(0,120)})`);
         };
 
-        const { data: waGroups } = await sb.from("whatsapp_groups").select("group_jid, name").eq("niche_group_id", group.id);
+        // ROTEAMENTO POR DESTINO (fatia 2, REVISAO 129, 03/09): grupo vinculado a
+        // uma conexao especifica (whatsapp_groups.instance_id, tela Editar Grupo
+        // -> Distribuicao) dispara por ELA, nao pela principal. instance_id nulo
+        // (todo grupo vinculado antes desta revisao) segue exatamente o caminho
+        // de antes -- phoneClean da principal, mesmo `sessaoMorta` compartilhado.
+        const { data: waGroups } = await sb.from("whatsapp_groups").select("group_jid, name, instance_id").eq("niche_group_id", group.id);
+        const idsOutraConexaoGrupos = [...new Set((waGroups ?? []).map(g => g.instance_id).filter((id): id is string => !!id && id !== instance.id))];
+        const outrasInstanciasGrupos = idsOutraConexaoGrupos.length
+          ? new Map(((await sb.from("whatsapp_instances").select("id, phone, status").in("id", idsOutraConexaoGrupos)).data ?? []).map(i => [i.id, i]))
+          : new Map<string, { id: string; phone: string; status: string }>();
+        const jaDerrubadaNestaVolta = new Set<string>(); // evita marcar a mesma conexao secundaria 2x nesta rodada de grupos
         for (const wg of waGroups ?? []) {
-          if (sessaoMorta) { groupFailed++; continue; }
           if (!wg.group_jid) { falhas.push(`WA grupo "${wg.name ?? "?"}": sem group_jid`); groupFailed++; continue; }
           const rotulo = `WA grupo "${wg.name ?? wg.group_jid}"`;
+          const outraConexao = wg.instance_id && wg.instance_id !== instance.id ? outrasInstanciasGrupos.get(wg.instance_id) : null;
+          if (outraConexao) {
+            if (outraConexao.status !== "connected") {
+              falhas.push(`${rotulo}: a conexão vinculada (${outraConexao.phone}) está desconectada`);
+              groupFailed++;
+              continue;
+            }
+            const telOutra = outraConexao.phone.replace(/\D/g, "");
+            try {
+              const r = await fetchWithTimeout(`${ENGINE_URL}/send-group`, { method:"POST", headers:{"content-type":"application/json",authorization:`Bearer ${ENGINE_TOKEN}`}, body:JSON.stringify({ sessionPhone:telOutra, groupId:wg.group_jid, text:msg, imageUrl:product.image_url||undefined, userId:group.user_id }) }, ENGINE_TIMEOUT_MS);
+              if (!r.ok) {
+                const corpo = await lerCorpo(r);
+                groupFailed++;
+                if (ehSessaoMorta(r.status, corpo) && !jaDerrubadaNestaVolta.has(outraConexao.id)) {
+                  jaDerrubadaNestaVolta.add(outraConexao.id);
+                  await sb.from("whatsapp_instances").update({ status: "disconnected", idle_since: now.toISOString(), disconnect_requested_at: now.toISOString() }).eq("id", outraConexao.id);
+                  instanciasDerrubadas.push(outraConexao.phone);
+                  falhas.push(`WhatsApp ${outraConexao.phone}: sessão caiu no wa-engine — marcada como desconectada. Repareie o QR Code. (${corpo.slice(0,120)})`);
+                } else { const d = `${rotulo}: HTTP ${r.status} — ${corpo.slice(0,160)}`; console.error(`[WA-GRUPO] ${d}`); falhas.push(d); }
+                continue;
+              }
+              groupSent++;
+            } catch(e) { const d = descreverExcecao(rotulo, e); console.error(`[WA-GRUPO] ${d}`); falhas.push(d); groupFailed++; }
+            continue;
+          }
+          if (sessaoMorta) { groupFailed++; continue; }
           try {
             const r = await fetchWithTimeout(`${ENGINE_URL}/send-group`, { method:"POST", headers:{"content-type":"application/json",authorization:`Bearer ${ENGINE_TOKEN}`}, body:JSON.stringify({ sessionPhone:phoneClean, groupId:wg.group_jid, text:msg, imageUrl:product.image_url||undefined, userId:group.user_id }) }, ENGINE_TIMEOUT_MS);
             if (!r.ok) {
@@ -801,6 +900,29 @@ Deno.serve(async (req: Request) => {
 
     await sb.from("scheduled_posts").insert({ user_id:group.user_id, group_id:group.id, product_id:product.id, status:groupSent>0?"sent":"failed", scheduled_for:now.toISOString(), sent_at:groupSent>0?now.toISOString():null, is_manual:false, error:erroDetalhado });
 
+    // ── EXTRAS: contabilidade so quando de fato saiu em algum canal ──────────
+    if (groupSent > 0) {
+      if (extraEscolhido) {
+        // O extra que acabou de sair zera o proprio contador e marca a data
+        // (horario_fixo usa a data pra nao repetir no mesmo dia; a_cada_posts
+        // ignora last_sent_date, mas gravar nao atrapalha).
+        await sb.from("niche_group_extras")
+          .update({ posts_desde_ultimo: 0, last_sent_at: now.toISOString(), last_sent_date: todayBR })
+          .eq("id", extraEscolhido.id);
+      } else {
+        // Produto normal saiu: anda o contador de todo extra "a cada X posts"
+        // ativo deste grupo -- e o gatilho dele.
+        try {
+          const { data: extrasContagem } = await sb.from("niche_group_extras")
+            .select("id, posts_desde_ultimo")
+            .eq("niche_group_id", group.id).eq("ativo", true).eq("modo_gatilho", "a_cada_posts");
+          for (const ex of extrasContagem ?? []) {
+            await sb.from("niche_group_extras").update({ posts_desde_ultimo: (ex.posts_desde_ultimo ?? 0) + 1 }).eq("id", ex.id);
+          }
+        } catch (e) { console.warn(`[EXTRAS] falha ao andar contador grupo=${group.id}: ${e instanceof Error ? e.message : String(e)}`); }
+      }
+    }
+
     // ── v24 (P125): rodada que nao enviou nada nao consome o intervalo ───────
     // A linha `failed` acima ja esta gravada, entao ela entra na contagem de
     // falhas consecutivas -- por isso o corte e `< RETRY_STRIKES` e nao `<=`.
@@ -847,7 +969,7 @@ Deno.serve(async (req: Request) => {
     // rodizio. cursor_index ja foi salvo com o total ANTES da exclusao -- na
     // proxima rodada o total recalculado (products.length) absorve a mudanca
     // sozinho, sem precisar de ajuste aqui.
-    if (group.delete_after_post && groupSent > 0) {
+    if (group.delete_after_post && groupSent > 0 && !extraEscolhido) {
       const { error: eDel } = await sb.from("products").delete().eq("id", product.id);
       if (eDel) console.warn(`[EXCLUIR-APOS-POSTAR] grupo=${group.id} produto=${product.id} falhou: ${eDel.message}`);
     }

@@ -4343,8 +4343,9 @@ const LOJAS=[
   ],dica:`<div>✅ <strong>Não tem Access Key/Secret Key? Sem problema!</strong> Preenchendo só o <strong>ID de Associado</strong> abaixo, o sistema já gera sozinho um link comissionado (parâmetro <code>tag=</code>) — é o código escolhido ao criar sua conta em <a href="https://associados.amazon.com.br" target="_blank" style="color:var(--volt-tx)">associados.amazon.com.br</a> (formato "seusite-20"), disponível em <strong>Configuração da conta → IDs de Rastreamento</strong>.</div><p style="margin-top:8px">As <strong>Opções avançadas</strong> abaixo (Access Key/Secret Key) só são necessárias se você quiser busca automática de produtos via PA-API. Gere em <strong>Portal de Associados → aba "API de Divulgação de Produtos" → Gerenciar credenciais</strong>. A Amazon costuma liberar essa API só depois de registrar vendas qualificadas pelo programa — até lá, o ID de Associado sozinho já funciona normalmente.</p>`},
   {n:"Shopee",e:"🧡",img:"",f:[
     {k:"ID de Afiliado",label:"AppID / ID de Afiliado",altKey:"App Key",mirrorTo:["App Key"],pwd:false,ph:"Ex: 18344180897"},
-    {k:"App Secret",label:"Senha (App Secret)",pwd:true,ph:"Senha exibida no painel Abrir API",optional:true,advanced:true}
-  ],dica:`<div>O painel da Shopee te mostra <strong>dois dados</strong> — e são exatamente os dois campos abaixo.</div><div class="alert g" style="margin-top:8px;font-size:12.5px"><div style="line-height:1.7;min-width:0"><strong>AppID</strong> → campo <strong>AppID / ID de Afiliado</strong>. É o mesmo número que aparece em <strong>Configurações da Conta</strong> como "ID de Afiliado" — não são dois valores diferentes.<br><strong>Senha</strong> → é a <strong>App Secret</strong>, dentro de Opções avançadas.</div></div><p style="margin-top:8px">Só o <strong>AppID</strong> já habilita seus links comissionados. A <strong>Senha</strong> é opcional e serve apenas para o Radar buscar produtos Shopee automaticamente.</p><p style="margin-top:8px;color:var(--mut);font-size:12px">Onde achar: <a href="https://affiliate.shopee.com.br" target="_blank" style="color:var(--volt-tx)">affiliate.shopee.com.br</a> → <strong>Abrir API</strong> (AppID + Senha).</p>`},
+    {k:"App Secret",label:"Senha (App Secret)",pwd:true,ph:"Senha exibida no painel Abrir API",optional:true,advanced:true},
+    {k:"Sub-ID",label:"Sub-ID de rastreamento",pwd:false,ph:"Ex: grupovip (só letras/números)",optional:true,advanced:true}
+  ],dica:`<div>O painel da Shopee te mostra <strong>dois dados</strong> — e são exatamente os dois campos abaixo.</div><div class="alert g" style="margin-top:8px;font-size:12.5px"><div style="line-height:1.7;min-width:0"><strong>AppID</strong> → campo <strong>AppID / ID de Afiliado</strong>. É o mesmo número que aparece em <strong>Configurações da Conta</strong> como "ID de Afiliado" — não são dois valores diferentes.<br><strong>Senha</strong> → é a <strong>App Secret</strong>, dentro de Opções avançadas.</div></div><p style="margin-top:8px">Só o <strong>AppID</strong> já habilita seus links comissionados. A <strong>Senha</strong> é opcional e serve apenas para o Radar buscar produtos Shopee automaticamente.</p><p style="margin-top:8px;color:var(--mut);font-size:12px">Onde achar: <a href="https://affiliate.shopee.com.br" target="_blank" style="color:var(--volt-tx)">affiliate.shopee.com.br</a> → <strong>Abrir API</strong> (AppID + Senha).</p><p style="margin-top:8px;color:var(--mut);font-size:12px"><strong>Sub-ID</strong> (opcional, dentro de Opções avançadas): um rótulo seu — ex. o nome do grupo ou da campanha — que passa a viajar em todo link Shopee gerado por você, junto com o código único do link. Aparece no relatório de vendas da Shopee em <strong>Sub_id1</strong>, então dá pra filtrar por ele lá. Vale só para Shopee por enquanto.</p>`},
   {n:"Magalu",e:"💙",img:"",emBreve:true,f:[
     {k:"Nome da Loja",pwd:false,ph:"Slug da sua loja no Magalu"}
   ],dica:`<p>Para encontrar:</p><ol><li>Acesse <a href="https://www.magazinevoce.com.br" target="_blank" style="color:var(--volt-tx)">magazinevoce.com.br</a></li><li>Copie o <strong>nome/slug</strong> da sua loja</li></ol>`},
@@ -5483,7 +5484,8 @@ function dispararGrupoMostrarErros(nomeGrupo,d){
 /* ================= ABAS EDITAR GRUPO ================= */
 const TAB_GROUPS=[
   {id:"config",label:"⚙️ Configuração",tabs:[
-    {id:"geral",label:"🤖 Automação de Posts"}
+    {id:"geral",label:"🤖 Automação de Posts"},
+    {id:"recados",label:"📣 Recados do Grupo",novo:1}
   ]},
   {id:"dist",label:"📡 Distribuição",tabs:[
     {id:"wagrupos",label:"WhatsApp-GRUPOS"},
@@ -5573,6 +5575,28 @@ geral:`
     <button class="btn btn-ghost" onclick="pgResetGeral()" style="color:var(--red,#ef4444);border-color:var(--red,#ef4444)">🗑️ Limpar tudo</button>
     <span id="pgSalvoMsg" style="font-size:12px;color:var(--volt-tx);display:none">✅ Configurações salvas!</span>
   </div>`,
+recados:`
+  <div class="alert b" style="font-size:12.5px">📣 Intercale mensagens entre os posts normais deste grupo — um "Bom dia" pros participantes, ou os melhores cupons dos marketplaces. Cada item dispara sozinho, do jeito que você escolher abaixo.</div>
+  <div class="card"><div class="ch">➕ Novo item</div><div class="cb">
+    <div class="field"><label>Tipo</label>
+      <select id="rgTipo">
+        <option value="recado">💬 Recado do Grupo (aviso, bom dia, etc.)</option>
+        <option value="cupom">🎟️ Cupom em Destaque</option>
+      </select>
+    </div>
+    <div class="field"><label>Mensagem</label><textarea id="rgConteudo" rows="3" placeholder="Ex: Bom dia, pessoal! ☀️ Hoje tem oferta boa chegando o dia todo."></textarea></div>
+    <div class="field"><label>Quando disparar</label>
+      <select id="rgModo" onchange="rgTrocarModo()">
+        <option value="a_cada_posts">A cada X posts do grupo</option>
+        <option value="horario_fixo">Em um horário fixo do dia</option>
+      </select>
+    </div>
+    <div class="field" id="rgCampoPosts"><label>A cada quantos posts</label><input id="rgValorPosts" type="number" min="1" value="10" style="max-width:120px"></div>
+    <div class="field" id="rgCampoHorario" style="display:none"><label>Horário (Brasília)</label><input id="rgHorario" type="time" value="08:00" style="max-width:160px"></div>
+    <button class="btn btn-volt" onclick="rgAdicionar()">➕ Adicionar</button>
+  </div></div>
+  <div class="card"><div class="ch">📋 Itens deste grupo <span class="r"><button class="btn btn-ghost btn-sm" onclick="rgCarregar()">↻ Atualizar</button></span></div>
+    <div class="cb" id="rgLista"><p style="color:var(--mut);text-align:center;padding:20px">Carregando…</p></div></div>`,
 wacanais:`
   <div class="alert ${"b"}" id="wcAlert">ℹ️ Vincule um <strong>Canal do WhatsApp</strong> a este grupo. O número conectado precisa ser <strong>Dono</strong> ou <strong>Admin</strong> do canal.</div>
   <div class="card"><div class="ch">🔗 Vincular canal <span class="r" id="wcConn"></span></div><div class="cb">
@@ -5786,6 +5810,71 @@ function paneImportLoja(id,label){
 }
 MARKET_STORES.forEach(st=>{PANES[st.id]=paneImportLoja(st.id,st.label);});
 
+/* ================= RECADOS DO GRUPO (Recados/Cupom em Destaque) ================= */
+// Intercalados no Post Automático pelo send-post (niche_group_extras), lidos
+// e escritos direto pelo cliente (RLS por user_id) -- sem edge function propria.
+function rgTrocarModo(){
+  const modo=document.getElementById("rgModo")?.value;
+  const cPosts=document.getElementById("rgCampoPosts"),cHora=document.getElementById("rgCampoHorario");
+  if(cPosts)cPosts.style.display=modo==="a_cada_posts"?"":"none";
+  if(cHora)cHora.style.display=modo==="horario_fixo"?"":"none";
+}
+async function rgAdicionar(){
+  const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
+  if(!gid){toast("Selecione um grupo primeiro.","⚠️");return;}
+  const tipo=document.getElementById("rgTipo")?.value||"recado";
+  const conteudo=(document.getElementById("rgConteudo")?.value||"").trim();
+  const modo=document.getElementById("rgModo")?.value||"a_cada_posts";
+  if(!conteudo){toast("Escreva a mensagem antes de adicionar.","⚠️");return;}
+  const row={
+    niche_group_id:gid, user_id:CURRENT_USER?.id, tipo, conteudo,
+    modo_gatilho:modo, ativo:true, ordem:Date.now()%1000000,
+    valor_posts:modo==="a_cada_posts"?(parseInt(document.getElementById("rgValorPosts")?.value,10)||10):null,
+    horario:modo==="horario_fixo"?(document.getElementById("rgHorario")?.value||"08:00"):null,
+  };
+  const{error}=await SB.from("niche_group_extras").insert(row);
+  if(error){toast("Erro ao salvar: "+error.message,"⚠️");return;}
+  document.getElementById("rgConteudo").value="";
+  toast("Item adicionado!","✅");
+  rgCarregar();
+}
+async function rgCarregar(){
+  const el=document.getElementById("rgLista");if(!el)return;
+  const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
+  if(!gid){el.innerHTML="";return;}
+  el.innerHTML=`<p style="color:var(--mut);text-align:center;padding:20px">Carregando…</p>`;
+  const{data,error}=await SB.from("niche_group_extras").select("*").eq("niche_group_id",gid).order("ordem");
+  if(error){el.innerHTML=`<p style="color:var(--mut);text-align:center;padding:20px">Erro ao carregar: ${error.message}</p>`;return;}
+  if(!data||!data.length){el.innerHTML=`<p style="color:var(--mut);text-align:center;padding:20px">Nenhum recado ou cupom cadastrado ainda.</p>`;return;}
+  el.innerHTML=data.map(ex=>{
+    const icone=ex.tipo==="cupom"?"🎟️":"💬";
+    const gatilho=ex.modo_gatilho==="horario_fixo"?`⏰ todo dia às ${String(ex.horario||"").slice(0,5)}`:`🔁 a cada ${ex.valor_posts} posts`;
+    return `<div class="card" style="margin:0 0 10px"><div class="cb" style="display:flex;gap:12px;align-items:flex-start;padding:14px">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;margin-bottom:4px">${icone} ${ex.tipo==="cupom"?"Cupom em Destaque":"Recado do Grupo"} <span class="pill ${ex.ativo?"volt":"gray"}" style="font-size:10px;margin-left:6px">${ex.ativo?"Ativo":"Pausado"}</span></div>
+        <div style="font-size:13px;color:var(--tx2);white-space:pre-wrap;margin-bottom:6px">${(ex.conteudo||"").replace(/</g,"&lt;")}</div>
+        <div style="font-size:11.5px;color:var(--mut)">${gatilho}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;flex:none">
+        <button class="btn btn-ghost btn-sm" onclick="rgAlternarAtivo('${ex.id}',${!ex.ativo})">${ex.ativo?"⏸️ Pausar":"▶️ Ativar"}</button>
+        <button class="btn btn-ghost btn-sm" onclick="rgRemover('${ex.id}')" style="color:var(--mut)">🗑️ Remover</button>
+      </div>
+    </div></div>`;
+  }).join("");
+}
+async function rgAlternarAtivo(id,novoAtivo){
+  const{error}=await SB.from("niche_group_extras").update({ativo:novoAtivo}).eq("id",id);
+  if(error){toast("Erro: "+error.message,"⚠️");return;}
+  rgCarregar();
+}
+async function rgRemover(id){
+  if(!confirm("Remover este item? Não tem desfazer."))return;
+  const{error}=await SB.from("niche_group_extras").delete().eq("id",id);
+  if(error){toast("Erro: "+error.message,"⚠️");return;}
+  toast("Removido.","🗑️");
+  rgCarregar();
+}
+
 window._impData=window._impData||{};
 function impStoreCredLabel(id){const st=MARKET_STORES.find(s=>s.id===id);return st?st.cred:id;}
 function impStoreLabel(id){const st=MARKET_STORES.find(s=>s.id===id);return st?st.label:id;}
@@ -5909,6 +5998,7 @@ function buildTabs(){
       if(b.dataset.tab==="manual")wireManual();
       if(b.dataset.tab==="prod-lista")wireProdLista();
       if(b.dataset.tab==="prod-add"){wireProdAdd();prodIdeaisCalc();prodCupomTipoChange();}
+      if(b.dataset.tab==="recados")rgCarregar();
     });
     // dispara wire da primeira tab se necessário
     if(MARKET_STORES.some(s=>s.id===first.id))impRenderAlert(first.id);
@@ -9348,6 +9438,18 @@ function prGerarLinkAfil(link,loja){
 // `origin_link` foi montado com `encodeURIComponent` la no `prGerarLinkAfil`.
 // O append por string preserva byte a byte o que ja estava la; o `new URL` aqui
 // serve so para PERGUNTAR se e um an_redir, nunca para remontar.
+// Sub-ID (REVISÃO seguinte à 132) — rótulo opcional cadastrado em Config
+// Afiliados → Shopee → Sub-ID de rastreamento. Some ao `code` do próprio link
+// (sub_id=<rotulo>-<code>) pra além de identificar o link único, deixar
+// filtrar por campanha/grupo no relatório da Shopee (Sub_id1). Sem rótulo
+// cadastrado, comportamento IDÊNTICO ao de antes (só o `code`) — não regride
+// a prova já feita da P62.
+function shopeeSubIdValor(code){
+  const bruto=(CREDS_STATE["Shopee"]&&CREDS_STATE["Shopee"]["Sub-ID"]||"").trim();
+  // sem hífen: é o caractere separador dos até 5 segmentos do sub_id da própria Shopee
+  const limpo=bruto.replace(/[^a-zA-Z0-9_]/g,"").slice(0,20);
+  return limpo?`${limpo}-${code}`:code;
+}
 function shopeeSubId(longUrl,code){
   if(!longUrl||!code)return longUrl;
   try{
@@ -9357,7 +9459,7 @@ function shopeeSubId(longUrl,code){
   }catch(e){return longUrl;}
   // Link que ja chegou com sub_id (de terceiro ou nosso) nao e sobrescrito.
   if(/[?&]sub_id=/.test(longUrl))return longUrl;
-  return longUrl+(longUrl.indexOf("?")>=0?"&":"?")+"sub_id="+encodeURIComponent(code);
+  return longUrl+(longUrl.indexOf("?")>=0?"&":"?")+"sub_id="+encodeURIComponent(shopeeSubIdValor(code));
 }
 
 // Planos com rastreamento de cliques habilitado
