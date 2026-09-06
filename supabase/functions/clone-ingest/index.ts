@@ -264,7 +264,7 @@ const STORE_LABEL: Record<string, string> = {
   terabyte: "TerabyteShop",
 };
 
-// ── v17 · P36 · pre-filtro por dominio do link cru ────────────────────────
+// ── v17 · P36 · pre-filtro por dominio do link cru ────────────────────────────────
 // A v16 filtra por loja DEPOIS da resolve-link, que e quem sabe qual e a loja.
 // Isso custa uma resolve-link por mensagem que a fonte ja tinha dito que nao
 // queria. MEDIDO em 03/08: 104 recusas em 7 dias de vitrine de afiliado do
@@ -340,9 +340,9 @@ function normalizarJid(raw: unknown): string {
   return String(raw ?? "").trim().toLowerCase();
 }
 
-// ═══════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 // Fallback: ler a oferta do proprio texto da mensagem
-// ═══════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 // Isto NAO e fonte da verdade. Preco lido do texto e preco que um terceiro
 // DIGITOU, nao preco conferido na loja — por isso quem usa marca
 // data_source='message' e o dono revisa antes de publicar.
@@ -630,7 +630,7 @@ async function chamarFuncao(slug: string, body: unknown, timeoutMs = 30000): Pro
   } finally { clearTimeout(t); }
 }
 
-// ── Mercado Livre com a credencial pessoal do dono ──────────────────────
+// ── Mercado Livre com a credencial pessoal do dono ───────────────────
 // A product-search descobre de quem e a busca lendo o "sub" do JWT, e nos
 // chamamos com service role, que nao tem sub. Por ali o Scrape.do pessoal do
 // dono seria ignorado e a captura automatica queimaria a quota compartilhada
@@ -664,7 +664,7 @@ async function buscarMlDireto(url: string, cred: { token: string; token2: string
   } finally { clearTimeout(t); }
 }
 
-// ── v15 · P21 · a Amazon lida DA PAGINA ──────────────────────────────────
+// ── v15 · P21 · a Amazon lida DA PAGINA ─────────────────────────────────
 // O conserto aqui NAO e um leitor novo: ele ja existe no projeto, funciona, e a
 // clone-ingest simplesmente nao o usava. O product-refresh le a Amazon por
 // fetch direto, sem Scrape.do e sem custo de credito, exigindo duas testemunhas
@@ -813,7 +813,7 @@ async function consultarAmazonDireto(url: string): Promise<any> {
   } finally { clearTimeout(t); }
 }
 
-// ── v15 · P20 · o log passa a dizer QUAL link falhou ─────────────────────
+// ── v15 · P20 · o log passa a dizer QUAL link falhou ─────────────────
 // Guarda host e caminho, nunca o texto da mensagem — conteudo de terceiro so
 // mora em clone_posts.source_text, e so quando a captura vinga. A query string
 // fica de fora de proposito: e onde vive o id do afiliado alheio e ela nao
@@ -833,7 +833,7 @@ function partesDoLink(url: unknown): { host: string | null; path: string | null 
   }
 }
 
-// ── v13/v14 · foto do produto quando a loja nao responde ──────────────────
+// ── v13/v14 · foto do produto quando a loja nao responde ──────────────
 // MEDIDO em 31/07: a product-search **pendura** para a Amazon (>90s sem
 // resposta, testado no navegador do dono). O chamarFuncao aborta em 30s, entao
 // toda captura da Amazon cai no fallback de texto — e texto de WhatsApp nao tem
@@ -938,7 +938,7 @@ Deno.serve(async (req: Request) => {
     return json({ ok: true, jids, donos });
   }
 
-  // ── action: reparse ───────────────────────────────────────────────
+  // ── action: reparse ────────────────────────────────────────────────────
   // Reaplica o fallback de texto nas capturas que morreram em 'failed' por falta
   // de dado da loja. Existe porque a captura nao volta: a mensagem no grupo-fonte
   // ja passou, e o source_text guardado e a unica copia. Sempre que o parser
@@ -1073,7 +1073,7 @@ Deno.serve(async (req: Request) => {
     return sufs;
   }
 
-  // ── Auto-publicacao (v11) ───────────────────────────────────────
+  // ── Auto-publicacao (v11) ────────────────────────
   // Espelho server-side do cloneCriarProduto() do index.html. O original roda
   // no NAVEGADOR e por isso nao serve para captura automatica — nao ha ninguem
   // logado no circuito.
@@ -1152,7 +1152,7 @@ Deno.serve(async (req: Request) => {
     for (const fonte of fontes) {
       const marca: Record<string, unknown> = { ...rotulo, source_id: fonte.id, user_id: fonte.user_id, niche_group_id: fonte.niche_group_id };
 
-      // ── Isolamento entre contas ─────────────────────────────
+      // ── Isolamento entre contas ───────────────────
       // A fonte e procurada SO pelo JID, e JID igual entre contas diferentes e o
       // caso normal: duas clientes podem estar no mesmo grupo de ofertas. Sem a
       // checagem abaixo, a captura feita pela sessao de uma alimentaria a fila da
@@ -1204,7 +1204,7 @@ Deno.serve(async (req: Request) => {
         if (jaVisto?.length) { resultados.push({ ...marca, status: "duplicado", motivo: "mensagem ja processada" }); continue; }
       }
 
-      // ── v17 · P36 · pre-filtro por dominio do link cru ────────────────
+      // ── v17 · P36 · pre-filtro por dominio do link cru ──────────────────
       // Vem ANTES da resolve-link: e o unico ponto do fluxo onde da pra
       // economizar a propria resolve-link. O filtro da v16 continua logo abaixo
       // e continua sendo o que decide de verdade — este aqui so adianta os
@@ -1258,7 +1258,7 @@ Deno.serve(async (req: Request) => {
       const doLink = partesDoLink(cleanUrl);
       Object.assign(marca, { store, link_host: doLink.host, link_path: doLink.path });
 
-      // ── v16 · P31 · filtro de loja por fonte ─────────────────────────
+      // ── v16 · P31 · filtro de loja por fonte ──────────────────────
       // Vem DEPOIS da resolve-link porque so ela sabe qual e a loja: o grupo
       // posta encurtador (meli.la, amzlink.to, s.shopee.com.br) e o dominio cru
       // nao responde a pergunta. Um filtro anterior, por dominio do link cru,
@@ -1363,7 +1363,31 @@ Deno.serve(async (req: Request) => {
         cupom = acharCupom(texto);
       }
 
-      // ── v13/v14 · a foto e requisito, nao enfeite ───────────────────────
+      // ── v27 · "de" tambem NÃO depende da loja ter respondido (mesmo padrão
+      // do cupom acima, REVISÃO 131) ───────────────────────────────────────
+      // Pedido do Érico: quando o grupo-fonte já escreveu "De: ~R$99,90~
+      // Por: R$32,99" ou "~Custa R$X~" na própria mensagem, esse "de" é dado
+      // de verdade (quem criou a oferta escreveu, não é invenção nossa) —
+      // não deveria se perder só porque a Shopee respondeu com título/preço
+      // atual e a P32/v25 (`product-search`) deliberadamente não manda
+      // `price_from` pra Shopee (o motivo daquela decisão continua valendo:
+      // a loja não confirma qual era o preço anterior). Medido em 06/09: 85
+      // dos 88 produtos Shopee sem "de" vieram por clone_post — a mensagem
+      // capturada tinha "de/por" na maioria dos casos, só não estava sendo
+      // lida quando a loja respondia com sucesso.
+      // Preenche SÓ o que falta — nunca sobrescreve um "de" que a loja já
+      // confirmou (Mercado Livre/Amazon, que têm verificador próprio), e só
+      // aceita o valor do texto quando ele é coerente (maior que o preço
+      // escolhido) — mesma regra de coerência do `acharPrecos`.
+      if (precoDe == null && preco != null) {
+        const deDoTexto = lerOfertaDoTexto(texto).price_original;
+        if (deDoTexto != null && deDoTexto > preco) {
+          precoDe = deDoTexto;
+          if (!desconto) desconto = Math.round((1 - preco / precoDe) * 100);
+        }
+      }
+
+      // ── v13/v14 · a foto e requisito, nao enfeite ─────────────────────
       // Decisao do dono, 31/07: "oferta sem foto e descartavel, nao e o objetivo
       // do projeto". Um post de grupo de oferta sem imagem nao para o dedo de
       // ninguem — publicar assim gasta a atencao do grupo sem retorno.
@@ -1456,7 +1480,7 @@ Deno.serve(async (req: Request) => {
         last_capture_at: agora.toISOString(),
       }).eq("id", fonte.id);
 
-      // ── Auto-publicacao (v11 por fonte; v18 por grupo de destino) ──────
+      // ── Auto-publicacao (v11 por fonte; v18 por grupo de destino) ──────────
       // A fonte OU o grupo de destino podem pedir auto-publicacao — mas o
       // criterio de seguranca e o MESMO dos dois lados, sem excecao: os dados
       // tem que estar completos e ter vindo DA LOJA. Dado lido so do texto da
@@ -1513,7 +1537,7 @@ Deno.serve(async (req: Request) => {
   const doTexto = resultados.filter((r) => r.data_source === "message").length;
   const semFoto = resultados.filter((r) => r.status === "sem_imagem").length;
 
-  // ── v7 · registro das tentativas ──────────────────────────────────
+  // ── v7 · registro das tentativas ────────────────────────
   // Uma linha por veredito, inclusive (e principalmente) os de recusa: sao eles
   // que respondem "por que nao veio nada hoje". dryRun nao grava — ensaio nao e
   // historico.

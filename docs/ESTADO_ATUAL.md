@@ -1695,6 +1695,66 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
+**REVISÃO 136 — 06/09/2026 — `clone-ingest` passa a reaproveitar o "de/por" do texto do post clonado, mesmo quando a loja responde. DEPLOYADO NO SUPABASE (version 28), CONFIRMADO LENDO O CÓDIGO PUBLICADO DE VOLTA. NÃO PUSHADO AINDA (aguardando patch aplicado pelo Érico, mesmo fluxo da REVISÃO 135).**
+
+### Pedido do Érico
+
+Depois da REVISÃO 135 (achado P138: 85 dos 88 produtos Shopee sem "de" vieram
+por `clone_post`), Érico perguntou: "Não da pra repetirmos quando o post for
+clonado, inserir o 'de e por' que veio do post clonado?" — ou seja, reaproveitar
+o preço original que o PRÓPRIO grupo-fonte já escreveu na mensagem capturada
+("De: ~R$99,90~ Por: R$32,99", ou só "~Custa R$X~"), em vez de depender só da
+loja confirmar.
+
+### O que existia
+
+Em `clone-ingest/index.ts`, o parser de texto (`lerOfertaDoTexto`, que lê
+título/preço/cupom da mensagem crua) só era usado inteiro dentro do
+`if (lojaFalhou)` — quando a loja RESPONDIA com sucesso (o caso comum pra
+Shopee), o "de" vinha só de `busca?.price_from`, que a P32/v25 deliberadamente
+nunca manda pra Shopee. Resultado: mesmo quando a mensagem original já trazia
+o "de" escrito por quem criou a oferta, esse dado se perdia.
+
+Já existia o precedente exato pra esse tipo de conserto: a v19/REVISÃO 131
+("cupom NÃO depende da loja ter respondido") tinha decoupled a extração de
+cupom do mesmo gate `lojaFalhou`, pelo mesmo motivo — cupom e "de" vêm do
+TEXTO, não da loja, são independentes do resultado da busca.
+
+### Corrigido (v27, dentro de clone-ingest)
+
+Novo bloco logo depois do bloco do cupom: quando `precoDe` ainda está vazio
+(nem a loja confirmou, nem outro caminho já preencheu) e já existe um `preco`
+escolhido, lê `lerOfertaDoTexto(texto).price_original` e usa ESSE valor como
+"de" — só quando ele é maior que o `preco` (mesma regra de coerência do
+`acharPrecos`: "de" ≤ "por" é mensagem incoerente e não vira desconto
+inventado). Nunca sobrescreve um "de" que a loja (Mercado Livre/Amazon, que
+têm verificador — `product-refresh`) já confirmou; só preenche o que falta.
+Quando preenche, recalcula `discount_pct` a partir dos dois valores, se ainda
+não havia um.
+
+Verificado ANTES do deploy contra 4 `source_text` reais puxados do banco de
+produção (2 no formato "❌De:~R$X~/✅Por:R$Y", 2 no formato "~Custa R$X~" sem
+rótulo "De"): `lerOfertaDoTexto` extraiu `price` e `price_original` corretos
+nos 4 casos. Deployado via `deploy_edge_function` (version 28) e **relido de
+volta** via `get_edge_function`, diff byte-a-byte contra o arquivo local —
+idêntico, confirmando que o texto publicado é exatamente esse.
+
+### O que isso NÃO resolve
+
+Só ajuda produtos que passam por Clone Post com um "de/por" já escrito na
+mensagem capturada. Produto Shopee cujo grupo-fonte nunca escreveu "de" (ou
+cuja captura veio por Radar/importação, sem `source_text`) continua sem "de"
+— P138 (verificador de preço próprio pra Shopee) segue em aberto como decisão
+de arquitetura, não fechada por esta mudança.
+
+Próximo passo natural, ainda não pedido pelo Érico: rodar `{"action":
+"reparse"}` (já existe no `clone-ingest`) pra reaplicar esse fallback nas
+capturas que já ficaram `failed`/sem "de" — recuperaria retroativamente parte
+dos 88 produtos Shopee sem confirmar nada novo na loja. Fica como sugestão
+pra próxima sessão, não executado.
+
+---
+
 **REVISÃO 135 — 06/09/2026 — "De R$X por R$Y" faltando no Disparo Manual (`group-blast`). CORRIGIDO E DEPLOYADO NO SUPABASE NESTA SESSÃO (v8/versão 19), CONFIRMADO LENDO O CÓDIGO PUBLICADO DE VOLTA — não só status de deploy. NÃO PUSHADO AINDA (ver nota de PAT abaixo).**
 
 ### Causa raiz
