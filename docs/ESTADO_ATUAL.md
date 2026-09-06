@@ -1695,6 +1695,67 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
+**REVISÃO 135 — 06/09/2026 — "De R$X por R$Y" faltando no Disparo Manual (`group-blast`). CORRIGIDO E DEPLOYADO NO SUPABASE NESTA SESSÃO (v8/versão 19), CONFIRMADO LENDO O CÓDIGO PUBLICADO DE VOLTA — não só status de deploy. NÃO PUSHADO AINDA (ver nota de PAT abaixo).**
+
+### Causa raiz
+
+Érico reportou: muitos posts saindo sem a linha "De R$X por R$Y" que mostra
+desconto. Duas funções montam texto de post: `send-post` (Post Automático,
+`montarTexto`) sempre montou essa linha direito. `group-blast` (Disparo
+Manual/"Postar Agora", exclusivo do plano Starter) usava uma função própria
+`montarMsg` que **nunca** mostrava o "de" — só preço atual e, quando havia,
+"X% OFF". O `select` de produtos nem trazia `price_original`/`price_suffix`
+do banco pra montar essa linha.
+
+**Corrigido:** select do `group-blast` passa a trazer `price_original` e
+`price_suffix`; `montarMsg` monta "~De R$X~ por R$Y" quando há
+`price_original > price`, com fallback pro comportamento antigo (% OFF, ou só
+preço) quando não há "de". `montarOg` (prévia do link) também passou a usar
+`price_original` em vez de `discount_pct`, mesmo critério do `send-post`, já
+que o dado passou a estar em mãos. Deployado via `deploy_edge_function`
+(version 19) e **relido de volta** via `get_edge_function` pra confirmar que
+o texto publicado é exatamente esse — não só que o deploy retornou sucesso.
+
+⚠️ **Achado ao investigar: hoje não há nenhum usuário Starter ativo com
+grupo/produto** (`profiles.plan='starter'` com `niche_groups`: zero linhas
+medido em 06/09) — então este bug específico não está causando o sintoma que
+o Érico está vendo agora; ele existia e foi corrigido, mas fica pronto pra
+quando houver Starter ativo.
+
+### O sintoma real (planos Premium/Elite, que usam `send-post`) é FALTA DE DADO, não bug de texto
+
+Medido em 06/09: 460 produtos no catálogo, 153 (33%) sem `price_original`
+gravado — concentrado em Shopee (88 de 140, 63% sem "de") e Amazon (65 de
+169, 38% sem "de"). Shein e Mercado Livre estão com 100% de cobertura.
+
+- **87 dos 88 produtos Shopee sem "de" nunca foram conferidos nem uma vez**
+  (`price_checked_at` nulo) — e isso é esperado, não um regresso: o
+  `product-refresh` só verifica `mercado_livre` e `amazon`
+  (`LOJAS_COM_VERIFICADOR`, linha ~249 do arquivo) — **Shopee nunca teve
+  verificador de preço automático**, por desenho. Produto Shopee só ganha
+  "de" se a própria loja mostrar isso no momento da captura (Radar/
+  importação); se não mostrou ali, fica sem "de" para sempre, a não ser que
+  alguém edite manualmente ou que se decida construir um verificador pra
+  Shopee (trabalho novo, não escopo desta sessão).
+- Amazon tem 35 produtos sem "de" **conferidos recentemente** (não é falta
+  de checagem) — merece uma olhada separada se o Érico quiser (não
+  investigado além disso nesta sessão, por escopo).
+
+**Não fiz nenhuma mudança de captura/verificador nesta sessão** — é decisão
+de arquitetura maior (custo/prioridade de dar verificador de preço à Shopee)
+que precisa ser discutida com o Érico antes, não uma correção de bug.
+
+### PAT / push pendente
+
+Sessão sem shell no computador do Érico (nenhuma pasta conectada, ferramenta
+`device_bash` ausente desta sessão) — o caminho de sempre (clonar aí, aplicar
+patch, push com PAT) não estava disponível. Fix aplicado e commitado
+**localmente no clone desta sessão** (`supabase/functions/group-blast/index.ts`,
+que também traz o repo pra frente pro código de roteamento por destino v7 que
+já estava em produção mas nunca tinha sido pushado — ver P128). Push em
+aberto — precisa de um PAT clássico (`ghp_`) do Érico nesta sessão, ou rodar
+localmente com uma pasta conectada.
+
 **REVISÃO 134 — 05/09/2026 — Toast com auto-dismiss (só crítico fica manual) +
 busca em tempo real no select de grupos WhatsApp do Clone Post. CODADO,
 PUSHADO (commit `51edf8f`) E DEPLOYADO NO EASYPANEL NESTA SESSÃO (via `ep`
@@ -9670,6 +9731,7 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P138** | 🟡 **Shopee sem verificador de preço automático — 63% dos produtos Shopee (88 de 140) sem `price_original`, 87 deles nunca conferidos desde a captura.** `product-refresh` só cobre `mercado_livre` e `amazon` (`LOJAS_COM_VERIFICADOR`) — Shopee só ganha "de" se a própria loja mostrar no momento da captura (Radar/importação); sem verificador, nunca recupera depois. Amazon também tem 35 produtos sem "de" mesmo com checagem recente (não investigado a fundo). Decisão de arquitetura (custo/prioridade de construir verificador pra Shopee), não bug — precisa ser discutida com o Érico antes de codar. Achado ao investigar por que "muitas postagens saem sem De/Por" (REVISÃO 135) | 06/09 |
 | **P137** | 🟡 **CODADO (REVISÃO 134), NÃO CLICADO NO NAVEGADOR.** Toast volta a fechar sozinho (~4,5s) pra tudo que não usa emoji de alerta crítico/erro (`⚠️⛔❌🔴🚫🔒` ficam manuais). Falta: salvar um produto/config qualquer e ver o toast sumir sozinho; forçar um erro (ex. campo obrigatório vazio) e ver o toast ficar até clicar no ✕. Heurística é por emoji da própria chamada — não foi auditada chamada a chamada (~150 no arquivo); se algum toast sumir rápido demais ou ficar preso à toa, é o emoji daquela chamada específica que está classificado errado, não a lógica do `toast()` | 05/09 |
 | **P136** | 🟡 **CODADO (REVISÃO 134), NÃO CLICADO NO NAVEGADOR.** Busca em tempo real (`#csJidBusca`) no select de grupo do Clone Post → Nova Fonte (`#csJid`). Falta: abrir Clone Post → Nova Fonte de captura automática, digitar parte do nome de um grupo e conferir que a lista do select filtra ao vivo. Só esse select foi alterado — a lista de "Seus grupos WhatsApp" em Distribuição já tinha busca própria (`#wgBusca`) e não foi tocada; outras listas curtas do sistema (Config Afiliados, planos etc.) também não, por não terem sido citadas como problema | 05/09 |
 | **P135** | 🟢 **RESOLVIDA (05/09) — CONFIRMADA EM PRODUÇÃO.** Sub-ID de rastreamento na Shopee. Érico gerou um link real pelo encurtador (rótulo `eko`) e o redirecionamento da própria Shopee devolveu `utm_content=eko-oqkfsvz` — sub_id com o prefixo certo, comportamento observado de ponta a ponta, não só o código lido | 05/09 |

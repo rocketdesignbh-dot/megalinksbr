@@ -1,4 +1,18 @@
-// Mega Links BR · Edge Function "group-blast" v6 — previa propria (OG) no short link
+// Mega Links BR · Edge Function "group-blast" v8 — "De/Por" no disparo manual
+// v8: O Disparo Manual (Starter, este arquivo) nunca mostrava o preço "De"
+//     riscado — só o preço atual e, quando havia, "X% OFF". O `send-post`
+//     (Post Automático) já monta "~De R$X~ por R$Y" desde sempre
+//     (`montarTexto`); aqui era outra função (`montarMsg`), sem essa linha, e
+//     o select nem trazia `price_original`/`price_suffix` pra montar. Corrigido:
+//     select passa a trazer os dois campos, e `montarMsg` monta a mesma linha
+//     "De/Por" do `send-post` quando há price_original > price. Sem "de"
+//     disponível, cai no comportamento antigo (% OFF, ou só o preço). `montarOg`
+//     (prévia do link) também passa a usar price_original em vez de
+//     discount_pct, mesmo critério do send-post, agora que o dado está em mãos.
+// v7: ROTEAMENTO POR DESTINO (fatia 2, REVISAO 129, 03/09). Grupo WA vinculado
+//     a uma conexao especifica (whatsapp_groups.instance_id) dispara por ELA
+//     em vez de sempre pela principal. instance_id nulo segue o caminho de
+//     sempre (phoneClean da principal). Mesmo padrao aplicado ao send-post v27.
 // v6: mesmo conserto do send-post v26. `encurtarLink` aqui tambem inseria
 //     short_links sem og_title/og_description/og_image -- ganha um `og`
 //     opcional (montado do produto, com discount_pct em vez de
@@ -94,15 +108,16 @@ function ehLinkCurtoProprio(url: string): boolean {
   } catch { return false; }
 }
 
-// v6: previa propria (og_title/og_description/og_image) montada a partir do
-// PRODUTO deste disparo. discount_pct (nao price_original) porque e o campo
-// que este select realmente traz -- ver montarMsg logo abaixo.
+// v8: previa propria (og_title/og_description/og_image) montada a partir do
+// PRODUTO deste disparo, agora com price_original (o select já traz), mesmo
+// critério do send-post -- antes era discount_pct porque price_original não
+// vinha do select.
 const LOJA_LABEL: Record<string, string> = { shopee:"Shopee", mercado_livre:"Mercado Livre", amazon:"Amazon", aliexpress:"AliExpress", magalu:"Magalu", shein:"Shein", awin:"AWIN", natura:"Natura", terabyte:"TerabyteShop" };
 function montarOg(p: any): { title: string; description: string; image: string } {
   const brl = (v: number) => Number(v).toFixed(2).replace(".", ",");
   const partes: string[] = [];
   if (p.price) partes.push(`R$ ${brl(p.price)}`);
-  if (p.discount_pct) partes.push(`${p.discount_pct}% OFF`);
+  if (p.price_original && Number(p.price_original) > Number(p.price || 0)) partes.push(`(de R$ ${brl(p.price_original)})`);
   const loja = p.source ? (LOJA_LABEL[p.source] ?? "") : "";
   if (loja) partes.push(loja);
   return {
@@ -183,14 +198,30 @@ function linkFinalDoProduto(product: any, credsMap: Record<string, Record<string
 
 
 // linkFinal chega pronto (afiliado com as credenciais ATUAIS + encurtado).
+// v8: passa a montar a linha "~De R$X~ por R$Y", mesmo formato do
+// `montarTexto` do send-post, quando o produto tem price_original > price.
+// Sem "de" disponível, cai no comportamento antigo (% OFF quando há
+// discount_pct, senão só o preço) -- ninguém perde o que já tinha.
 function montarMsg(product: any, linkFinal: string): string {
+  const brl = (v: number) => Number(v).toFixed(2).replace(".", ",");
   const cta = product.cta_random ? sortearCta() : (product.cta_text || "");
-  const priceStr = product.price ? `R$ ${Number(product.price).toFixed(2).replace(".", ",")}` : "";
-  const discStr = product.discount_pct ? `🔥 ${product.discount_pct}% OFF` : "";
+  const porStr = product.price ? `R$ ${brl(product.price)}` : "";
+  const sufStr = product.price_suffix ? ` ${product.price_suffix}` : "";
+  const temDe = product.price_original && Number(product.price_original) > Number(product.price || 0);
+  let precoLinha: string;
+  if (temDe) {
+    precoLinha = porStr ? `~De R$ ${brl(product.price_original)}~ por ${porStr}${sufStr}` : "";
+  } else if (product.discount_pct && porStr) {
+    precoLinha = `🔥 ${product.discount_pct}% OFF — ${porStr}${sufStr}`;
+  } else if (product.discount_pct) {
+    precoLinha = `🔥 ${product.discount_pct}% OFF`;
+  } else {
+    precoLinha = porStr ? `${porStr}${sufStr}` : "";
+  }
   const cupomStr = product.coupon_code ? `🏷️ Utilize o cupom: ${product.coupon_code}` : "";
   return [
     product.title,
-    discStr && priceStr ? `${discStr} — ${priceStr}` : discStr || priceStr,
+    precoLinha,
     cupomStr,
     cta,
     linkFinal,
@@ -264,7 +295,7 @@ Deno.serve(async (req: Request) => {
   // Produtos do grupo
   const { data: products } = await sb
     .from("products")
-    .select("id, title, affiliate_url, original_url, source, image_url, price, discount_pct, coupon_code, cta_text, cta_random")
+    .select("id, title, affiliate_url, original_url, source, image_url, price, price_original, price_suffix, discount_pct, coupon_code, cta_text, cta_random")
     .eq("niche_group_id", groupId)
     .order("position");
 
@@ -280,7 +311,7 @@ Deno.serve(async (req: Request) => {
   // Quem dispara é a conexão principal (`is_primary`); `created_at` desempata.
   const { data: instance } = await sb
     .from("whatsapp_instances")
-    .select("phone")
+    .select("id, phone")
     .eq("user_id", userId)
     .eq("status", "connected")
     .order("is_primary", { ascending: false })
@@ -290,8 +321,16 @@ Deno.serve(async (req: Request) => {
 
   const { data: waGroups } = await sb
     .from("whatsapp_groups")
-    .select("group_jid, name")
+    .select("group_jid, name, instance_id")
     .eq("niche_group_id", groupId);
+
+  // ROTEAMENTO POR DESTINO (fatia 2, REVISAO 129, 03/09): grupo vinculado a
+  // uma conexao especifica dispara por ELA, nao pela principal. instance_id
+  // nulo continua no caminho de sempre (phoneClean da principal).
+  const idsOutraConexaoGrupos = [...new Set((waGroups ?? []).map(g => g.instance_id).filter((id): id is string => !!id && id !== instance?.id))];
+  const outrasInstanciasGrupos = idsOutraConexaoGrupos.length
+    ? new Map(((await sb.from("whatsapp_instances").select("id, phone, status").in("id", idsOutraConexaoGrupos)).data ?? []).map(i => [i.id, i]))
+    : new Map<string, { id: string; phone: string; status: string }>();
 
   const { data: waChannels } = await sb
     .from("whatsapp_channels")
@@ -328,11 +367,19 @@ Deno.serve(async (req: Request) => {
       for (const wg of waGroups ?? []) {
         if (!wg.group_jid) continue;
         const d = pegarDestino(stats, `wag:${wg.group_jid}`, "wa_grupo", wg.name || wg.group_jid);
+        const outraConexao = wg.instance_id && wg.instance_id !== instance?.id ? outrasInstanciasGrupos.get(wg.instance_id) : null;
+        if (outraConexao && outraConexao.status !== "connected") {
+          const msgErr = `conexão vinculada (${outraConexao.phone}) está desconectada`;
+          failed++; d.failed++; d.last_error = msgErr;
+          errosProduto.push(`${d.label}: ${msgErr}`);
+          continue;
+        }
+        const telAlvo = outraConexao ? outraConexao.phone.replace(/\D/g, "") : phoneClean;
         try {
           const r = await fetchWithTimeout(`${ENGINE_URL}/send-group`, {
             method: "POST",
             headers: { "content-type": "application/json", authorization: `Bearer ${ENGINE_TOKEN}` },
-            body: JSON.stringify({ sessionPhone: phoneClean, groupId: wg.group_jid, text: msg, imageUrl: product.image_url || undefined, userId }),
+            body: JSON.stringify({ sessionPhone: telAlvo, groupId: wg.group_jid, text: msg, imageUrl: product.image_url || undefined, userId }),
           });
           if (!r.ok) throw new Error(`engine respondeu ${r.status}`);
           sent++; d.sent++;
