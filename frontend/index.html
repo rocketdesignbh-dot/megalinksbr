@@ -1271,8 +1271,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
 
+    <div id="radarAccessGateBanner"></div>
+
     <!-- Busca rápida -->
-    <div class="card" style="padding:12px 16px;margin-bottom:12px">
+    <div class="card" id="radarBuscaCard" style="padding:12px 16px;margin-bottom:12px">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
         <div style="flex:1;min-width:180px">
           <label style="font-size:11px;color:var(--mut);font-weight:600;display:block;margin-bottom:5px">FILTRAR NA LISTA</label>
@@ -2623,6 +2625,75 @@ async function dismissScrapeDoAviso(){
     toast("Beleza, não avisamos mais sobre isso.","✅");
   }catch(e){toast("Erro ao salvar: "+(e.message||""),"⛔");}
 }
+// ── Trava de acessos gratuitos ao Radar sem token do Scrape.do (REVISÃO 138) ──
+// Pedido do Érico: 10 acessos ao Radar de Ofertas avisados e numerados desde o
+// primeiro; no 11º sem o token cadastrado, o Radar bloqueia (grid + busca
+// somem, vira tela de "conecte seu token") e o RESTO da plataforma (Postar
+// Agora, Grupos, Clone Post, etc.) continua funcionando normal -- é trava só
+// desta página, não da conta. Contagem em `profiles.radar_access_count`
+// (persistida no servidor, não em localStorage, pra não resetar limpando o
+// navegador) incrementada em TODA entrada na página enquanto não houver
+// token; quem já tem token nunca incrementa nem é bloqueado. Enforcement é
+// só de tela, no mesmo padrão dos demais limites de plano desta plataforma
+// (ver ESTADO_ATUAL.md, tabela de Planos) -- não há checagem correspondente
+// no backend (`radar`/`product-search`).
+const RADAR_ACESSO_GRATIS = 10;
+let RADAR_ACESSO_COUNT = 0, RADAR_ACESSO_TEM_TOKEN = false, RADAR_ACESSO_CARREGADO = false;
+
+function radarAplicarGateAcesso(){
+  const banner = document.getElementById("radarAccessGateBanner");
+  const busca  = document.getElementById("radarBuscaCard");
+  const full   = document.getElementById("radarFull");
+  if(!banner) return;
+  if(!RADAR_ACESSO_CARREGADO || RADAR_ACESSO_TEM_TOKEN){
+    banner.innerHTML = "";
+    if(busca) busca.style.display = "";
+    if(full) full.style.display = "";
+    return;
+  }
+  const bloqueado = RADAR_ACESSO_COUNT > RADAR_ACESSO_GRATIS;
+  if(bloqueado){
+    if(busca) busca.style.display = "none";
+    if(full) full.style.display = "none";
+    banner.innerHTML = `<div class="alert r" style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px">
+      <span style="font-size:22px">🔒</span>
+      <div style="flex:1">
+        <div style="font-size:13.5px;font-weight:700;margin-bottom:4px">Radar de Ofertas bloqueado — limite de ${RADAR_ACESSO_GRATIS} acessos gratuitos atingido</div>
+        <div style="font-size:12.5px">Você já usou os ${RADAR_ACESSO_GRATIS} acessos gratuitos ao Radar sem o token do Scrape.do. Conecte seu token (é grátis) em Config Afiliados pra voltar a usar o Radar sem limite — o resto da plataforma continua funcionando normalmente.</div>
+        <button class="btn btn-volt btn-sm" style="margin-top:8px" onclick="setRole('afiliado');go('config-afiliados')">🔑 Conectar meu token do Scrape.do</button>
+      </div>
+    </div>`;
+  } else {
+    if(busca) busca.style.display = "";
+    if(full) full.style.display = "";
+    banner.innerHTML = `<div class="alert y" style="display:flex;gap:10px;align-items:center;margin-bottom:12px;font-size:12.5px">
+      <span style="font-size:18px">🔢</span>
+      <div style="flex:1">Acesso <strong>${RADAR_ACESSO_COUNT} de ${RADAR_ACESSO_GRATIS}</strong> ao Radar de Ofertas sem o token do Scrape.do — depois disso o acesso fica bloqueado até você conectar. <a href="#" onclick="setRole('afiliado');go('config-afiliados');return false" style="color:inherit;font-weight:600">Conectar agora</a></div>
+    </div>`;
+  }
+}
+
+async function radarChecarAcessoGratuito(){
+  if(!CURRENT_USER?.id) return;
+  // Aplica o último estado conhecido nesta sessão antes de ir ao banco --
+  // evita o grid "piscar" liberado por uma fração de segundo em quem já
+  // sabemos que está bloqueado.
+  radarAplicarGateAcesso();
+  try{
+    const{data,error}=await SB.from("profiles").select("scrape_do_token, radar_access_count").eq("id",CURRENT_USER.id).maybeSingle();
+    if(error)throw error;
+    RADAR_ACESSO_TEM_TOKEN = !!data?.scrape_do_token;
+    let count = Number(data?.radar_access_count || 0);
+    if(!RADAR_ACESSO_TEM_TOKEN){
+      count = count + 1;
+      SB.from("profiles").update({radar_access_count:count}).eq("id",CURRENT_USER.id).then(({error:eUp})=>{if(eUp)console.warn("radar_access_count:",eUp.message);});
+    }
+    RADAR_ACESSO_COUNT = count;
+    RADAR_ACESSO_CARREGADO = true;
+  }catch(e){console.warn("radarChecarAcessoGratuito:",e);}
+  radarAplicarGateAcesso();
+}
+
 async function salvarScrapeDoToken(){
   const input=document.getElementById("scrapeDoTokenInput");
   const token=(input?.value||"").trim();
@@ -2802,7 +2873,7 @@ function go(page){
   }
   // Hook: ao entrar no Radar, atualiza a marca de "última visita" e re-render
   if(page==="radar"&&typeof renderRadar==="function"){
-    setTimeout(()=>{renderRadar();if(typeof setRadarLastVisit==="function")setRadarLastVisit();if(typeof atualizarStatusBuscaML==="function")atualizarStatusBuscaML();const rb=document.getElementById("radarStarterBanner");if(rb)rb.style.display=MY_PLAN==="starter"?"flex":"none";},100);
+    setTimeout(()=>{renderRadar();if(typeof setRadarLastVisit==="function")setRadarLastVisit();if(typeof atualizarStatusBuscaML==="function")atualizarStatusBuscaML();if(typeof radarChecarAcessoGratuito==="function")radarChecarAcessoGratuito();const rb=document.getElementById("radarStarterBanner");if(rb)rb.style.display=MY_PLAN==="starter"?"flex":"none";},100);
   }else if(typeof pararStatusBuscaML==="function"){
     pararStatusBuscaML();
   }

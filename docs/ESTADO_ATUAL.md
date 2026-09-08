@@ -1695,6 +1695,65 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
+**REVISÃO 138 — 08/09/2026 — trava de acessos gratuitos ao Radar de Ofertas pra quem não conecta o próprio token do Scrape.do. CODADO (`frontend/index.html`) E MIGRAÇÃO APLICADA NO SUPABASE (`profiles.radar_access_count`), NADA DISSO DEPLOYADO NO EASYPANEL AINDA — precisa do rebuild manual do Érico. NÃO PUSHADO (mesmo bloqueio de proxy; vai junto no mesmo patch da REVISÃO 137).**
+
+### Pedido do Érico
+
+Depois da REVISÃO 137 confirmar que 12 dos 15 perfis não têm token próprio e
+competem pela cota compartilhada, Érico pediu uma trava de verdade: dar 10
+acessos ao Radar de Ofertas, avisando e numerando desde o primeiro acesso, e
+travar a partir do 11º pra quem não configurou o token — com o resto da
+plataforma continuando normal.
+
+### O que foi feito
+
+- **Migração `20260908010000_radar_access_gate_scrape_do.sql`** (aplicada via
+  `apply_migration`, conferida com `information_schema.columns`): coluna nova
+  `profiles.radar_access_count integer not null default 0`. RLS já cobria —
+  `profiles_update_self` só bloqueia mudar `is_admin`/`is_vip`/`plan`/
+  `sub_status` por conta própria; `radar_access_count` não está nessa lista,
+  então o update client-side (mesmo padrão de `salvarScrapeDoToken`) passa.
+- **`frontend/index.html`:**
+  - `id="radarBuscaCard"` no card de busca/filtros e `<div
+    id="radarAccessGateBanner">` novo, logo acima dele — nunca é o banner
+    dispensável (`scrapeDoBannerHTML`/"não avisar mais"): ESTE avisa sempre,
+    enquanto o usuário não tiver token, sem opção de esconder.
+  - `radarChecarAcessoGratuito()`, chamada no hook de entrada do `go("radar")`
+    (junto de `renderRadar`/`atualizarStatusBuscaML`, que já rodavam ali):
+    lê `scrape_do_token` e `radar_access_count` do perfil; sem token,
+    incrementa o contador (grava de volta no banco, fire-and-forget) — TODA
+    entrada na página conta como 1 acesso. Com token, nunca incrementa e
+    nunca bloqueia.
+  - `radarAplicarGateAcesso()`: com `radar_access_count <= 10`, mostra banner
+    amarelo numerado ("Acesso X de 10…") com link pra Config Afiliados, e a
+    página funciona normal. Acima de 10, esconde o card de busca e o grid
+    (`#radarBuscaCard`/`#radarFull`) e mostra banner vermelho de bloqueio com
+    botão "Conectar meu token do Scrape.do". Roda uma vez com o estado
+    conhecido da sessão ANTES de ir ao banco (evita o grid "piscar" liberado)
+    e de novo depois de confirmar.
+
+### O que isto NÃO é
+
+**Enforcement só de tela — mesmo padrão dos demais limites de plano desta
+plataforma** (ver tabela de Planos, "Enforcement server-side ainda
+incompleto"). Não há checagem correspondente no backend: a Edge Function
+`radar` (busca manual) e `product-search` continuam aceitando a chamada de um
+usuário "bloqueado" na tela se ele contornar o frontend. Decisão consciente
+de escopo — endurecer isso no backend é trabalho à parte, não pedido nesta
+sessão.
+
+### O que falta pra dar como pronto
+
+**Nada disto foi ao ar** — precisa: (1) push do commit (mesmo bloqueio de
+PAT/proxy das revisões 133-137, vai no mesmo lote); (2) Deploy manual do `app`
+no EasyPanel (frontend não entra no auto-deploy); (3) medir de verdade: criar
+(ou usar) um perfil sem token, entrar no Radar 10x e conferir o número subindo
+1 por 1, confirmar que o 11º acesso esconde o grid e mostra o bloqueio, e que
+Postar Agora/Grupos continuam funcionando nesse mesmo perfil. Nada disso foi
+clicado ainda — só lido no código.
+
+---
+
 **REVISÃO 137 — 08/09/2026 — grupos "Achadinhos" zerando com `delete_after_post` ligado: achado, medido no banco e CORRIGIDO. `send-post` v29 (deploy 63), CONFIRMADO LENDO O CÓDIGO PUBLICADO DE VOLTA (diff byte-a-byte com o arquivo local, idêntico). NÃO PUSHADO AINDA (mesmo bloqueio de proxy das revisões 133-136 — falta o Érico rodar o patch pelo computador dele).**
 
 ### O que o Érico reportou
@@ -9677,6 +9736,13 @@ inteira.** Três listas paginam hoje, cada uma com o padrão que a tarefa pede:
   duplicado, trava de duplo-clique no frontend (3 pontos), indicador 🟢/🔴 com
   cronômetro até meia-noite BRT, cache `expires_at` de 5 dias (batia com o rodízio —
   com 6h, 7 das 8 categorias sumiam entre coletas).
+- **Trava de 10 acessos gratuitos sem token (REVISÃO 138, CODADO/MIGRADO, NÃO
+  DEPLOYADO):** `profiles.radar_access_count` conta toda entrada na página
+  Radar de quem não tem `scrape_do_token`; banner numerado desde o 1º acesso,
+  bloqueio de tela (grid + busca somem) a partir do 11º. Só o Radar é afetado
+  — resto da plataforma continua normal pro mesmo usuário. **Enforcement só de
+  tela** — `radar`/`product-search` não checam isso no backend, mesmo padrão
+  dos outros limites de plano desta tabela. Não medido em produção.
 - "Buscar agora" só gasta crédito se o usuário digitar palavra-chave específica.
 
 ### Integrações
