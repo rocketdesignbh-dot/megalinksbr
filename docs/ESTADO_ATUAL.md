@@ -1695,6 +1695,78 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
+**REVISÃO 139 — 08/09/2026 — captura automática do Clone Post (`clone-ingest`) estava 100% derrubada pra TODA a base desde 05/09 à noite: função respondia 401 pra toda chamada do wa-engine. CAUSA ACHADA, CORRIGIDA E PROVADA em produção nesta sessão.**
+
+### Como isto foi achado
+
+Érico pediu pra verificar por que grupos da usuária Ana Luiza Ribeiro Fialho
+(`08a269c8-…`) não estavam postando. Query em `niche_groups` dela achou 2 grupos
+com `post_auto_enabled=true` mas travados: `Bebe Clone` (cursor=17, total=16
+produtos ativos) e `Clone variados` (cursor=63, total=62) — os dois em
+`loop_enabled=false` + `delete_after_post=true`, exatamente o cenário do
+`[FIM-DA-LISTA]` que a REVISÃO 137 documentou: "para de postar até entrar
+produto novo". Log confirmou os dois batendo nesse log a cada disparo desde
+05/09 (`grep` em `function_logs`).
+
+A pergunta seguinte foi por que nenhum produto novo estava entrando. `clone_posts`
+e `clone_sources.last_capture_at` das duas fontes dela pararam exatamente em
+2026-09-05, e uma query em `clone_ingest_log` **sem filtro de usuário** mostrou
+que **NINGUÉM na base** teve uma captura registrada depois de **2026-09-05
+23:00:18 UTC** — ou seja, não era um problema da Ana Luiza, era a plataforma
+inteira.
+
+### Causa raiz
+
+`query_logs` em `function_edge_logs` filtrando por `clone-ingest` mostrou
+**289 de 289 chamadas nas últimas 24h voltando HTTP 401** — falha de 100%, não
+intermitente. A função `clone-ingest` estava deployada com **`verify_jwt: true`**
+(confirmado via `list_edge_functions`), mas o próprio código dela (comentário do
+cabeçalho, linhas 9 e 34-39 do `index.ts`) implementa autenticação PRÓPRIA via
+`Authorization: Bearer <WA_ENGINE_TOKEN>` ou `x-cron-secret` — o mesmo padrão da
+função irmã `wa-heartbeat`, que está corretamente em `verify_jwt: false`. Com
+`verify_jwt: true`, o próprio gateway do Supabase rejeita a chamada com 401 ANTES
+do código da função rodar, então o cheque de auth interno (linha 889-897) nunca
+chegava a ser avaliado.
+
+Isso é uma regressão da REVISÃO 136 (06/09, deploy da v28 pelo fix do "de/por"):
+o deploy daquela sessão não passou `verify_jwt: false` explicitamente, e o
+Supabase aplicou o default (`true`) da ferramenta de deploy. A janela real de
+silêncio total (05/09 23:00 → agora) é maior que a distância até aquele deploy
+(06/09 03:19) porque parte da noite de 05/09 pode ter sido só grupos-fonte
+quietos — mas depois das 03:19 de 06/09 o bloqueio por `verify_jwt` tornou a
+parada permanente e de 100%, o que bate com os 289/289 medidos.
+
+### Corrigido e PROVADO
+
+Redeploy do **mesmo código, byte a byte idêntico** (conferido por diff em
+Python contra o `.ts` já publicado, sem NENHUMA mudança de lógica), só trocando
+`verify_jwt` para `false`. Nova versão: **30** (Supabase function version),
+`status: ACTIVE`, `verify_jwt: false` confirmado via `list_edge_functions`.
+
+**Prova por comportamento, não por status/versão** (regra do projeto): a última
+chamada ANTES do redeploy (03:31:50 UTC) voltou 401; a primeira chamada DEPOIS
+do redeploy (03:36:51 UTC, mesmo minuto do `updated_at` do deploy, 03:34:32 UTC)
+voltou **200**. Log relido de novo depois confirma que não há mais nenhum 401
+em `clone-ingest` desde o redeploy.
+
+**Não medido ainda**: uma captura nova de fato caindo em `clone_posts` /
+`clone_ingest_log` depois do fix — isso depende de mensagem nova chegando nos
+grupos-fonte monitorados (fora do nosso controle), e nenhuma chegou nos ~5 min
+observados nesta sessão. O 401→200 prova que o BLOQUEIO sumiu; a prova de
+ponta a ponta (produto novo aparecendo) fica para quando o Érico ou uma sessão
+futura conferir de novo.
+
+### Efeito sobre a REVISÃO 137 / P139
+
+Isto muda a leitura da P139 (grupos "Achadinhos" zerados). O texto anterior dizia
+que eles precisavam de "captura nova do Clone Post ou cadastro manual" pra
+voltar — e agora que a captura automática voltou a funcionar (pra toda a base,
+não só pra Ana Luiza), é possível que esses grupos se recuperem SOZINHOS pelas
+próximas horas/dias, sem precisar de intervenção manual. Ver P139 atualizada
+abaixo.
+
+---
+
 **REVISÃO 138 — 08/09/2026 — trava de acessos gratuitos ao Radar de Ofertas pra quem não conecta o próprio token do Scrape.do. CODADO (`frontend/index.html`) E MIGRAÇÃO APLICADA NO SUPABASE (`profiles.radar_access_count`). PUSHADO (commit `5460d32`, ver nota de push abaixo). NADA DISSO DEPLOYADO NO EASYPANEL AINDA — precisa do rebuild manual do Érico.**
 
 > **Push desta e da REVISÃO 137, feito nesta sessão (08/09):** o proxy de saída
@@ -9587,6 +9659,20 @@ que filtra as `<option>` conforme digita, sem chamada nova ao wa-engine.
 
 Captura ofertas de grupos-fonte de terceiros e replica nos grupos do usuário.
 
+> ⚠️ **`clone-ingest` PRECISA de `verify_jwt: false` — não é opcional (REVISÃO 139, 08/09).**
+> A função tem autenticação PRÓPRIA (`Authorization: Bearer <WA_ENGINE_TOKEN>` ou
+> `x-cron-secret`, linhas 889-897), igual à `wa-heartbeat`. Quem chama é o
+> wa-engine, que manda um token estático de aplicação, **nunca um JWT do
+> Supabase**. Com `verify_jwt: true`, o gateway do Supabase devolve 401 antes do
+> código rodar e a captura para 100% — sem erro em lugar nenhum além do
+> `function_edge_logs`, porque o código nunca chega a ser executado pra logar
+> qualquer coisa. Foi exatamente isso que derrubou a captura da base inteira de
+> 06/09 a 08/09 (289/289 chamadas em 401), quando o deploy da REVISÃO 136 não
+> passou o flag e o default `true` da ferramenta valeu.
+> **Regra pra qualquer deploy futuro desta função: passar `verify_jwt: false`
+> EXPLICITAMENTE, sempre.** Estado atual: version **30**, `verify_jwt: false`,
+> ACTIVE. Mesma armadilha vale pra `wa-heartbeat`.
+
 - **`clone_ingest_log`** — uma linha por mensagem avaliada, **inclusive as recusadas**.
   Colunas: `source_jid`, `clone_source_id`, `user_id`, `session_phone`, `msg_id`,
   `status`, `motivo`, `store`, `clone_post_id`.
@@ -9968,7 +10054,7 @@ código não relacionado.
 | **P125** | ✅ **FECHADA (02/09, REVISÃO 124) — DEPLOYADA E MEDIDA COM GRUPO DE TESTE DESCARTÁVEL EM 3 RODADAS REAIS DO CRON:** 1ª e 2ª falha seguida não avançam cursor e recuam `last_post_at` para reabrir em 3 min; 3ª falha seguida bate a trava e volta ao intervalo cheio com cursor avançado. Grupo de teste apagado depois. Era: 🟠 BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 121). `send-post` v23: o `update` de `last_post_at` (e do `cursor_index`) roda mesmo quando `groupSent === 0`, isto é, quando o post falhou em todos os canais. Um blip de segundos no `wa-engine` passa a custar um intervalo inteiro de silêncio — medido em 02/09 no "Achadinhos Eletrodomésticos": `failed` 14:50, próxima tentativa só 15:05. O `delete_after_post` da v22 já tem a guarda `groupSent > 0`; o `last_post_at` não tem. Conserto: não carimbar `last_post_at` (nem avançar cursor) em rodada que não enviou nada. Parente da P123 | 02/09 |
 | **P124** | ✅ **FECHADA (02/09, REVISÃO 123) — DEPLOYADA E MEDIDA COM DADO DE PRODUÇÃO:** `/groups` devolveu 24 grupos, 12 do Érico e 12 de terceiros; o seletor mostrou exatamente os 12 de terceiros e "ver todos" devolveu 24. Era: 🟡 CODADA, NÃO DEPLOYADA (REVISÃO 120). Clone Post → Nova fonte: o seletor "Grupo que você quer monitorar" passa a esconder os grupos dos quais o usuário é dono (`isOwner`), com as salvaguardas da REVISÃO 115 (engine antigo não filtra; fonte em edição não some; "ver todos" disponível). Falta commit, push, deploy do `app` no EasyPanel e conferir no painel logado que grupo próprio sumiu, grupo de terceiro ficou, e o link de convite continua cadastrando grupo fora da lista | 02/09 |
 | ~~P123~~ | ✅ **CORRIGIDO NA REVISÃO 137 (08/09), `send-post` v29 (deploy 63).** O bloco de exclusão passou a rodar ANTES do update de `cursor_index`; quando a exclusão de fato acontece e o cursor não deu a volta do Loop, ele recua 1. Deploy relido de volta, byte-a-byte igual ao `.ts` local. **Não medido em produção com disparo real ainda** — falta rodar o cron com um grupo em `total===2` pra confirmar que o próximo produto não é mais pulado. Registro original: 🟠 BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 119). `send-post`: com `delete_after_post` ligado, o produto postado é apagado e os seguintes deslizam uma posição, mas o `nextCursor` avança mesmo assim — um produto é pulado a cada disparo. Com o Loop ligado o `% total` mascarava (a v22 chamou de "absorvido"); com o Loop **desligado** (semântica nova) o grupo chega ao fim da lista mais cedo do que deveria | 02/09 |
-| **P139** | 🟠 **ABERTA (REVISÃO 137, 08/09).** Os 10 grupos "Achadinhos" (usuário `d63dd97f…`) medidos com 0 produtos continuam em 0 — a reserva mínima da v29 protege o PRÓXIMO produto a cair pra 1, não recria os que já foram apagados antes do conserto. Precisam de captura nova do Clone Post ou cadastro manual pra voltar a postar. Considerar também, à parte: o ritmo de consumo desses grupos (15 min de intervalo, `delete_after_post` ligado) é estruturalmente mais rápido que a reposição por Clone Post — mesmo com a reserva mínima, o grupo vai passar a maior parte do tempo com 1 produto só, repostando-o em loop, em vez de variar. Decisão de produto pendente: subir o intervalo, desligar `delete_after_post`, ou aceitar o comportamento | 08/09 |
+| **P139** | 🟠 **ABERTA (REVISÃO 137, 08/09) — RELIDA NA REVISÃO 139 (08/09).** Os 10 grupos "Achadinhos" (usuário `d63dd97f…`) medidos com 0 produtos continuam em 0 — a reserva mínima da v29 protege o PRÓXIMO produto a cair pra 1, não recria os que já foram apagados antes do conserto. ⚠️ **A REVISÃO 139 achou o motivo de nenhuma captura nova estar entrando: a `clone-ingest` respondia 401 pra 100% das chamadas do wa-engine desde 05/09 (`verify_jwt` ligado por engano no deploy da REVISÃO 136). Corrigido e provado (401→200).** Ou seja: a recomendação anterior ("precisam de captura nova ou cadastro manual") pode ter deixado de ser necessária — com a captura de volta, esperar algumas horas e REMEDIR antes de mexer à mão nesses grupos. Considerar também, à parte: o ritmo de consumo desses grupos (15 min de intervalo, `delete_after_post` ligado) é estruturalmente mais rápido que a reposição por Clone Post — mesmo com a reserva mínima, o grupo vai passar a maior parte do tempo com 1 produto só, repostando-o em loop, em vez de variar. Decisão de produto pendente: subir o intervalo, desligar `delete_after_post`, ou aceitar o comportamento | 08/09 |
 | **P122** | ✅ **FECHADA (02/09, adendo 2 da REVISÃO 119) — deployada e medida no painel logado:** arquivo servido com as peças novas e sem a antiga, código executando, os dois checkboxes no DOM na ordem pedida, `salvarGeral()` gravando as duas colunas ida e volta no banco, 0 erros de console. Era: codada, provada em harness e pushada. Frontend: checkbox de fim de semana do modo normal abaixo da caixa dos Horários Inteligentes, "Validade padrão das ofertas" descida para baixo da grade, checkbox "🚫 Não repetir produto", texto novo do "Post em Loop", e a Fila mostrando "seg–sex" / "🚫 sem repetir no dia". 13 asserções no Chromium com 0 erros de console. Pushada no `main` em `1f8b635` (SHA-256 do arquivo `a2a8e1c9…`), conferida com reclone limpo. **Falta:** Deploy do `app` no EasyPanel — que leva junto a REVISÃO 118, também parada | 02/09 |
 | **P121** | 🟡 **PARCIALMENTE MEDIDA (REVISÃO 119).** ⏳ Sobram só os itens que dependem de tempo, não de clique. ✅ **(a) ordem sequencial PROVADA em produção com baseline**: o "ART Finds" (Loop ligado) saía sorteado nas 12 rodadas anteriores ao deploy (127, 124, 39, 85, 22, 6, 100, 38, 33, 101, 3, 106, 133, 99, 113, 130) e, nas duas primeiras rodadas depois, saiu **`position` 1 às 10:42 e `position` 2 às 10:52**, com `cursor_index` indo a 2. Mesma máquina, mesmo grupo, mesmo dia — o que mudou foi só a versão. **Falta:** (b) um sábado sem post num grupo com `weekend_enabled=false`; (c) um dia inteiro sem repetição num grupo com `no_repeat_daily=true` | 02/09 |
 | **P120** | 🟡 **NÃO MEDIDO (REVISÃO 119).** O ramo `loop_enabled=false` — "para de postar no fim da lista" — nunca disparou em produção, porque os 24 grupos foram gravados em `true` no mesmo minuto do deploy, de propósito. A prova exige um grupo desmarcado de propósito, com o cursor levado até o fim, e o `[FIM-DA-LISTA]` aparecendo no log sem gravar linha `failed` | 02/09 |
