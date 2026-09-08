@@ -1759,11 +1759,51 @@ outra igual no `index.html`.
 Conferido também que os 5 blocos `<script>` do arquivo continuam compilando sem
 erro de sintaxe depois da edição.
 
-### ⚠️ NÃO ESTÁ NO AR
+### ✅ JÁ ESTÁ NO AR — e a premissa do "rebuild manual" era FALSA
 
-`frontend/index.html` não é deployado automaticamente. Isto e a trava do Radar
-da REVISÃO 138 estão os dois **esperando o rebuild manual do `app` no
-EasyPanel**. Enquanto não rebuildar, o bug continua em produção.
+Escrevi acima, seguindo o que este documento vinha repetindo há revisões, que o
+frontend precisaria de rebuild manual no EasyPanel. **Está errado, e foi medido
+nesta sessão.** O `app` do EasyPanel deploya SOZINHO a cada push no `main`.
+
+**Prova (08/09, 14:19 UTC, ~4 min depois do push do commit `5b97cd2`), lendo o
+HTML servido em produção pelo navegador embutido, com cache-busting
+(`fetch(..., {cache:"reload"})` + query param único):**
+
+```
+HTTP 200, 780.792 bytes
+prToggleGrupo('${g.id}',this.checked)        -> presente   (conserto da 141)
+prToggleGrupo(${g.id},this.checked)          -> AUSENTE    (versao quebrada sumiu)
+"REVISÃO 141 (08/09), pedido do Érico"       -> presente
+PR.gruposSel=new Set(S.grupos.map(g=>g.id))  -> AUSENTE    (default antigo sumiu)
+RADAR_ACESSO_GRATIS                          -> presente   (trava da REVISÃO 138)
+```
+
+Ninguém rodou rebuild nenhum nessa janela — só leituras (`ep status`,
+`ep projects`). O mecanismo: o repo tem **webhook de `push` ativo** apontando
+para a URL de deploy do serviço, conferido com `gh api .../hooks`:
+
+```
+id 651794483 · events:["push"] · active:true
+url: http://187.77.37.62:3000/api/deploy/d36b867e…   ← igual ao deploymentUrl
+                                                        de megalinksbr/app
+id 651794499 · events:["push"] · active:true  → wa-engine
+```
+
+**Consequência retroativa importante:** a trava de 10 acessos do Radar
+(REVISÃO 138) também **já estava no ar** — o `RADAR_ACESSO_GRATIS` aparece no
+HTML servido. Este documento a listava como "NADA DISSO DEPLOYADO NO EASYPANEL
+AINDA". Toda anotação antiga de "codado, falta o Deploy manual do `app`" merece
+ser reconferida contra o HTML servido antes de ser tratada como pendência: pode
+estar no ar desde o push.
+
+Como conferir de novo, sem depender de suposição (os proxies de saída do
+container e do device bloqueiam `megalinksbr.com.br`, então use o navegador
+embutido):
+
+```js
+const r = await fetch("/painel/?cachebust=" + Date.now(), {cache:"reload"});
+(await r.text()).includes("<trecho novo que você acabou de subir>")
+```
 
 ---
 
@@ -1916,7 +1956,7 @@ abaixo.
 
 ---
 
-**REVISÃO 138 — 08/09/2026 — trava de acessos gratuitos ao Radar de Ofertas pra quem não conecta o próprio token do Scrape.do. CODADO (`frontend/index.html`) E MIGRAÇÃO APLICADA NO SUPABASE (`profiles.radar_access_count`). PUSHADO (commit `5460d32`, ver nota de push abaixo). NADA DISSO DEPLOYADO NO EASYPANEL AINDA — precisa do rebuild manual do Érico.**
+**REVISÃO 138 — 08/09/2026 — trava de acessos gratuitos ao Radar de Ofertas pra quem não conecta o próprio token do Scrape.do. CODADO (`frontend/index.html`) E MIGRAÇÃO APLICADA NO SUPABASE (`profiles.radar_access_count`). PUSHADO (commit `5460d32`, ver nota de push abaixo). ~~NADA DISSO DEPLOYADO NO EASYPANEL AINDA — precisa do rebuild manual do Érico.~~ ✅ **CORRIGIDO NA REVISÃO 141 (08/09): estava NO AR desde o push — o `app` deploya sozinho por webhook de `push`. `RADAR_ACESSO_GRATIS` conferido no HTML servido em produção. A frase sobre rebuild manual era premissa errada, não medição.**
 
 > **Push desta e da REVISÃO 137, feito nesta sessão (08/09):** o proxy de saída
 > da nuvem segue bloqueando push direto pro `megalinksbr` (mesmo bloqueio de
@@ -1982,9 +2022,15 @@ sessão.
 
 ### O que falta pra dar como pronto
 
+> ⚠️ **Os itens (1) e (2) abaixo já estão RESOLVIDOS — ver REVISÃO 141.** O push
+> saiu na mesma sessão (commit `5460d32`) e o item (2) partia de uma premissa
+> FALSA: o `app` **entra sim no auto-deploy**, por webhook de `push`. O
+> `RADAR_ACESSO_GRATIS` foi conferido no HTML servido em produção em 08/09.
+> Continua valendo só o item (3), a medição de comportamento.
+
 **Nada disto foi ao ar** — precisa: (1) push do commit (mesmo bloqueio de
-PAT/proxy das revisões 133-137, vai no mesmo lote); (2) Deploy manual do `app`
-no EasyPanel (frontend não entra no auto-deploy); (3) medir de verdade: criar
+PAT/proxy das revisões 133-137, vai no mesmo lote); (2) ~~Deploy manual do `app`
+no EasyPanel (frontend não entra no auto-deploy)~~; (3) medir de verdade: criar
 (ou usar) um perfil sem token, entrar no Radar 10x e conferir o número subindo
 1 por 1, confirmar que o 11º acesso esconde o grid e mostra o bloqueio, e que
 Postar Agora/Grupos continuam funcionando nesse mesmo perfil. Nada disso foi
