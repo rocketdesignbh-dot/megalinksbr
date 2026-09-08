@@ -11039,12 +11039,17 @@ function prRenderGruposDestino(){
     PR.gruposSel=new Set([preSel]);
     window.PR_PRE_SELECT_GRUPO=null; // consome
   }else{
-    PR.gruposSel=new Set(S.grupos.map(g=>g.id)); // seleciona todos por padrão
+    // REVISÃO 141 (08/09), pedido do Érico: a lista nasce toda DESMARCADA.
+    // Antes vinha com TODOS marcados, o que tornava "disparar pra base inteira"
+    // a escolha por omissão — decisão de quem posta virava descuido de quem não
+    // desmarcou. Os botões "✅ Todos" / "☐ Nenhum" continuam ali pra quem quiser
+    // tudo num clique.
+    PR.gruposSel=new Set();
   }
   el.innerHTML=S.grupos.map(g=>`
     <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;cursor:pointer;font-weight:500">
       <input type="checkbox" id="prGr${g.id}" ${PR.gruposSel.has(g.id)?"checked":""} style="width:auto"
-        onchange="prToggleGrupo(${g.id},this.checked)">
+        onchange="prToggleGrupo('${g.id}',this.checked)">
       <span style="flex:1">${g.nome}</span>
       <span style="color:var(--mut);font-size:12px">💬 ${g.grupos_wa||0} · 📣 ${g.canais||0}</span>
     </label>`).join("");

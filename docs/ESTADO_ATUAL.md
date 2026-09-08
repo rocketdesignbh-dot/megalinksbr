@@ -1695,6 +1695,78 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
+**REVISÃO 141 — 08/09/2026 — Postar Agora, "Escolha os grupos de destino": marcar um grupo NUNCA funcionou (id de grupo sem aspas no `onchange` = SyntaxError). Achado a partir do relato do Érico, CORRIGIDO e PROVADO. Junto: a lista passa a nascer toda desmarcada. CODADO NO `frontend/index.html`, PRECISA DO REBUILD MANUAL NO EASYPANEL.**
+
+### O que o Érico relatou
+
+> "No Postar Agora achei um Bug. Primeiro em 'Escolha os grupos de destino',
+> mostre todos desmarcados pro usuário escolher. E hoje quando desmarquei o
+> Todos e fui marcar em um específico e Salvar, continuava solicitando marcar
+> um, mesmo já marcado."
+
+### Causa raiz — e ela é maior que o sintoma
+
+O checkbox de cada grupo era montado assim:
+
+```js
+onchange="prToggleGrupo(${g.id},this.checked)"
+```
+
+`g.id` é o **UUID** de `niche_groups` (`id:r.id` no `loadGroups`). Sem aspas, o
+atributo vira `prToggleGrupo(a2b2ed3c-9668-4d48-9095-151d4c105f8b,true)` — que
+não é JavaScript válido. **PROVA** (rodada nesta sessão, com um id real do
+banco, compilando a string igual o navegador faz):
+
+```
+ANTES  prToggleGrupo(a2b2ed3c-9668-4d48-9095-151d4c105f8b,this.checked)
+       -> SyntaxError: Invalid or unexpected token
+DEPOIS prToggleGrupo('a2b2ed3c-9668-4d48-9095-151d4c105f8b',this.checked)
+       -> PARSEIA OK
+```
+
+Ou seja: **clicar num checkbox de grupo nunca executou nada**. `PR.gruposSel`
+não era tocado, e o `prDisparar` valida `if(!PR.gruposSel.size)` — por isso o
+"Selecione ao menos um grupo" mesmo com a caixa marcada na tela.
+
+⚠️ **A metade silenciosa do mesmo defeito, que ninguém tinha visto:** DESMARCAR
+também não fazia nada. Como a lista nascia com **todos** selecionados
+(`PR.gruposSel = new Set(S.grupos.map(g=>g.id))`) e o disparo lê
+`S.grupos.filter(g=>PR.gruposSel.has(g.id))` (linha ~11225), quem desmarcava um
+grupo na tela e disparava **mandava o post pra ele assim mesmo**. A tela dizia
+uma coisa e o disparo fazia outra. Os únicos controles que de fato funcionavam
+eram os botões "✅ Todos" e "☐ Nenhum", que mexem no Set direto por outro
+caminho (`prSelectAll`) e não passam pelo `onchange` quebrado.
+
+Isso explica o relato do Érico por inteiro: ele clicou em "☐ Nenhum" (funciona,
+esvaziou o Set), depois marcou um grupo específico (não funcionou, Set continuou
+vazio) e o Salvar reclamou.
+
+### Consertado
+
+1. `onchange="prToggleGrupo('${g.id}',this.checked)"` — aspas no id.
+2. `PR.gruposSel = new Set()` — a lista nasce **toda desmarcada**, como pedido.
+   Antes, "disparar pra base inteira" era a escolha por omissão. A pré-seleção
+   vinda do botão "Disparar" de um grupo específico (`PR_PRE_SELECT_GRUPO`)
+   continua funcionando igual.
+
+As duas mudanças **têm que ir juntas**: com a lista nascendo vazia e o
+`onchange` ainda quebrado, seria impossível selecionar qualquer grupo.
+
+Varredura no arquivo inteiro por outros handlers inline com id sem aspas
+(`on<evento>="<fn>(${...id}...)"`): **1 ocorrência, exatamente esta**. Não há
+outra igual no `index.html`.
+
+Conferido também que os 5 blocos `<script>` do arquivo continuam compilando sem
+erro de sintaxe depois da edição.
+
+### ⚠️ NÃO ESTÁ NO AR
+
+`frontend/index.html` não é deployado automaticamente. Isto e a trava do Radar
+da REVISÃO 138 estão os dois **esperando o rebuild manual do `app` no
+EasyPanel**. Enquanto não rebuildar, o bug continua em produção.
+
+---
+
 **REVISÃO 140 — 08/09/2026 — o "De" da Shopee volta no Postar Agora, DERIVADO da taxa de desconto. Decisão do Érico revertendo conscientemente a P32. `product-search` v33 (deploy 61) NO AR.**
 
 ### Pedido do Érico
