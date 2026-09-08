@@ -1695,6 +1695,73 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
+**REVISÃO 137 — 08/09/2026 — grupos "Achadinhos" zerando com `delete_after_post` ligado: achado, medido no banco e CORRIGIDO. `send-post` v29 (deploy 63), CONFIRMADO LENDO O CÓDIGO PUBLICADO DE VOLTA (diff byte-a-byte com o arquivo local, idêntico). NÃO PUSHADO AINDA (mesmo bloqueio de proxy das revisões 133-136 — falta o Érico rodar o patch pelo computador dele).**
+
+### O que o Érico reportou
+
+Vários grupos parados de postar, suspeita de que o "excluir automaticamente
+após postar" estivesse esvaziando os Grupos de Ofertas. Pediu conferência e
+sugeriu manter sempre um último produto fixo, só substituído quando entra um
+produto novo. Perguntou também se algo já tinha sido feito pra travar usuário
+que não configura o próprio Scrape.do.
+
+### Medido no banco (07-08/09) — a suspeita procede
+
+`niche_groups` com `post_auto_enabled=true`, contando `products` ativos por
+grupo: **10 dos 11 grupos "Achadinhos" (usuário `d63dd97f…`) estão com ZERO
+produtos**, todos com `delete_after_post=true`, `loop_enabled=true` e
+intervalo de **15 minutos** — parados desde 04-05/09. O único grupo saudável
+da mesma família (34 produtos, postando hoje) é justamente o único com
+`delete_after_post=false`. Todos os 11 dependem só de `clone_auto_approve`
+(captura automática do Clone Post) pra repor — sem verificador de ritmo entre
+consumo (1 produto a cada 15 min, até 96/dia) e reposição (que segue o volume
+da fonte capturada, não o do grupo).
+
+### Duas mudanças em `send-post` (v29, restritas ao bloco de exclusão)
+
+1. **Reserva mínima** (pedido do Érico): a exclusão só roda quando o grupo tem
+   mais de 1 produto elegível na rodada (`total > 1`). Com `total === 1` o
+   produto fica guardado — e continua sendo repostado no rodízio normal — até
+   um produto NOVO entrar no grupo. Grupo com "Excluir após postar" ligado não
+   fica mais com 0 produtos por causa deste mecanismo.
+2. **P123 corrigido** (achado na REVISÃO 119, nunca consertado): apagar o
+   produto desloca uma posição todo mundo que vinha depois dele em
+   `products.position`, mas o `nextCursor` era calculado ANTES da exclusão —
+   o produto que assumia o lugar do apagado era pulado inteiro a cada disparo.
+   O bloco de exclusão passou a rodar ANTES do `update` de `cursor_index`, e
+   quando a exclusão de fato acontece (e não houve volta do Loop), o cursor
+   final recua 1.
+
+Prova: `deploy_edge_function` (version 63) seguido de `get_edge_function` —
+conteúdo relido byte-a-byte idêntico ao `.ts` local. **Não medido em produção
+com um disparo real ainda** — falta uma rodada de cron com `delete_after_post`
+ligado e `total` caindo pra 1 pra confirmar que a reserva segura o produto.
+
+### O que isto NÃO resolve
+
+Os 10 grupos que JÁ estão em 0 produtos continuam em 0 — a reserva mínima
+protege o PRÓXIMO produto a cair pra 1, não recria os que já foram apagados.
+Precisam de captura nova (Clone Post) ou cadastro manual pra voltar a postar.
+Fica pendência (ver P139 abaixo).
+
+### Scrape.do "obrigatório" — pergunta do Érico, respondida
+
+Já existia, sim (REVISÃO 89, 27/08): o token de Scrape.do em Config Afiliados
+é campo obrigatório **na tela** (asterisco vermelho, borda vermelha, toast ao
+tentar salvar vazio) — mas por decisão explícita do Érico na época
+("obrigatório na tela, sem bloquear a busca do Postar Agora"), isso NUNCA
+travou nada de verdade: quem não configura continua buscando pela cota
+COMPARTILHADA da plataforma, como sempre. Medido agora: **12 dos 15 perfis
+(80%) não têm token próprio salvo.** Ou seja, a maioria da base de fato
+compete pelo bucket `manual` compartilhado (40 créditos/dia · 250/mês, ~4-25
+buscas). O selo vermelho do Radar de Ofertas relatado por Érico como "esgotou
+pra mim" é OUTRO bucket (`batch`, 20 créditos/dia = só 2 rodadas do cron
+`mega-radar-ml`, 11h/19h) e esse é 100% do sistema — nenhum usuário, com ou
+sem token próprio, o alimenta ou o esgota; ele já nasce cheio todo dia com
+só as duas rodadas automáticas.
+
+---
+
 **REVISÃO 136 — 06/09/2026 — `clone-ingest` passa a reaproveitar o "de/por" do texto do post clonado, mesmo quando a loja responde. DEPLOYADO NO SUPABASE (version 28), CONFIRMADO LENDO O CÓDIGO PUBLICADO DE VOLTA. NÃO PUSHADO AINDA (aguardando patch aplicado pelo Érico, mesmo fluxo da REVISÃO 135).**
 
 ### Pedido do Érico
@@ -9332,7 +9399,7 @@ antigos; hoje é **Premium**).
 
 ## Componentes — estado
 
-### Post Automático — `send-post` v28 (deploy 62) NO AR, PENDENTE DE PUSH
+### Post Automático — `send-post` v29 (deploy 63) NO AR, PENDENTE DE PUSH
 
 > ⚠️ Histórico de desalinhamentos deste componente: REVISÃO 124 deployou v24
 > sem pushar (corrigido na 125); entre a 125 e a 126, outra sessão deployou v26
@@ -9342,6 +9409,9 @@ antigos; hoje é **Premium**).
 > **REVISÃO 133 (05/09): v28 no ar (deploy 62), com EXTRAS (P134) — o `.ts`
 > local está atualizado, mas o PUSH pro GitHub ainda não foi feito (sem PAT
 > nesta sessão até agora). Ver "Acesso" e a REVISÃO 133 acima.**
+> **REVISÃO 137 (08/09): v29 no ar (deploy 63) — reserva mínima + P123 (ver
+> "Última alteração"). Repo e produção conferidos byte-a-byte: iguais. PUSH
+> ainda pendente, mesmo bloqueio de proxy.**
 
 - **Ordem: sempre a de cadastro** (`products.position` + `cursor_index`). Não
   existe mais sorteio na seleção — o `Math.random()` saiu na v23, e com ele o
@@ -9358,6 +9428,13 @@ antigos; hoje é **Premium**).
 - **Fim de semana:** modo Inteligente usa `smart_weekend` (default false); modo
   normal usa `weekend_enabled` (**default true**). Nos dois, desmarcado
   significa NÃO POSTAR, não postar de outro jeito.
+- **`delete_after_post` com RESERVA MÍNIMA (v29, REVISÃO 137):** a exclusão só
+  roda com mais de 1 produto elegível na rodada; com exatamente 1, o produto
+  fica guardado (e continua sendo repostado) até um produto NOVO entrar no
+  grupo. Motivado por 10 dos 11 grupos "Achadinhos" medidos com 0 produtos e
+  parados há dias — grupo com esta flag ligada não pode mais zerar sozinho.
+  **P123 (cursor pulando um produto a cada exclusão) corrigido junto** — ver
+  "Última alteração". **Não medido em produção com disparo real ainda.**
 
 ### Recados do Grupo / Cupom em Destaque (`niche_group_extras`, REVISÃO 133)
 
@@ -9807,7 +9884,8 @@ código não relacionado.
 | **P126** | ✅ **FECHADA (02/09, REVISÃO 123) — DEPLOYADA E MEDIDA NO PAINEL LOGADO:** caixa desenhando no "Achadinhos Eletrodomésticos" (1 produto, capacidade 60), 6 transições no DOM real todas corretas, incluindo o "não desenha" quando a capacidade cai para 1. Era: 🟡 CODADA, NÃO DEPLOYADA (REVISÃO 122). Aviso do "Não repetir produto" em Editar Grupo → Geral: quando a flag está ligada e o grupo tem menos produtos do que o ritmo configurado aguenta, a tela diz quantos posts por dia isso permite e o que fazer. Provado em harness (7 cenários), não na tela. Falta deploy do `app` no EasyPanel e conferir a caixa desenhando — e sumindo quando os produtos passam da capacidade | 02/09 |
 | **P125** | ✅ **FECHADA (02/09, REVISÃO 124) — DEPLOYADA E MEDIDA COM GRUPO DE TESTE DESCARTÁVEL EM 3 RODADAS REAIS DO CRON:** 1ª e 2ª falha seguida não avançam cursor e recuam `last_post_at` para reabrir em 3 min; 3ª falha seguida bate a trava e volta ao intervalo cheio com cursor avançado. Grupo de teste apagado depois. Era: 🟠 BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 121). `send-post` v23: o `update` de `last_post_at` (e do `cursor_index`) roda mesmo quando `groupSent === 0`, isto é, quando o post falhou em todos os canais. Um blip de segundos no `wa-engine` passa a custar um intervalo inteiro de silêncio — medido em 02/09 no "Achadinhos Eletrodomésticos": `failed` 14:50, próxima tentativa só 15:05. O `delete_after_post` da v22 já tem a guarda `groupSent > 0`; o `last_post_at` não tem. Conserto: não carimbar `last_post_at` (nem avançar cursor) em rodada que não enviou nada. Parente da P123 | 02/09 |
 | **P124** | ✅ **FECHADA (02/09, REVISÃO 123) — DEPLOYADA E MEDIDA COM DADO DE PRODUÇÃO:** `/groups` devolveu 24 grupos, 12 do Érico e 12 de terceiros; o seletor mostrou exatamente os 12 de terceiros e "ver todos" devolveu 24. Era: 🟡 CODADA, NÃO DEPLOYADA (REVISÃO 120). Clone Post → Nova fonte: o seletor "Grupo que você quer monitorar" passa a esconder os grupos dos quais o usuário é dono (`isOwner`), com as salvaguardas da REVISÃO 115 (engine antigo não filtra; fonte em edição não some; "ver todos" disponível). Falta commit, push, deploy do `app` no EasyPanel e conferir no painel logado que grupo próprio sumiu, grupo de terceiro ficou, e o link de convite continua cadastrando grupo fora da lista | 02/09 |
-| **P123** | 🟠 **BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 119).** `send-post`: com `delete_after_post` ligado, o produto postado é apagado e os seguintes deslizam uma posição, mas o `nextCursor` avança mesmo assim — um produto é pulado a cada disparo. Com o Loop ligado o `% total` mascarava (a v22 chamou de "absorvido"); com o Loop **desligado** (semântica nova) o grupo chega ao fim da lista mais cedo do que deveria. Conserto: não avançar o cursor quando a exclusão disparou. Fora do escopo da REVISÃO 119 | 02/09 |
+| ~~P123~~ | ✅ **CORRIGIDO NA REVISÃO 137 (08/09), `send-post` v29 (deploy 63).** O bloco de exclusão passou a rodar ANTES do update de `cursor_index`; quando a exclusão de fato acontece e o cursor não deu a volta do Loop, ele recua 1. Deploy relido de volta, byte-a-byte igual ao `.ts` local. **Não medido em produção com disparo real ainda** — falta rodar o cron com um grupo em `total===2` pra confirmar que o próximo produto não é mais pulado. Registro original: 🟠 BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 119). `send-post`: com `delete_after_post` ligado, o produto postado é apagado e os seguintes deslizam uma posição, mas o `nextCursor` avança mesmo assim — um produto é pulado a cada disparo. Com o Loop ligado o `% total` mascarava (a v22 chamou de "absorvido"); com o Loop **desligado** (semântica nova) o grupo chega ao fim da lista mais cedo do que deveria | 02/09 |
+| **P139** | 🟠 **ABERTA (REVISÃO 137, 08/09).** Os 10 grupos "Achadinhos" (usuário `d63dd97f…`) medidos com 0 produtos continuam em 0 — a reserva mínima da v29 protege o PRÓXIMO produto a cair pra 1, não recria os que já foram apagados antes do conserto. Precisam de captura nova do Clone Post ou cadastro manual pra voltar a postar. Considerar também, à parte: o ritmo de consumo desses grupos (15 min de intervalo, `delete_after_post` ligado) é estruturalmente mais rápido que a reposição por Clone Post — mesmo com a reserva mínima, o grupo vai passar a maior parte do tempo com 1 produto só, repostando-o em loop, em vez de variar. Decisão de produto pendente: subir o intervalo, desligar `delete_after_post`, ou aceitar o comportamento | 08/09 |
 | **P122** | ✅ **FECHADA (02/09, adendo 2 da REVISÃO 119) — deployada e medida no painel logado:** arquivo servido com as peças novas e sem a antiga, código executando, os dois checkboxes no DOM na ordem pedida, `salvarGeral()` gravando as duas colunas ida e volta no banco, 0 erros de console. Era: codada, provada em harness e pushada. Frontend: checkbox de fim de semana do modo normal abaixo da caixa dos Horários Inteligentes, "Validade padrão das ofertas" descida para baixo da grade, checkbox "🚫 Não repetir produto", texto novo do "Post em Loop", e a Fila mostrando "seg–sex" / "🚫 sem repetir no dia". 13 asserções no Chromium com 0 erros de console. Pushada no `main` em `1f8b635` (SHA-256 do arquivo `a2a8e1c9…`), conferida com reclone limpo. **Falta:** Deploy do `app` no EasyPanel — que leva junto a REVISÃO 118, também parada | 02/09 |
 | **P121** | 🟡 **PARCIALMENTE MEDIDA (REVISÃO 119).** ⏳ Sobram só os itens que dependem de tempo, não de clique. ✅ **(a) ordem sequencial PROVADA em produção com baseline**: o "ART Finds" (Loop ligado) saía sorteado nas 12 rodadas anteriores ao deploy (127, 124, 39, 85, 22, 6, 100, 38, 33, 101, 3, 106, 133, 99, 113, 130) e, nas duas primeiras rodadas depois, saiu **`position` 1 às 10:42 e `position` 2 às 10:52**, com `cursor_index` indo a 2. Mesma máquina, mesmo grupo, mesmo dia — o que mudou foi só a versão. **Falta:** (b) um sábado sem post num grupo com `weekend_enabled=false`; (c) um dia inteiro sem repetição num grupo com `no_repeat_daily=true` | 02/09 |
 | **P120** | 🟡 **NÃO MEDIDO (REVISÃO 119).** O ramo `loop_enabled=false` — "para de postar no fim da lista" — nunca disparou em produção, porque os 24 grupos foram gravados em `true` no mesmo minuto do deploy, de propósito. A prova exige um grupo desmarcado de propósito, com o cursor levado até o fim, e o `[FIM-DA-LISTA]` aparecendo no log sem gravar linha `failed` | 02/09 |

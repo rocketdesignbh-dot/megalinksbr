@@ -1,4 +1,28 @@
-// Mega Links BR · Edge Function "send-post" v28
+// Mega Links BR · Edge Function "send-post" v29
+// v29: Achado do Erico em 07/09 -- 10 dos 11 grupos "Achadinhos" (mesmo usuario,
+//      delete_after_post=true, intervalo de 15min) foram medidos no banco com
+//      ZERO produtos e parados ha 2-3 dias, dependendo so de captura automatica
+//      do Clone Post pra repor. Duas mudancas, as duas restritas ao bloco de
+//      "Excluir automaticamente apos postar":
+//      (a) RESERVA MINIMA -- pedido explicito do Erico ("manter sempre um
+//          ultimo produto fixo"). So apaga quando `total > 1` (total = produtos
+//          elegiveis desta rodada, ja calculado mais acima); com total===1 o
+//          produto e mantido e repostado no rodizio normal ate um produto NOVO
+//          entrar no grupo -- so ai a exclusao volta a valer, na proxima rodada
+//          em que total voltar a ser > 1. Grupo com "Excluir apos postar" ligado
+//          nunca mais fica com 0 produtos por causa deste mecanismo.
+//      (b) P123 (achado e registrado na REVISAO 119, nunca consertado) -- com a
+//          exclusao ligada, apagar o produto desloca uma posicao TODO MUNDO que
+//          vinha depois dele na lista (products.position), mas o `nextCursor`
+//          calculado ANTES da exclusao (cursor+1, ou (cursor+1)%total no Loop)
+//          nao sabia disso -- resultado: o produto que assumiu o lugar do
+//          apagado era pulado inteiro a cada disparo. Conserto: o bloco de
+//          exclusao roda ANTES do update de `cursor_index` (nao depois, como
+//          nas v22-v28) e, quando a exclusao de fato aconteceu e nextCursor
+//          apontava pra FRENTE do indice apagado (isto e, nao deu a volta pelo
+//          Loop), cursorFinal recua 1. Quando deu a volta (Loop, cursor no
+//          ultimo indice, nextCursor virou 0), nao ha nada pra recuar -- o item
+//          apagado era o ultimo da lista, nada depois dele pra deslizar.
 // v28: EXTRAS -- "Recados do Grupo" e "Cupom em Destaque" (niche_group_extras,
 //      tela Editar Grupo -> Recados do Grupo). Intercalados no rodizio normal,
 //      escolhidos ANTES da selecao de produto: se algum extra ativo do grupo
@@ -705,8 +729,8 @@ Deno.serve(async (req: Request) => {
     const inicio = group.cursor_index ?? 0;
 
     // "Nao repetir produto" (no_repeat_daily): produto que ja saiu HOJE neste
-    // grupo fica de fora ate a virada do dia em Brasilia. Mesmo todayBR do teto
-    // diario. So consulta o banco quando a flag esta ligada.
+    // grupo fica de fora ate a virada do dia em Brasilia. Mesmo todayBR que o teto
+    // diario ja usa. So consulta o banco quando a flag esta ligada.
     const postadosHoje = new Set<string>();
     if (group.no_repeat_daily) {
       const { data: jaSairamHoje } = await sb.from("scheduled_posts")
@@ -960,19 +984,31 @@ Deno.serve(async (req: Request) => {
         console.log(`[P125] grupo=${group.id} ja falhou ${consecutivas}x seguidas — voltando ao intervalo normal`);
       }
     }
-    await sb.from("niche_groups").update({ cursor_index:cursorFinal, last_post_at:carimbo }).eq("id", group.id);
-    // v22: "Excluir automaticamente após postar" (niche_groups.delete_after_post).
+    // v22/v29: "Excluir automaticamente após postar" (niche_groups.delete_after_post).
     // So apaga em post que de fato saiu (groupSent>0) -- falha em todos os canais
     // nao consome o produto. product_id em scheduled_posts e clone_posts e
     // "on delete set null", entao o historico (inclusive a linha que acabou de
     // ser inserida acima) sobrevive com product_id nulo; so o produto some do
-    // rodizio. cursor_index ja foi salvo com o total ANTES da exclusao -- na
-    // proxima rodada o total recalculado (products.length) absorve a mudanca
-    // sozinho, sem precisar de ajuste aqui.
+    // rodizio. Roda ANTES do update de cursor_index (v29) porque o valor final
+    // do cursor depende de a exclusao ter acontecido ou nao -- ver P123 acima.
     if (group.delete_after_post && groupSent > 0 && !extraEscolhido) {
-      const { error: eDel } = await sb.from("products").delete().eq("id", product.id);
-      if (eDel) console.warn(`[EXCLUIR-APOS-POSTAR] grupo=${group.id} produto=${product.id} falhou: ${eDel.message}`);
+      if (total > 1) {
+        const { error: eDel } = await sb.from("products").delete().eq("id", product.id);
+        if (eDel) {
+          console.warn(`[EXCLUIR-APOS-POSTAR] grupo=${group.id} produto=${product.id} falhou: ${eDel.message}`);
+        } else if (cursorFinal > cursor) {
+          // P123: sem isso, o produto que deslizou pra cobrir o buraco do
+          // apagado e pulado inteiro no proximo disparo.
+          cursorFinal = Math.max(0, cursorFinal - 1);
+        }
+      } else {
+        // v29: reserva minima -- e o ultimo produto do grupo, fica guardado
+        // (e continua sendo repostado no rodizio normal) ate um produto novo
+        // entrar. So volta a ser apagavel quando total>1 de novo.
+        console.log(`[EXCLUIR-APOS-POSTAR] grupo=${group.id} mantido — reserva minima (ultimo produto do grupo)`);
+      }
     }
+    await sb.from("niche_groups").update({ cursor_index:cursorFinal, last_post_at:carimbo }).eq("id", group.id);
     totalSent += groupSent; totalFailed += groupFailed;
   }
 
