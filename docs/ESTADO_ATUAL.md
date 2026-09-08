@@ -1695,6 +1695,83 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
+**REVISÃO 140 — 08/09/2026 — o "De" da Shopee volta no Postar Agora, DERIVADO da taxa de desconto. Decisão do Érico revertendo conscientemente a P32. `product-search` v33 (deploy 61) NO AR.**
+
+### Pedido do Érico
+
+> "No 'Postar Agora' quando inseri o link não busca automático o valor 'De', mas
+> vi na página do produto que tem lá 'Preço Original', quero que busque esse
+> para o 'De'." — e, depois de ver as opções: *"Faça sem usar custos do
+> Scrape.do, use a política só Desconto então... problema é q tem vez que não
+> vem, publica assim."*
+
+### O que foi medido antes de mexer
+
+| Medição | Resultado |
+|---|---|
+| Rota do preço real (`/api/v4/pdp/get_pc` → `price_before_discount`), testada do Supabase via `pg_net` em 08/09 | **HTTP 403**, `{"error":90309999,"redirect_to_error_page":true}` — antibot, igual ao medido em 28/08 |
+| Ofertas de Shopee no `radar_offers` com "De" real (`price_original > price`) | **0 de 75** — a rota pública não alimenta mais nenhum caminho da plataforma |
+| Ofertas de Shopee com taxa de desconto > 0 | **75 de 78 (96,2%)** — as outras 3 ficam sem riscado |
+| Erro da derivação, produto real do Érico (extratora Wap, R$ 449 / 50%) | conta dá **R$ 898,00**, loja diz **R$ 899,99** — erro de R$ 1,99 |
+| Erro da derivação, medição de 28/08 (FreeBuds, R$ 949 / 44%) | conta dá **R$ 1.694,64**, real **R$ 1.699,00** — erro de R$ 4,36 |
+
+Ou seja: a decisão de 28/08 ("parar de derivar agora, avaliar a rota lida
+depois") foi reavaliada com dado novo. A rota lida continua fechada e só abriria
+com proxy pago; **o Érico escolheu explicitamente não gastar Scrape.do nisso** e
+aceitar o número derivado.
+
+### O que mudou no código
+
+`product-search` v33, só dentro de `fetchShopee`:
+
+```ts
+const precoVenda = Number(node.priceMin ?? 0);
+const taxaDesc = Number(node.priceDiscountRate ?? 0);
+let deDerivado: string | undefined;
+if (precoVenda > 0 && taxaDesc > 0 && taxaDesc < 100) {
+  const bruto = Math.round((precoVenda / (1 - taxaDesc / 100)) * 100) / 100;
+  if (bruto > precoVenda) deDerivado = String(bruto);
+}
+```
+
+e no retorno: `price_from: deDerivado` + `price_from_derived: deDerivado ? true : undefined`.
+
+**A defesa que a P32 instalou continua de pé** — e é ela que impede o defeito
+original ("De R$ 56,80 por R$ 56,80 – 53% OFF"): o "de" só é afirmado quando a
+taxa é > 0 **e** o derivado é MAIOR que o preço de venda. Sem taxa, `undefined`,
+e a tela não risca nada — que é exatamente o "tem vez que não vem, publica
+assim" que o Érico aceitou.
+
+O campo continua **editável** no Passo 2 do Postar Agora, então quem posta pode
+corrigir o centavo antes de publicar.
+
+### Divergência consciente que fica registrada
+
+O **Radar** (`radar/index.ts`) continua com `price_original = price` para Shopee,
+pela convenção de 28/08. Agora a plataforma afirma duas coisas diferentes sobre a
+mesma loja em dois lugares diferentes — foi assim que a P32 nasceu. Ficou assim
+**de propósito** (escopo estrito: o pedido era o Postar Agora), mas é candidato
+natural a unificação: ou o Radar passa a derivar também, ou os dois voltam a
+ficar sem "de". Ver P141.
+
+### Estado / prova
+
+- Deploy **61**, `verify_jwt: true` preservado (a função é chamada do navegador
+  com o JWT do usuário — trocar isso derrubaria o Postar Agora inteiro, mesma
+  armadilha da REVISÃO 139).
+- Repo sincronizado com o deployado (o repo tinha o cabeçalho histórico longo e
+  a produção o condensado — a edição foi feita **em cima do código publicado** e
+  replicada no repo).
+- **NÃO MEDIDO EM PRODUÇÃO AINDA:** falta uma busca real de Shopee pelo Postar
+  Agora depois do deploy para ver o "De" preenchido na tela. Não deu para medir
+  daqui: a chamada exige o JWT do usuário e as credenciais de afiliado que o
+  frontend envia, e a tentativa de reproduzir a chamada da API da Shopee por
+  `pg_net` falhou na assinatura (`error [10020]: Invalid Signature`) porque o
+  `pg_net` re-serializa o corpo JSON e quebra o hash SHA-256, que é calculado
+  sobre a string exata enviada. **Pendente de um teste do Érico na tela.**
+
+---
+
 **REVISÃO 139 — 08/09/2026 — captura automática do Clone Post (`clone-ingest`) estava 100% derrubada pra TODA a base desde 05/09 à noite: função respondia 401 pra toda chamada do wa-engine. CAUSA ACHADA, CORRIGIDA E PROVADA em produção nesta sessão.**
 
 ### Como isto foi achado
@@ -10055,6 +10132,7 @@ código não relacionado.
 | **P124** | ✅ **FECHADA (02/09, REVISÃO 123) — DEPLOYADA E MEDIDA COM DADO DE PRODUÇÃO:** `/groups` devolveu 24 grupos, 12 do Érico e 12 de terceiros; o seletor mostrou exatamente os 12 de terceiros e "ver todos" devolveu 24. Era: 🟡 CODADA, NÃO DEPLOYADA (REVISÃO 120). Clone Post → Nova fonte: o seletor "Grupo que você quer monitorar" passa a esconder os grupos dos quais o usuário é dono (`isOwner`), com as salvaguardas da REVISÃO 115 (engine antigo não filtra; fonte em edição não some; "ver todos" disponível). Falta commit, push, deploy do `app` no EasyPanel e conferir no painel logado que grupo próprio sumiu, grupo de terceiro ficou, e o link de convite continua cadastrando grupo fora da lista | 02/09 |
 | ~~P123~~ | ✅ **CORRIGIDO NA REVISÃO 137 (08/09), `send-post` v29 (deploy 63).** O bloco de exclusão passou a rodar ANTES do update de `cursor_index`; quando a exclusão de fato acontece e o cursor não deu a volta do Loop, ele recua 1. Deploy relido de volta, byte-a-byte igual ao `.ts` local. **Não medido em produção com disparo real ainda** — falta rodar o cron com um grupo em `total===2` pra confirmar que o próximo produto não é mais pulado. Registro original: 🟠 BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 119). `send-post`: com `delete_after_post` ligado, o produto postado é apagado e os seguintes deslizam uma posição, mas o `nextCursor` avança mesmo assim — um produto é pulado a cada disparo. Com o Loop ligado o `% total` mascarava (a v22 chamou de "absorvido"); com o Loop **desligado** (semântica nova) o grupo chega ao fim da lista mais cedo do que deveria | 02/09 |
 | **P139** | 🟠 **ABERTA (REVISÃO 137, 08/09) — RELIDA NA REVISÃO 139 (08/09).** Os 10 grupos "Achadinhos" (usuário `d63dd97f…`) medidos com 0 produtos continuam em 0 — a reserva mínima da v29 protege o PRÓXIMO produto a cair pra 1, não recria os que já foram apagados antes do conserto. ⚠️ **A REVISÃO 139 achou o motivo de nenhuma captura nova estar entrando: a `clone-ingest` respondia 401 pra 100% das chamadas do wa-engine desde 05/09 (`verify_jwt` ligado por engano no deploy da REVISÃO 136). Corrigido e provado (401→200).** Ou seja: a recomendação anterior ("precisam de captura nova ou cadastro manual") pode ter deixado de ser necessária — com a captura de volta, esperar algumas horas e REMEDIR antes de mexer à mão nesses grupos. Considerar também, à parte: o ritmo de consumo desses grupos (15 min de intervalo, `delete_after_post` ligado) é estruturalmente mais rápido que a reposição por Clone Post — mesmo com a reserva mínima, o grupo vai passar a maior parte do tempo com 1 produto só, repostando-o em loop, em vez de variar. Decisão de produto pendente: subir o intervalo, desligar `delete_after_post`, ou aceitar o comportamento | 08/09 |
+| **P141** | 🟠 **ABERTA (REVISÃO 140, 08/09).** A plataforma agora afirma duas coisas diferentes sobre o "de" da Shopee: a `product-search` v33 DERIVA (`price/(1-taxa)`, marcado com `price_from_derived`) e o `radar/index.ts` continua com `price_original = price` pela convenção de 28/08. Ficou assim de propósito (o pedido era só o Postar Agora, escopo estrito), mas divergência entre duas leituras da mesma loja já mordeu este repo antes — foi assim que a P32 nasceu. Decisão pendente: derivar no Radar também, ou voltar os dois a não afirmar. Só reabrir a rota lida (`/api/v4/pdp/get_pc`) resolveria de verdade, e ela exige proxy pago — recusado pelo Érico em 08/09 | 08/09 |
 | **P122** | ✅ **FECHADA (02/09, adendo 2 da REVISÃO 119) — deployada e medida no painel logado:** arquivo servido com as peças novas e sem a antiga, código executando, os dois checkboxes no DOM na ordem pedida, `salvarGeral()` gravando as duas colunas ida e volta no banco, 0 erros de console. Era: codada, provada em harness e pushada. Frontend: checkbox de fim de semana do modo normal abaixo da caixa dos Horários Inteligentes, "Validade padrão das ofertas" descida para baixo da grade, checkbox "🚫 Não repetir produto", texto novo do "Post em Loop", e a Fila mostrando "seg–sex" / "🚫 sem repetir no dia". 13 asserções no Chromium com 0 erros de console. Pushada no `main` em `1f8b635` (SHA-256 do arquivo `a2a8e1c9…`), conferida com reclone limpo. **Falta:** Deploy do `app` no EasyPanel — que leva junto a REVISÃO 118, também parada | 02/09 |
 | **P121** | 🟡 **PARCIALMENTE MEDIDA (REVISÃO 119).** ⏳ Sobram só os itens que dependem de tempo, não de clique. ✅ **(a) ordem sequencial PROVADA em produção com baseline**: o "ART Finds" (Loop ligado) saía sorteado nas 12 rodadas anteriores ao deploy (127, 124, 39, 85, 22, 6, 100, 38, 33, 101, 3, 106, 133, 99, 113, 130) e, nas duas primeiras rodadas depois, saiu **`position` 1 às 10:42 e `position` 2 às 10:52**, com `cursor_index` indo a 2. Mesma máquina, mesmo grupo, mesmo dia — o que mudou foi só a versão. **Falta:** (b) um sábado sem post num grupo com `weekend_enabled=false`; (c) um dia inteiro sem repetição num grupo com `no_repeat_daily=true` | 02/09 |
 | **P120** | 🟡 **NÃO MEDIDO (REVISÃO 119).** O ramo `loop_enabled=false` — "para de postar no fim da lista" — nunca disparou em produção, porque os 24 grupos foram gravados em `true` no mesmo minuto do deploy, de propósito. A prova exige um grupo desmarcado de propósito, com o cursor levado até o fim, e o `[FIM-DA-LISTA]` aparecendo no log sem gravar linha `failed` | 02/09 |

@@ -1,3 +1,23 @@
+// product-search v33 — o "de" da Shopee volta, DERIVADO da taxa (08/09)
+// v33 (REVISAO 140): decisao do Erico em 08/09, revertendo conscientemente a
+//   P32 (01/08) e a convencao de 28/08 do Radar. O que mudou desde entao: a
+//   rota que traz o preco anterior REAL da Shopee (/api/v4/pdp/get_pc ->
+//   price_before_discount) foi REMEDIDA em 08/09 e respondeu HTTP 403
+//   (antibot, redirect_to_error_page) — le-la exigiria proxy pago por busca, e
+//   o Erico escolheu explicitamente NAO gastar credito de Scrape.do nisso.
+//   Entao o "de" passa a ser DERIVADO: price / (1 - taxa/100).
+//   ⚠️ NUMERO DEDUZIDO, NAO LIDO. A taxa vem arredondada para inteiro, entao a
+//   conta erra: extratora Wap R$449 com 50% da R$898,00 e a loja diz R$899,99;
+//   FreeBuds R$949 com 44% da R$1.694,64 contra R$1.699,00 reais. Vai marcado
+//   com price_from_derived:true e o campo continua editavel na tela.
+//   A defesa da P32 CONTINUA e e ela que impede o defeito original ("De R$56,80
+//   por R$56,80 - 53% OFF"): so afirma o "de" quando a taxa e > 0 E o derivado
+//   e MAIOR que o preco de venda. Sem taxa, sem "de" — nunca repete o preco
+//   atual no lugar do riscado. MEDIDO em 08/09 no radar_offers: 75 de 78
+//   ofertas de Shopee (96,2%) vem com taxa > 0; as outras 3 saem sem riscado.
+//   ⚠️ O Radar (radar/index.ts) continua com price_original = price para
+//   Shopee. Divergencia CONSCIENTE entre as duas leituras — ver ESTADO_ATUAL.md.
+//
 // product-search v32 — o "de" da Amazon voltava sempre nulo (27/08)
 // v32: a janela do buybox era de 4000 caracteres e o bloco real tem 4623; o
 //   `basisPrice` com o numero do riscado ficava FORA dela. Medido no produto
@@ -465,14 +485,28 @@ async function fetchShopee(url: string, appId: string, appSecret: string, authHe
   }
   const node = d?.data?.productOfferV2?.nodes?.[0];
   if (!node) return { success: false, store: "shopee", error: "esse produto nao esta no catalogo de ofertas da Shopee" };
+
+  // v33 · REVISAO 140 (08/09): o "de" volta, DERIVADO da taxa. Ver cabecalho.
+  // A v25/P32 tirou o `price_from` porque ele vinha com `node.price`, que e o
+  // preco de VENDA (mesmo valor de priceMin) e nunca foi um preco anterior —
+  // isso publicava "De R$56,80 por R$56,80 - 53% OFF". A conta abaixo e outra
+  // coisa: usa a TAXA, que a API afirma. Continua sendo numero deduzido, e por
+  // isso sai marcado. Sem taxa, sem "de": `undefined`, e a tela nao risca nada.
+  const precoVenda = Number(node.priceMin ?? 0);
+  const taxaDesc = Number(node.priceDiscountRate ?? 0);
+  let deDerivado: string | undefined;
+  if (precoVenda > 0 && taxaDesc > 0 && taxaDesc < 100) {
+    const bruto = Math.round((precoVenda / (1 - taxaDesc / 100)) * 100) / 100;
+    if (bruto > precoVenda) deDerivado = String(bruto);
+  }
+
   return {
     success: true, source: "api", store: "shopee",
     name: node.productName, title: node.productName,
     image: node.imageUrl, thumbnail: node.imageUrl,
-    // v25/P32: `price_from` NAO e enviado, de proposito. `node.price` e o preco
-    // de venda (mesmo valor de `priceMin`), nao o preco anterior. `undefined`
-    // aqui quer dizer "a Shopee nao informa o de" — e quem le nao inventa um.
     price_to: node.priceMin ? String(node.priceMin) : undefined,
+    price_from: deDerivado,
+    price_from_derived: deDerivado ? true : undefined,
     commission_rate: node.commissionRate,
     discount_pct: node.priceDiscountRate ? Math.round(node.priceDiscountRate) : undefined,
     rating: node.ratingStar, sales: node.sales, short_link: node.offerLink,
@@ -788,14 +822,14 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   try {
     const { url, credentials = {} } = await req.json();
-    console.log(`[product-search v32] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
+    console.log(`[product-search v33] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
     if (!url || !/^https?:\/\//i.test(url))
       return new Response(JSON.stringify({ success: false, motivo: "url_sem_protocolo", error: "O link colado não começa com http:// ou https://. Copie o endereço completo da página do produto." }), { status: 400, headers: { ...CORS, "Content-Type": "application/json" } });
 
     const store = detectStore(url);
     const authHeader = req.headers.get("authorization");
     const userId = getUserIdFromJwt(authHeader);
-    console.log(`[product-search v32] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
+    console.log(`[product-search v33] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
 
     const waEngineUrl = Deno.env.get("WA_ENGINE_URL") || "https://megalinksbr-wa-engine.fwezsn.easypanel.host";
     const waEngineToken = Deno.env.get("WA_ENGINE_TOKEN") || "";
@@ -834,7 +868,7 @@ Deno.serve(async (req: Request) => {
       result = result || { success: false, source: "none", store, motivo: "loja_sem_integracao", error: "Loja sem integração automática. Preencha manualmente." };
     }
 
-    console.log(`[product-search v32] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
+    console.log(`[product-search v33] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
     return new Response(JSON.stringify(result), { headers: { ...CORS, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ success: false, error: (e as Error).message }), { status: 500, headers: { ...CORS, "Content-Type": "application/json" } });
