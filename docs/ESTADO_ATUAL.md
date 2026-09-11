@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 132 — 04/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 142 — 11/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1695,7 +1695,84 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
-**REVISÃO 141 — 08/09/2026 — Postar Agora, "Escolha os grupos de destino": marcar um grupo NUNCA funcionou (id de grupo sem aspas no `onchange` = SyntaxError). Achado a partir do relato do Érico, CORRIGIDO e PROVADO. Junto: a lista passa a nascer toda desmarcada. CODADO NO `frontend/index.html`, PRECISA DO REBUILD MANUAL NO EASYPANEL.**
+**REVISÃO 142 — 11/09/2026 — segunda metade do P139: os 10 grupos "Achadinhos" de delete_after_post=true iam começar a repetir o mesmo produto a cada 15min (só 1 produto ativo cada, loop_enabled=true). Érico pediu explicitamente: "não quero que repita produto". CORRIGIDO via mudança de dado (sem deploy de código) e PROVADO com 2 dias de logs em produção.**
+
+### O que o Érico pediu
+
+> "Então o 2, eu não quero que repita produto" — escolhendo, entre os dois
+> problemas remanescentes do P139, o dos 10 grupos "Achadinhos" (Casa & Decoração,
+> Geral, Pet, Cabelo, Make, Mercado, Eletrônicos, Fitness, Beleza, Perfumes) que,
+> por terem `delete_after_post=true`, tinham consumido todo o estoque de produtos
+> capturados e ficado com **1 produto ativo cada** — e por terem `loop_enabled=true`,
+> na config antiga voltariam a postar esse mesmo produto a cada ciclo de 15min,
+> pra sempre, até chegar produto novo.
+
+### O que foi mudado
+
+Mudança de **dado** em `niche_groups`, não de código — `send-post` (v29,
+deploy 63) já suportava o comportamento certo, só precisava da config certa:
+
+```sql
+-- 1) desliga o loop pros 11 grupos do Érico que tinham post automático
+--    ligado e loop ligado (os 10 "Achadinhos" delete_after_post=true + o
+--    "Achadinhos Eletrodomésticos", delete_after_post=false)
+update niche_groups
+set loop_enabled = false
+where user_id = 'd63dd97f-0581-4d2a-93a2-26399b14715b'
+  and post_auto_enabled = true
+  and loop_enabled = true;
+-- 11 linhas afetadas
+
+-- 2) só nos 10 delete_after_post=true: avança o cursor pro fim da lista
+--    atual (1 produto ativo → cursor=1), pra não repostar na próxima
+--    passagem do cron o mesmo produto que acabou de sair
+update niche_groups g
+set cursor_index = (select count(*) from products x where x.niche_group_id = g.id and coalesce(x.expired,false)=false)
+where g.user_id = 'd63dd97f-0581-4d2a-93a2-26399b14715b'
+  and g.post_auto_enabled = true
+  and g.delete_after_post = true
+  and g.loop_enabled = false;
+-- 10 linhas afetadas, cursor_index foi de 0 pra 1 em todas
+```
+
+Com `loop_enabled=false`, o `send-post` (ver código-fonte da função — o
+comentário no cabeçalho documenta os dois modos) não faz `cursor % total`
+(que é o que causava o wraparound/repetição): ele avança o cursor
+sequencialmente e, ao alcançar o fim da lista, loga `[FIM-DA-LISTA]` e
+**para** — sem repostar nada — até que um produto novo entre pro grupo
+(o que acontece sozinho, via captura automática do Clone Post, já
+restaurada na REVISÃO 139). Isso não apaga nenhum produto nem desliga o
+post automático — só troca "repete o último produto" por "espera o
+próximo".
+
+### Prova (não é status 200, é comportamento observado)
+
+Consulta em `logs` (`source = 'function_logs'`) na janela 10/09 13:10 →
+11/09 13:10 UTC: **centenas** de linhas `[FIM-DA-LISTA] grupo=<id>
+cursor=1 total=1 — Post em Loop desligado, aguardando produto novo`
+repetidas pros 10 grupos, a cada passagem do cron (a cada ~1min, no
+padrão observado), sem nenhum post novo saindo quando não havia produto —
+exatamente o comportamento pedido.
+
+E quando chegou produto novo (captura automática rodando), o grupo
+postou de fato: consulta em `niche_groups` em 11/09 13:xx mostrou vários
+desses grupos com `produtos_ativos` maior que 1 (2 e até 4, sinal de que
+chegaram capturas novas) e `last_post_at` recente — ou seja, o produto
+novo é postado normalmente assim que existe, e o grupo só para de novo
+(sem repetir) quando volta a ficar sem estoque. Nenhum repost do mesmo
+produto foi observado nos 2 dias de janela.
+
+### Pendência relacionada, ainda aberta
+
+O outro problema do P139 (grupo da Ana Luiza "Grupo de Ofertas Variadas
+07/09", travado com `loop_enabled=false` + `delete_after_post=false`, 21
+produtos, cursor no fim) **não foi mexido nesta revisão** — o Érico
+escolheu tratar primeiro o dos "Achadinhos" ("Então o 2..."). Continua
+esperando produto novo ou decisão do Érico sobre esse grupo específico.
+
+---
+
+**REVISÃO 141 — 08/09/2026 — Postar Agora, "Escolha os grupos de destino": marcar um grupo NUNCA funcionou (id de grupo sem aspas no `onchange` = SyntaxError). Achado a partir do relato do Érico, CORRIGIDO e PROVADO. Junto: a lista passa a nascer toda desmarcada. CODADO NO `frontend/index.html` — ✅ CONFIRMADO NO AR (deploya sozinho por webhook, ver correção logo abaixo).**
 
 ### O que o Érico relatou
 
@@ -10249,7 +10326,7 @@ código não relacionado.
 | **P125** | ✅ **FECHADA (02/09, REVISÃO 124) — DEPLOYADA E MEDIDA COM GRUPO DE TESTE DESCARTÁVEL EM 3 RODADAS REAIS DO CRON:** 1ª e 2ª falha seguida não avançam cursor e recuam `last_post_at` para reabrir em 3 min; 3ª falha seguida bate a trava e volta ao intervalo cheio com cursor avançado. Grupo de teste apagado depois. Era: 🟠 BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 121). `send-post` v23: o `update` de `last_post_at` (e do `cursor_index`) roda mesmo quando `groupSent === 0`, isto é, quando o post falhou em todos os canais. Um blip de segundos no `wa-engine` passa a custar um intervalo inteiro de silêncio — medido em 02/09 no "Achadinhos Eletrodomésticos": `failed` 14:50, próxima tentativa só 15:05. O `delete_after_post` da v22 já tem a guarda `groupSent > 0`; o `last_post_at` não tem. Conserto: não carimbar `last_post_at` (nem avançar cursor) em rodada que não enviou nada. Parente da P123 | 02/09 |
 | **P124** | ✅ **FECHADA (02/09, REVISÃO 123) — DEPLOYADA E MEDIDA COM DADO DE PRODUÇÃO:** `/groups` devolveu 24 grupos, 12 do Érico e 12 de terceiros; o seletor mostrou exatamente os 12 de terceiros e "ver todos" devolveu 24. Era: 🟡 CODADA, NÃO DEPLOYADA (REVISÃO 120). Clone Post → Nova fonte: o seletor "Grupo que você quer monitorar" passa a esconder os grupos dos quais o usuário é dono (`isOwner`), com as salvaguardas da REVISÃO 115 (engine antigo não filtra; fonte em edição não some; "ver todos" disponível). Falta commit, push, deploy do `app` no EasyPanel e conferir no painel logado que grupo próprio sumiu, grupo de terceiro ficou, e o link de convite continua cadastrando grupo fora da lista | 02/09 |
 | ~~P123~~ | ✅ **CORRIGIDO NA REVISÃO 137 (08/09), `send-post` v29 (deploy 63).** O bloco de exclusão passou a rodar ANTES do update de `cursor_index`; quando a exclusão de fato acontece e o cursor não deu a volta do Loop, ele recua 1. Deploy relido de volta, byte-a-byte igual ao `.ts` local. **Não medido em produção com disparo real ainda** — falta rodar o cron com um grupo em `total===2` pra confirmar que o próximo produto não é mais pulado. Registro original: 🟠 BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 119). `send-post`: com `delete_after_post` ligado, o produto postado é apagado e os seguintes deslizam uma posição, mas o `nextCursor` avança mesmo assim — um produto é pulado a cada disparo. Com o Loop ligado o `% total` mascarava (a v22 chamou de "absorvido"); com o Loop **desligado** (semântica nova) o grupo chega ao fim da lista mais cedo do que deveria | 02/09 |
-| **P139** | 🟠 **ABERTA (REVISÃO 137, 08/09) — RELIDA NA REVISÃO 139 (08/09).** Os 10 grupos "Achadinhos" (usuário `d63dd97f…`) medidos com 0 produtos continuam em 0 — a reserva mínima da v29 protege o PRÓXIMO produto a cair pra 1, não recria os que já foram apagados antes do conserto. ⚠️ **A REVISÃO 139 achou o motivo de nenhuma captura nova estar entrando: a `clone-ingest` respondia 401 pra 100% das chamadas do wa-engine desde 05/09 (`verify_jwt` ligado por engano no deploy da REVISÃO 136). Corrigido e provado (401→200).** Ou seja: a recomendação anterior ("precisam de captura nova ou cadastro manual") pode ter deixado de ser necessária — com a captura de volta, esperar algumas horas e REMEDIR antes de mexer à mão nesses grupos. Considerar também, à parte: o ritmo de consumo desses grupos (15 min de intervalo, `delete_after_post` ligado) é estruturalmente mais rápido que a reposição por Clone Post — mesmo com a reserva mínima, o grupo vai passar a maior parte do tempo com 1 produto só, repostando-o em loop, em vez de variar. Decisão de produto pendente: subir o intervalo, desligar `delete_after_post`, ou aceitar o comportamento | 08/09 |
+| **P139** | ✅ **FECHADA NA REVISÃO 142 (11/09).** As duas metades: (1) grupos zerados — AUTO-CURADAS quando a captura voltou (REVISÃO 139); (2) risco de repetir o mesmo produto em loop — CORRIGIDO pedido explícito do Érico ("não quero que repita produto"): `loop_enabled=false` nos 11 grupos + `cursor_index` avançado pro fim nos 10 `delete_after_post=true`, fazendo o `send-post` parar (`[FIM-DA-LISTA]`) em vez de repostar. PROVADO com ~2 dias de logs em produção sem nenhum repost e com posts novos saindo normalmente quando chega produto. Histórico: 🟠 ABERTA (REVISÃO 137, 08/09) — RELIDA NA REVISÃO 139 (08/09). Os 10 grupos "Achadinhos" (usuário `d63dd97f…`) medidos com 0 produtos continuam em 0 — a reserva mínima da v29 protege o PRÓXIMO produto a cair pra 1, não recria os que já foram apagados antes do conserto. A REVISÃO 139 achou o motivo de nenhuma captura nova estar entrando: a `clone-ingest` respondia 401 pra 100% das chamadas do wa-engine desde 05/09 (`verify_jwt` ligado por engano no deploy da REVISÃO 136). Corrigido e provado (401→200) | 11/09 |
 | **P141** | 🟠 **ABERTA (REVISÃO 140, 08/09).** A plataforma agora afirma duas coisas diferentes sobre o "de" da Shopee: a `product-search` v33 DERIVA (`price/(1-taxa)`, marcado com `price_from_derived`) e o `radar/index.ts` continua com `price_original = price` pela convenção de 28/08. Ficou assim de propósito (o pedido era só o Postar Agora, escopo estrito), mas divergência entre duas leituras da mesma loja já mordeu este repo antes — foi assim que a P32 nasceu. Decisão pendente: derivar no Radar também, ou voltar os dois a não afirmar. Só reabrir a rota lida (`/api/v4/pdp/get_pc`) resolveria de verdade, e ela exige proxy pago — recusado pelo Érico em 08/09 | 08/09 |
 | **P122** | ✅ **FECHADA (02/09, adendo 2 da REVISÃO 119) — deployada e medida no painel logado:** arquivo servido com as peças novas e sem a antiga, código executando, os dois checkboxes no DOM na ordem pedida, `salvarGeral()` gravando as duas colunas ida e volta no banco, 0 erros de console. Era: codada, provada em harness e pushada. Frontend: checkbox de fim de semana do modo normal abaixo da caixa dos Horários Inteligentes, "Validade padrão das ofertas" descida para baixo da grade, checkbox "🚫 Não repetir produto", texto novo do "Post em Loop", e a Fila mostrando "seg–sex" / "🚫 sem repetir no dia". 13 asserções no Chromium com 0 erros de console. Pushada no `main` em `1f8b635` (SHA-256 do arquivo `a2a8e1c9…`), conferida com reclone limpo. **Falta:** Deploy do `app` no EasyPanel — que leva junto a REVISÃO 118, também parada | 02/09 |
 | **P121** | 🟡 **PARCIALMENTE MEDIDA (REVISÃO 119).** ⏳ Sobram só os itens que dependem de tempo, não de clique. ✅ **(a) ordem sequencial PROVADA em produção com baseline**: o "ART Finds" (Loop ligado) saía sorteado nas 12 rodadas anteriores ao deploy (127, 124, 39, 85, 22, 6, 100, 38, 33, 101, 3, 106, 133, 99, 113, 130) e, nas duas primeiras rodadas depois, saiu **`position` 1 às 10:42 e `position` 2 às 10:52**, com `cursor_index` indo a 2. Mesma máquina, mesmo grupo, mesmo dia — o que mudou foi só a versão. **Falta:** (b) um sábado sem post num grupo com `weekend_enabled=false`; (c) um dia inteiro sem repetição num grupo com `no_repeat_daily=true` | 02/09 |
