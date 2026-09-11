@@ -10147,6 +10147,10 @@ let CS_GRUPOS_WA=[];
 let CS_MOSTRAR_TODOS=false;
 let CS_EDIT_ATUAL=null; // fonte sendo editada, pra reconstruir o select sem refetch
 let CS_TEL_ESCOLHIDO=null; // numero (digitos) cujos grupos estao na lista agora — REVISAO 129
+// REVISAO 143 (11/09) — "Mandar as ofertas para" do formulario de fonte NOVA
+// passa a aceitar mais de um Grupo de Oferta (um mesmo grupo monitorado pode
+// alimentar varios). Guarda os ids marcados; csAbrirForm zera a cada abertura.
+let CS_DESTINOS_SEL=new Set();
 // Veredito das ultimas 24h por grupo-fonte, vindo de clone_ingest_log.
 // A chave e o source_jid e nao o clone_source_id: as recusas que acontecem ANTES
 // de a fonte ser localizada (mensagem antiga, mensagem sem link) chegam com
@@ -10520,6 +10524,10 @@ async function csAbrirForm(editId){
   const editando=editId?CS_FONTES.find(x=>String(x.id)===String(editId)):null;
   CS_EDIT_ATUAL=editando;
   CS_MOSTRAR_TODOS=false; // cada abertura do formulario volta ao filtro padrao
+  // REVISAO 143: fonte nova nasce sem nenhum destino marcado (mesma logica da
+  // REVISAO 141); editar uma fonte existente continua usando o select unico,
+  // que ja vem com o destino atual selecionado — nao passa por este Set.
+  CS_DESTINOS_SEL=new Set();
   // Barrar aqui, antes de ir buscar os grupos no engine: nao faz sentido gastar
   // a ida e volta pra depois recusar o salvamento. So vale para fonte NOVA —
   // editar uma fonte que ja existe nao aumenta a contagem do plano.
@@ -10578,7 +10586,11 @@ async function csAbrirForm(editId){
   if(editando&&!CS_GRUPOS_WA.some(g=>(g.id||g.jid)===editando.source_jid)){
     CS_GRUPOS_WA.push({id:editando.source_jid,name:editando.source_label||editando.source_jid});
   }
-  const jaTem=new Set(CS_FONTES.filter(f=>!editando||String(f.id)!==String(editando.id)).map(f=>f.source_jid));
+  // REVISAO 143: nao e mais um Set de jid "usado/nao usado" — um mesmo grupo
+  // monitorado agora pode alimentar mais de um Grupo de Oferta, entao o que
+  // desabilita a opcao e csOpcoesGrupos calcular, por jid, se JA cobre todos os
+  // destinos existentes (nesse caso nao sobra pra onde mandar coisa nova).
+  const jaTem=CS_FONTES.filter(f=>!editando||String(f.id)!==String(editando.id));
   // Regra pedida pelo Erico (mesma familia da Distribuicao, ao contrario): fonte de
   // captura serve pra monitorar grupo de TERCEIRO. Grupo criado por voce nao tem o
   // que clonar e estava confundindo o usuario. Salvaguardas iguais as da REVISAO 115:
@@ -10612,8 +10624,12 @@ async function csAbrirForm(editId){
             ${donoHint}
           </div>
           <div>
-            <label>Mandar as ofertas para</label>
-            <select id="csDestino" style="width:100%">${S.grupos.map(g=>`<option value="${g.db_id||g.id}"${editando&&String(editando.niche_group_id)===String(g.db_id||g.id)?" selected":""}>${g.nome}</option>`).join("")}</select>
+            <label>Mandar as ofertas para${editando?"":' <small style="font-weight:400;color:var(--tx2)">— pode marcar mais de um</small>'}</label>
+            ${editando
+              ? `<select id="csDestino" style="width:100%">${S.grupos.map(g=>`<option value="${g.db_id||g.id}"${String(editando.niche_group_id)===String(g.db_id||g.id)?" selected":""}>${esc(g.nome)}</option>`).join("")}</select>`
+              : `<input id="csDestinoBusca" type="text" placeholder="🔎 Digite pra filtrar…" style="width:100%;margin-bottom:6px" oninput="csFiltrarDestino(this.value)">
+                 <div id="csDestinoLista" style="max-height:180px;overflow:auto;border:1px solid var(--bd2);border-radius:8px;padding:6px 10px">${csDestinoOpcoesHtml()}</div>
+                 <small style="display:block;margin-top:6px;color:var(--tx2)">O mesmo grupo monitorado pode alimentar mais de um Grupo de Oferta — marque todos que devem receber.</small>`}
           </div>
         </div>
         <div class="field" style="grid-column:1/-1;margin-top:14px;border-top:1px solid var(--bd2);padding-top:12px">
@@ -10683,7 +10699,11 @@ async function csTrocarNumero(tel){
   if(editando&&!CS_GRUPOS_WA.some(g=>(g.id||g.jid)===editando.source_jid)){
     CS_GRUPOS_WA.push({id:editando.source_jid,name:editando.source_label||editando.source_jid});
   }
-  const jaTem=new Set(CS_FONTES.filter(f=>!editando||String(f.id)!==String(editando.id)).map(f=>f.source_jid));
+  // REVISAO 143: nao e mais um Set de jid "usado/nao usado" — um mesmo grupo
+  // monitorado agora pode alimentar mais de um Grupo de Oferta, entao o que
+  // desabilita a opcao e csOpcoesGrupos calcular, por jid, se JA cobre todos os
+  // destinos existentes (nesse caso nao sobra pra onde mandar coisa nova).
+  const jaTem=CS_FONTES.filter(f=>!editando||String(f.id)!==String(editando.id));
   const opts=csOpcoesGrupos(editando,jaTem);
   const engineTemDono=CS_GRUPOS_WA.some(g=>typeof g.isOwner==="boolean");
   const filtraDono=engineTemDono&&!CS_MOSTRAR_TODOS;
@@ -10709,7 +10729,11 @@ function csGruposVisiveis(editando){
 }
 // `filtro` (05/09 — busca em tempo real): texto digitado pelo usuario em
 // `#csJidBusca`. So estreita as opcoes visiveis; nao mexe em disabled/selected.
-function csOpcoesGrupos(editando,jaTem,filtro){
+// `fontesAtuais` (REVISAO 143): lista de clone_sources do usuario (nao mais um
+// Set de jid). Um mesmo grupo pode ser fonte de varios Grupos de Oferta agora
+// — so fica desabilitado quando JA e fonte de TODOS os grupos de oferta que
+// existem hoje (nesse caso mesmo, nao sobra destino novo pra oferecer).
+function csOpcoesGrupos(editando,fontesAtuais,filtro){
   const termo=(filtro||"").trim().toLowerCase();
   return csGruposVisiveis(editando).filter(g=>{
     if(!termo)return true;
@@ -10719,7 +10743,11 @@ function csOpcoesGrupos(editando,jaTem,filtro){
     const jid=g.id||g.jid||"";
     const nome=(g.subject||g.name||jid).replace(/</g,"&lt;");
     const atual=!!(editando&&editando.source_jid===jid);
-    return `<option value="${jid}"${(jaTem.has(jid)&&!atual)?" disabled":""}${atual?" selected":""}>${nome}${(jaTem.has(jid)&&!atual)?" (já é fonte)":""}</option>`;
+    const destinosDesseJid=new Set(fontesAtuais.filter(f=>f.source_jid===jid).map(f=>String(f.niche_group_id)));
+    const qtd=destinosDesseJid.size;
+    const esgotado=qtd>0&&S.grupos.length>0&&S.grupos.every(dg=>destinosDesseJid.has(String(dg.db_id||dg.id)));
+    const rotulo=esgotado?" (já em todos os seus grupos)":(qtd?` (já em ${qtd} grupo${qtd>1?"s":""})`:"");
+    return `<option value="${jid}"${(esgotado&&!atual)?" disabled":""}${atual?" selected":""}>${nome}${(!atual)?rotulo:""}</option>`;
   }).join("");
 }
 // Saida de emergencia: reconstroi so o select, sem refazer a chamada ao engine.
@@ -10728,7 +10756,9 @@ function csMostrarTodosGrupos(){
   const sel=document.getElementById("csJid");
   if(sel){
     const editando=CS_EDIT_ATUAL;
-    const jaTem=new Set(CS_FONTES.filter(f=>!editando||String(f.id)!==String(editando.id)).map(f=>f.source_jid));
+    // REVISAO 143: ver comentario em csFiltrarJid — csOpcoesGrupos agora recebe
+    // a lista de fontes, nao um Set de jid.
+    const jaTem=CS_FONTES.filter(f=>!editando||String(f.id)!==String(editando.id));
     sel.innerHTML=csOpcoesGrupos(editando,jaTem);
   }
   const h=document.getElementById("csDonoHint");if(h)h.remove();
@@ -10741,8 +10771,35 @@ function csFiltrarJid(termo){
   const sel=document.getElementById("csJid");
   if(!sel)return;
   const editando=CS_EDIT_ATUAL;
-  const jaTem=new Set(CS_FONTES.filter(f=>!editando||String(f.id)!==String(editando.id)).map(f=>f.source_jid));
+  // REVISAO 143: nao e mais um Set de jid "usado/nao usado" — um mesmo grupo
+  // monitorado agora pode alimentar mais de um Grupo de Oferta, entao o que
+  // desabilita a opcao e csOpcoesGrupos calcular, por jid, se JA cobre todos os
+  // destinos existentes (nesse caso nao sobra pra onde mandar coisa nova).
+  const jaTem=CS_FONTES.filter(f=>!editando||String(f.id)!==String(editando.id));
   sel.innerHTML=csOpcoesGrupos(editando,jaTem,termo)||'<option value="" disabled selected>Nenhum grupo com esse nome</option>';
+}
+
+// ── REVISAO 143 (11/09) — "Mandar as ofertas para" com selecao multipla ──────
+// Mesma logica de busca em tempo real da lista de grupos-fonte acima, e mesma
+// logica de "nasce tudo desmarcado" da REVISAO 141 (Postar Agora → Escolha os
+// grupos de destino). So existe no formulario de fonte NOVA — editar continua
+// no <select> unico, que troca o destino de uma fonte ja existente, nao soma.
+function csDestinoOpcoesHtml(filtro){
+  const termo=(filtro||"").trim().toLowerCase();
+  const visiveis=S.grupos.filter(g=>!termo||(g.nome||"").toLowerCase().includes(termo));
+  if(!visiveis.length)return '<div style="color:var(--tx2);font-size:13px">Nenhum grupo com esse nome</div>';
+  return visiveis.map(g=>{
+    const id=String(g.db_id||g.id);
+    const checked=CS_DESTINOS_SEL.has(id)?" checked":"";
+    return `<label style="display:flex;gap:7px;align-items:center;padding:4px 0;cursor:pointer"><input type="checkbox" style="width:auto" value="${id}"${checked} onchange="csToggleDestino('${id}',this.checked)">${esc(g.nome)}</label>`;
+  }).join("");
+}
+function csToggleDestino(id,marcado){
+  if(marcado)CS_DESTINOS_SEL.add(id);else CS_DESTINOS_SEL.delete(id);
+}
+function csFiltrarDestino(termo){
+  const wrap=document.getElementById("csDestinoLista");
+  if(wrap)wrap.innerHTML=csDestinoOpcoesHtml(termo);
 }
 
 function csLimparTeste(){
@@ -10871,30 +10928,61 @@ async function csResolverConvite(){
   }
 }
 
+// REVISAO 143 (11/09): "destino" deixou de ser um valor unico — o formulario
+// de fonte NOVA marca em CS_DESTINOS_SEL quantos Grupos de Oferta quiser, e
+// aqui cada um vira UMA linha em clone_sources (mesmo source_jid, uma por
+// destino) — e exatamente o modelo que a clone-ingest ja suportava (ela busca
+// TODAS as fontes ativas daquele jid, nao so uma; ver `.eq("source_jid",jid)`
+// sem `.single()`). O unico ponto novo aqui e criar mais de uma linha de uma
+// vez e lidar bem quando algum par (jid,destino) ja existia.
 async function csSalvar(){
   const jid=document.getElementById("csJid")?.value||"";
-  const destino=document.getElementById("csDestino")?.value||"";
+  const destinos=Array.from(CS_DESTINOS_SEL);
   const max=parseInt(document.getElementById("csMax")?.value||"10",10)||10;
   // Array vazio = todas as lojas, que e o default da coluna. Nenhuma marcada e
   // um estado valido e comum, nao um erro de preenchimento.
   const lojas=Array.from(document.querySelectorAll("#csLojasNova input[type=checkbox]"))
     .filter(c=>c.checked).map(c=>c.value);
-  if(!jid||!destino){toast("Escolha o grupo de origem e o de destino.","⚠️");return;}
+  if(!jid||!destinos.length){toast("Escolha o grupo de origem e pelo menos um grupo de destino.","⚠️");return;}
   // Segunda checagem de proposito: o formulario pode ter ficado aberto enquanto
-  // outra aba cadastrava. Aviso educado, nao trava de seguranca.
-  if(cloneFontesCheio()){toast("Seu plano permite "+cloneFontesMax()+" fonte(s).","\u{1F512}");return;}
+  // outra aba cadastrava. Aviso educado, nao trava de seguranca. Cada destino
+  // marcado vira uma fonte nova, entao o teto do plano e checado contra o total
+  // (fontes que ja existem + as que essa acao vai criar), nao so contra 1.
+  const planoMax=cloneFontesMax();
+  if(planoMax>=0&&(CS_FONTES.length+destinos.length)>planoMax){
+    toast(`Seu plano permite ${planoMax} fonte(s) — você já tem ${CS_FONTES.length} e marcou ${destinos.length} grupo(s) novo(s). Desmarque algum ou remova uma fonte.`,"\u{1F512}");
+    return;
+  }
   const g=CS_GRUPOS_WA.find(x=>(x.id||x.jid)===jid);
-  const{error}=await SB.from("clone_sources").insert({
+  const base={
     user_id:CURRENT_USER.id,
-    niche_group_id:destino,
     source_jid:jid,
     source_label:(g?.subject||g?.name||jid).slice(0,120),
     session_phone:CS_TEL_ESCOLHIDO||(S.waNumber||"").replace(/\D/g,"")||null,
     max_per_day:Math.min(Math.max(max,1),50),
     lojas_permitidas:lojas,
-  });
-  if(error){toast("Não consegui salvar: "+error.message,"⚠️");return;}
-  toast("Fonte cadastrada. O monitoramento começa em até 5 minutos.","🤖");
+  };
+  let ok=0,jaExistia=0;const falhas=[];
+  for(const destino of destinos){
+    const{error}=await SB.from("clone_sources").insert({...base,niche_group_id:destino});
+    if(error){
+      // 23505 = unique_violation (user_id,source_jid,niche_group_id) — o par ja
+      // existia; nao e falha de verdade, e so o usuario remarcando algo que ja
+      // estava monitorado. csOpcoesGrupos ja avisa "(já em N grupos)" antes de
+      // salvar, mas a corrida entre abas continua possivel — daí o try aqui.
+      if(error.code==="23505")jaExistia++;else falhas.push(error.message);
+    }else ok++;
+  }
+  if(!ok&&!jaExistia){
+    toast("Não consegui salvar: "+(falhas[0]||"erro desconhecido"),"⚠️");
+    return;
+  }
+  if(ok){
+    const extra=[jaExistia?`${jaExistia} já monitorava`:"",falhas.length?`${falhas.length} falhou`:""].filter(Boolean).join(" · ");
+    toast(`${ok} fonte(s) cadastrada(s)${extra?" ("+extra+")":""}. O monitoramento começa em até 5 minutos.`,"🤖");
+  }else{
+    toast("Esse grupo já monitorava todos os destinos marcados.","ℹ️");
+  }
   const f=document.getElementById("csForm");if(f)f.style.display="none";
   csCarregar();
 }

@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 142 — 11/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 143 — 11/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,88 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 143 — 11/09/2026 — Clone Post: um grupo monitorado passa a poder alimentar mais de um Grupo de Oferta. Pedido do Érico ("Achadinhos #14" também abastecendo o "Grupo Canal TrendShop"). CODADO NO `frontend/index.html` — auto-deploya por webhook, confirmar no ar antes de fechar.**
+
+### O que o Érico pediu
+
+> "em Clone Post, preciso que vc deixe um Grupo ser monitorado pra mais de um
+> grupo. Tipo o Grupo de Achadinhos #14 eu queria que ele distribuice pro
+> Grupo Canal TrendShop também" — e, junto, que o campo de destino ganhe a
+> mesma busca-enquanto-digita que já existia no seletor do grupo-fonte
+> (`csJidBusca`, 05/09) e nos "grupos de destino" do Postar Agora (REVISÃO 141).
+
+Motivado por uma investigação da própria sessão: o canal "Grupo Canal
+TrendShop" (único canal WhatsApp cadastrado do Érico) estava parado desde
+10/09 porque o grupo de ofertas que o alimenta nunca teve fonte de captura
+própria — só 1 produto manual, já postado, sem reposição. A saída natural era
+reaproveitar uma fonte que já existe (Achadinhos #14) para alimentar esse
+grupo também, em vez de cadastrar tudo de novo.
+
+### O que foi descoberto (a causa raiz era só de frontend)
+
+O backend **já suportava isso** — não precisou de nenhuma mudança em Edge
+Function nem no banco:
+
+- `clone_sources` tem `UNIQUE (user_id, source_jid, niche_group_id)`, não
+  `UNIQUE (user_id, source_jid)` — o schema sempre permitiu duas linhas com o
+  mesmo `source_jid` e `niche_group_id` diferente.
+- `clone-ingest` já busca **todas** as fontes ativas daquele `source_jid`
+  (`.eq("source_jid", jid).eq("active", true)`, sem `.single()`) e itera
+  `for (const fonte of fontes)` — cada fonte encontrada gera sua própria
+  captura, para o seu próprio `niche_group_id`. Já entregava pra quantos
+  destinos existissem, desde que existissem as linhas.
+
+O que faltava de verdade era o **formulário de "Nova fonte"**, em
+`frontend/index.html`:
+
+1. **`csOpcoesGrupos`/`jaTem` desabilitava qualquer grupo do WhatsApp que já
+   fosse fonte de QUALQUER destino** (rótulo "já é fonte", opção travada) —
+   mesmo que sobrasse Grupo de Oferta sem receber dele. Era isso que impedia
+   escolher "Achadinhos #14" de novo pra apontar pro "Grupo Canal TrendShop".
+2. **"Mandar as ofertas para" era um `<select>` de valor único** — o
+   formulário só deixava escolher 1 destino por vez, então "distribuir pro
+   mesmo tempo" exigia repetir o cadastro do zero pra cada grupo.
+
+### O que foi mudado
+
+- `csOpcoesGrupos` deixou de receber um `Set` de jid "usado/não usado" e passou
+  a receber a lista de fontes do usuário: agora só desabilita a opção quando
+  aquele jid **já é fonte de TODOS os Grupos de Oferta existentes** (nada novo
+  pra oferecer); enquanto sobrar pelo menos um destino sem essa fonte, a opção
+  fica disponível, com um rótulo informativo ("já em N grupos").
+- **"Mandar as ofertas para" virou lista de checkbox com busca em tempo real**
+  (`csDestinoOpcoesHtml`/`csFiltrarDestino`/`csToggleDestino`), nasce toda
+  desmarcada — mesma lógica pedida na REVISÃO 141 para os grupos de destino do
+  Postar Agora. Só no formulário de fonte NOVA; editar uma fonte já existente
+  continua com o `<select>` único de antes (mexe em 1 linha só, sem ambiguidade
+  de "somar" destino).
+- `csSalvar()` agora cria **uma linha em `clone_sources` por destino marcado**
+  (mesmo `source_jid`, mesmo teto/lojas/número, um `insert` por
+  `niche_group_id`). Erro `23505` (par já existia) é tratado como "já
+  monitorava", não como falha — e o teto de fontes do plano
+  (`clone_sources_max`) passa a ser checado contra o total depois da operação
+  (fontes que já existem + as que essa ação vai criar), não só contra 1.
+
+### Prova até agora
+
+- 9 blocos `<script>` do arquivo inteiro recompilam sem `SyntaxError`
+  (`new Function(code)` em cada um).
+- `csOpcoesGrupos` testado fora do navegador (harness Node, funções extraídas
+  do próprio arquivo): jid que é fonte de 1 destino de 2 **não** fica
+  desabilitado; jid que já é fonte dos 2 destinos existentes **fica**
+  desabilitado com "(já em todos os seus grupos)".
+- `csDestinoOpcoesHtml`/`csToggleDestino` testados isolados: busca filtra por
+  nome, `checked` reflete `CS_DESTINOS_SEL`, marcar/desmarcar atualiza o Set
+  certo.
+- **Falta**: medir no painel logado do Érico — abrir "Nova fonte", escolher
+  "Achadinhos #14" (que já é fonte só de um grupo), marcar também "Grupo Canal
+  TrendShop" nos checkboxes, salvar, e confirmar as duas linhas em
+  `clone_sources` (mesmo `source_jid`, `niche_group_id` diferente). E, depois,
+  uma captura real chegando nos dois grupos de oferta a partir da mesma
+  mensagem do grupo monitorado.
+
+---
 
 **REVISÃO 142 — 11/09/2026 — segunda metade do P139: os 10 grupos "Achadinhos" de delete_after_post=true iam começar a repetir o mesmo produto a cada 15min (só 1 produto ativo cada, loop_enabled=true). Érico pediu explicitamente: "não quero que repita produto". CORRIGIDO via mudança de dado (sem deploy de código) e PROVADO com 2 dias de logs em produção.**
 
@@ -10327,6 +10409,7 @@ código não relacionado.
 | **P124** | ✅ **FECHADA (02/09, REVISÃO 123) — DEPLOYADA E MEDIDA COM DADO DE PRODUÇÃO:** `/groups` devolveu 24 grupos, 12 do Érico e 12 de terceiros; o seletor mostrou exatamente os 12 de terceiros e "ver todos" devolveu 24. Era: 🟡 CODADA, NÃO DEPLOYADA (REVISÃO 120). Clone Post → Nova fonte: o seletor "Grupo que você quer monitorar" passa a esconder os grupos dos quais o usuário é dono (`isOwner`), com as salvaguardas da REVISÃO 115 (engine antigo não filtra; fonte em edição não some; "ver todos" disponível). Falta commit, push, deploy do `app` no EasyPanel e conferir no painel logado que grupo próprio sumiu, grupo de terceiro ficou, e o link de convite continua cadastrando grupo fora da lista | 02/09 |
 | ~~P123~~ | ✅ **CORRIGIDO NA REVISÃO 137 (08/09), `send-post` v29 (deploy 63).** O bloco de exclusão passou a rodar ANTES do update de `cursor_index`; quando a exclusão de fato acontece e o cursor não deu a volta do Loop, ele recua 1. Deploy relido de volta, byte-a-byte igual ao `.ts` local. **Não medido em produção com disparo real ainda** — falta rodar o cron com um grupo em `total===2` pra confirmar que o próximo produto não é mais pulado. Registro original: 🟠 BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 119). `send-post`: com `delete_after_post` ligado, o produto postado é apagado e os seguintes deslizam uma posição, mas o `nextCursor` avança mesmo assim — um produto é pulado a cada disparo. Com o Loop ligado o `% total` mascarava (a v22 chamou de "absorvido"); com o Loop **desligado** (semântica nova) o grupo chega ao fim da lista mais cedo do que deveria | 02/09 |
 | **P139** | ✅ **FECHADA NA REVISÃO 142 (11/09).** As duas metades: (1) grupos zerados — AUTO-CURADAS quando a captura voltou (REVISÃO 139); (2) risco de repetir o mesmo produto em loop — CORRIGIDO pedido explícito do Érico ("não quero que repita produto"): `loop_enabled=false` nos 11 grupos + `cursor_index` avançado pro fim nos 10 `delete_after_post=true`, fazendo o `send-post` parar (`[FIM-DA-LISTA]`) em vez de repostar. PROVADO com ~2 dias de logs em produção sem nenhum repost e com posts novos saindo normalmente quando chega produto. Histórico: 🟠 ABERTA (REVISÃO 137, 08/09) — RELIDA NA REVISÃO 139 (08/09). Os 10 grupos "Achadinhos" (usuário `d63dd97f…`) medidos com 0 produtos continuam em 0 — a reserva mínima da v29 protege o PRÓXIMO produto a cair pra 1, não recria os que já foram apagados antes do conserto. A REVISÃO 139 achou o motivo de nenhuma captura nova estar entrando: a `clone-ingest` respondia 401 pra 100% das chamadas do wa-engine desde 05/09 (`verify_jwt` ligado por engano no deploy da REVISÃO 136). Corrigido e provado (401→200) | 11/09 |
+| **P142** | 🟡 **CODADA (REVISÃO 143, 11/09), NÃO MEDIDA EM PRODUÇÃO.** Clone Post → Nova fonte: um grupo monitorado agora pode virar fonte de mais de um Grupo de Oferta (checkbox multi-seleção com busca, backend já suportava). Falta: confirmar deploy no ar (webhook já provado auto-deploy, mas ninguém conferiu esta REVISÃO especificamente), e medir no painel logado do Érico ligando "Achadinhos #14" também ao "Grupo Canal TrendShop" (as duas linhas em `clone_sources`, e uma captura real chegando nos dois) | 11/09 |
 | **P141** | 🟠 **ABERTA (REVISÃO 140, 08/09).** A plataforma agora afirma duas coisas diferentes sobre o "de" da Shopee: a `product-search` v33 DERIVA (`price/(1-taxa)`, marcado com `price_from_derived`) e o `radar/index.ts` continua com `price_original = price` pela convenção de 28/08. Ficou assim de propósito (o pedido era só o Postar Agora, escopo estrito), mas divergência entre duas leituras da mesma loja já mordeu este repo antes — foi assim que a P32 nasceu. Decisão pendente: derivar no Radar também, ou voltar os dois a não afirmar. Só reabrir a rota lida (`/api/v4/pdp/get_pc`) resolveria de verdade, e ela exige proxy pago — recusado pelo Érico em 08/09 | 08/09 |
 | **P122** | ✅ **FECHADA (02/09, adendo 2 da REVISÃO 119) — deployada e medida no painel logado:** arquivo servido com as peças novas e sem a antiga, código executando, os dois checkboxes no DOM na ordem pedida, `salvarGeral()` gravando as duas colunas ida e volta no banco, 0 erros de console. Era: codada, provada em harness e pushada. Frontend: checkbox de fim de semana do modo normal abaixo da caixa dos Horários Inteligentes, "Validade padrão das ofertas" descida para baixo da grade, checkbox "🚫 Não repetir produto", texto novo do "Post em Loop", e a Fila mostrando "seg–sex" / "🚫 sem repetir no dia". 13 asserções no Chromium com 0 erros de console. Pushada no `main` em `1f8b635` (SHA-256 do arquivo `a2a8e1c9…`), conferida com reclone limpo. **Falta:** Deploy do `app` no EasyPanel — que leva junto a REVISÃO 118, também parada | 02/09 |
 | **P121** | 🟡 **PARCIALMENTE MEDIDA (REVISÃO 119).** ⏳ Sobram só os itens que dependem de tempo, não de clique. ✅ **(a) ordem sequencial PROVADA em produção com baseline**: o "ART Finds" (Loop ligado) saía sorteado nas 12 rodadas anteriores ao deploy (127, 124, 39, 85, 22, 6, 100, 38, 33, 101, 3, 106, 133, 99, 113, 130) e, nas duas primeiras rodadas depois, saiu **`position` 1 às 10:42 e `position` 2 às 10:52**, com `cursor_index` indo a 2. Mesma máquina, mesmo grupo, mesmo dia — o que mudou foi só a versão. **Falta:** (b) um sábado sem post num grupo com `weekend_enabled=false`; (c) um dia inteiro sem repetição num grupo com `no_repeat_daily=true` | 02/09 |
