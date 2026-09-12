@@ -1,3 +1,18 @@
+// product-search v34 — link de afiliado NATIVO do Mercado Livre (11/09)
+// v34 (REVISAO 144): fetchMercadoLivre agora tenta gerar o link curto oficial
+//   (mercadolivre.com/sec/... ou equivalente) via o endpoint interno que o
+//   proprio painel de Afiliados do ML chama no navegador
+//   (POST /affiliate-program/api/v2/stripe/user/links), reaproveitando o
+//   cookie de sessao do usuario (profiles.ml_session_cookie) e a tag
+//   (affiliate_credentials.credentials->>'Etiqueta ML'). NAO documentado
+//   pelo ML — engenharia reversa confirmada em pacote de terceiros open
+//   source (@afilimax/mercado-livre-provider). Se faltar cookie/tag, ou a
+//   chamada falhar por qualquer motivo (sessao expirada, CSRF mudou,
+//   endpoint mudou), devolve o resultado igual a antes (sem short_link) e o
+//   front cai no fallback de sempre: link longo + matt_tool/matt_word.
+//   Ver enriquecerComLinkNativoML/gerarLinkNativoML/getMlAffiliateTag.
+//   Decisao do Erico: implementar mesmo com o risco de instabilidade e de
+//   flag por automacao na conta de afiliado (endpoint nao oficial).
 // product-search v33 — o "de" da Shopee volta, DERIVADO da taxa (08/09)
 // v33 (REVISAO 140): decisao do Erico em 08/09, revertendo conscientemente a
 //   P32 (01/08) e a convencao de 28/08 do Radar. O que mudou desde entao: a
@@ -165,7 +180,7 @@
 // v19: passa a URL ORIGINAL do usuario ao wa-engine (nao reconstroi como /p/MLB)
 // v18: failover de 2 tokens Scrape.do por usuario (primario + contingencia)
 // v17: fix extracao MLB de URLs /up/MLBU... com item_id no query string
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -301,6 +316,95 @@ function extractMlbId(url: string): string | null {
   return null;
 }
 
+// ── Mercado Livre — link de afiliado NATIVO via endpoint interno do painel ──
+// NÃO é API oficial/documentada: é o endpoint que o próprio painel de Afiliados
+// do ML chama no navegador quando você usa o "Gerador de Links". Engenharia
+// reversa confirmada em pacotes de terceiros usados por outras plataformas de
+// afiliados (ex.: @afilimax/mercado-livre-provider, open source). Requer:
+//   (1) cookie de sessão LOGADA do usuário — reaproveita profiles.ml_session_cookie,
+//       já usado hoje só pra leitura de produto (/ml-product);
+//   (2) a "tag" de afiliado — reaproveita affiliate_credentials.credentials
+//       ->>'Etiqueta ML' (o mesmo valor do parâmetro matt_word).
+// Sem qualquer um dos dois, ou se a chamada falhar (sessão expirada, CSRF
+// mudou, endpoint mudou), retorna null e quem chamou cai no fallback de
+// sempre: link longo + matt_tool/matt_word colado (prGerarLinkAfil no front).
+// Decisão do Érico em 11/09 (REVISÃO 144): implementar mesmo sabendo do risco
+// de instabilidade — não documentado, pode quebrar sem aviso do ML, e usa a
+// sessão real da conta de afiliado do usuário (risco de flag por automação).
+const ML_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+async function fetchCsrfTokenML(url: string, cookieHeader: string): Promise<string> {
+  // Primeiro tenta direto no cookie (evita uma 2ª requisição) — o painel do ML
+  // guarda o token corrente também no cookie "_csrf".
+  const mCookie = cookieHeader.match(/(?:^|;\s*)_csrf=([^;]+)/);
+  if (mCookie) { try { return decodeURIComponent(mCookie[1]); } catch { return mCookie[1]; } }
+  try {
+    const r = await fw(url, { headers: { cookie: cookieHeader, "user-agent": ML_UA } }, 10000);
+    if (r.ok) {
+      const html = await r.text();
+      const m = html.match(/"csrfToken"\s*:\s*"([^"]+)"/) || html.match(/csrf[-_]?token["']?\s*[:=]\s*["']([^"']+)["']/i);
+      if (m) return m[1];
+    }
+  } catch { /* segue sem token — a chamada abaixo pode falhar, cai no fallback */ }
+  return "";
+}
+
+async function gerarLinkNativoML(url: string, cookieHeader: string, tag: string): Promise<string | null> {
+  if (!cookieHeader || !tag) return null;
+  try {
+    const csrfToken = await fetchCsrfTokenML(url, cookieHeader);
+    const r = await fw("https://www.mercadolivre.com.br/affiliate-program/api/v2/stripe/user/links", {
+      method: "POST",
+      headers: {
+        "accept": "application/json, text/plain, */*",
+        "content-type": "application/json",
+        "x-csrf-token": csrfToken,
+        "cookie": cookieHeader,
+        "referer": url,
+        "origin": "https://produto.mercadolivre.com.br",
+        "user-agent": ML_UA,
+      },
+      body: JSON.stringify({ url, tag }),
+    }, 12000);
+    if (!r.ok) {
+      console.warn(`[ML][link-nativo] HTTP ${r.status}: ${(await r.text().catch(() => "")).slice(0, 200)}`);
+      return null;
+    }
+    const d = await r.json();
+    return d?.short_url || null;
+  } catch (e) {
+    console.warn(`[ML][link-nativo] falhou: ${(e as Error).message}`);
+    return null;
+  }
+}
+
+async function getMlAffiliateTag(sb: ReturnType<typeof createClient> | null, userId: string | null): Promise<string> {
+  if (!sb || !userId) return "";
+  try {
+    const { data } = await sb.from("affiliate_credentials")
+      .select("credentials").eq("user_id", userId).eq("store", "mercado_livre").eq("connected", true)
+      .maybeSingle();
+    return String((data?.credentials as any)?.["Etiqueta ML"] ?? "").trim();
+  } catch { return ""; }
+}
+
+// Enriquece um resultado de sucesso do ML com o link nativo, quando possível.
+// Nunca lança — pior caso, devolve o `result` original intacto.
+async function enriquecerComLinkNativoML(result: any, url: string, sb: ReturnType<typeof createClient> | null, userId: string | null, mlCookie: string): Promise<any> {
+  if (!mlCookie) return result;
+  try {
+    const tag = await getMlAffiliateTag(sb, userId);
+    if (!tag) return result;
+    const shortLink = await gerarLinkNativoML(url, mlCookie, tag);
+    if (shortLink) {
+      result.short_link = shortLink;
+      result.native_link = true;
+      console.log(`[ML] link nativo gerado via endpoint interno de afiliados: ${shortLink}`);
+    }
+  } catch (e) { console.warn("[ML] enriquecimento de link nativo falhou:", (e as Error).message); }
+  return result;
+}
+
 async function fetchMercadoLivre(url: string, waEngineUrl: string, waEngineToken: string, sb: ReturnType<typeof createClient> | null, userId: string | null): Promise<any> {
   const mlb = extractMlbId(url);
   console.log(`[ML] MLB extraido: ${mlb} de ${url.slice(0, 80)}`);
@@ -351,7 +455,7 @@ async function fetchMercadoLivre(url: string, waEngineUrl: string, waEngineToken
         const d = await r.json();
         console.log(`[ML] wa-engine ok=${d.ok} title=${(d.title || "").slice(0, 40)} tokenUsado=${d.tokenUsed || "?"}`);
         if (d.ok && d.title) {
-          return {
+          const base = {
             success: true, source: "scraping", store: "mercadolivre",
             name: d.name || d.title, title: d.title,
             image: d.image || "", thumbnail: d.image || "",
@@ -359,6 +463,7 @@ async function fetchMercadoLivre(url: string, waEngineUrl: string, waEngineToken
             price: d.price_to, discount_pct: d.discount_pct,
             affiliate_url: url,
           };
+          return await enriquecerComLinkNativoML(base, url, sb, userId, mlCookie);
         }
         if (d.creditsExhausted) {
           return { success: false, store: "mercadolivre", error: d.error || "Créditos do Scrape.do esgotados.", creditsExhausted: true };
@@ -401,12 +506,13 @@ async function fetchMercadoLivre(url: string, waEngineUrl: string, waEngineToken
         if (isGenericTitle || isWrongDomain || isWrongLang) {
           console.warn(`[ML] Microlink rejeitado — genérico=${isGenericTitle} domínio_não_br=${isWrongDomain}(${finalUrl}) idioma_não_pt=${isWrongLang}(${lang}) título="${name}"`);
         } else {
-          return {
+          const base = {
             success: true, source: "scraping", store: "mercadolivre",
             name, title: name,
             image: d.data.image?.url || "", thumbnail: d.data.image?.url || "",
             affiliate_url: url,
           };
+          return await enriquecerComLinkNativoML(base, url, sb, userId, mlCookie);
         }
       }
     }
@@ -822,14 +928,14 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   try {
     const { url, credentials = {} } = await req.json();
-    console.log(`[product-search v33] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
+    console.log(`[product-search v34] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
     if (!url || !/^https?:\/\//i.test(url))
       return new Response(JSON.stringify({ success: false, motivo: "url_sem_protocolo", error: "O link colado não começa com http:// ou https://. Copie o endereço completo da página do produto." }), { status: 400, headers: { ...CORS, "Content-Type": "application/json" } });
 
     const store = detectStore(url);
     const authHeader = req.headers.get("authorization");
     const userId = getUserIdFromJwt(authHeader);
-    console.log(`[product-search v33] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
+    console.log(`[product-search v34] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
 
     const waEngineUrl = Deno.env.get("WA_ENGINE_URL") || "https://megalinksbr-wa-engine.fwezsn.easypanel.host";
     const waEngineToken = Deno.env.get("WA_ENGINE_TOKEN") || "";
@@ -868,7 +974,7 @@ Deno.serve(async (req: Request) => {
       result = result || { success: false, source: "none", store, motivo: "loja_sem_integracao", error: "Loja sem integração automática. Preencha manualmente." };
     }
 
-    console.log(`[product-search v33] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
+    console.log(`[product-search v34] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
     return new Response(JSON.stringify(result), { headers: { ...CORS, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ success: false, error: (e as Error).message }), { status: 500, headers: { ...CORS, "Content-Type": "application/json" } });

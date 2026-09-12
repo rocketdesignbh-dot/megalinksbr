@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 143 — 11/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 144 — 11/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,97 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 144 — 11/09/2026 — link de afiliado sai com a cara da loja de origem (Shopee e Mercado Livre), igual aos concorrentes. `product-search` v34 (deploy 63) NO AR; front CODADO, ainda NÃO pushado/deployado.**
+
+### O que o Érico pediu
+
+> "Na verdade eu queria era fazer os links igual meus concorrentes saindo com
+> prefixo da shopee mesmo" — e, ao perguntar sobre Mercado Livre e Amazon:
+> "e em relação ao Mercado Livre e Amazon como fica?" — depois de ver a
+> técnica reversa de engenharia usada por outras plataformas de afiliados
+> para gerar link nativo do ML, disse explicitamente: "quero que implemente".
+
+### O problema
+
+A Shopee já devolvia o link oficial de afiliado (`s.shopee.com.br/xxxxx`,
+via `offerLink` da API), mas o `prPreencherStep2()` no front **sempre**
+rodava esse link pelo encurtador próprio da plataforma
+(`mlEncurtarLink()` → `megalinksbr.com.br/r/xxx`), mesmo quando já era o link
+nativo — o usuário nunca via a cara da Shopee no link final. Mercado Livre e
+Amazon não têm essa opção: não existe API pública nem de busca de produto nem
+de geração de link de afiliado do ML (`/sites/MLB/search` mede 403 pra
+qualquer app/token — bloqueio de plataforma) — só o portal manual, com
+`matt_tool`/`matt_word` colados na URL longa.
+
+### O que foi mudado
+
+**Shopee (`frontend/index.html`, `prPreencherStep2`):** quando já existe
+`PR.shortLinkAfil` vindo da API oficial da Shopee, o link deixa de passar
+pelo `mlEncurtarLink()` — fica exatamente como a Shopee devolveu.
+
+**Mercado Livre (`product-search` v34, `frontend/index.html`):** pesquisa
+mostrou que outras plataformas de afiliados (achado no pacote open source
+`@afilimax/mercado-livre-provider`) geram o link curto oficial do ML
+chamando um endpoint **interno, não documentado**, que o próprio painel de
+Afiliados do ML usa no navegador: `POST
+https://www.mercadolivre.com.br/affiliate-program/api/v2/stripe/user/links`,
+autenticado por cookie de sessão logada + `x-csrf-token`, corpo
+`{url, tag}`, resposta com `short_url`. Implementado em
+`enriquecerComLinkNativoML`/`gerarLinkNativoML`/`getMlAffiliateTag`
+(`product-search/index.ts`), reaproveitando infraestrutura que já existia
+— `profiles.ml_session_cookie` (já usado só pra leitura de produto) e
+`affiliate_credentials.credentials->>'Etiqueta ML'` — sem exigir nenhuma
+configuração nova do usuário. Quando falta cookie/tag, ou a chamada falha
+por qualquer motivo (sessão expirada, CSRF mudou, endpoint mudou), a função
+devolve o resultado igual a antes (sem `short_link`) e o front cai no
+fallback de sempre — **zero risco de regressão**. `fetchMercadoLivre` passa
+o resultado por esse enriquecimento nos dois caminhos de sucesso (wa-engine
+e Microlink). No front, `PR.shortLinkNativo` marca quando o backend
+conseguiu gerar o link nativo do ML, e `prPreencherStep2` passa a pular o
+`mlEncurtarLink()` também nesse caso (`eLinkOficialDaLoja = (Shopee com
+shortLinkAfil) || shortLinkNativo`).
+
+**Amazon:** sem mudança — não tem programa de afiliados com endpoint de
+geração de link próprio conhecido, nem via API oficial (PA-API exige
+histórico de vendas que a maioria dos usuários não tem) nem via engenharia
+reversa. Continua saindo pelo encurtador próprio, que também é o que injeta
+o OG customizado necessário pro preview do WhatsApp funcionar nesse caso
+(a página da Amazon bloqueia o crawler de preview do WhatsApp).
+
+**Risco assumido conscientemente:** o endpoint do ML usado não é oficial —
+pode quebrar sem aviso do ML, e usa a sessão real de afiliado do usuário
+(risco de flag por automação na conta). Decisão do Érico, ciente do risco.
+
+### Estado dos componentes desta sessão
+
+- `product-search` **v34 (deploy 63) NO AR** — deployado e confirmado via
+  `list_edge_functions` (`updated_at` bateu com o deploy desta sessão).
+  Deploy só emplacou depois de dois obstáculos: (1) a função tinha um
+  `import_map_path` órfão de um deploy anterior que o serviço tentava
+  resolver mesmo sem `deno.json` no payload — resolvido passando
+  `import_map_path: "deno.json"` explicitamente junto com o arquivo; (2) um
+  erro de transcrição nosso na regex `/^https?:\/\//i` (uma barra a menos)
+  quebrou o bundler ("Unterminated regexp literal") — corrigido e reconferido
+  linha a linha contra o `.ts` local antes do deploy final.
+- `frontend/index.html` — **CODADO, NÃO PUSHADO, NÃO DEPLOYADO.** Falta PAT
+  clássico (`ghp_...`) do Érico para commitar e pushar, e depois Force
+  Rebuild no EasyPanel (ação externa, guiada passo a passo).
+
+### Prova até agora
+
+- Shopee: `radar_offers` já mostra dezenas de `affiliate_url` reais em
+  `s.shopee.com.br/...` — a API está funcionando; o que faltava era só o
+  front não reembrulhar. Mudança de front ainda não deployada, então **não
+  medida em produção** (nenhum post saiu ainda com o link Shopee "cru").
+- Mercado Livre: implementação nova, baseada em reprodução de código open
+  source de terceiro — **NÃO MEDIDA em produção**. Não sabemos ainda se o
+  endpoint aceita o formato de cookie salvo em `ml_session_cookie` nem se o
+  CSRF token é encontrado do jeito esperado. Primeira medição real só depois
+  do deploy do frontend, com um usuário que tenha `ml_session_cookie` E
+  `Etiqueta ML` configurados.
+
+---
 
 **REVISÃO 143 — 11/09/2026 — Clone Post: um grupo monitorado passa a poder alimentar mais de um Grupo de Oferta. Pedido do Érico ("Achadinhos #14" também abastecendo o "Grupo Canal TrendShop"). CODADO NO `frontend/index.html` — auto-deploya por webhook, confirmar no ar antes de fechar.**
 
@@ -10391,6 +10482,7 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P143** | 🟡 **`product-search` v34 NO AR (REVISÃO 144, deploy 63), FRONTEND AINDA NÃO PUSHADO/DEPLOYADO.** Link de afiliado nativo (Shopee sem reembrulhar; Mercado Livre via endpoint interno não documentado do painel de Afiliados). Falta: (1) o Érico fornecer PAT clássico (`ghp_...`) pra commitar e pushar `frontend/index.html`; (2) Force Rebuild no EasyPanel (guiado passo a passo); (3) medir em produção com usuário que tenha `ml_session_cookie` e `Etiqueta ML` configurados — buscar um produto ML pelo Postar Agora e conferir se `short_link`/`native_link:true` volta preenchido, e se o link final não passa mais pelo `megalinksbr.com.br/r/`. Risco assumido: endpoint do ML não é oficial, pode quebrar sem aviso e usa a sessão real de afiliado do usuário | 11/09 |
 | **P138** | 🟡 **Shopee sem verificador de preço automático — 63% dos produtos Shopee (88 de 140) sem `price_original`, 87 deles nunca conferidos desde a captura.** `product-refresh` só cobre `mercado_livre` e `amazon` (`LOJAS_COM_VERIFICADOR`) — Shopee só ganha "de" se a própria loja mostrar no momento da captura (Radar/importação); sem verificador, nunca recupera depois. Amazon também tem 35 produtos sem "de" mesmo com checagem recente (não investigado a fundo). Decisão de arquitetura (custo/prioridade de construir verificador pra Shopee), não bug — precisa ser discutida com o Érico antes de codar. Achado ao investigar por que "muitas postagens saem sem De/Por" (REVISÃO 135) | 06/09 |
 | **P137** | 🟡 **CODADO (REVISÃO 134), NÃO CLICADO NO NAVEGADOR.** Toast volta a fechar sozinho (~4,5s) pra tudo que não usa emoji de alerta crítico/erro (`⚠️⛔❌🔴🚫🔒` ficam manuais). Falta: salvar um produto/config qualquer e ver o toast sumir sozinho; forçar um erro (ex. campo obrigatório vazio) e ver o toast ficar até clicar no ✕. Heurística é por emoji da própria chamada — não foi auditada chamada a chamada (~150 no arquivo); se algum toast sumir rápido demais ou ficar preso à toa, é o emoji daquela chamada específica que está classificado errado, não a lógica do `toast()` | 05/09 |
 | **P136** | 🟡 **CODADO (REVISÃO 134), NÃO CLICADO NO NAVEGADOR.** Busca em tempo real (`#csJidBusca`) no select de grupo do Clone Post → Nova Fonte (`#csJid`). Falta: abrir Clone Post → Nova Fonte de captura automática, digitar parte do nome de um grupo e conferir que a lista do select filtra ao vivo. Só esse select foi alterado — a lista de "Seus grupos WhatsApp" em Distribuição já tinha busca própria (`#wgBusca`) e não foi tocada; outras listas curtas do sistema (Config Afiliados, planos etc.) também não, por não terem sido citadas como problema | 05/09 |

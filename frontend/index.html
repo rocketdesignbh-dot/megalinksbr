@@ -9259,6 +9259,7 @@ async function prBuscarProduto(){
   let commissionInfo=null;
   let backendErro=""; // motivo real vindo do backend (d.error/d.motivo), nunca inventado no front
   PR.shortLinkAfil=null; // limpa link oficial de busca anterior (evita usar link de outro produto)
+  PR.shortLinkNativo=false; // idem, pro selo de "link nativo" (Shopee API ou ML via endpoint interno)
 
   try{
     const session=await SB.auth.getSession();
@@ -9295,7 +9296,7 @@ async function prBuscarProduto(){
         sucesso=!!(produto.nome||produto.foto);
         viaAPI=d.source==="api";
         if(d.commission_rate)commissionInfo={rate:d.commission_rate,rating:d.rating,sales:d.sales};
-        if(d.short_link)PR.shortLinkAfil=d.short_link;
+        if(d.short_link){PR.shortLinkAfil=d.short_link;PR.shortLinkNativo=!!d.native_link;}
       }
     }
   }catch(e){
@@ -11054,8 +11055,20 @@ function prPreencherStep2(){
   }
   const _elAfil=document.getElementById("prLinkAfil");
   if(_elAfil)_elAfil.value=PR.linkAfil||"";
-  // Encurta via is.gd para qualquer loja
-  if(PR.linkAfil){
+  // Shopee: o short_link que a API oficial devolve (s.shopee.com.br/xxxxx) fica
+  // como está — não passa pelo encurtador próprio (megalinksbr.com.br/r/xxx).
+  // Mercado Livre: idem quando o backend conseguiu gerar o link NATIVO pelo
+  // endpoint interno do painel de Afiliados (PR.shortLinkNativo=true — ver
+  // enriquecerComLinkNativoML no product-search v34). Quando não conseguir
+  // (sem cookie/tag, ou a chamada falhar), PR.shortLinkNativo fica false e o
+  // ML continua indo pro encurtador de sempre, sem regressão.
+  // Decisão do Érico em 11/09 (REVISÃO 144): o link precisa sair com a cara da
+  // loja de origem, igual aos concorrentes, mesmo perdendo o Relatório de
+  // cliques interno pra esses links — a comissão continua contando pelo
+  // painel da própria loja de qualquer forma.
+  const eLinkOficialDaLoja=(PR.loja==="Shopee"&&!!PR.shortLinkAfil)||!!PR.shortLinkNativo;
+  // Encurta via is.gd/link próprio para as demais lojas
+  if(PR.linkAfil&&!eLinkOficialDaLoja){
     if(_elAfil)_elAfil.placeholder="Encurtando link... ⏳";
     mlEncurtarLink(PR.linkAfil,null,prOgDoProduto(p)).then(short=>{
       if(short){PR.linkAfil=short;if(_elAfil)_elAfil.value=short;prUpdatePreview();}
