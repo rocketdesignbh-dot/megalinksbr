@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 145 — 12/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 146 — 12/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -10086,6 +10086,42 @@ auto-dismiss) pra emoji de alerta crítico/erro; resto some sozinho em ~4,5s.
 Select `#csJid` (Clone Post → Nova Fonte) ganhou campo de busca (`#csJidBusca`)
 que filtra as `<option>` conforme digita, sem chamada nova ao wa-engine.
 
+### Clone Post — "Clonar 100%" (`clone_sources.clone_full_content`, `clone-ingest` v21, REVISÃO 146, 12/09)
+
+🟡 **CODADO, `clone-ingest` v31 DEPLOYADO E CONFERIDO BYTE A BYTE, `frontend/index.html` E `docs/ESTADO_ATUAL.md` GRAVADOS NO CLONE LOCAL DO ÉRICO — PUSH AINDA PENDENTE (ver "Push para o GitHub" mais abaixo), NÃO MEDIDO EM PRODUÇÃO.**
+
+Pedido do Érico, inspirado em concorrentes que "clonam 100%": frases
+adicionais, descrição, emojis e cupom do grupo-fonte, não só título/preço/
+imagem/link. Novo toggle **por FONTE** (`clone_sources.clone_full_content`,
+migration já aplicada no Supabase), ao lado de "Auto-publicar" na aba Fontes
+automáticas, com `confirm()` de aviso explícito na hora de ligar — "por sua
+conta e risco".
+
+- **Best-effort, não parser perfeito.** `extrairFrasesExtras()` (mesma lógica
+  duplicada em `clone-ingest` e em `cloneExtrairFrasesExtras()` no
+  `index.html`) separa do `clone_posts.source_text` a(s) linha(s) que não são
+  título/preço/link/CTA e grava em `products.description` como
+  `{extra1,extra2}` — o mesmo JSON que o `send-post` já sabe imprimir com
+  📦/🚚. `extra3` (que o `send-post` imprime como link clicável) fica de fora
+  de propósito: o único link que sobra no texto de terceiro é quase sempre
+  dele, não um link seguro de reenviar.
+- **Filtra fora, sempre, a auto-promoção do PRÓPRIO grupo-fonte** — linhas
+  com "grupo(s)"/"canal(is)"/"linktr.ee"/"participe" (ex.: "participe dos
+  nossos outros grupos: linktr.ee/..."), medido em amostras reais de
+  `clone_posts.source_text` (fonte Amazon "promocaozinha BB 52"). Sem esse
+  filtro o toggle divulgaria o grupo do concorrente para o cliente do
+  MegaLinks — o oposto do que a feature deveria fazer.
+- **Dois espelhos, mesmo comportamento:** `clone-ingest` (auto-publicação,
+  v11/v18) e `cloneCriarProduto()` no navegador (aprovação manual da fila) —
+  os dois leem `fonte.clone_full_content`/`CS_FONTES` e só agem quando
+  `source_text` existe.
+- ⚠️ **Nenhuma captura real passou por isso ainda.** Não sabemos se o
+  extrator separa bem a frase-gancho em textos fora da amostra usada pra
+  desenhar a regra (Shopee/Amazon, 8 exemplos de `clone_posts.source_text`
+  reais). Primeira medição real: ligar o toggle numa fonte ativa, esperar
+  uma captura nova, e conferir `products.description` do produto que ela
+  virou.
+
 ### Clone Post — auto-publicação (`clone-ingest` v20, 04/09, REVISÃO 132)
 
 - **Duas chaves independentes, mesmo critério de segurança.** Uma captura só
@@ -10514,6 +10550,8 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P144** | 🔴 **PUSH BLOQUEADO — mesmo bloqueio da REVISÃO 144/bilhete anterior.** `git push` pra `rocketdesignbh-dot/megalinksbr` pela nuvem devolve 403 do proxy da sessão ("not in this session's authorized repository set"), mesmo com PAT clássico válido do Érico — não é problema de token nem de credencial. `docs/ESTADO_ATUAL.md` (esta revisão), `frontend/index.html` (P145/"Clonar 100%") e `supabase/functions/clone-ingest/index.ts` (v21) foram gravados direto em `C:\Users\PC\github\megalinksbr` via `device_stage_files`/`device_commit_files` (sem `device_bash` — mesmo bug de Plan9 drive share do Windows de 08/09, ainda não corrigido). **O `.git` local do Érico continua na REVISÃO 145 (`70a5b20`) até alguém rodar `git add`/`commit`/`push` de lá.** Próxima sessão: 1) tentar `git push` pela nuvem de novo; 2) se `device_bash` já montar `~/mnt`, `git add . && git commit && git push` de lá; 3) se os dois continuarem bloqueados, avisar o Érico pra commitar/pushar manualmente pelo próprio computador (arquivos já estão na pasta certa) | 12/09 |
+| **P145** | 🟡 **"Clonar 100%" (`clone_sources.clone_full_content`) — CODADO, backend DEPLOYADO, NÃO MEDIDO.** Ver seção "Clone Post — Clonar 100%" acima para o detalhe completo. Falta: ligar o toggle numa fonte real, esperar uma captura, e conferir se `products.description` saiu com frase coerente (não com lixo nem com auto-promoção do grupo-fonte que o filtro devia ter pego) | 12/09 |
 | ~~P143~~ | ✅ **FECHADA (12/09, REVISÃO 145) — MEDIDA EM PRODUÇÃO, AS DUAS LOJAS.** Link de afiliado nativo: Shopee confirmada saindo com `s.shopee.com.br/...` cru; Mercado Livre confirmado gerando o link nativo depois do Érico salvar `ml_session_cookie` (faltava, a Etiqueta ML já estava configurada). Sem regressão observada. Risco que continua valendo: o endpoint do ML não é oficial, pode quebrar sem aviso do ML — se o link do ML voltar a cair no fallback (`megalinksbr.com.br/r/...`) depois de ter funcionado, é sinal de cookie expirado (basta repetir a captura) ou de o endpoint ter mudado | 12/09 |
 | **P138** | 🟡 **Shopee sem verificador de preço automático — 63% dos produtos Shopee (88 de 140) sem `price_original`, 87 deles nunca conferidos desde a captura.** `product-refresh` só cobre `mercado_livre` e `amazon` (`LOJAS_COM_VERIFICADOR`) — Shopee só ganha "de" se a própria loja mostrar no momento da captura (Radar/importação); sem verificador, nunca recupera depois. Amazon também tem 35 produtos sem "de" mesmo com checagem recente (não investigado a fundo). Decisão de arquitetura (custo/prioridade de construir verificador pra Shopee), não bug — precisa ser discutida com o Érico antes de codar. Achado ao investigar por que "muitas postagens saem sem De/Por" (REVISÃO 135) | 06/09 |
 | **P137** | 🟡 **CODADO (REVISÃO 134), NÃO CLICADO NO NAVEGADOR.** Toast volta a fechar sozinho (~4,5s) pra tudo que não usa emoji de alerta crítico/erro (`⚠️⛔❌🔴🚫🔒` ficam manuais). Falta: salvar um produto/config qualquer e ver o toast sumir sozinho; forçar um erro (ex. campo obrigatório vazio) e ver o toast ficar até clicar no ✕. Heurística é por emoji da própria chamada — não foi auditada chamada a chamada (~150 no arquivo); se algum toast sumir rápido demais ou ficar preso à toa, é o emoji daquela chamada específica que está classificado errado, não a lógica do `toast()` | 05/09 |
