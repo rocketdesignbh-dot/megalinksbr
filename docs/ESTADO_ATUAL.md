@@ -1695,7 +1695,7 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
-**REVISÃO 144 — 11/09/2026 — link de afiliado sai com a cara da loja de origem (Shopee e Mercado Livre), igual aos concorrentes. `product-search` v34 (deploy 63) NO AR; front CODADO, ainda NÃO pushado/deployado.**
+**REVISÃO 144 — 11/09/2026 (frontend pushado em 12/09) — link de afiliado sai com a cara da loja de origem (Shopee e Mercado Livre), igual aos concorrentes. `product-search` v34 (deploy 63) NO AR; `frontend/index.html` PUSHADO (`b19a8d0`), aguardando confirmação do deploy automático via webhook e medição em produção.**
 
 ### O que o Érico pediu
 
@@ -1767,9 +1767,17 @@ pode quebrar sem aviso do ML, e usa a sessão real de afiliado do usuário
   erro de transcrição nosso na regex `/^https?:\/\//i` (uma barra a menos)
   quebrou o bundler ("Unterminated regexp literal") — corrigido e reconferido
   linha a linha contra o `.ts` local antes do deploy final.
-- `frontend/index.html` — **CODADO, NÃO PUSHADO, NÃO DEPLOYADO.** Falta PAT
-  clássico (`ghp_...`) do Érico para commitar e pushar, e depois Force
-  Rebuild no EasyPanel (ação externa, guiada passo a passo).
+- `frontend/index.html` — **PUSHADO em 12/09** (`b19a8d0`, sessão com PAT
+  fornecido pelo Érico). Push pela nuvem foi negado pelo proxy de git da
+  sessão ("not in this session's authorized repository set" — bloqueio de
+  autorização de sessão, não de credencial) e o `device_bash` do dispositivo
+  do Érico estava fora do ar (bug de mount do Windows de 08/09). Contorno:
+  os 3 arquivos foram gravados no clone local do Érico via
+  `device_stage_files`/`device_commit_files` (transferência de arquivo, sem
+  shell) e ele mesmo rodou `git add`/`commit`/`push` no terminal dele.
+  ⚠️ **Falta**: confirmar que o webhook do EasyPanel disparou o deploy do
+  `app` (auto-deploy a cada push no `main`, ver REVISÃO 141) e medir em
+  produção — ver "Prova até agora" abaixo, ainda inalterada.
 
 ### Prova até agora
 
@@ -10482,7 +10490,7 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
-| **P143** | 🟡 **`product-search` v34 NO AR (REVISÃO 144, deploy 63), FRONTEND AINDA NÃO PUSHADO/DEPLOYADO.** Link de afiliado nativo (Shopee sem reembrulhar; Mercado Livre via endpoint interno não documentado do painel de Afiliados). Falta: (1) o Érico fornecer PAT clássico (`ghp_...`) pra commitar e pushar `frontend/index.html`; (2) Force Rebuild no EasyPanel (guiado passo a passo); (3) medir em produção com usuário que tenha `ml_session_cookie` e `Etiqueta ML` configurados — buscar um produto ML pelo Postar Agora e conferir se `short_link`/`native_link:true` volta preenchido, e se o link final não passa mais pelo `megalinksbr.com.br/r/`. Risco assumido: endpoint do ML não é oficial, pode quebrar sem aviso e usa a sessão real de afiliado do usuário | 11/09 |
+| **P143** | 🟡 **`product-search` v34 NO AR (deploy 63) E `frontend/index.html` PUSHADO (12/09, `b19a8d0`) — FALTA CONFIRMAR DEPLOY E MEDIR.** Link de afiliado nativo (Shopee sem reembrulhar; Mercado Livre via endpoint interno não documentado do painel de Afiliados). Falta: (1) confirmar que o webhook do EasyPanel deployou o `app` com o commit `b19a8d0` (auto-deploy a cada push, não precisa de Force Rebuild manual — ver REVISÃO 141); (2) medir em produção com usuário que tenha `ml_session_cookie` e `Etiqueta ML` configurados — buscar um produto ML pelo Postar Agora e conferir se `short_link`/`native_link:true` volta preenchido, e se o link final não passa mais pelo `megalinksbr.com.br/r/`; (3) conferir Shopee saindo com `s.shopee.com.br/...` cru. Risco assumido: endpoint do ML não é oficial, pode quebrar sem aviso e usa a sessão real de afiliado do usuário | 12/09 |
 | **P138** | 🟡 **Shopee sem verificador de preço automático — 63% dos produtos Shopee (88 de 140) sem `price_original`, 87 deles nunca conferidos desde a captura.** `product-refresh` só cobre `mercado_livre` e `amazon` (`LOJAS_COM_VERIFICADOR`) — Shopee só ganha "de" se a própria loja mostrar no momento da captura (Radar/importação); sem verificador, nunca recupera depois. Amazon também tem 35 produtos sem "de" mesmo com checagem recente (não investigado a fundo). Decisão de arquitetura (custo/prioridade de construir verificador pra Shopee), não bug — precisa ser discutida com o Érico antes de codar. Achado ao investigar por que "muitas postagens saem sem De/Por" (REVISÃO 135) | 06/09 |
 | **P137** | 🟡 **CODADO (REVISÃO 134), NÃO CLICADO NO NAVEGADOR.** Toast volta a fechar sozinho (~4,5s) pra tudo que não usa emoji de alerta crítico/erro (`⚠️⛔❌🔴🚫🔒` ficam manuais). Falta: salvar um produto/config qualquer e ver o toast sumir sozinho; forçar um erro (ex. campo obrigatório vazio) e ver o toast ficar até clicar no ✕. Heurística é por emoji da própria chamada — não foi auditada chamada a chamada (~150 no arquivo); se algum toast sumir rápido demais ou ficar preso à toa, é o emoji daquela chamada específica que está classificado errado, não a lógica do `toast()` | 05/09 |
 | **P136** | 🟡 **CODADO (REVISÃO 134), NÃO CLICADO NO NAVEGADOR.** Busca em tempo real (`#csJidBusca`) no select de grupo do Clone Post → Nova Fonte (`#csJid`). Falta: abrir Clone Post → Nova Fonte de captura automática, digitar parte do nome de um grupo e conferir que a lista do select filtra ao vivo. Só esse select foi alterado — a lista de "Seus grupos WhatsApp" em Distribuição já tinha busca própria (`#wgBusca`) e não foi tocada; outras listas curtas do sistema (Config Afiliados, planos etc.) também não, por não terem sido citadas como problema | 05/09 |
