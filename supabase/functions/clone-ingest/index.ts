@@ -143,6 +143,19 @@
 //    for deployar a v17/P36 a partir daqui precisa levar a v18 junto, ou vai
 //    reverter a aprovacao automatica por grupo que ja esta em producao.
 //
+//  * v21 — 12/09: "Clonar 100%" (clone_sources.clone_full_content, NOVO,
+//    default false). Pedido do Erico, inspirado em concorrentes: quando ligado
+//    por FONTE, a auto-publicacao (v11/v18) passa a tentar extrair do
+//    source_text a(s) frase(s) extra que sobram fora do titulo/preco/link/CTA e
+//    grava em products.description (o JSON {extra1,extra2} que o send-post ja
+//    imprime com 📦/🚚). SO afeta quem liga o toggle; desligado (padrao), nada
+//    muda. Ver extrairFrasesExtras() — best-effort de proposito, e por isso
+//    filtra fora qualquer linha de auto-promocao do proprio grupo-fonte
+//    ("participe dos nossos outros grupos", links linktr.ee) antes de aceitar
+//    o resto como frase legitima. O espelho no navegador (cloneCriarProduto,
+//    index.html) faz o mesmo pro fluxo manual de aprovacao. DEPLOYADO
+//    (Supabase v31), NAO MEDIDO EM PRODUCAO — ver docs/ESTADO_ATUAL.md.
+//
 //  * v20 — REVISÃO 132, 04/09: `acharCupom()` para de atravessar linha em
 //    branco atras do codigo. Consequencia direta da v19 (que passou a chamar
 //    `acharCupom` sempre, nao so no fallback): MEDIDO em producao com fontes
@@ -467,6 +480,38 @@ function acharCupom(texto: string): string | null {
   // Palavra de ligacao capturada por acidente ("cupom no carrinho", "cupom da loja")
   if (/^(NO|NA|DO|DA|DE|EM|COM|PARA|SEM|AQUI|LINK|ACIMA|ABAIXO|EXCLUSIVO|LOJA)$/.test(c)) return null;
   return c;
+}
+
+// v21 — "Clonar 100%" (clone_sources.clone_full_content). Best-effort: tenta
+// separar, do texto bruto do grupo-fonte, a(s) frase(s) de gancho/descrição
+// que NAO sao titulo, preco, link nem o CTA "Compre aqui" — pra propagar como
+// products.description (o mesmo JSON {extra1,extra2,...} que o send-post ja
+// sabe imprimir com 📦/🚚). So roda quando a fonte liga o toggle; por conta e
+// risco do usuario, porque o que sobra pode reproduzir quase literalmente o
+// texto do concorrente. Filtra de proposito qualquer linha que mencione
+// "grupo(s)"/"canal"/"linktr.ee"/"participe" — e a auto-promocao do PROPRIO
+// grupo-fonte (ex.: "participe dos nossos outros grupos: linktr.ee/..."),
+// nunca deveria ir pro grupo do cliente MegaLinks. extra3 (que o send-post
+// imprime como link clicavel) fica de fora de proposito nesta v1 — o unico
+// link que sobra no texto de terceiro e quase sempre o dele, nao um link
+// generico seguro de reenviar.
+function limparLinhaMd(s: string): string {
+  return s.replace(/^[*_~\s]+/, "").replace(/[*_~\s]+$/, "").trim();
+}
+function extrairFrasesExtras(texto: string, titulo: string | null): { extra1: string; extra2: string } {
+  const tituloNorm = String(titulo ?? "").toLowerCase().replace(/[^a-z0-9\p{L} ]/giu, "").trim();
+  const linhas = String(texto ?? "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const restantes = linhas.filter((l) => {
+    const norm = l.toLowerCase().replace(/[^a-z0-9\p{L} ]/giu, "").trim();
+    if (!norm) return false;
+    if (tituloNorm && norm === tituloNorm) return false;
+    if (/r\$\s*\d/i.test(l)) return false; // linha de preco (de/por/parcela)
+    if (/https?:\/\//i.test(l)) return false; // link
+    if (/compre\s*(aqui|em)\s*:?$/i.test(norm)) return false; // rotulo do CTA
+    if (/\b(grupo|grupos|canal|canais|linktr\.ee|participe)\b/i.test(l)) return false; // auto-promocao do grupo-fonte
+    return true;
+  }).map(limparLinhaMd).filter(Boolean);
+  return { extra1: restantes[0] ?? "", extra2: restantes[1] ?? "" };
 }
 
 function acharPrecos(textoOriginal: string): { de: number | null; por: number | null } {
@@ -1086,6 +1131,14 @@ Deno.serve(async (req: Request) => {
       const { data: last } = await sb.from("products")
         .select("position").eq("niche_group_id", fonte.niche_group_id)
         .order("position", { ascending: false }).limit(1).maybeSingle();
+      // v21 — "Clonar 100%": so tenta separar frase extra quando a FONTE tem o
+      // toggle ligado e ha texto bruto pra ler. Sem isso, description nasce nulo
+      // (mesmo comportamento de sempre — sem frase extra no post automatico).
+      let descricaoExtra: string | null = null;
+      if (fonte.clone_full_content && clone.source_text) {
+        const { extra1, extra2 } = extrairFrasesExtras(String(clone.source_text), clone.title ?? null);
+        if (extra1 || extra2) descricaoExtra = JSON.stringify({ extra1, extra2 });
+      }
       const { data: prod, error } = await sb.from("products").insert({
         niche_group_id: fonte.niche_group_id,
         source: clone.store || "manual",
@@ -1099,6 +1152,7 @@ Deno.serve(async (req: Request) => {
         discount_pct: clone.discount_pct,
         coupon_code: clone.coupon_code ?? null,
         price_installment: clone.price_installment ?? null,
+        description: descricaoExtra,
         user_id: fonte.user_id,
       }).select("id").maybeSingle();
       if (error) return { ok: false, motivo: error.message };

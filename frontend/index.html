@@ -9785,6 +9785,32 @@ function cloneAbrirPagina(tentativa){
   csCarregar();
 }
 
+// "Clonar 100%" (clone_sources.clone_full_content) — espelho no navegador do
+// extrairFrasesExtras() da clone-ingest (v21). Best-effort: separa, do texto
+// bruto capturado, a(s) frase(s) que nao sao titulo/preco/link/CTA, pra virar
+// products.description (mesmo JSON {extra1,extra2} que o send-post imprime
+// com 📦/🚚). Filtra fora de proposito qualquer linha de auto-promoção do
+// PRÓPRIO grupo-fonte ("participe dos nossos outros grupos", linktr.ee) — é
+// por isso que esse recurso é "por conta e risco", não "sem risco nenhum".
+function cloneLimparLinhaMd(s){
+  return String(s||"").replace(/^[*_~\s]+/,"").replace(/[*_~\s]+$/,"").trim();
+}
+function cloneExtrairFrasesExtras(texto,titulo){
+  const tituloNorm=String(titulo||"").toLowerCase().replace(/[^a-z0-9\p{L} ]/giu,"").trim();
+  const linhas=String(texto||"").split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const restantes=linhas.filter(l=>{
+    const norm=l.toLowerCase().replace(/[^a-z0-9\p{L} ]/giu,"").trim();
+    if(!norm)return false;
+    if(tituloNorm&&norm===tituloNorm)return false;
+    if(/r\$\s*\d/i.test(l))return false; // linha de preco
+    if(/https?:\/\//i.test(l))return false; // link
+    if(/compre\s*(aqui|em)\s*:?$/i.test(norm))return false; // rotulo do CTA
+    if(/\b(grupo|grupos|canal|canais|linktr\.ee|participe)\b/i.test(l))return false; // auto-promocao do grupo-fonte
+    return true;
+  }).map(cloneLimparLinhaMd).filter(Boolean);
+  return{extra1:restantes[0]||"",extra2:restantes[1]||""};
+}
+
 // Transforma uma linha da fila em produto do grupo. Se falhar, marca o clone como
 // failed com o motivo — nunca deixa o clone "sumir" sem explicacao.
 async function cloneCriarProduto(cloneId,row){
@@ -9792,6 +9818,13 @@ async function cloneCriarProduto(cloneId,row){
     const{data:last}=await SB.from("products").select("position").eq("niche_group_id",row.niche_group_id).order("position",{ascending:false}).limit(1).maybeSingle();
     const pos=(last?.position||0)+1;
     const linkFinal=await encurtarLinkFinal(row.affiliate_url);
+    // Clonar 100%: so tenta se a FONTE desta captura tiver o toggle ligado.
+    const fonte=row.clone_source_id?CS_FONTES.find(f=>String(f.id)===String(row.clone_source_id)):null;
+    let descricaoExtra=null;
+    if(fonte&&fonte.clone_full_content&&row.source_text){
+      const{extra1,extra2}=cloneExtrairFrasesExtras(row.source_text,row.title);
+      if(extra1||extra2)descricaoExtra=JSON.stringify({extra1,extra2});
+    }
     const{data:prod,error}=await SB.from("products").insert({
       niche_group_id:row.niche_group_id,
       source:row.store||"manual",
@@ -9808,6 +9841,7 @@ async function cloneCriarProduto(cloneId,row){
       // aqui, o cupom morria na fila e o post saia sem ele.
       coupon_code:row.coupon_code||null,
       price_installment:row.price_installment||null,
+      description:descricaoExtra,
       user_id:CURRENT_USER?.id
     }).select("id").maybeSingle();
     if(error)throw new Error(error.message);
@@ -10368,6 +10402,21 @@ async function csAlternarAutoPublish(id,ligar){
   toast(ligar?"Auto-publicar ATIVADO nesta fonte.":"Auto-publicar desativado — volta pra fila de revisão.",ligar?"🚀":"✅");
   csRender();
 }
+// "Clonar 100%" (clone_sources.clone_full_content) — pedido do Érico em 12/09,
+// inspirado em concorrentes que clonam frases adicionais, descrição, emojis e
+// cupom do grupo-fonte, não só título/preço/link. Por FONTE, do mesmo jeito
+// que auto_publish. O AVISO no confirm() é de propósito: ligar isso é decisão
+// do usuário, com o risco explicado no momento em que ele liga, não só numa
+// legenda pequena que ninguém lê.
+async function csAlternarCloneFull(id,ligar){
+  if(ligar&&!confirm("Clonar 100% desta fonte: além de título, preço, imagem e link, o sistema vai tentar copiar frases adicionais, emojis e cupom do texto do grupo-fonte.\n\nIsso é por sua conta e risco — pode reproduzir quase literalmente o conteúdo de terceiro. Quer ativar?"))return;
+  const{error}=await SB.from("clone_sources").update({clone_full_content:!!ligar}).eq("id",id);
+  if(error){toast("Não consegui mudar: "+error.message,"⚠️");return;}
+  const f=CS_FONTES.find(x=>String(x.id)===String(id));
+  if(f)f.clone_full_content=!!ligar;
+  toast(ligar?"Clonar 100% ATIVADO nesta fonte — por sua conta e risco.":"Clonar 100% desativado.",ligar?"⚠️":"✅");
+  csRender();
+}
 async function csAjustarTeto(id,delta){
   const f=CS_FONTES.find(x=>String(x.id)===String(id));
   if(!f)return;
@@ -10497,6 +10546,7 @@ function csRender(){
       <div class="cs-meta" style="margin-top:2px">🕐 captura o dia inteiro · até ${teto} por dia<button type="button" class="cs-teto-bt" title="Diminuir o teto em 5 por dia" onclick="csAjustarTeto('${f.id}',-5)">−</button><button type="button" class="cs-teto-bt" title="Aumentar o teto em 5 por dia" onclick="csAjustarTeto('${f.id}',5)">+</button></div>
       <div class="cs-meta" style="margin-top:2px">⏳ a fila guarda por ${validade}h sem revisão<button type="button" class="cs-teto-bt" title="Diminuir a validade em 6 horas" onclick="csAjustarValidade('${f.id}',-6)">−</button><button type="button" class="cs-teto-bt" title="Aumentar a validade em 6 horas" onclick="csAjustarValidade('${f.id}',6)">+</button></div>
       <label class="cs-meta" style="margin-top:6px;display:flex;gap:7px;align-items:center;cursor:pointer"><input type="checkbox" style="width:auto" ${f.auto_publish?"checked":""} onchange="csAlternarAutoPublish('${f.id}',this.checked)"> 🤖 Auto-publicar <small style="color:var(--mut)">(só quando a loja confirmar o preço — sem revisão)</small></label>
+      <label class="cs-meta" style="margin-top:6px;display:flex;gap:7px;align-items:center;cursor:pointer"><input type="checkbox" style="width:auto" ${f.clone_full_content?"checked":""} onchange="csAlternarCloneFull('${f.id}',this.checked)"> 📝 Clonar 100% <small style="color:var(--mut)">(frases, emojis e cupom do grupo-fonte — por sua conta e risco)</small></label>
       <div class="cs-acoes">
         <button class="btn btn-ghost btn-sm" onclick="csAbrirForm('${f.id}')">Editar</button>
         <button class="btn btn-ghost btn-sm" onclick="csAlternar('${f.id}',${f.active?"false":"true"})">${f.active?"Pausar":"Ativar"}</button>
