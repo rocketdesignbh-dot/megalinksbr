@@ -1496,12 +1496,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div>
             <strong>Passo a passo:</strong>
             <ol style="margin:6px 0 0;padding-left:18px">
-              <li>Abra o <strong>Mercado Livre</strong> em outra aba, logado com a sua conta de afiliado.</li>
-              <li>Pressione <strong>F12</strong> para abrir o DevTools do navegador e clique na aba <strong>"Network"</strong> (Rede).</li>
-              <li>Pressione <strong>F5</strong> para recarregar a página.</li>
-              <li>Clique em qualquer requisição da lista que aparecer e procure, nos <strong>"Request Headers"</strong> (Cabeçalhos da requisição), o campo <strong>"cookie:"</strong>.</li>
-              <li>Copie todo o valor desse campo (é bem longo) e cole no campo abaixo.</li>
+              <li>Abra o <strong>Mercado Livre</strong> em outra aba, logado com a sua conta de afiliado (o link do Gerador de Links, por exemplo).</li>
+              <li>Pressione <strong>F12</strong> para abrir o DevTools do navegador.</li>
+              <li>Clique na aba <strong>"Network"</strong> (Rede) lá em cima do DevTools — não em "Application".</li>
+              <li>Olhe a caixinha de busca/filtro logo abaixo das abas (onde normalmente está escrito "Filter" ou tem um ícone de lupa). <strong>Se tiver algum texto digitado ali, apague</strong> — texto nesse filtro esconde as requisições e a lista aparece vazia.</li>
+              <li>Pressione <strong>F5</strong> para recarregar a página. Uma lista de requisições vai aparecer.</li>
+              <li>Pra facilitar, clique no botão <strong>"Doc"</strong> (na fileira de filtros: All, Fetch/XHR, Doc, CSS, JS...) — assim só aparecem as requisições da própria página, mais fácil de achar.</li>
+              <li>Clique em qualquer linha chamada <strong>"hub"</strong> (ou o nome da página que você abriu) — não precisa ser a primeira, todas têm o mesmo cookie.</li>
+              <li>No painel que abrir à direita, clique na aba <strong>"Headers"</strong> e role até a seção <strong>"Request Headers"</strong>.</li>
+              <li>Procure a linha que começa com <strong>"cookie:"</strong> — o valor é bem longo, cheio de <code>nome=valor; nome=valor; ...</code>. Selecione o valor inteiro e copie (Ctrl+C).</li>
+              <li>Cole esse valor completo no campo abaixo e clique em Salvar.</li>
             </ol>
+            <p style="margin:10px 0 0;color:var(--mut)">Esse cookie também é o que a plataforma usa pra gerar o <strong>link de afiliado nativo do Mercado Livre</strong> (saindo com o domínio da própria loja, em vez do encurtador do MegaLinks BR) — sem ele, as buscas continuam funcionando normalmente, só que sem esse recurso.</p>
           </div>
         </div>
         <div class="field" style="margin-bottom:10px"><label>Seu cookie do Mercado Livre</label>

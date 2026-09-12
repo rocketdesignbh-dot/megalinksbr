@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 144 — 11/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 145 — 12/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,30 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 145 — 12/09/2026 — REVISÃO 144 MEDIDA EM PRODUÇÃO (Shopee e Mercado Livre, os dois confirmados) + passo a passo do cookie do ML refeito no frontend.**
+
+### Medição em produção da REVISÃO 144
+
+Sessão de 12/09, com o Érico testando ao vivo no Postar Agora:
+
+- **Shopee**: confirmado. Link de afiliado saiu com `s.shopee.com.br/...` "cru", sem passar pelo encurtador próprio.
+- **Mercado Livre**: na primeira tentativa caiu no fallback de sempre (`megalinksbr.com.br/r/...`) — não por bug, mas porque o Érico tinha a Etiqueta ML configurada mas **não tinha o cookie de sessão do ML salvo** (`profiles.ml_session_cookie` vazio, conferido por SQL). Depois de capturar o cookie da sessão logada dele no Mercado Livre (via DevTools → Network → Headers → `cookie:`) e salvar em `profiles.ml_session_cookie`, o Érico testou de novo e **confirmou: o link nativo do ML também funciona**.
+
+**P143 fecha aqui** — as duas lojas confirmadas end-to-end, nenhuma regressão observada.
+
+### Passo a passo do cookie do ML, refeito
+
+O card "🍪 Cookie do Mercado Livre" em Config Afiliados tinha um passo a passo desatualizado (mandava usar a aba Network sem alertar sobre dois problemas comuns que a sessão de teste encontrou de verdade, ao vivo, com o Érico tentando seguir os passos antigos):
+
+1. Uma aba de **Search** do DevTools (Ctrl+F) pode abrir por cima da lista de requisições e escondê-la, mostrando "No search results" mesmo com centenas de requisições capturadas.
+2. A **caixinha de filtro do próprio Network** pode ter texto residual (ex.: "list") que também esconde tudo, dando `0 / N requests` na tela mesmo com tudo carregado.
+
+Reescrito com: instrução explícita pra checar/limpar o filtro antes do F5, uso do botão **"Doc"** pra achar a requisição certa mais fácil (em vez de garimpar entre dezenas de linhas de `fetch`/`xhr`/tracking), e uma frase final explicando que esse mesmo cookie agora também é o que habilita o link nativo do ML (REVISÃO 144), não só a alternativa ao Scrape.do. Só o texto do card mudou — nenhuma função JS tocada, os 9 blocos `<script>` continuam compilando sem erro (`node --check`).
+
+**Nota de segurança do processo**: o cookie do Érico foi obtido por ele mesmo no navegador dele e gravado direto em `profiles.ml_session_cookie` via SQL nesta sessão (a extração automática por Claude in Chrome foi tentada e **bloqueada de propósito** pelo próprio Chrome — `document.cookie` retornou `[BLOCKED: Cookie/query string data]` — então o valor só existiu na conversa com o Érico, nunca foi salvo em memória nem em documento do projeto).
+
+---
 
 **REVISÃO 144 — 11/09/2026 (frontend pushado em 12/09) — link de afiliado sai com a cara da loja de origem (Shopee e Mercado Livre), igual aos concorrentes. `product-search` v34 (deploy 63) NO AR; `frontend/index.html` PUSHADO (`b19a8d0`), aguardando confirmação do deploy automático via webhook e medição em produção.**
 
@@ -10490,7 +10514,7 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
-| **P143** | 🟡 **`product-search` v34 NO AR (deploy 63) E `frontend/index.html` PUSHADO (12/09, `b19a8d0`) — FALTA CONFIRMAR DEPLOY E MEDIR.** Link de afiliado nativo (Shopee sem reembrulhar; Mercado Livre via endpoint interno não documentado do painel de Afiliados). Falta: (1) confirmar que o webhook do EasyPanel deployou o `app` com o commit `b19a8d0` (auto-deploy a cada push, não precisa de Force Rebuild manual — ver REVISÃO 141); (2) medir em produção com usuário que tenha `ml_session_cookie` e `Etiqueta ML` configurados — buscar um produto ML pelo Postar Agora e conferir se `short_link`/`native_link:true` volta preenchido, e se o link final não passa mais pelo `megalinksbr.com.br/r/`; (3) conferir Shopee saindo com `s.shopee.com.br/...` cru. Risco assumido: endpoint do ML não é oficial, pode quebrar sem aviso e usa a sessão real de afiliado do usuário | 12/09 |
+| ~~P143~~ | ✅ **FECHADA (12/09, REVISÃO 145) — MEDIDA EM PRODUÇÃO, AS DUAS LOJAS.** Link de afiliado nativo: Shopee confirmada saindo com `s.shopee.com.br/...` cru; Mercado Livre confirmado gerando o link nativo depois do Érico salvar `ml_session_cookie` (faltava, a Etiqueta ML já estava configurada). Sem regressão observada. Risco que continua valendo: o endpoint do ML não é oficial, pode quebrar sem aviso do ML — se o link do ML voltar a cair no fallback (`megalinksbr.com.br/r/...`) depois de ter funcionado, é sinal de cookie expirado (basta repetir a captura) ou de o endpoint ter mudado | 12/09 |
 | **P138** | 🟡 **Shopee sem verificador de preço automático — 63% dos produtos Shopee (88 de 140) sem `price_original`, 87 deles nunca conferidos desde a captura.** `product-refresh` só cobre `mercado_livre` e `amazon` (`LOJAS_COM_VERIFICADOR`) — Shopee só ganha "de" se a própria loja mostrar no momento da captura (Radar/importação); sem verificador, nunca recupera depois. Amazon também tem 35 produtos sem "de" mesmo com checagem recente (não investigado a fundo). Decisão de arquitetura (custo/prioridade de construir verificador pra Shopee), não bug — precisa ser discutida com o Érico antes de codar. Achado ao investigar por que "muitas postagens saem sem De/Por" (REVISÃO 135) | 06/09 |
 | **P137** | 🟡 **CODADO (REVISÃO 134), NÃO CLICADO NO NAVEGADOR.** Toast volta a fechar sozinho (~4,5s) pra tudo que não usa emoji de alerta crítico/erro (`⚠️⛔❌🔴🚫🔒` ficam manuais). Falta: salvar um produto/config qualquer e ver o toast sumir sozinho; forçar um erro (ex. campo obrigatório vazio) e ver o toast ficar até clicar no ✕. Heurística é por emoji da própria chamada — não foi auditada chamada a chamada (~150 no arquivo); se algum toast sumir rápido demais ou ficar preso à toa, é o emoji daquela chamada específica que está classificado errado, não a lógica do `toast()` | 05/09 |
 | **P136** | 🟡 **CODADO (REVISÃO 134), NÃO CLICADO NO NAVEGADOR.** Busca em tempo real (`#csJidBusca`) no select de grupo do Clone Post → Nova Fonte (`#csJid`). Falta: abrir Clone Post → Nova Fonte de captura automática, digitar parte do nome de um grupo e conferir que a lista do select filtra ao vivo. Só esse select foi alterado — a lista de "Seus grupos WhatsApp" em Distribuição já tinha busca própria (`#wgBusca`) e não foi tocada; outras listas curtas do sistema (Config Afiliados, planos etc.) também não, por não terem sido citadas como problema | 05/09 |
