@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 146 — 12/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 147 — 12/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,30 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 147 — 12/09/2026 — P144 FECHADA: o push que estava bloqueado já aconteceu.**
+
+Sessão anterior (REVISÃO 146) tinha deixado a P144 aberta como "push bloqueado
+pelo proxy de git da nuvem + `device_bash` fora do ar", com os 3 arquivos
+gravados só no clone local do Érico, sem commit. Nesta sessão, um `git clone
+--depth=1` fresco do `main` mostrou que o push **já tinha sido feito** —
+`HEAD` em `7b1b713` ("feat: Clonar 100% - frontend e clone-ingest"),
+`frontend/index.html` e este arquivo (REVISÃO 146) já presentes no repo.
+Não foi medido *quem* rodou o `git add`/`commit`/`push` nem quando — só que
+o resultado já estava lá antes desta sessão tocar em qualquer coisa. Os dois
+bugs de infraestrutura registrados na P144 (proxy de sessão negando push,
+`device_bash` sem montar `~/mnt` por bug de Plan9 drive share do Windows)
+não foram reconfirmados como corrigidos — só contornados pelo push manual.
+Se voltarem a aparecer numa sessão futura, tratar como recorrência, não como
+sinal de que já foram corrigidos de vez.
+
+Aproveitando o acesso ao Supabase nesta sessão: `scheduled_posts` das
+últimas 24h saiu 278/278 `sent`, sem erro; nenhum grupo com
+`post_auto_enabled=true` está zerado de produtos; `clone_ingest_log` das
+últimas 24h teve só 1 `erro` em ~600 linhas avaliadas. Sistema de postagem
+saudável no momento desta leitura (12/09, tarde).
+
+---
 
 **REVISÃO 145 — 12/09/2026 — REVISÃO 144 MEDIDA EM PRODUÇÃO (Shopee e Mercado Livre, os dois confirmados) + passo a passo do cookie do ML refeito no frontend.**
 
@@ -10550,7 +10574,7 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
-| **P144** | 🔴 **PUSH BLOQUEADO — mesmo bloqueio da REVISÃO 144/bilhete anterior.** `git push` pra `rocketdesignbh-dot/megalinksbr` pela nuvem devolve 403 do proxy da sessão ("not in this session's authorized repository set"), mesmo com PAT clássico válido do Érico — não é problema de token nem de credencial. `docs/ESTADO_ATUAL.md` (esta revisão), `frontend/index.html` (P145/"Clonar 100%") e `supabase/functions/clone-ingest/index.ts` (v21) foram gravados direto em `C:\Users\PC\github\megalinksbr` via `device_stage_files`/`device_commit_files` (sem `device_bash` — mesmo bug de Plan9 drive share do Windows de 08/09, ainda não corrigido). **O `.git` local do Érico continua na REVISÃO 145 (`70a5b20`) até alguém rodar `git add`/`commit`/`push` de lá.** Próxima sessão: 1) tentar `git push` pela nuvem de novo; 2) se `device_bash` já montar `~/mnt`, `git add . && git commit && git push` de lá; 3) se os dois continuarem bloqueados, avisar o Érico pra commitar/pushar manualmente pelo próprio computador (arquivos já estão na pasta certa) | 12/09 |
+| ~~P144~~ | ✅ **FECHADA (12/09, REVISÃO 147).** O push que a REVISÃO 146 deixou registrado como bloqueado (proxy da sessão negando `git push` com 403 + `device_bash` fora do ar) já tinha acontecido antes desta sessão começar — `git clone --depth=1` fresco do `main` mostrou `HEAD` em `7b1b713`, com `docs/ESTADO_ATUAL.md` (REVISÃO 146), `frontend/index.html` (P145/"Clonar 100%") e `clone-ingest` v21 todos presentes. Não foi medido quem rodou o commit/push nem quando. Os dois bugs de infraestrutura em si (proxy de repositório autorizado da sessão, bug de Plan9 drive share do Windows) não foram reconfirmados como corrigidos — só contornados. Se reaparecerem numa sessão futura, não assumir que "já foi resolvido" | 12/09 |
 | **P145** | 🟡 **"Clonar 100%" (`clone_sources.clone_full_content`) — CODADO, backend DEPLOYADO, NÃO MEDIDO.** Ver seção "Clone Post — Clonar 100%" acima para o detalhe completo. Falta: ligar o toggle numa fonte real, esperar uma captura, e conferir se `products.description` saiu com frase coerente (não com lixo nem com auto-promoção do grupo-fonte que o filtro devia ter pego) | 12/09 |
 | ~~P143~~ | ✅ **FECHADA (12/09, REVISÃO 145) — MEDIDA EM PRODUÇÃO, AS DUAS LOJAS.** Link de afiliado nativo: Shopee confirmada saindo com `s.shopee.com.br/...` cru; Mercado Livre confirmado gerando o link nativo depois do Érico salvar `ml_session_cookie` (faltava, a Etiqueta ML já estava configurada). Sem regressão observada. Risco que continua valendo: o endpoint do ML não é oficial, pode quebrar sem aviso do ML — se o link do ML voltar a cair no fallback (`megalinksbr.com.br/r/...`) depois de ter funcionado, é sinal de cookie expirado (basta repetir a captura) ou de o endpoint ter mudado | 12/09 |
 | **P138** | 🟡 **Shopee sem verificador de preço automático — 63% dos produtos Shopee (88 de 140) sem `price_original`, 87 deles nunca conferidos desde a captura.** `product-refresh` só cobre `mercado_livre` e `amazon` (`LOJAS_COM_VERIFICADOR`) — Shopee só ganha "de" se a própria loja mostrar no momento da captura (Radar/importação); sem verificador, nunca recupera depois. Amazon também tem 35 produtos sem "de" mesmo com checagem recente (não investigado a fundo). Decisão de arquitetura (custo/prioridade de construir verificador pra Shopee), não bug — precisa ser discutida com o Érico antes de codar. Achado ao investigar por que "muitas postagens saem sem De/Por" (REVISÃO 135) | 06/09 |
