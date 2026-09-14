@@ -1695,7 +1695,18 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
-**REVISÃO 152 — 14/09/2026 — Post Vídeo: modo "post completo" (texto igual ao Postar Agora, sem foto). CODADO E DEPLOYADO (Supabase), PUSH PENDENTE (aguardando `git am` do Érico).**
+**REVISÃO 152 — 14/09/2026 — Post Vídeo: modo "post completo" (texto igual ao Postar Agora, sem foto). CODADO, PUSH FEITO, DEPLOY DO `app` CONFIRMADO EM PRODUÇÃO.**
+
+### Confirmação de push/deploy
+
+Push bloqueado pelo proxy do agente na sessão de nuvem, como nas duas
+rodadas anteriores (P144) — patch `0003-post-video-completo.patch` entregue
+ao Érico, aplicado com `git am` + `git push` (commit `037878a`), e o Érico
+fez o Deploy do serviço `app` no EasyPanel. Verificado via fetch do HTML
+servido em `https://www.megalinksbr.com.br/index.html`: os marcadores
+`pvMontarTexto`, `pvChkPostCompleto`, `pvPreVisualizarTexto` e
+`pvColetarCta` estão todos presentes no HTML de produção — confirma que o
+código do modo "post completo" está no ar.
 
 ### O que o Érico pediu
 
@@ -1727,10 +1738,6 @@ duas juntas).
 
 ### O que falta
 
-- **Push pendente** — mesmo bloqueio de proxy das vezes anteriores (P144).
-  Patch entregue pro Érico aplicar com `git am` + `git push`, igual da
-  última vez.
-- Deploy do `app` no EasyPanel depois do push.
 - **Limitação conhecida, registrada de propósito**: editar (`pvEditar`) um
   agendamento criado no modo "post completo" reabre no modo LEGENDA SIMPLES,
   mostrando o texto final já montado como texto livre — os campos
@@ -10896,7 +10903,7 @@ código não relacionado.
 | # | Pendência | Origem |
 |---|---|---|
 | **P146** | 🟡 **Link nativo Shopee no disparo pros grupos WhatsApp — CODADO E DEPLOYADO (`send-post` v30/deploy 65, `group-blast` v9/deploy 21), NÃO MEDIDO EM PRODUÇÃO.** Pedido do Érico: os grupos ainda saíam com o encurtador próprio mesmo depois da P143 (que só cobria a "Postar Agora"). `linkFinalDoProduto` (async) tenta o link nativo da Shopee (Open API oficial, App Key/App Secret) antes de cair no `an_redir`+encurtador de sempre; `ehLinkNativoShopee` evita reembrulhar o resultado. **Decisão do Érico: só Shopee no automático — ML fica de fora** (o link nativo do ML usa o endpoint não documentado do painel de Afiliados com cookie de sessão pessoal; automatizar isso no disparo recorrente multiplicaria o risco de flag na conta, ao contrário da Shopee que usa App Key/App Secret). Falta: disparar um produto Shopee real (Post Automático ou Disparo Manual) com App Secret configurado e conferir no grupo que o link saiu `s.shopee.com.br/XXXX` cru; conferir que ML e as demais lojas não regrediram; conferir que Shopee sem App Secret cai no fallback de sempre | 14/09 |\n| ~~P144~~ | ✅ **FECHADA (12/09, REVISÃO 147).** O push que a REVISÃO 146 deixou registrado como bloqueado (proxy da sessão negando `git push` com 403 + `device_bash` fora do ar) já tinha acontecido antes desta sessão começar — `git clone --depth=1` fresco do `main` mostrou `HEAD` em `7b1b713`, com `docs/ESTADO_ATUAL.md` (REVISÃO 146), `frontend/index.html` (P145/"Clonar 100%") e `clone-ingest` v21 todos presentes. Não foi medido quem rodou o commit/push nem quando. Os dois bugs de infraestrutura em si (proxy de repositório autorizado da sessão, bug de Plan9 drive share do Windows) não foram reconfirmados como corrigidos — só contornados. Se reaparecerem numa sessão futura, não assumir que "já foi resolvido" | 12/09 |
-| **P148** | 🟡 **Post Vídeo (Elite+) — backend medido (disparo manual confirmou `sent` ponta a ponta); arredondamento de 5min e edição (REVISÃO 151) DEPLOYADOS e no ar; modo "post completo" (REVISÃO 152) CODADO E DEPLOYADO NO SUPABASE, PUSH/DEPLOY DO `app` PENDENTES.** Ver "Última alteração" (REVISÕES 150/151/152). Falta: (a) Érico confirmar visualmente que o vídeo chegou no grupo com legenda/link certos; (b) aplicar o patch da REVISÃO 152 (`git am`+push+Deploy no EasyPanel); (c) testar o modo "post completo" de ponta a ponta; (d) testar edição de verdade (trocar vídeo, trocar grupos); (e) testar cancelamento e caminho de falha (grupo sem `group_jid`, sessão desconectada) e conferir que o vídeo continua no Storage quando `partial_failed`/`failed` | 14/09 |
+| **P148** | 🟡 **Post Vídeo (Elite+) — backend medido (disparo manual confirmou `sent` ponta a ponta); arredondamento de 5min e edição (REVISÃO 151) no ar; modo "post completo" (REVISÃO 152) no ar, confirmado no HTML servido em produção.** Ver "Última alteração" (REVISÕES 150/151/152). Falta: (a) Érico confirmar visualmente que o vídeo chegou no grupo com legenda/link certos; (b) testar o modo "post completo" de ponta a ponta (agendar com nome/preço/CTA reais e conferir a mensagem que chega no grupo); (c) testar edição de verdade (trocar vídeo, trocar grupos); (d) testar cancelamento e caminho de falha (grupo sem `group_jid`, sessão desconectada) e conferir que o vídeo continua no Storage quando `partial_failed`/`failed` | 14/09 |
 | **P145** | 🟡 **"Clonar 100%" (`clone_sources.clone_full_content`) — CODADO, backend DEPLOYADO, NÃO MEDIDO.** Ver seção "Clone Post — Clonar 100%" acima para o detalhe completo. Falta: ligar o toggle numa fonte real, esperar uma captura, e conferir se `products.description` saiu com frase coerente (não com lixo nem com auto-promoção do grupo-fonte que o filtro devia ter pego) | 12/09 |
 | ~~P143~~ | ✅ **FECHADA (12/09, REVISÃO 145) — MEDIDA EM PRODUÇÃO, AS DUAS LOJAS.** Link de afiliado nativo: Shopee confirmada saindo com `s.shopee.com.br/...` cru; Mercado Livre confirmado gerando o link nativo depois do Érico salvar `ml_session_cookie` (faltava, a Etiqueta ML já estava configurada). Sem regressão observada. Risco que continua valendo: o endpoint do ML não é oficial, pode quebrar sem aviso do ML — se o link do ML voltar a cair no fallback (`megalinksbr.com.br/r/...`) depois de ter funcionado, é sinal de cookie expirado (basta repetir a captura) ou de o endpoint ter mudado | 12/09 |
 | **P138** | 🟡 **Shopee sem verificador de preço automático — 63% dos produtos Shopee (88 de 140) sem `price_original`, 87 deles nunca conferidos desde a captura.** `product-refresh` só cobre `mercado_livre` e `amazon` (`LOJAS_COM_VERIFICADOR`) — Shopee só ganha "de" se a própria loja mostrar no momento da captura (Radar/importação); sem verificador, nunca recupera depois. Amazon também tem 35 produtos sem "de" mesmo com checagem recente (não investigado a fundo). Decisão de arquitetura (custo/prioridade de construir verificador pra Shopee), não bug — precisa ser discutida com o Érico antes de codar. Achado ao investigar por que "muitas postagens saem sem De/Por" (REVISÃO 135) | 06/09 |
