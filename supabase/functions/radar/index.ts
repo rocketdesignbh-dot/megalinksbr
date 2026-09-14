@@ -1,8 +1,14 @@
-// Mega Links BR · Edge Function "radar" v33
-// v33 (28/08): a Shopee para de ter o preco anterior DERIVADO da taxa (P32).
-//   Ver o bloco sobre o fetchShopeeKw. `price_original = price` quando nao ha
-//   preco anterior conhecido — mesma convencao do ML e da Amazon. O selo de
-//   desconto fica; o riscado some sozinho, porque o card so risca se de > por.
+// Mega Links BR · Edge Function "radar" v34
+// v34 (14/09 · P141): a Shopee volta a ter o "de" DERIVADO da taxa em
+//   fetchShopeeKw, com a MESMA formula e a MESMA guarda que a product-search
+//   v33 usa (REVISAO 140 · P141). Decisao explicita do Erico: unificar as
+//   duas leituras da mesma loja em vez de deixar Radar e Postar Agora
+//   afirmando coisas diferentes sobre o mesmo produto — essa divergencia foi
+//   o que gerou a P32 no passado. Numero continua DEDUZIDO, nao lido: guarda
+//   identica (taxa>0, taxa<100, bruto>preco) evita repetir "de == por".
+// v33 (28/08): a Shopee tinha parado de ter o preco anterior DERIVADO da taxa
+//   (P32). Ver o historico completo do calculo/guarda no bloco de comentario
+//   logo acima de fetchShopeeKw, mantido para contexto.
 // v32: Amazon com zero resultado deixa de ser reportada como "0 ofertas encontradas".
 // Medimos o comportamento: a Amazon atende uma ou duas requisicoes vindas da VPS e
 // depois passa a devolver pagina vazia -- inclusive para a MESMA palavra que acabou
@@ -110,35 +116,48 @@ async function processMercadoLivre(keywords: string[], debug: string[]): Promise
 
 const SHOPEE_KW = ["fone bluetooth","air fryer","smartwatch","luminaria led","caixa de som"];
 
-/* P32 vale AQUI TAMBEM (28/08 · REVISAO 95).
-   Esta funcao derivava o preco anterior com `price/(1-disc/100)` — exatamente a
-   conta que a P32 descartou na product-search em 01/08. Resultado: a mesma
-   plataforma afirmava duas coisas diferentes sobre a mesma loja, e o Radar saia
-   com um riscado que a Shopee nunca disse. 60 de 60 ofertas de Shopee no banco
-   batiam com a formula ao centavo; Amazon (23 de 25) e ML (99 de 117) NAO batem,
-   porque essas duas leem o riscado real da pagina.
+/* P141 (14/09 · REVISAO 148): a Shopee VOLTA a ter o "de" DERIVADO da taxa,
+   agora com a MESMA formula e a MESMA guarda da product-search v33 (ver o
+   cabecalho do arquivo e o comentario de fetchShopee em product-search/index.ts).
+   Historico completo do vaivem, para quem for mexer aqui de novo:
 
-   MEDIDO em 28/08, HUAWEI FreeBuds Pro 5 (item 44507205958):
+   28/08 (P32, REVISAO 95): esta funcao derivava com `price/(1-disc/100)` sem
+   guarda nenhuma, e a product-search (na epoca) tinha acabado de PARAR de
+   fazer a mesma conta — a mesma plataforma afirmava duas coisas diferentes
+   sobre a mesma loja. Decisao do Erico em 28/08: as duas passam a NAO afirmar
+   ("price_original = price", riscado nunca aparece).
+
+   08/09 (P141 nasce, REVISAO 140): a product-search volta a derivar — v33 —
+   mas SO no Postar Agora, com guarda (taxa>0, taxa<100, bruto>preco) e
+   marcada como numero deduzido (`price_from_derived:true`). O Radar ficou de
+   fora "de proposito, escopo estrito" — e a MESMA divergencia da P32 nasceu
+   de novo, agora ao contrario (product-search deriva, Radar nao).
+
+   14/09 (P141 fecha): Erico decidiu explicitamente unificar — Radar passa a
+   derivar tambem, com a guarda identica, em vez de aceitar a divergencia ou
+   voltar os dois a nao afirmar (as outras duas saidas oferecidas). Mesmo
+   numero deduzido nas duas telas para o mesmo produto.
+
+   MEDIDO em 28/08, HUAWEI FreeBuds Pro 5 (item 44507205958) — a base para a
+   guarda usada tanto aqui quanto na product-search:
      API de afiliado ... priceMin 949 · priceDiscountRate 44 (INTEIRO)
      derivado .......... 949/(1-0,44) = R$ 1.694,64
      real, afirmado pela loja .......... R$ 1.699,00
      erro .............. R$ 4,36
-   A taxa vem arredondada para inteiro; por isso a conta nunca fecha. Um SDK de
-   terceiros para esta mesma API diz o mesmo: nao ha campo de preco anterior no
-   schema, e a estimativa "can differ slightly because priceDiscountRate may be
-   rounded".
+   A taxa vem arredondada para inteiro; por isso a conta nunca fecha ao
+   centavo — e por isso o numero e deduzido, nao lido. Um SDK de terceiros
+   para esta mesma API diz o mesmo: nao ha campo de preco anterior no schema.
 
-   `price_original = price` e a MESMA convencao do Mercado Livre (`original ||
-   price`) e da Amazon (`savingBasis || price`): sem preco anterior conhecido,
-   repete-se o atual. O frontend so risca quando `de > por`, entao o riscado some
-   sozinho. O SELO DE DESCONTO FICA — esse a API afirma.
+   Guarda (identica a product-search v33): so deriva quando ha taxa (>0 e
+   <100) E o bruto resultante e MAIOR que o preco de venda — sem isso,
+   `price_original = price` (mesma convencao do ML e da Amazon: sem preco
+   anterior conhecido, repete-se o atual; o frontend so risca quando de > por).
 
-   O "de" real EXISTE em `/api/v4/pdp/get_pc` -> `price_before_discount` (medido
-   no mesmo item: 169900000 = R$ 1.699,00), mas essa rota e antibot: a segunda
-   chamada seguida caiu em captcha (`scene=crawler_item`), e o `fetchShopeeFeed`
-   logo abaixo, que ja usa essa familia de API, nao produz nenhuma linha hoje.
-   Le-la exigiria proxy pago. Decisao do Erico em 28/08: parar de derivar agora,
-   avaliar a rota lida depois.
+   O "de" real EXISTE em `/api/v4/pdp/get_pc` -> `price_before_discount`
+   (medido no mesmo item: 169900000 = R$ 1.699,00), mas essa rota e antibot —
+   a segunda chamada seguida caiu em captcha (`scene=crawler_item`). Le-la
+   exigiria proxy pago, recusado pelo Erico em 08/09 (ver P141 no
+   ESTADO_ATUAL.md). O numero deduzido continua sendo o meio-termo aceito.
 */
 async function fetchShopeeKw(kw: string, ak: string, as_: string): Promise<any[]> {
   const expires = new Date(Date.now()+6*3600*1000).toISOString();
@@ -149,7 +168,16 @@ async function fetchShopeeKw(kw: string, ak: string, as_: string): Promise<any[]
     const r=await fetchWithTimeout("https://open-api.affiliate.shopee.com.br/graphql",{method:"POST",headers:{"content-type":"application/json","Authorization":`SHA256 Credential=${ak},Timestamp=${ts},Signature=${sig}`},body:payload},6000);
     if(!r.ok)return[];
     const d=await r.json(); if(d.errors)return[];
-    return(d?.data?.productOfferV2?.nodes??[]).map((n:any)=>{ const price=Number(n.priceMin??0),disc=Number(n.priceDiscountRate??0),comm=Number(n.commissionRate??0),orig=price; return{source:"shopee",item_id:String(n.itemId),shop_id:String(n.shopId??""),title:n.productName,keyword:kw,category:kw,price,price_original:orig,discount_pct:Math.round(disc),commission_rate:comm,rating:Number(n.ratingStar??0),sales:Number(n.sales??0),shop_name:n.shopName||"Shopee",image_url:n.imageUrl,product_link:n.productLink,affiliate_url:n.offerLink,score:scoreOf(disc,comm*100,Number(n.sales??0),Number(n.ratingStar??0)),fetched_at:new Date().toISOString(),expires_at:expires}; });
+    return(d?.data?.productOfferV2?.nodes??[]).map((n:any)=>{
+      const price=Number(n.priceMin??0),disc=Number(n.priceDiscountRate??0),comm=Number(n.commissionRate??0);
+      // P141: mesma formula e mesma guarda da product-search v33 — deduzido, nao lido.
+      let orig=price;
+      if(price>0&&disc>0&&disc<100){
+        const bruto=Math.round((price/(1-disc/100))*100)/100;
+        if(bruto>price)orig=bruto;
+      }
+      return{source:"shopee",item_id:String(n.itemId),shop_id:String(n.shopId??""),title:n.productName,keyword:kw,category:kw,price,price_original:orig,discount_pct:Math.round(disc),commission_rate:comm,rating:Number(n.ratingStar??0),sales:Number(n.sales??0),shop_name:n.shopName||"Shopee",image_url:n.imageUrl,product_link:n.productLink,affiliate_url:n.offerLink,score:scoreOf(disc,comm*100,Number(n.sales??0),Number(n.ratingStar??0)),fetched_at:new Date().toISOString(),expires_at:expires};
+    });
   } catch{return[];}
 }
 

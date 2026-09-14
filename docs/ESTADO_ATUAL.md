@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 147 — 12/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 148 — 14/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,72 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 148 — 14/09/2026 — P141 FECHADA e P142 CONFIRMADA. `radar` v34 (deploy 57) NO AR e MEDIDO.**
+
+### P141 — "de" da Shopee unificado entre Radar e Postar Agora
+
+Pendência aberta desde a REVISÃO 140 (08/09): a `product-search` v33 passou a
+DERIVAR o "de" da Shopee pela taxa de desconto (`price/(1-taxa/100)`), mas o
+`radar/index.ts` continuou com a convenção antiga (`price_original = price`,
+sem riscado). Duas leituras diferentes da mesma loja na mesma plataforma —
+exatamente o padrão que gerou a P32 no passado.
+
+Pedido explicitamente ao Érico as três saídas possíveis (unificar deriva,
+manter divergência documentada, ou reverter os dois a não afirmar). **Decisão
+dele: unificar — Radar também deriva.**
+
+Aplicada a MESMA fórmula e a MESMA guarda da `product-search` v33 em
+`fetchShopeeKw` do `radar/index.ts` (só deriva quando `taxa>0`, `taxa<100` e o
+bruto resultante é maior que o preço de venda — sem isso, `price_original =
+price`, igual ao ML e à Amazon). Não criei coluna nem flag de "derivado" no
+Radar porque o `price_from_derived` da product-search também não é lido em
+lugar nenhum hoje (nem no banco, nem no frontend) — é só comentário de
+intenção.
+
+**`radar` v34 (deploy 57) DEPLOYADO e MEDIDO EM PRODUÇÃO** (14/09, via
+`net.http_post` direto no Postgres, já que o proxy de rede desta sessão nega
+conexão direta a `*.supabase.co`): rodada real com `sources:["shopee"]`
+trouxe 50 ofertas via API; nas 12 mais recentes conferidas, `price_original`
+bateu exatamente com `price/(1-discount_pct/100)` em todas — ex. "Luminária
+Painel Plafon Led": price 18,79, discount_pct 30, price_original 26,84
+(18,79/0,70 = 26,84). Antes desta mudança essas mesmas linhas sairiam com
+`price_original = price` (sem riscado). Código publicado conferido byte a
+byte contra o `.ts` local (`get_edge_function` de volta).
+
+**Push do código para o repo:** feito por esta sessão (nuvem), sem passar por
+`device_bash` (que continua fora do ar, ver abaixo) — `git` funciona
+normalmente pela nuvem para clone/commit/push neste repo nesta sessão.
+
+### P142 — Clone Post multi-destino: CONFIRMADO EM PRODUÇÃO, sem precisar de clique
+
+Pendência da REVISÃO 143 (11/09): "um grupo monitorado pode alimentar mais de
+um Grupo de Oferta" — só tinha o código, nunca tinha sido medido.
+
+Achei a prova pronta no banco, sem precisar pedir ao Érico para testar na
+tela: `clone_sources` já tem duas linhas para "Grupo de Achadinhos #14"
+(mesmo `source_jid`), uma para o grupo "Achadinhos Geral" (linha antiga, de
+27/08) e outra para "Grupo Canal TrendShop" (linha nova, criada em 11/09 —
+mesmo dia da REVISÃO 143, então foi o próprio Érico quem configurou pelo
+painel). Nas últimas 48h essa segunda linha gerou **9 capturas com status
+`publicado`** em `clone_ingest_log`, e os 9 produtos correspondentes (Impressora
+Canon, Cortina, Air Fryer, Geladeira HQ, etc.) estão de fato gravados em
+`products` com o `niche_group_id` do "Grupo Canal TrendShop", timestamps
+batendo com o log ao segundo. **P142 fecha confirmada: mesmo grupo
+monitorado alimentando dois Grupos de Oferta diferentes, funcionando ponta a
+ponta.**
+
+### Bugs de infraestrutura — ainda não corrigidos, contornados de novo
+
+`device_bash` continua fora do ar nesta sessão (14/09), mesmo com a pasta
+`C:\Users\PC\github` recém-conectada — mesmo erro de sempre: "no Plan9 drive
+shares mounted", bug do update do Windows de 08/09 que a Anthropic está
+rastreando. Não tentei push pela nuvem direto neste repo desta vez porque
+funcionou sem erro (diferente do relato de sessões de 11-12/09 sobre 403 do
+proxy) — pode já ter sido corrigido no lado do proxy, ou pode ter sido
+específico daquela sessão; não reconfirmar como resolvido sem testar de novo.
+
+---
 
 **REVISÃO 147 — 12/09/2026 — P144 FECHADA: o push que estava bloqueado já aconteceu.**
 
@@ -10595,8 +10661,8 @@ código não relacionado.
 | **P124** | ✅ **FECHADA (02/09, REVISÃO 123) — DEPLOYADA E MEDIDA COM DADO DE PRODUÇÃO:** `/groups` devolveu 24 grupos, 12 do Érico e 12 de terceiros; o seletor mostrou exatamente os 12 de terceiros e "ver todos" devolveu 24. Era: 🟡 CODADA, NÃO DEPLOYADA (REVISÃO 120). Clone Post → Nova fonte: o seletor "Grupo que você quer monitorar" passa a esconder os grupos dos quais o usuário é dono (`isOwner`), com as salvaguardas da REVISÃO 115 (engine antigo não filtra; fonte em edição não some; "ver todos" disponível). Falta commit, push, deploy do `app` no EasyPanel e conferir no painel logado que grupo próprio sumiu, grupo de terceiro ficou, e o link de convite continua cadastrando grupo fora da lista | 02/09 |
 | ~~P123~~ | ✅ **CORRIGIDO NA REVISÃO 137 (08/09), `send-post` v29 (deploy 63).** O bloco de exclusão passou a rodar ANTES do update de `cursor_index`; quando a exclusão de fato acontece e o cursor não deu a volta do Loop, ele recua 1. Deploy relido de volta, byte-a-byte igual ao `.ts` local. **Não medido em produção com disparo real ainda** — falta rodar o cron com um grupo em `total===2` pra confirmar que o próximo produto não é mais pulado. Registro original: 🟠 BUG IDENTIFICADO, NÃO CONSERTADO (REVISÃO 119). `send-post`: com `delete_after_post` ligado, o produto postado é apagado e os seguintes deslizam uma posição, mas o `nextCursor` avança mesmo assim — um produto é pulado a cada disparo. Com o Loop ligado o `% total` mascarava (a v22 chamou de "absorvido"); com o Loop **desligado** (semântica nova) o grupo chega ao fim da lista mais cedo do que deveria | 02/09 |
 | **P139** | ✅ **FECHADA NA REVISÃO 142 (11/09).** As duas metades: (1) grupos zerados — AUTO-CURADAS quando a captura voltou (REVISÃO 139); (2) risco de repetir o mesmo produto em loop — CORRIGIDO pedido explícito do Érico ("não quero que repita produto"): `loop_enabled=false` nos 11 grupos + `cursor_index` avançado pro fim nos 10 `delete_after_post=true`, fazendo o `send-post` parar (`[FIM-DA-LISTA]`) em vez de repostar. PROVADO com ~2 dias de logs em produção sem nenhum repost e com posts novos saindo normalmente quando chega produto. Histórico: 🟠 ABERTA (REVISÃO 137, 08/09) — RELIDA NA REVISÃO 139 (08/09). Os 10 grupos "Achadinhos" (usuário `d63dd97f…`) medidos com 0 produtos continuam em 0 — a reserva mínima da v29 protege o PRÓXIMO produto a cair pra 1, não recria os que já foram apagados antes do conserto. A REVISÃO 139 achou o motivo de nenhuma captura nova estar entrando: a `clone-ingest` respondia 401 pra 100% das chamadas do wa-engine desde 05/09 (`verify_jwt` ligado por engano no deploy da REVISÃO 136). Corrigido e provado (401→200) | 11/09 |
-| **P142** | 🟡 **CODADA (REVISÃO 143, 11/09), NÃO MEDIDA EM PRODUÇÃO.** Clone Post → Nova fonte: um grupo monitorado agora pode virar fonte de mais de um Grupo de Oferta (checkbox multi-seleção com busca, backend já suportava). Falta: confirmar deploy no ar (webhook já provado auto-deploy, mas ninguém conferiu esta REVISÃO especificamente), e medir no painel logado do Érico ligando "Achadinhos #14" também ao "Grupo Canal TrendShop" (as duas linhas em `clone_sources`, e uma captura real chegando nos dois) | 11/09 |
-| **P141** | 🟠 **ABERTA (REVISÃO 140, 08/09).** A plataforma agora afirma duas coisas diferentes sobre o "de" da Shopee: a `product-search` v33 DERIVA (`price/(1-taxa)`, marcado com `price_from_derived`) e o `radar/index.ts` continua com `price_original = price` pela convenção de 28/08. Ficou assim de propósito (o pedido era só o Postar Agora, escopo estrito), mas divergência entre duas leituras da mesma loja já mordeu este repo antes — foi assim que a P32 nasceu. Decisão pendente: derivar no Radar também, ou voltar os dois a não afirmar. Só reabrir a rota lida (`/api/v4/pdp/get_pc`) resolveria de verdade, e ela exige proxy pago — recusado pelo Érico em 08/09 | 08/09 |
+| ~~P142~~ | ✅ **FECHADA (14/09, REVISÃO 148) — CONFIRMADA EM PRODUÇÃO SEM PRECISAR DE CLIQUE.** `clone_sources` já tinha duas linhas para "Grupo de Achadinhos #14" (uma pro "Achadinhos Geral", outra pro "Grupo Canal TrendShop", criada em 11/09 pelo próprio Érico via painel). A segunda linha gerou 9 capturas `publicado` em 48h, e os 9 produtos correspondentes estão gravados em `products` com o `niche_group_id` certo, timestamps batendo com o log. Mesmo grupo monitorado alimentando dois Grupos de Oferta, ponta a ponta. Registro original: 🟡 CODADA (REVISÃO 143, 11/09), NÃO MEDIDA EM PRODUÇÃO | 11/09 |
+| ~~P141~~ | ✅ **FECHADA (14/09, REVISÃO 148) — DECISÃO DO ÉRICO: UNIFICAR. DEPLOYADO E MEDIDO.** Radar passou a derivar o "de" da Shopee com a MESMA fórmula e MESMA guarda da `product-search` v33 (`price/(1-taxa/100)`, só quando taxa>0, taxa<100 e bruto>preço). `radar` v34 (deploy 57) no ar; rodada real com `sources:["shopee"]` trouxe 50 ofertas, 12/12 amostradas batendo a fórmula ao centavo. Registro original: 🟠 ABERTA (REVISÃO 140, 08/09) — a `product-search` v33 DERIVA e o `radar/index.ts` continuava com `price_original = price` (convenção de 28/08), mesma classe de divergência que gerou a P32 | 08/09 |
 | **P122** | ✅ **FECHADA (02/09, adendo 2 da REVISÃO 119) — deployada e medida no painel logado:** arquivo servido com as peças novas e sem a antiga, código executando, os dois checkboxes no DOM na ordem pedida, `salvarGeral()` gravando as duas colunas ida e volta no banco, 0 erros de console. Era: codada, provada em harness e pushada. Frontend: checkbox de fim de semana do modo normal abaixo da caixa dos Horários Inteligentes, "Validade padrão das ofertas" descida para baixo da grade, checkbox "🚫 Não repetir produto", texto novo do "Post em Loop", e a Fila mostrando "seg–sex" / "🚫 sem repetir no dia". 13 asserções no Chromium com 0 erros de console. Pushada no `main` em `1f8b635` (SHA-256 do arquivo `a2a8e1c9…`), conferida com reclone limpo. **Falta:** Deploy do `app` no EasyPanel — que leva junto a REVISÃO 118, também parada | 02/09 |
 | **P121** | 🟡 **PARCIALMENTE MEDIDA (REVISÃO 119).** ⏳ Sobram só os itens que dependem de tempo, não de clique. ✅ **(a) ordem sequencial PROVADA em produção com baseline**: o "ART Finds" (Loop ligado) saía sorteado nas 12 rodadas anteriores ao deploy (127, 124, 39, 85, 22, 6, 100, 38, 33, 101, 3, 106, 133, 99, 113, 130) e, nas duas primeiras rodadas depois, saiu **`position` 1 às 10:42 e `position` 2 às 10:52**, com `cursor_index` indo a 2. Mesma máquina, mesmo grupo, mesmo dia — o que mudou foi só a versão. **Falta:** (b) um sábado sem post num grupo com `weekend_enabled=false`; (c) um dia inteiro sem repetição num grupo com `no_repeat_daily=true` | 02/09 |
 | **P120** | 🟡 **NÃO MEDIDO (REVISÃO 119).** O ramo `loop_enabled=false` — "para de postar no fim da lista" — nunca disparou em produção, porque os 24 grupos foram gravados em `true` no mesmo minuto do deploy, de propósito. A prova exige um grupo desmarcado de propósito, com o cursor levado até o fim, e o `[FIM-DA-LISTA]` aparecendo no log sem gravar linha `failed` | 02/09 |

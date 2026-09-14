@@ -30,8 +30,9 @@
 //   e MAIOR que o preco de venda. Sem taxa, sem "de" — nunca repete o preco
 //   atual no lugar do riscado. MEDIDO em 08/09 no radar_offers: 75 de 78
 //   ofertas de Shopee (96,2%) vem com taxa > 0; as outras 3 saem sem riscado.
-//   ⚠️ O Radar (radar/index.ts) continua com price_original = price para
-//   Shopee. Divergencia CONSCIENTE entre as duas leituras — ver ESTADO_ATUAL.md.
+//   14/09 (P141, REVISAO 148): o Radar (radar/index.ts) passou a usar a MESMA
+//   formula e a MESMA guarda — decisao explicita do Erico de unificar as duas
+//   leituras da mesma loja em vez de manter a divergencia. Ver ESTADO_ATUAL.md.
 //
 // product-search v32 — o "de" da Amazon voltava sempre nulo (27/08)
 // v32: a janela do buybox era de 4000 caracteres e o bloco real tem 4623; o
