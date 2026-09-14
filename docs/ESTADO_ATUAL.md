@@ -1695,6 +1695,87 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
+**REVISÃO 150 — 14/09/2026 — Post Vídeo (P147, Elite+): schema, Storage, Edge Function e aba do painel CODADOS E DEPLOYADOS (backend), NÃO MEDIDO EM PRODUÇÃO.**
+
+### O que o Érico pediu
+
+Implementar a função desenhada em `claude/DESENHO_post_video_agendado.md`:
+agendamento de vídeo avulso (Elite+) para os Grupos de Oferta no WhatsApp.
+
+### Decisões tomadas ao executar (perguntas em aberto do Desenho)
+
+1. **Status por grupo (tabela de junção), não array tudo-ou-nada** —
+   confirmado o caminho que o próprio Desenho recomendava, por consistência
+   com o padrão que o `send-post` já usa para contar sucesso por canal.
+2. **Retry manual, não automático** — decisão do Érico nesta sessão. Grupo
+   que falhou fica `failed` em `video_post_groups`; o `video_posts` pai vira
+   `partial_failed`. Reenvio automático fica para uma v2, se for pedido.
+3. **wa-engine NÃO tinha suporte a vídeo** — investigado no código: `/send`
+   e `/send-group` só aceitavam `text`/`imageUrl` (`conteudoDeImagem`, que só
+   padroniza IMAGEM via `sharp`). Foi criada `conteudoDeVideo(url)` (o
+   Baileys baixa a URL sozinho ao montar `{video:{url}}`, sem processamento
+   nosso) e `/send-group` ganhou o parâmetro `videoUrl` — `text` virou
+   opcional quando `videoUrl` vem preenchido (é a legenda do vídeo).
+4. **Limite de tamanho: 16MB**, validado no frontend antes do upload e como
+   `file_size_limit` do bucket — é o teto prático de vídeo que o WhatsApp
+   aceita bem via API/Baileys. Não medido com vídeo real ainda.
+5. **Gate de plano**: reaproveitado o padrão existente
+   `PLAN_FEATURES[MY_PLAN]` (mesmo objeto que já guarda `smart_schedule`,
+   `clone_post` etc.) — novo flag `video_post` (`true` só em Elite/Premium).
+   Nav "🎬 Post Vídeo" fica `display:none` por CSS até `MY_PLAN` resolver, e
+   `pvInit()` confere de novo antes de liberar o conteúdo da aba (defesa em
+   profundidade, mesmo padrão de outras telas Elite+).
+
+### O que foi feito
+
+- **Schema** (`supabase/migrations/20260914140656_create_video_posts.sql`):
+  tabelas `video_posts` (1 vídeo agendado) e `video_post_groups` (status por
+  grupo, `unique(video_post_id, group_id)`), RLS restrita ao dono via
+  `auth.uid() = user_id`.
+- **Storage** (`…140711_create_video_posts_bucket.sql`): bucket privado
+  `video-posts`, `file_size_limit` 16MB, `allowed_mime_types` mp4/mov/webm,
+  policies de select/insert/delete restritas ao prefixo `{user_id}/` do
+  próprio dono (`storage.foldername(name)[1] = auth.uid()`).
+- **wa-engine** (`server.js`): `conteudoDeVideo()` + `/send-group` aceita
+  `videoUrl`.
+- **Edge Function nova `send-video-post`** (deployada, `verify_jwt:false`,
+  autenticação por `x-cron-secret` — mesmo padrão do `send-post`): cron
+  `*/5 * * * *` (`…150000_schedule_send_video_post_cron.sql`) varre
+  `video_posts` com `status='pending' AND scheduled_at<=now()`, reivindica
+  a linha com update otimista `pending→sending` (evita duas rodadas do cron
+  pegando o mesmo registro — mesmo motivo da trava de 30s do `send-post`),
+  gera Signed URL do vídeo (TTL 5 min) e envia por grupo via
+  `/send-group {videoUrl}` na conexão principal do usuário. Grava status por
+  grupo em `video_post_groups`; o `video_posts` pai fecha `sent` (apaga o
+  arquivo do Storage), `partial_failed` (mantém o arquivo, algum grupo
+  falhou) ou `failed` (nenhum grupo recebeu).
+- **Frontend** (`index.html`): nova aba "🎬 Post Vídeo"
+  (`data-page="post-video"`) — upload com limite de 16MB no `<input
+  type=file>`, campo de link com encurtamento reaproveitando
+  `encurtarLinkFinal` (mesma function do Postar Agora/Link Rápido), legenda
+  opcional, seletor de grupos reaproveitando `S.grupos` (mesma fonte da
+  grade "Escolha os grupos de destino" do Postar Agora), agendamento
+  `datetime-local`, e fila de vídeos agendados com cancelar (`pvCancelar`
+  apaga o Storage e marca `canceled` — só permitido em `pending`).
+
+### O que falta
+
+- **Nada foi medido em produção ainda** — falta: reachar o `app` no
+  EasyPanel (Deploy, não Force Rebuild) e o `wa-engine` para os pushes
+  entrarem no ar; ligar a aba e agendar um vídeo real de teste (conta Elite);
+  conferir o vídeo chegando no grupo do WhatsApp com a legenda/link certos;
+  testar o caminho de falha (grupo sem `group_jid`, sessão desconectada);
+  cancelar um agendamento `pending` e confirmar que o arquivo some do bucket
+  `video-posts`.
+- **Deploy do `app` reinicia o `wa-engine` (P16/P4)** — o push desta sessão
+  já entra nessa categoria; sem urgência maior que qualquer outro push, mas
+  registrado para não ser "descoberto" de novo.
+- Perguntas 1 e 2 do Desenho original (suporte a vídeo do wa-engine e limite
+  de tamanho) ficam resolvidas por este registro; seguem como P148 abaixo,
+  pendentes de medição em produção, não de decisão.
+
+---
+
 **REVISÃO 149 — 14/09/2026 — P146 (link nativo Shopee no disparo pros grupos WhatsApp): `send-post` v30 (deploy 65) e `group-blast` v9 (deploy 21) NO AR, CODADO E DEPLOYADO, AINDA NÃO MEDIDO EM PRODUÇÃO.**
 
 ### O que o Érico pediu
@@ -10709,6 +10790,7 @@ código não relacionado.
 | # | Pendência | Origem |
 |---|---|---|
 | **P146** | 🟡 **Link nativo Shopee no disparo pros grupos WhatsApp — CODADO E DEPLOYADO (`send-post` v30/deploy 65, `group-blast` v9/deploy 21), NÃO MEDIDO EM PRODUÇÃO.** Pedido do Érico: os grupos ainda saíam com o encurtador próprio mesmo depois da P143 (que só cobria a "Postar Agora"). `linkFinalDoProduto` (async) tenta o link nativo da Shopee (Open API oficial, App Key/App Secret) antes de cair no `an_redir`+encurtador de sempre; `ehLinkNativoShopee` evita reembrulhar o resultado. **Decisão do Érico: só Shopee no automático — ML fica de fora** (o link nativo do ML usa o endpoint não documentado do painel de Afiliados com cookie de sessão pessoal; automatizar isso no disparo recorrente multiplicaria o risco de flag na conta, ao contrário da Shopee que usa App Key/App Secret). Falta: disparar um produto Shopee real (Post Automático ou Disparo Manual) com App Secret configurado e conferir no grupo que o link saiu `s.shopee.com.br/XXXX` cru; conferir que ML e as demais lojas não regrediram; conferir que Shopee sem App Secret cai no fallback de sempre | 14/09 |\n| ~~P144~~ | ✅ **FECHADA (12/09, REVISÃO 147).** O push que a REVISÃO 146 deixou registrado como bloqueado (proxy da sessão negando `git push` com 403 + `device_bash` fora do ar) já tinha acontecido antes desta sessão começar — `git clone --depth=1` fresco do `main` mostrou `HEAD` em `7b1b713`, com `docs/ESTADO_ATUAL.md` (REVISÃO 146), `frontend/index.html` (P145/"Clonar 100%") e `clone-ingest` v21 todos presentes. Não foi medido quem rodou o commit/push nem quando. Os dois bugs de infraestrutura em si (proxy de repositório autorizado da sessão, bug de Plan9 drive share do Windows) não foram reconfirmados como corrigidos — só contornados. Se reaparecerem numa sessão futura, não assumir que "já foi resolvido" | 12/09 |
+| **P148** | 🟡 **Post Vídeo (Elite+) — schema, Storage, Edge Function `send-video-post` e aba do painel CODADOS E DEPLOYADOS, NÃO MEDIDO EM PRODUÇÃO.** Ver "Última alteração" (REVISÃO 150) para o desenho completo. Falta: Deploy do `app` no EasyPanel (leva o `wa-engine` junto — suporte a `videoUrl` em `/send-group` só entra no ar depois disso); agendar um vídeo real (conta Elite) e conferir chegando no grupo do WhatsApp com legenda/link certos; testar cancelamento (arquivo precisa sumir do bucket `video-posts`); testar caminho de falha (grupo sem `group_jid`, sessão desconectada) e conferir que o vídeo continua no Storage quando `partial_failed`/`failed` | 14/09 |
 | **P145** | 🟡 **"Clonar 100%" (`clone_sources.clone_full_content`) — CODADO, backend DEPLOYADO, NÃO MEDIDO.** Ver seção "Clone Post — Clonar 100%" acima para o detalhe completo. Falta: ligar o toggle numa fonte real, esperar uma captura, e conferir se `products.description` saiu com frase coerente (não com lixo nem com auto-promoção do grupo-fonte que o filtro devia ter pego) | 12/09 |
 | ~~P143~~ | ✅ **FECHADA (12/09, REVISÃO 145) — MEDIDA EM PRODUÇÃO, AS DUAS LOJAS.** Link de afiliado nativo: Shopee confirmada saindo com `s.shopee.com.br/...` cru; Mercado Livre confirmado gerando o link nativo depois do Érico salvar `ml_session_cookie` (faltava, a Etiqueta ML já estava configurada). Sem regressão observada. Risco que continua valendo: o endpoint do ML não é oficial, pode quebrar sem aviso do ML — se o link do ML voltar a cair no fallback (`megalinksbr.com.br/r/...`) depois de ter funcionado, é sinal de cookie expirado (basta repetir a captura) ou de o endpoint ter mudado | 12/09 |
 | **P138** | 🟡 **Shopee sem verificador de preço automático — 63% dos produtos Shopee (88 de 140) sem `price_original`, 87 deles nunca conferidos desde a captura.** `product-refresh` só cobre `mercado_livre` e `amazon` (`LOJAS_COM_VERIFICADOR`) — Shopee só ganha "de" se a própria loja mostrar no momento da captura (Radar/importação); sem verificador, nunca recupera depois. Amazon também tem 35 produtos sem "de" mesmo com checagem recente (não investigado a fundo). Decisão de arquitetura (custo/prioridade de construir verificador pra Shopee), não bug — precisa ser discutida com o Érico antes de codar. Achado ao investigar por que "muitas postagens saem sem De/Por" (REVISÃO 135) | 06/09 |

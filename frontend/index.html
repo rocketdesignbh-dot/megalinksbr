@@ -751,6 +751,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <a class="nav active" href="/painel/dashboard" data-page="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Dashboard</a>
     <a class="nav" href="/painel/post-relampago" data-page="post-relampago"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M13 2L4.5 13.5H11L10 22L19.5 10H13L13 2Z"/></svg>🚀 Postar Agora</a>
     <a class="nav" href="/painel/post-automatico" data-page="post-automatico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>⚡ Post. Automático<span class="tag dot" id="autoPostBadge" style="display:none">0</span></a>
+    <a class="nav" href="/painel/post-video" data-page="post-video" id="navPostVideo" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M17 9l4-2v10l-4-2"/></svg>🎬 Post Vídeo</a>
     <a class="nav" href="/painel/link-rapido" data-page="link-rapido"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Link Rápido</a>
     <a class="nav" href="/painel/clone-post" data-page="clone-post"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Clone Post<span class="tag dot" id="cloneBadge" style="display:none">0</span></a>
     <a class="nav" href="/painel/radar" data-page="radar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 3v4.5M12 12l6-4"/></svg>Radar de Ofertas<span class="tag dot" id="radarBadge">0</span></a>
@@ -1011,6 +1012,82 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18"><path d="M13 2L4.5 13.5H11L10 22L19.5 10H13L13 2Z"/></svg>
           Disparar agora
         </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== POST VÍDEO (agendamento de vídeo avulso, Elite+) ===== -->
+  <section class="page" id="page-post-video">
+    <div class="phead">
+      <div><h1 class="pt">🎬 Post Vídeo</h1><div class="psub">Agende um vídeo avulso para seus Grupos de Oferta no WhatsApp.</div></div>
+      <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button>
+    </div>
+
+    <div id="pvGateAviso" class="alert y" style="display:none">🔒 O Post Vídeo é um recurso do plano Elite. <a href="#" onclick="go('assinatura');return false">Fazer upgrade</a></div>
+
+    <div id="pvConteudo">
+      <div class="card">
+        <div class="ch">1️⃣ Vídeo</div>
+        <div class="cb">
+          <div class="field">
+            <label>Selecione o arquivo (.mp4, até 16MB)</label>
+            <input type="file" id="pvArquivo" accept="video/mp4,video/quicktime,video/webm" onchange="pvArquivoSelecionado(this)">
+          </div>
+          <div id="pvPreviewWrap" style="display:none;margin-top:10px">
+            <video id="pvPreviewVideo" controls style="max-width:280px;border-radius:2px;border:1px solid var(--bd2)"></video>
+          </div>
+          <div id="pvArquivoInfo" style="font-size:12px;color:var(--mut);margin-top:6px"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ch">2️⃣ Link e legenda</div>
+        <div class="cb">
+          <div class="field">
+            <label>Link do produto</label>
+            <input id="pvLink" placeholder="Cole o link do produto" onblur="pvGerarLinkCurto()">
+          </div>
+          <div class="field">
+            <label>Link de afiliado (gerado)</label>
+            <div style="display:flex;gap:6px">
+              <input id="pvLinkCurto" class="mono" style="font-size:12px;flex:1" readonly placeholder="Cole o link do produto para gerar">
+              <button class="btn btn-ghost btn-sm" onclick="pvCopiarLink()" title="Copiar link" style="flex:none;gap:5px">📋 Copiar</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Legenda (opcional)</label>
+            <textarea id="pvLegenda" rows="3" placeholder="Texto que acompanha o vídeo" style="width:100%;padding:8px 10px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ch">3️⃣ Grupos de destino</div>
+        <div class="cb">
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="pvSelectAll(true)">✅ Todos</button>
+            <button class="btn btn-ghost btn-sm" onclick="pvSelectAll(false)">☐ Nenhum</button>
+          </div>
+          <div id="pvGruposGrid" style="display:grid;gap:8px"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ch">4️⃣ Agendamento</div>
+        <div class="cb">
+          <div class="field">
+            <label>Data e hora</label>
+            <input type="datetime-local" id="pvDataHora">
+          </div>
+          <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:14px">
+            <button class="btn btn-volt btn-lg" onclick="pvAgendar()" id="pvBtnAgendar">📅 Agendar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ch">🗓️ Fila de vídeos agendados</div>
+        <div class="cb" id="pvFila"><p style="color:var(--mut);text-align:center;padding:28px">Carregando…</p></div>
       </div>
     </div>
   </section>
@@ -2808,10 +2885,10 @@ async function loadCreds(){
 
 /* ================= PLANOS REAIS (plan_features) — definido cedo, antes de qualquer uso ================= */
 const PLAN_FALLBACK={
-  starter:{plan:"starter",label:"Starter",color:"#10B981",price_month:57.90,wa_groups:1,wa_channels:2,wa_connections:1,wa_post_automation:true,tg_channels:1,tg_post_automation:false,marketplaces:2,links_simultaneous:10,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:false,support_level:"comunidade",clone_post:false,clone_auto:false,clone_sources_max:0,smart_schedule:false,stock_monitor:false,auto_posts_daily:1,sort_order:1,max_products:15},
-  pro:{plan:"pro",label:"Pro",color:"#3B82F6",price_month:97.90,wa_groups:3,wa_channels:6,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,marketplaces:3,links_simultaneous:30,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:true,support_level:"email",clone_post:true,clone_auto:true,clone_sources_max:1,smart_schedule:false,stock_monitor:true,auto_posts_daily:null,sort_order:2,max_products:50},
-  elite:{plan:"elite",label:"Elite",color:"#8B5CF6",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",clone_post:true,clone_auto:true,clone_sources_max:3,smart_schedule:true,stock_monitor:true,auto_posts_daily:null,sort_order:3,max_products:150},
-  premium:{plan:"premium",label:"Premium",color:"#F59E0B",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",clone_post:true,clone_auto:true,clone_sources_max:10,smart_schedule:true,stock_monitor:true,auto_posts_daily:null,sort_order:4,max_products:300}
+  starter:{plan:"starter",label:"Starter",color:"#10B981",price_month:57.90,wa_groups:1,wa_channels:2,wa_connections:1,wa_post_automation:true,tg_channels:1,tg_post_automation:false,marketplaces:2,links_simultaneous:10,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:false,support_level:"comunidade",clone_post:false,clone_auto:false,clone_sources_max:0,smart_schedule:false,stock_monitor:false,auto_posts_daily:1,sort_order:1,video_post:false,max_products:15},
+  pro:{plan:"pro",label:"Pro",color:"#3B82F6",price_month:97.90,wa_groups:3,wa_channels:6,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,marketplaces:3,links_simultaneous:30,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:true,support_level:"email",clone_post:true,clone_auto:true,clone_sources_max:1,smart_schedule:false,stock_monitor:true,auto_posts_daily:null,sort_order:2,video_post:false,max_products:50},
+  elite:{plan:"elite",label:"Elite",color:"#8B5CF6",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",clone_post:true,clone_auto:true,clone_sources_max:3,smart_schedule:true,stock_monitor:true,auto_posts_daily:null,sort_order:3,video_post:true,max_products:150},
+  premium:{plan:"premium",label:"Premium",color:"#F59E0B",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",clone_post:true,clone_auto:true,clone_sources_max:10,smart_schedule:true,stock_monitor:true,auto_posts_daily:null,sort_order:4,video_post:true,max_products:300}
 };
 let PLAN_FEATURES={...PLAN_FALLBACK};
 let MY_PLAN="starter";
@@ -2872,6 +2949,7 @@ function go(page){
   document.querySelectorAll(".nav-cta").forEach(n=>n.classList.toggle("active",n.dataset.page===page));
   window.scrollTo({top:0});closeDD();
   if(page==="adm-fila") startQueue(); else stopQueue();
+  if(page==="post-video"&&typeof pvInit==="function")setTimeout(()=>pvInit(),50);
   if(page!=="post-relampago"&&typeof pararStatusQuotaML==="function")pararStatusQuotaML();
   // Hook: se entrou no Postar Agora via Radar, carrega a oferta pré-selecionada
   if(page==="post-relampago"&&window.PR_PRE_FROM_RADAR&&typeof prCarregarOfertaDoRadar==="function"){
@@ -11234,6 +11312,179 @@ function prSelectAll(on){
 
 // Monta o texto final do post (usado no preview E no disparo real)
 // Retorna {before, link} onde "before" é tudo antes do link (já com "Compre Aqui 👉 ")
+
+/* ================= POST VÍDEO (agendamento de vídeo avulso, Elite+) ================= */
+const PV={gruposSel:new Set(),arquivo:null};
+
+function pvInit(){
+  const gate=document.getElementById("pvGateAviso"),conteudo=document.getElementById("pvConteudo");
+  const liberado=!!(PLAN_FEATURES[MY_PLAN]||{}).video_post;
+  if(gate)gate.style.display=liberado?"none":"block";
+  if(conteudo)conteudo.style.display=liberado?"":"none";
+  if(!liberado)return;
+  pvRenderGrupos();
+  pvCarregarFila();
+  const dh=document.getElementById("pvDataHora");
+  if(dh&&!dh.value){
+    const d=new Date(Date.now()+30*60000);
+    d.setSeconds(0,0);
+    dh.value=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  }
+}
+
+function pvArquivoSelecionado(input){
+  const f=input.files&&input.files[0];
+  const info=document.getElementById("pvArquivoInfo");
+  const wrap=document.getElementById("pvPreviewWrap");
+  const video=document.getElementById("pvPreviewVideo");
+  if(!f){PV.arquivo=null;if(wrap)wrap.style.display="none";return;}
+  const LIMITE=16*1024*1024;
+  if(f.size>LIMITE){
+    toast("Vídeo maior que 16MB — o WhatsApp costuma recusar. Escolha um arquivo menor.","⚠️");
+    input.value="";PV.arquivo=null;if(wrap)wrap.style.display="none";
+    return;
+  }
+  PV.arquivo=f;
+  if(info)info.textContent=`${f.name} — ${(f.size/1024/1024).toFixed(1)}MB`;
+  if(video&&wrap){video.src=URL.createObjectURL(f);wrap.style.display="block";}
+}
+
+async function pvGerarLinkCurto(){
+  const link=(document.getElementById("pvLink")?.value||"").trim();
+  const out=document.getElementById("pvLinkCurto");
+  if(!link||!out)return;
+  out.value="Gerando…";
+  try{
+    const curto=await encurtarLinkFinal(link,null);
+    out.value=curto||link;
+  }catch(e){out.value=link;}
+}
+
+function pvCopiarLink(){
+  const v=document.getElementById("pvLinkCurto")?.value;
+  if(!v)return;
+  navigator.clipboard?.writeText(v).then(()=>toast("Link copiado!","📋")).catch(()=>toast("Selecione e copie manualmente.","ℹ️"));
+}
+
+function pvRenderGrupos(){
+  const el=document.getElementById("pvGruposGrid");if(!el)return;
+  if(!S.grupos.length){
+    el.innerHTML='<div class="alert y" style="margin:0">Nenhum Grupo de Oferta criado ainda. <a href="#" onclick="go(\'canais-grupos\');return false">Criar Grupo de Oferta</a></div>';
+    return;
+  }
+  PV.gruposSel=new Set();
+  el.innerHTML=S.grupos.map(g=>`
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;cursor:pointer;font-weight:500">
+      <input type="checkbox" id="pvGr${g.id}" style="width:auto" onchange="pvToggleGrupo('${g.id}',this.checked)">
+      <span style="flex:1">${g.nome}</span>
+      <span style="color:var(--mut);font-size:12px">💬 ${g.grupos_wa||0}</span>
+    </label>`).join("");
+}
+function pvToggleGrupo(id,on){on?PV.gruposSel.add(id):PV.gruposSel.delete(id);}
+function pvSelectAll(on){
+  S.grupos.forEach(g=>{
+    PV.gruposSel[on?"add":"delete"](g.id);
+    const cb=document.getElementById("pvGr"+g.id);
+    if(cb)cb.checked=on;
+  });
+}
+
+async function pvAgendar(){
+  if(!(PLAN_FEATURES[MY_PLAN]||{}).video_post){toast("Post Vídeo é um recurso Elite+.","🔒");return;}
+  if(!PV.arquivo){toast("Selecione um vídeo.","⚠️");return;}
+  const link=(document.getElementById("pvLink")?.value||"").trim();
+  if(!link){toast("Cole o link do produto.","⚠️");return;}
+  if(!PV.gruposSel.size){toast("Selecione ao menos um grupo de destino.","⚠️");return;}
+  const dhVal=document.getElementById("pvDataHora")?.value;
+  if(!dhVal){toast("Escolha a data e hora do agendamento.","⚠️");return;}
+  const scheduledAt=new Date(dhVal);
+  if(scheduledAt.getTime()<=Date.now()){toast("A data precisa ser no futuro.","⚠️");return;}
+
+  const btn=document.getElementById("pvBtnAgendar");
+  if(btn){btn.disabled=true;btn.textContent="Enviando…";}
+  try{
+    const ext=(PV.arquivo.name.split(".").pop()||"mp4").toLowerCase();
+    const path=`${CURRENT_USER.id}/${crypto.randomUUID()}.${ext}`;
+    const up=await SB.storage.from("video-posts").upload(path,PV.arquivo,{contentType:PV.arquivo.type||"video/mp4",upsert:false});
+    if(up.error)throw up.error;
+
+    const shortLink=(document.getElementById("pvLinkCurto")?.value||"").trim()||null;
+    const caption=(document.getElementById("pvLegenda")?.value||"").trim()||null;
+
+    const{data:vp,error:errVp}=await SB.from("video_posts").insert({
+      user_id:CURRENT_USER.id,
+      video_storage_path:path,
+      video_size_bytes:PV.arquivo.size,
+      video_mime_type:PV.arquivo.type||"video/mp4",
+      product_link:link,
+      short_link:shortLink,
+      caption,
+      scheduled_at:scheduledAt.toISOString(),
+      status:"pending"
+    }).select("id").single();
+    if(errVp)throw errVp;
+
+    const linhas=[...PV.gruposSel].map(groupId=>({video_post_id:vp.id,group_id:groupId,status:"pending"}));
+    const{error:errGrupos}=await SB.from("video_post_groups").insert(linhas);
+    if(errGrupos)throw errGrupos;
+
+    toast("Vídeo agendado!","✅");
+    document.getElementById("pvArquivo").value="";
+    document.getElementById("pvLink").value="";
+    document.getElementById("pvLinkCurto").value="";
+    document.getElementById("pvLegenda").value="";
+    PV.arquivo=null;
+    document.getElementById("pvPreviewWrap").style.display="none";
+    pvRenderGrupos();
+    pvCarregarFila();
+  }catch(e){
+    console.error("[PV] erro ao agendar",e);
+    toast("Não consegui agendar: "+(e?.message||"erro desconhecido"),"⚠️");
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent="📅 Agendar";}
+  }
+}
+
+const PV_STATUS_LABEL={pending:"⏳ Agendado",sending:"📤 Enviando",sent:"✅ Enviado",partial_failed:"🟡 Parcial",failed:"🔴 Falhou",canceled:"⛔ Cancelado"};
+
+async function pvCarregarFila(){
+  const el=document.getElementById("pvFila");if(!el)return;
+  try{
+    const{data,error}=await SB.from("video_posts").select("id,product_link,short_link,caption,scheduled_at,status,error_message").eq("user_id",CURRENT_USER.id).order("scheduled_at",{ascending:false}).limit(30);
+    if(error)throw error;
+    if(!data||!data.length){el.innerHTML='<p style="color:var(--mut);text-align:center;padding:28px">Nenhum vídeo agendado ainda.</p>';return;}
+    el.innerHTML=data.map(v=>{
+      const dt=new Date(v.scheduled_at).toLocaleString("pt-BR");
+      const podeCancelar=v.status==="pending";
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--bd2)">
+        <span style="flex:1">
+          <strong>${esc((v.caption||v.product_link||"").slice(0,60))}</strong>
+          <br><small style="color:var(--mut)">${dt}${v.error_message?" — "+esc(v.error_message.slice(0,100)):""}</small>
+        </span>
+        <span class="pill">${PV_STATUS_LABEL[v.status]||v.status}</span>
+        ${podeCancelar?`<button class="btn btn-ghost btn-sm" onclick="pvCancelar('${v.id}')">✕ Cancelar</button>`:""}
+      </div>`;
+    }).join("");
+  }catch(e){
+    console.error("[PV] erro ao carregar fila",e);
+    el.innerHTML='<p style="color:var(--mut);text-align:center;padding:28px">Não consegui carregar a fila.</p>';
+  }
+}
+
+async function pvCancelar(id){
+  try{
+    const{data:vp}=await SB.from("video_posts").select("video_storage_path,status").eq("id",id).single();
+    if(!vp||vp.status!=="pending"){toast("Este vídeo não pode mais ser cancelado.","ℹ️");pvCarregarFila();return;}
+    await SB.from("video_posts").update({status:"canceled"}).eq("id",id);
+    if(vp.video_storage_path)await SB.storage.from("video-posts").remove([vp.video_storage_path]);
+    toast("Agendamento cancelado.","✅");
+    pvCarregarFila();
+  }catch(e){
+    console.error("[PV] erro ao cancelar",e);
+    toast("Não consegui cancelar.","⚠️");
+  }
+}
+
 function prMontarTexto({nome,de,por,cta,link,htmlMode=false}){
   const b=(s)=>htmlMode?`<b>${s}</b>`:s;
   const n=(s)=>htmlMode?esc(s):s;
@@ -11854,6 +12105,7 @@ async function enterApp(profile){
   ONB_DISMISSED=!!profile.onboarding_dismissed;
   MY_PLAN=(profile.plan||"starter").toLowerCase();
   if(!PLAN_FEATURES[MY_PLAN])MY_PLAN="starter";
+  {const nv=document.getElementById("navPostVideo");if(nv)nv.style.display=(PLAN_FEATURES[MY_PLAN]||{}).video_post?"":"none";}
 
   // Trava de trial expirado (só para não-admin e não-vip)
   if(profile.is_vip){/*VIP tem acesso livre*/}

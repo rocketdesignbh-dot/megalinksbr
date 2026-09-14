@@ -109,6 +109,13 @@ async function conteudoDeImagem(url) {
     return { image: { url } };
 }
 
+// Post Vídeo (Elite+, ver docs/DESENHO_post_video_agendado.md). O Baileys
+// baixa a URL sozinho ao montar {video:{url}} — não fazemos nenhum
+// processamento aqui (o sharp só lê imagem), diferente de conteudoDeImagem.
+function conteudoDeVideo(url) {
+    return { video: { url } };
+}
+
 // CORS — lista de origens em vez de '*'.
 //
 // Vale só para navegador: chamada sem cabeçalho `Origin` (Edge Function, cron,
@@ -966,9 +973,9 @@ app.post('/send-message', verifyToken, resolverDono, async (req, res) => {
 
 // -- Envio para grupo WA --
 app.post('/send-group', verifyToken, resolverDono, async (req, res) => {
-    const { sessionPhone, groupId, text, imageUrl, userId } = req.body;
-    if (!sessionPhone || !groupId || !text) {
-        return res.status(400).json({ ok: false, error: 'sessionPhone, groupId e text são obrigatórios' });
+    const { sessionPhone, groupId, text, imageUrl, videoUrl, userId } = req.body;
+    if (!sessionPhone || !groupId || (!text && !videoUrl)) {
+        return res.status(400).json({ ok: false, error: 'sessionPhone, groupId e (text ou videoUrl) são obrigatórios' });
     }
     if (!donoAutorizado(req, sessionPhone)) {
         return res.status(403).json({ ok: false, error: 'Esse número não pertence a este usuário.' });
@@ -999,7 +1006,10 @@ app.post('/send-group', verifyToken, resolverDono, async (req, res) => {
     try {
         // groupId pode vir como "120363410208475859" ou "120363410208475859@g.us"
         const jid = groupId.includes('@') ? groupId : groupId + '@g.us';
-        if (imageUrl) {
+        if (videoUrl) {
+            // Post Vídeo (Elite+): text vira caption, pode ser vazio (legenda opcional).
+            await session.socket.sendMessage(jid, { ...conteudoDeVideo(videoUrl), caption: text || undefined });
+        } else if (imageUrl) {
             await session.socket.sendMessage(jid, { ...(await conteudoDeImagem(imageUrl)), caption: text });
         } else {
             await session.socket.sendMessage(jid, { text });
