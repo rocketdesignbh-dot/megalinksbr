@@ -54,7 +54,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: candidatos, error: cErr } = await sb
     .from("video_posts")
-    .select("id, user_id, video_storage_path, product_link, short_link, caption")
+    .select("id, user_id, video_storage_path, product_link, short_link, caption, append_link")
     .eq("status", "pending")
     .lte("scheduled_at", now.toISOString())
     .limit(20);
@@ -101,7 +101,13 @@ Deno.serve(async (req: Request) => {
       continue;
     }
     const videoUrl = signed.signedUrl;
-    const caption = vp.caption ? `${vp.caption}\n\n${vp.short_link || vp.product_link}` : (vp.short_link || vp.product_link);
+    // append_link=false vem do modo "post completo" do frontend, que já
+    // montou o texto com o link embutido no fim (mesmo formato do Postar
+    // Agora) — colar de novo aqui duplicaria o link na mensagem.
+    const deveAnexarLink = vp.append_link !== false;
+    const caption = deveAnexarLink
+      ? (vp.caption ? `${vp.caption}\n\n${vp.short_link || vp.product_link}` : (vp.short_link || vp.product_link))
+      : (vp.caption || vp.short_link || vp.product_link);
 
     const { data: instance } = await sb.from("whatsapp_instances")
       .select("id, phone")

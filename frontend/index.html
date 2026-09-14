@@ -1055,9 +1055,59 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <button class="btn btn-ghost btn-sm" onclick="pvCopiarLink()" title="Copiar link" style="flex:none;gap:5px">📋 Copiar</button>
             </div>
           </div>
-          <div class="field">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px">
+            <input type="checkbox" id="pvChkPostCompleto" onchange="pvTogglePostCompleto(this.checked)" style="width:auto">
+            <span style="font-size:13px">🖋️ Montar post completo (nome, preço De/Por, CTA — igual ao Postar Agora)</span>
+          </label>
+          <div class="field" id="pvLegendaWrap">
             <label>Legenda (opcional)</label>
             <textarea id="pvLegenda" rows="3" placeholder="Texto que acompanha o vídeo" style="width:100%;padding:8px 10px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px"></textarea>
+          </div>
+
+          <div id="pvPostCompletoWrap" style="display:none">
+            <small style="color:var(--mut);display:block;margin-bottom:10px">O vídeo já mostra o produto — aqui só monta o TEXTO que acompanha, sem foto (o vídeo ocupa o lugar dela).</small>
+            <div class="field"><label>Nome do produto</label><input id="pvNome" placeholder="Ex: Fritadeira Elétrica Air Fryer 5L"></div>
+            <div class="g2">
+              <div class="field"><label>Cabeçalho do post</label><input id="pvHead" value="🔥 OFERTA RELÂMPAGO 🔥"></div>
+            </div>
+            <div class="g2">
+              <div class="field"><label>Emoji antes de "De"</label><input id="pvEmojiDe" maxlength="16"></div>
+              <div class="field"><label>Emoji antes de "Por"</label><input id="pvEmojiPor" maxlength="16"></div>
+            </div>
+            <div class="g2">
+              <div class="field"><label>Preço De (R$)</label><input id="pvDe" placeholder="0,00"></div>
+              <div class="field"><label>Preço Por (R$)</label><input id="pvPor" placeholder="0,00"></div>
+            </div>
+            <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--bd2)">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
+                <input type="checkbox" id="pvChkExtra1" onchange="pvToggleExtra('extra1',this.checked)" style="width:auto">
+                <input id="pvExtra1Texto" type="text" placeholder="Ex: Adicione 2 ou mais unidades" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:14px">
+                <input type="checkbox" id="pvChkExtra2" onchange="pvToggleExtra('extra2',this.checked)" style="width:auto">
+                <input id="pvExtra2Texto" type="text" placeholder="Ex: Frete grátis acima de R$ 79" style="flex:1;padding:6px 8px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="pvChkCupom" onchange="pvToggleExtra('cupom',this.checked)" style="width:auto">
+                <span style="font-size:13px">Utilize o cupom:</span>
+                <select id="pvCupomSel" style="flex:1;padding:4px 6px;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx);font-size:13px">
+                  <option value="">— Selecione —</option>
+                </select>
+              </label>
+            </div>
+            <div class="card" style="margin:14px 0 0;box-shadow:none">
+              <div class="ch">Escolha o CTA</div>
+              <div class="cb">
+                <div id="pvCtaGrid" style="display:grid;gap:8px"></div>
+                <div class="field" style="margin-top:12px"><label>Ou escreva seu próprio</label><input id="pvCtaCustom" placeholder="Ex: Corre que acaba!"></div>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:12px">
+                  <input type="checkbox" id="pvChkCtaRandom" onchange="pvToggleCtaRandom(this.checked)" style="width:auto">
+                  <span style="font-size:13px">🎲 CTA aleatório a cada disparo</span>
+                </label>
+              </div>
+            </div>
+            <button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="pvPreVisualizarTexto()">👁️ Pré-visualizar texto</button>
+            <pre id="pvPreviewTexto" style="display:none;white-space:pre-wrap;background:var(--bg2);border:1px solid var(--bd2);border-radius:2px;padding:10px;margin-top:10px;font-size:12.5px;font-family:inherit"></pre>
           </div>
         </div>
       </div>
@@ -11317,7 +11367,7 @@ function prSelectAll(on){
 // Retorna {before, link} onde "before" é tudo antes do link (já com "Compre Aqui 👉 ")
 
 /* ================= POST VÍDEO (agendamento de vídeo avulso, Elite+) ================= */
-const PV={gruposSel:new Set(),arquivo:null,editandoId:null};
+const PV={gruposSel:new Set(),arquivo:null,editandoId:null,extras:{extra1:false,extra2:false,cupom:false},ctaSel:0,ctaRandom:false};
 
 function pvInit(){
   const gate=document.getElementById("pvGateAviso"),conteudo=document.getElementById("pvConteudo");
@@ -11327,11 +11377,94 @@ function pvInit(){
   if(!liberado)return;
   pvRenderGrupos();
   pvCarregarFila();
+  pvRenderCtaGrid();
+  pvRenderCupomSelect();
   const dh=document.getElementById("pvDataHora");
   if(dh&&!dh.value){
     const d=pvProximoMultiploDe5(new Date(Date.now()+30*60000));
     dh.value=pvDataParaInputLocal(d);
   }
+}
+
+// ── "Post completo" (opcional) — mesmo texto do Postar Agora, sem foto (o
+// vídeo já mostra o produto, então não faz sentido duplicar imagem) ──
+function pvTogglePostCompleto(on){
+  const legendaWrap=document.getElementById("pvLegendaWrap");
+  const completoWrap=document.getElementById("pvPostCompletoWrap");
+  if(legendaWrap)legendaWrap.style.display=on?"none":"";
+  if(completoWrap)completoWrap.style.display=on?"":"none";
+}
+function pvToggleExtra(tipo,on){PV.extras[tipo]=on;}
+function pvRenderCtaGrid(){
+  const cg=document.getElementById("pvCtaGrid");if(!cg)return;
+  PV.ctaSel=0;
+  cg.innerHTML=PR_CTAS.map((c,i)=>`
+    <button type="button" class="btn ${i===0?"btn-volt":"btn-ghost"} btn-sm" id="pvCta${i}"
+      onclick="pvSelecionarCta(${i})" style="text-align:left;justify-content:flex-start;white-space:normal;height:auto;padding:9px 12px">
+      ${c}
+    </button>`).join("");
+}
+function pvSelecionarCta(i){
+  PV.ctaSel=i;
+  const custom=document.getElementById("pvCtaCustom");if(custom)custom.value="";
+  document.querySelectorAll("[id^='pvCta']").forEach((b,j)=>{
+    b.className=`btn ${j===i?"btn-volt":"btn-ghost"} btn-sm`;
+    b.style.cssText="text-align:left;justify-content:flex-start;white-space:normal;height:auto;padding:9px 12px";
+  });
+}
+function pvToggleCtaRandom(on){
+  PV.ctaRandom=on;
+  const grid=document.getElementById("pvCtaGrid");if(grid)grid.style.opacity=on?"0.4":"1";
+  const custom=document.getElementById("pvCtaCustom");if(custom)custom.disabled=on;
+}
+function pvRenderCupomSelect(){
+  const sel=document.getElementById("pvCupomSel");if(!sel)return;
+  if(!COUPONS.length){sel.innerHTML='<option value="">Nenhum cupom cadastrado</option>';return;}
+  sel.innerHTML='<option value="">— Selecione —</option>'+COUPONS.map(c=>`<option value="${c.id}">${esc(c.code)}${c.label?" — "+esc(c.label):""}</option>`).join("");
+}
+
+// Mesmo formato do prMontarTexto (Postar Agora), sem a foto e sem a linha de
+// loja (aqui não há detecção de loja pelo link, só o link colado direto).
+function pvMontarTexto({nome,de,por,cta,link}){
+  const head=document.getElementById("pvHead")?.value||"🔥 OFERTA RELÂMPAGO 🔥";
+  const emojiDe=document.getElementById("pvEmojiDe")?.value||"";
+  const emojiPor=document.getElementById("pvEmojiPor")?.value||"";
+  let precoLinha;
+  if(de){
+    precoLinha=`${emojiDe?emojiDe+" ":""}~De R$ ${de}~ ${emojiPor?emojiPor+" ":""}por R$ ${por}`;
+  }else{
+    precoLinha=`${emojiPor?emojiPor+" ":""}R$ ${por}`;
+  }
+  let linhas=[head,nome,precoLinha];
+  if(PV.extras.extra1){
+    const txt=document.getElementById("pvExtra1Texto")?.value?.trim();
+    if(txt)linhas.push(`📦 ${txt}`);
+  }
+  if(PV.extras.extra2){
+    const txt=document.getElementById("pvExtra2Texto")?.value?.trim();
+    if(txt)linhas.push(`🚚 ${txt}`);
+  }
+  if(PV.extras.cupom){
+    const selId=document.getElementById("pvCupomSel")?.value;
+    const cupom=COUPONS.find(c=>c.id===selId);
+    if(cupom)linhas.push(`🏷️ Utilize o cupom: ${cupom.code}`);
+  }
+  linhas.push("");
+  linhas.push(cta);
+  linhas.push(`Compre Aqui 👉 ${link}`);
+  return linhas.join("\n");
+}
+function pvColetarCta(){
+  return PV.ctaRandom?PR_CTAS[Math.floor(Math.random()*PR_CTAS.length)]:(document.getElementById("pvCtaCustom")?.value||PR_CTAS[PV.ctaSel]||"");
+}
+function pvPreVisualizarTexto(){
+  const nome=document.getElementById("pvNome")?.value||"Produto";
+  const por=document.getElementById("pvPor")?.value||"0,00";
+  const de=document.getElementById("pvDe")?.value;
+  const link=(document.getElementById("pvLinkCurto")?.value||document.getElementById("pvLink")?.value||"").trim();
+  const texto=pvMontarTexto({nome,de,por,cta:pvColetarCta(),link});
+  const pre=document.getElementById("pvPreviewTexto");
+  if(pre){pre.textContent=texto;pre.style.display="block";}
 }
 
 // O cron do send-video-post roda em */5 min (00,05,10…). Agendar entre um
@@ -11420,6 +11553,16 @@ function pvLimparFormulario(){
   const btn=document.getElementById("pvBtnAgendar");
   if(btn)btn.textContent="📅 Agendar";
   pvRenderGrupos();
+  // Post completo — volta pro modo simples
+  const chkCompleto=document.getElementById("pvChkPostCompleto");if(chkCompleto)chkCompleto.checked=false;
+  pvTogglePostCompleto(false);
+  ["pvNome","pvDe","pvPor","pvEmojiDe","pvEmojiPor","pvExtra1Texto","pvExtra2Texto","pvCtaCustom"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  document.getElementById("pvHead").value="🔥 OFERTA RELÂMPAGO 🔥";
+  ["pvChkExtra1","pvChkExtra2","pvChkCupom","pvChkCtaRandom"].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
+  PV.extras={extra1:false,extra2:false,cupom:false};
+  PV.ctaRandom=false;pvToggleCtaRandom(false);
+  pvRenderCtaGrid();
+  const pre=document.getElementById("pvPreviewTexto");if(pre)pre.style.display="none";
 }
 
 async function pvAgendar(){
@@ -11442,10 +11585,23 @@ async function pvAgendar(){
   if(btn){btn.disabled=true;btn.textContent=PV.editandoId?"Salvando…":"Enviando…";}
   try{
     const shortLink=(document.getElementById("pvLinkCurto")?.value||"").trim()||null;
-    const caption=(document.getElementById("pvLegenda")?.value||"").trim()||null;
+    const postCompleto=document.getElementById("pvChkPostCompleto")?.checked;
+    let caption,appendLink;
+    if(postCompleto){
+      const nome=(document.getElementById("pvNome")?.value||"").trim();
+      if(!nome){toast("Preencha o nome do produto (post completo).","⚠️");if(btn){btn.disabled=false;btn.textContent=PV.editandoId?"💾 Salvar alterações":"📅 Agendar";}return;}
+      const por=(document.getElementById("pvPor")?.value||"").trim();
+      if(!por){toast("Preencha o preço Por (post completo).","⚠️");if(btn){btn.disabled=false;btn.textContent=PV.editandoId?"💾 Salvar alterações":"📅 Agendar";}return;}
+      const de=document.getElementById("pvDe")?.value;
+      caption=pvMontarTexto({nome,de,por,cta:pvColetarCta(),link:shortLink||link});
+      appendLink=false; // link já está embutido no texto acima
+    }else{
+      caption=(document.getElementById("pvLegenda")?.value||"").trim()||null;
+      appendLink=true;
+    }
 
     if(PV.editandoId){
-      await pvSalvarEdicao(PV.editandoId,{link,shortLink,caption,scheduledAt});
+      await pvSalvarEdicao(PV.editandoId,{link,shortLink,caption,scheduledAt,appendLink});
     }else{
       const ext=(PV.arquivo.name.split(".").pop()||"mp4").toLowerCase();
       const path=`${CURRENT_USER.id}/${crypto.randomUUID()}.${ext}`;
@@ -11460,6 +11616,7 @@ async function pvAgendar(){
         product_link:link,
         short_link:shortLink,
         caption,
+        append_link:appendLink,
         scheduled_at:scheduledAt.toISOString(),
         status:"pending"
       }).select("id").single();
@@ -11485,8 +11642,8 @@ async function pvAgendar(){
 // Substitui o vídeo só se um arquivo novo foi escolhido; senão mantém o já
 // enviado. Grupos são sempre regravados do zero (mais simples que diff e o
 // post ainda está pending — não tem histórico de envio pra preservar).
-async function pvSalvarEdicao(id,{link,shortLink,caption,scheduledAt}){
-  const upd={product_link:link,short_link:shortLink,caption,scheduled_at:scheduledAt.toISOString()};
+async function pvSalvarEdicao(id,{link,shortLink,caption,scheduledAt,appendLink}){
+  const upd={product_link:link,short_link:shortLink,caption,append_link:appendLink,scheduled_at:scheduledAt.toISOString()};
 
   if(PV.arquivo){
     const{data:atual}=await SB.from("video_posts").select("video_storage_path").eq("id",id).single();
