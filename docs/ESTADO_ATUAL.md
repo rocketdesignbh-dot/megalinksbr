@@ -1695,6 +1695,62 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
+**REVISÃO 151 — 14/09/2026 — Post Vídeo: medido em produção (funcionou), + arredondamento de 5min e edição de agendamento. CODADO E DEPLOYADO NO SUPABASE, PUSH FEITO, FALTA DEPLOY DO `app`.**
+
+### Medição em produção da REVISÃO 150
+
+O Érico agendou um vídeo real numa conta Elite (`d63dd97f-…`, grupo
+"Achadinhos Geral") pra `14:37 UTC` e reportou que não postou. Não era bug:
+o cron `send-video-post` roda em `*/5 * * * *` (14:25, 14:30, 14:35…) e a
+rodada das 14:35 aconteceu 2 minutos ANTES do horário agendado — correto não
+pegar ainda, a próxima seria 14:40. Disparei a função manualmente
+(`net.http_post` direto, mesmo comando do cron) pra não esperar: `video_posts`
+fechou `sent`, `video_post_groups` do grupo fechou `sent` sem erro, e o
+arquivo saiu do bucket `video-posts` — o caminho completo (Storage → Signed
+URL → wa-engine `/send-group` com `videoUrl` → Baileys → grupo) funciona.
+Falta só o Érico confirmar visualmente que o vídeo chegou no grupo do
+WhatsApp com legenda/link certos (pedido, resposta ainda não chegou nesta
+sessão).
+
+### O que o Érico pediu (nesta sessão)
+
+Duas melhorias depois do teste acima: (1) impedir agendar em horário que não
+seja múltiplo de 5 min (pra não repetir a confusão do teste); (2) botão de
+editar um agendamento depois de criado.
+
+### O que foi feito
+
+- **Arredondamento automático, não bloqueio.** `pvProximoMultiploDe5()` leva
+  qualquer horário escolhido pro próximo múltiplo de 5 **pra cima** (nunca
+  pra trás — não faz sentido antecipar o que a pessoa pediu depois). Roda
+  tanto no valor padrão que a tela sugere quanto no que o usuário digitar; se
+  ajustar, um toast avisa pra qual horário foi. `step="300"` no
+  `<input type="datetime-local">` ajuda em navegadores que respeitam (Chrome
+  desktop respeita; não custa nada nos que ignoram).
+- **Editar agendamento `pending`.** Botão "✏️ Editar" na fila (ao lado do
+  "✕ Cancelar", só aparece em `pending`) carrega link, legenda, grupos e
+  data/hora de volta no formulário (`pvEditar`) e troca o botão principal
+  pra "💾 Salvar alterações" (`pvSalvarEdicao`). O vídeo enviado é mantido a
+  não ser que a pessoa escolha um arquivo novo — nesse caso o antigo é
+  apagado do Storage só depois do novo terminar de subir, pra nunca ficar
+  sem nenhum dos dois se o upload falhar no meio. Grupos são sempre
+  regravados do zero em vez de diff (mais simples, e o post ainda não foi
+  enviado — não há histórico de status por grupo pra preservar). "Cancelar
+  edição" volta ao estado de criação sem salvar nada.
+
+### O que falta
+
+- Confirmação visual do Érico de que o vídeo da REVISÃO 150 chegou certo no
+  grupo (pendência, ver P148 abaixo).
+- **Deploy do `app` no EasyPanel** — o push desta sessão (arredondamento +
+  edição) ainda não está servido; o teste da REVISÃO 150 rodou com o código
+  ANTERIOR a esta mudança.
+- Testar a edição de verdade: editar um `pending`, trocar o vídeo, trocar
+  os grupos, e conferir que o antigo some do Storage e o novo é o que sai no
+  disparo.
+
+---
+
 **REVISÃO 150 — 14/09/2026 — Post Vídeo (P147, Elite+): schema, Storage, Edge Function e aba do painel CODADOS E DEPLOYADOS (backend), NÃO MEDIDO EM PRODUÇÃO.**
 
 ### O que o Érico pediu
@@ -10790,7 +10846,7 @@ código não relacionado.
 | # | Pendência | Origem |
 |---|---|---|
 | **P146** | 🟡 **Link nativo Shopee no disparo pros grupos WhatsApp — CODADO E DEPLOYADO (`send-post` v30/deploy 65, `group-blast` v9/deploy 21), NÃO MEDIDO EM PRODUÇÃO.** Pedido do Érico: os grupos ainda saíam com o encurtador próprio mesmo depois da P143 (que só cobria a "Postar Agora"). `linkFinalDoProduto` (async) tenta o link nativo da Shopee (Open API oficial, App Key/App Secret) antes de cair no `an_redir`+encurtador de sempre; `ehLinkNativoShopee` evita reembrulhar o resultado. **Decisão do Érico: só Shopee no automático — ML fica de fora** (o link nativo do ML usa o endpoint não documentado do painel de Afiliados com cookie de sessão pessoal; automatizar isso no disparo recorrente multiplicaria o risco de flag na conta, ao contrário da Shopee que usa App Key/App Secret). Falta: disparar um produto Shopee real (Post Automático ou Disparo Manual) com App Secret configurado e conferir no grupo que o link saiu `s.shopee.com.br/XXXX` cru; conferir que ML e as demais lojas não regrediram; conferir que Shopee sem App Secret cai no fallback de sempre | 14/09 |\n| ~~P144~~ | ✅ **FECHADA (12/09, REVISÃO 147).** O push que a REVISÃO 146 deixou registrado como bloqueado (proxy da sessão negando `git push` com 403 + `device_bash` fora do ar) já tinha acontecido antes desta sessão começar — `git clone --depth=1` fresco do `main` mostrou `HEAD` em `7b1b713`, com `docs/ESTADO_ATUAL.md` (REVISÃO 146), `frontend/index.html` (P145/"Clonar 100%") e `clone-ingest` v21 todos presentes. Não foi medido quem rodou o commit/push nem quando. Os dois bugs de infraestrutura em si (proxy de repositório autorizado da sessão, bug de Plan9 drive share do Windows) não foram reconfirmados como corrigidos — só contornados. Se reaparecerem numa sessão futura, não assumir que "já foi resolvido" | 12/09 |
-| **P148** | 🟡 **Post Vídeo (Elite+) — schema, Storage, Edge Function `send-video-post` e aba do painel CODADOS E DEPLOYADOS, NÃO MEDIDO EM PRODUÇÃO.** Ver "Última alteração" (REVISÃO 150) para o desenho completo. Falta: Deploy do `app` no EasyPanel (leva o `wa-engine` junto — suporte a `videoUrl` em `/send-group` só entra no ar depois disso); agendar um vídeo real (conta Elite) e conferir chegando no grupo do WhatsApp com legenda/link certos; testar cancelamento (arquivo precisa sumir do bucket `video-posts`); testar caminho de falha (grupo sem `group_jid`, sessão desconectada) e conferir que o vídeo continua no Storage quando `partial_failed`/`failed` | 14/09 |
+| **P148** | 🟡 **Post Vídeo (Elite+) — MEDIDO EM PRODUÇÃO NO BACKEND (disparo manual da função confirmou `sent` ponta a ponta), NÃO CONFIRMADO VISUALMENTE NO WHATSAPP, e arredondamento de 5min + edição (REVISÃO 151) AINDA NÃO DEPLOYADOS.** Ver "Última alteração" (REVISÕES 150/151). Falta: (a) Érico confirmar que o vídeo da REVISÃO 150 chegou no grupo com legenda/link certos; (b) Deploy do `app` no EasyPanel pra publicar o arredondamento de 5min e a edição de agendamento; (c) testar edição de verdade (trocar vídeo, trocar grupos); (d) testar cancelamento e caminho de falha (grupo sem `group_jid`, sessão desconectada) e conferir que o vídeo continua no Storage quando `partial_failed`/`failed` | 14/09 |
 | **P145** | 🟡 **"Clonar 100%" (`clone_sources.clone_full_content`) — CODADO, backend DEPLOYADO, NÃO MEDIDO.** Ver seção "Clone Post — Clonar 100%" acima para o detalhe completo. Falta: ligar o toggle numa fonte real, esperar uma captura, e conferir se `products.description` saiu com frase coerente (não com lixo nem com auto-promoção do grupo-fonte que o filtro devia ter pego) | 12/09 |
 | ~~P143~~ | ✅ **FECHADA (12/09, REVISÃO 145) — MEDIDA EM PRODUÇÃO, AS DUAS LOJAS.** Link de afiliado nativo: Shopee confirmada saindo com `s.shopee.com.br/...` cru; Mercado Livre confirmado gerando o link nativo depois do Érico salvar `ml_session_cookie` (faltava, a Etiqueta ML já estava configurada). Sem regressão observada. Risco que continua valendo: o endpoint do ML não é oficial, pode quebrar sem aviso do ML — se o link do ML voltar a cair no fallback (`megalinksbr.com.br/r/...`) depois de ter funcionado, é sinal de cookie expirado (basta repetir a captura) ou de o endpoint ter mudado | 12/09 |
 | **P138** | 🟡 **Shopee sem verificador de preço automático — 63% dos produtos Shopee (88 de 140) sem `price_original`, 87 deles nunca conferidos desde a captura.** `product-refresh` só cobre `mercado_livre` e `amazon` (`LOJAS_COM_VERIFICADOR`) — Shopee só ganha "de" se a própria loja mostrar no momento da captura (Radar/importação); sem verificador, nunca recupera depois. Amazon também tem 35 produtos sem "de" mesmo com checagem recente (não investigado a fundo). Decisão de arquitetura (custo/prioridade de construir verificador pra Shopee), não bug — precisa ser discutida com o Érico antes de codar. Achado ao investigar por que "muitas postagens saem sem De/Por" (REVISÃO 135) | 06/09 |
