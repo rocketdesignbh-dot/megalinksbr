@@ -1,4 +1,13 @@
-// Mega Links BR · Edge Function "send-post" v29
+// Mega Links BR · Edge Function "send-post" v30 — link nativo Shopee tambem no Post Automatico (P143-b)
+// v30 (P143-b): link nativo da Shopee (API oficial de afiliados, mesma que o
+//      `product-search` v34/"Postar Agora" usa) também no disparo automático.
+//      Diferente do ML (endpoint não documentado + cookie de sessão pessoal —
+//      automatizar isso multiplicaria o risco de flag na conta do Érico), a
+//      Shopee usa a Open API oficial com App Key/App Secret, então é seguro
+//      repetir a cada disparo. `linkFinalDoProduto` (agora async) tenta o
+//      link nativo primeiro; `ehLinkNativoShopee` reconhece o resultado
+//      (s.shopee.com.br/XXXX, sem /an_redir) para NÃO reembrulhar no
+//      encurtador próprio.
 // v29: Achado do Erico em 07/09 -- 10 dos 11 grupos "Achadinhos" (mesmo usuario,
 //      delete_after_post=true, intervalo de 15min) foram medidos no banco com
 //      ZERO produtos e parados ha 2-3 dias, dependendo so de captura automatica
@@ -330,6 +339,48 @@ function ehLinkCurtoProprio(url: string): boolean {
   } catch { return false; }
 }
 
+// v27 (P143-b): link nativo da Shopee (API oficial de afiliados, mesma que o
+// `product-search` v34/"Postar Agora" usa) também no disparo automático.
+// Diferente do ML (endpoint não documentado + cookie de sessão pessoal —
+// automatizar isso multiplicaria o risco de flag na conta do Érico), a
+// Shopee usa a Open API oficial com App Key/App Secret, então é seguro repetir
+// a cada disparo. Reconhece o link nativo (s.shopee.com.br/XXXX, sem
+// /an_redir) para NÃO reembrulhar no encurtador próprio.
+async function sha256Hex(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+async function gerarLinkNativoShopee(url: string, appId: string, appSecret: string): Promise<string | null> {
+  if (!appId || !appSecret) return null;
+  const m = url.split("#")[0].match(/\/product\/(\d+)\/(\d+)/);
+  if (!m) return null;
+  const shopId = m[1], itemId = m[2];
+  try {
+    const query = `{ productOfferV2(itemId: ${itemId}, shopId: ${shopId}) { nodes { offerLink } } }`;
+    const ts = Math.floor(Date.now() / 1000);
+    const payload = JSON.stringify({ query });
+    const sig = await sha256Hex(`${appId}${ts}${payload}${appSecret}`);
+    const r = await fetch("https://open-api.affiliate.shopee.com.br/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `SHA256 Credential=${appId},Timestamp=${ts},Signature=${sig}` },
+      body: payload,
+    });
+    if (!r.ok) { console.warn(`[shopee-nativo] HTTP ${r.status}`); return null; }
+    const d = await r.json();
+    if (Array.isArray(d?.errors) && d.errors.length) { console.warn(`[shopee-nativo] API recusou: ${d.errors[0]?.message}`); return null; }
+    return d?.data?.productOfferV2?.nodes?.[0]?.offerLink || null;
+  } catch (e) {
+    console.warn("[shopee-nativo] falhou:", e instanceof Error ? e.message : String(e));
+    return null;
+  }
+}
+function ehLinkNativoShopee(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.hostname.replace(/^www\./, "") === "s.shopee.com.br" && !u.pathname.startsWith("/an_redir");
+  } catch { return false; }
+}
+
 // ── Encurtamento (mesmo padrão do Postar Agora) ────────────────────────────────
 function gerarCode(len = 7): string {
   const chars = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -405,13 +456,21 @@ async function carregarCredenciais(sb: any, userId: string): Promise<Record<stri
   return map;
 }
 
-function linkFinalDoProduto(product: any, credsMap: Record<string, Record<string, string>>): string {
+async function linkFinalDoProduto(product: any, credsMap: Record<string, Record<string, string>>): Promise<string> {
   const original = product.original_url || product.affiliate_url || "";
   if (!original) return product.affiliate_url || "";
   // Já é um short link nosso (produto salvo pelo fluxo antigo): posta como está.
   if (ehLinkCurtoProprio(original)) return original;
   if (!product.source || product.source === "manual") return product.affiliate_url || original;
   const cred = credsMap[product.source] || null;
+  if (product.source === "shopee" && cred) {
+    const appId = String(cred["App Key"] || cred["ID de Afiliado"] || "").trim();
+    const appSecret = String(cred["App Secret"] || "").trim();
+    if (appId && appSecret) {
+      const nativo = await gerarLinkNativoShopee(original, appId, appSecret);
+      if (nativo) return nativo;
+    }
+  }
   return gerarLinkAfiliado(original, product.source, cred) || product.affiliate_url || original;
 }
 
@@ -789,8 +848,11 @@ Deno.serve(async (req: Request) => {
       // Sem Loop o cursor NAO da a volta: ele para em total, e e isso que segura
       // o rodizio ate entrar produto novo. Com Loop, % total recomeca do 1o.
       nextCursor = loop ? (cursor + 1) % total : cursor + 1;
-      // 1º regenera a afiliação com as credenciais ATUAIS, 2º encurta com o user_id do dono.
-      product.affiliate_url = await encurtarLink(sb, group.user_id, linkFinalDoProduto(product, credsMap), montarOg(product));
+      // 1º regenera a afiliação com as credenciais ATUAIS (tenta o link nativo da
+      // Shopee primeiro), 2º encurta com o user_id do dono — exceto quando já é o
+      // link nativo, que sai "cru", sem passar pelo encurtador próprio.
+      const linkFinal = await linkFinalDoProduto(product, credsMap);
+      product.affiliate_url = ehLinkNativoShopee(linkFinal) ? linkFinal : await encurtarLink(sb, group.user_id, linkFinal, montarOg(product));
       msg = montarTexto(product);
     }
     let groupSent = 0, groupFailed = 0;

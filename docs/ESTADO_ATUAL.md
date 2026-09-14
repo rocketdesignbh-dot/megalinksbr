@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 148 — 14/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 149 — 14/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1694,6 +1694,74 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 149 — 14/09/2026 — P146 (link nativo Shopee no disparo pros grupos WhatsApp): `send-post` v30 (deploy 65) e `group-blast` v9 (deploy 21) NO AR, CODADO E DEPLOYADO, AINDA NÃO MEDIDO EM PRODUÇÃO.**
+
+### O que o Érico pediu
+
+> "Mas eu gostaria que esse links fossem aplicados tbm na hora da postagem
+> nos grupos whatsapp, pois la ainda esta sendo publicado com o encurtador
+> da megalinks"
+
+A REVISÃO 144/145 (P143, fechada) só tinha ligado o link nativo (Shopee sem
+reembrulhar; Mercado Livre via endpoint interno) na tela **"Postar Agora"**
+(`product-search` v34, busca manual). O disparo automático pros grupos
+(`send-post`, Post Automático) e o Disparo Manual (`group-blast`, plano
+Starter) **reconstroem o link do zero a partir de `original_url`** a cada
+disparo, com uma `gerarLinkAfiliado` própria e mais simples (sem a API
+oficial da Shopee nem o endpoint do ML) — e sempre embrulham o resultado no
+encurtador próprio (`megalinksbr.com.br/r/...`). É por isso que os grupos
+continuavam saindo com o encurtador mesmo depois da P143.
+
+### Decisão de escopo — só Shopee no automático, ML fica de fora por ora
+
+Perguntado ao Érico se o link nativo do ML também devia entrar no disparo
+automático. **Ponto de atenção levantado antes de perguntar:** o link nativo
+do ML usa o endpoint não documentado do painel de Afiliados, autenticado com
+o cookie de sessão pessoal do Érico (`ml_session_cookie`). Na "Postar Agora"
+isso dispara uma vez por clique manual; automatizado no `send-post`/
+`group-blast`, passaria a bater nesse endpoint várias vezes por hora, todo
+dia, multiplicando o risco de flag que a REVISÃO 144 já tinha registrado como
+risco assumido só para uso manual.
+
+**Decisão do Érico: "Só Shopee por enquanto".** ML continua só na "Postar
+Agora"; o automático não toca no endpoint do painel de Afiliados do ML.
+
+### O que foi feito
+
+Nas duas Edge Functions (`send-post` e `group-blast`), `linkFinalDoProduto`
+virou `async` e, quando `product.source === "shopee"` e há credencial
+(`App Key`/`ID de Afiliado` + `App Secret`), tenta primeiro o link nativo via
+a mesma Open API oficial de afiliados da Shopee que o `product-search` v34
+usa (GraphQL `productOfferV2`, assinatura SHA256 com `appId+timestamp+
+payload+appSecret` — código replicado, não importado, mesmo padrão de
+duplicação consciente já usado no resto do projeto). Diferente do ML, essa
+API não usa cookie de sessão — é App Key/App Secret, então repetir a cada
+disparo automático não aumenta risco de flag na conta pessoal do Érico.
+
+Uma função nova `ehLinkNativoShopee(url)` reconhece o resultado
+(`s.shopee.com.br/XXXX`, **sem** `/an_redir`) e, quando é nativo, o link sai
+"cru" pro grupo — **sem** passar pelo `encurtarLink`/`megalinksbr.com.br/r/`.
+Sem App Secret configurado, ou se a chamada à API falhar por qualquer motivo,
+cai de volta no comportamento de sempre (`gerarLinkAfiliado` → `an_redir` →
+encurtador próprio) — sem regressão.
+
+Antes de deployar, `list_edge_functions` + `get_edge_function` confirmaram
+que o repo estava IDÊNTICO ao código publicado nas duas funções (v20 do
+group-blast e v64 do send-post) — nenhum risco de sobrescrever mudança feita
+direto em produção.
+
+### O que falta
+
+Medir em produção: cadastrar/disparar um produto Shopee com App Key + App
+Secret configurados num grupo com Post Automático ou usar o Disparo Manual
+(Starter), e conferir no grupo WhatsApp que o link chegou como
+`s.shopee.com.br/XXXX` "cru", não como `megalinksbr.com.br/r/...`. Conferir
+também que Mercado Livre e as demais lojas continuam saindo exatamente como
+antes (sem regressão) e que Shopee sem App Secret configurado cai no
+fallback de sempre.
+
+---
 
 **REVISÃO 148 — 14/09/2026 — P141 FECHADA e P142 CONFIRMADA. `radar` v34 (deploy 57) NO AR e MEDIDO.**
 
@@ -10640,7 +10708,7 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
-| ~~P144~~ | ✅ **FECHADA (12/09, REVISÃO 147).** O push que a REVISÃO 146 deixou registrado como bloqueado (proxy da sessão negando `git push` com 403 + `device_bash` fora do ar) já tinha acontecido antes desta sessão começar — `git clone --depth=1` fresco do `main` mostrou `HEAD` em `7b1b713`, com `docs/ESTADO_ATUAL.md` (REVISÃO 146), `frontend/index.html` (P145/"Clonar 100%") e `clone-ingest` v21 todos presentes. Não foi medido quem rodou o commit/push nem quando. Os dois bugs de infraestrutura em si (proxy de repositório autorizado da sessão, bug de Plan9 drive share do Windows) não foram reconfirmados como corrigidos — só contornados. Se reaparecerem numa sessão futura, não assumir que "já foi resolvido" | 12/09 |
+| **P146** | 🟡 **Link nativo Shopee no disparo pros grupos WhatsApp — CODADO E DEPLOYADO (`send-post` v30/deploy 65, `group-blast` v9/deploy 21), NÃO MEDIDO EM PRODUÇÃO.** Pedido do Érico: os grupos ainda saíam com o encurtador próprio mesmo depois da P143 (que só cobria a "Postar Agora"). `linkFinalDoProduto` (async) tenta o link nativo da Shopee (Open API oficial, App Key/App Secret) antes de cair no `an_redir`+encurtador de sempre; `ehLinkNativoShopee` evita reembrulhar o resultado. **Decisão do Érico: só Shopee no automático — ML fica de fora** (o link nativo do ML usa o endpoint não documentado do painel de Afiliados com cookie de sessão pessoal; automatizar isso no disparo recorrente multiplicaria o risco de flag na conta, ao contrário da Shopee que usa App Key/App Secret). Falta: disparar um produto Shopee real (Post Automático ou Disparo Manual) com App Secret configurado e conferir no grupo que o link saiu `s.shopee.com.br/XXXX` cru; conferir que ML e as demais lojas não regrediram; conferir que Shopee sem App Secret cai no fallback de sempre | 14/09 |\n| ~~P144~~ | ✅ **FECHADA (12/09, REVISÃO 147).** O push que a REVISÃO 146 deixou registrado como bloqueado (proxy da sessão negando `git push` com 403 + `device_bash` fora do ar) já tinha acontecido antes desta sessão começar — `git clone --depth=1` fresco do `main` mostrou `HEAD` em `7b1b713`, com `docs/ESTADO_ATUAL.md` (REVISÃO 146), `frontend/index.html` (P145/"Clonar 100%") e `clone-ingest` v21 todos presentes. Não foi medido quem rodou o commit/push nem quando. Os dois bugs de infraestrutura em si (proxy de repositório autorizado da sessão, bug de Plan9 drive share do Windows) não foram reconfirmados como corrigidos — só contornados. Se reaparecerem numa sessão futura, não assumir que "já foi resolvido" | 12/09 |
 | **P145** | 🟡 **"Clonar 100%" (`clone_sources.clone_full_content`) — CODADO, backend DEPLOYADO, NÃO MEDIDO.** Ver seção "Clone Post — Clonar 100%" acima para o detalhe completo. Falta: ligar o toggle numa fonte real, esperar uma captura, e conferir se `products.description` saiu com frase coerente (não com lixo nem com auto-promoção do grupo-fonte que o filtro devia ter pego) | 12/09 |
 | ~~P143~~ | ✅ **FECHADA (12/09, REVISÃO 145) — MEDIDA EM PRODUÇÃO, AS DUAS LOJAS.** Link de afiliado nativo: Shopee confirmada saindo com `s.shopee.com.br/...` cru; Mercado Livre confirmado gerando o link nativo depois do Érico salvar `ml_session_cookie` (faltava, a Etiqueta ML já estava configurada). Sem regressão observada. Risco que continua valendo: o endpoint do ML não é oficial, pode quebrar sem aviso do ML — se o link do ML voltar a cair no fallback (`megalinksbr.com.br/r/...`) depois de ter funcionado, é sinal de cookie expirado (basta repetir a captura) ou de o endpoint ter mudado | 12/09 |
 | **P138** | 🟡 **Shopee sem verificador de preço automático — 63% dos produtos Shopee (88 de 140) sem `price_original`, 87 deles nunca conferidos desde a captura.** `product-refresh` só cobre `mercado_livre` e `amazon` (`LOJAS_COM_VERIFICADOR`) — Shopee só ganha "de" se a própria loja mostrar no momento da captura (Radar/importação); sem verificador, nunca recupera depois. Amazon também tem 35 produtos sem "de" mesmo com checagem recente (não investigado a fundo). Decisão de arquitetura (custo/prioridade de construir verificador pra Shopee), não bug — precisa ser discutida com o Érico antes de codar. Achado ao investigar por que "muitas postagens saem sem De/Por" (REVISÃO 135) | 06/09 |
