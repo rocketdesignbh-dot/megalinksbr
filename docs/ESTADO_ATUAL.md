@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 150 — 15/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 153 — 15/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1733,7 +1733,49 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
-**REVISÃO 152 — 14/09/2026 — Post Vídeo: modo "post completo" (texto igual ao Postar Agora, sem foto). CODADO, PUSH FEITO, DEPLOY DO `app` CONFIRMADO EM PRODUÇÃO.**
+**REVISÃO 153 — 15/09/2026 — Landing: banda de prova social com número real da base (sem inventar). NÃO commitado no EasyPanel ainda — trabalho em branch local `redesign/megalinks-ui-v2`, não mergeado em `main`.**
+
+### O que foi pedido
+
+Érico pediu um redesign completo de UI/UX da landing pública e do painel,
+com prioridade em prova social, depoimentos, FAQ, pricing, motion e
+revisão mobile. Antes de mexer, foi feita auditoria: `landing.html` já
+passou por uma reescrita completa na REVISÃO 63 (direção "Sala de
+Despacho", ver `docs/DIRECAO_VISUAL.md`) — já tem identidade própria,
+motion contido, sem os padrões de "template de IA" que o pedido queria
+evitar. `docs/DIRECAO_VISUAL.md` proíbe explicitamente inventar prova
+social ou depoimento sem dado medido. Escopo foi renegociado com o Érico
+para: (1) prova social com número real do Supabase, (2) limpeza de
+emoji + revisão de densidade do painel (`index.html`, 26 telas — adiado,
+ver Pendências), (3) checagem de responsividade mobile da landing.
+
+### O que foi feito
+
+- Nova banda logo abaixo da tira de marketplaces, mesmo padrão visual
+  (`.strip`, mono, token `--y`), com números medidos direto no Supabase
+  (`nxlfezpagporealqqbfj`) em 15/09/2026: `scheduled_posts` com
+  `status='sent'` = **6.924**; `short_links` = **3.122**; `products` =
+  **645**. Query usada documentada em comentário HTML acima da seção, para
+  quem for atualizar o número depois.
+- Checagem de responsividade: `landing.html` servido localmente e
+  screenshotado via Playwright/Chromium em 390×844 (mobile) e 1440×900
+  (desktop) — sem overflow horizontal em nenhum dos dois, tira de prova
+  nova quebra linha corretamente no mobile.
+
+### O que NÃO foi feito ainda (decisão de escopo, não esquecimento)
+
+- Limpeza de emoji + revisão de densidade das 26 telas do `index.html`:
+  auditoria encontrou **1123 ocorrências de emoji** no arquivo (13.821
+  linhas). Muitos são indicadores de estado funcionais (✅/❌/⚠️ em
+  mensagens de log/validação), não só copy decorativo — remover em massa
+  por regex arriscaria quebrar leitura de estado em produção sem teste
+  tela por tela. Fica como tarefa própria, categorizando emoji por tipo
+  (decorativo vs. indicador de estado vs. log interno) antes de tocar.
+- Nenhuma mudança em `index.html`, nenhum depoimento/logo de cliente
+  adicionado (não existe dado real para isso ainda).
+- Branch não mergeada em `main`, nada em produção mudou.
+
+### REVISÃO 152 — 14/09/2026 — Post Vídeo: modo "post completo" (texto igual ao Postar Agora, sem foto). CODADO, PUSH FEITO, DEPLOY DO `app` CONFIRMADO EM PRODUÇÃO.**
 
 ### Confirmação de push/deploy
 
