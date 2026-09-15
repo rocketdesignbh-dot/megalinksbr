@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 153 — 15/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 154 — 15/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1733,7 +1733,36 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
-**REVISÃO 153 — 15/09/2026 — Landing: banda de prova social com número real da base (sem inventar). NÃO commitado no EasyPanel ainda — trabalho em branch local `redesign/megalinks-ui-v2`, não mergeado em `main`.**
+**REVISÃO 154 — 15/09/2026 — Sessão pediu restilização completa de novo (mesmo pedido da REVISÃO 153, sem saber que ela já tinha rodado); nada de visual novo foi commitado — a sessão foi de investigação, fechou a P71 e registrou a P150. NADA de código mudou nesta sessão.**
+
+### O que foi pedido
+
+Érico mandou um prompt extenso e detalhado pedindo restilização completa de UI/UX do MegaLinksBR (design tokens, header, componentes, dashboard, formulários, tabelas, responsividade, a11y, motion) — essencialmente o mesmo pedido já registrado na REVISÃO 153, numa sessão que não sabia da anterior.
+
+### O que a sessão descobriu
+
+O checkout local em que a sessão rodou estava travado no commit `b75b5e8` (11/08) — **626 commits só locais, 841 commits só no `origin/main`**, cerca de um mês de defasagem. A sessão chegou a fazer 5 commits de restilização (tokens de cor, botões, formulários, loading states, branch `redesign/megalinks-ui`) **em cima dessa cópia desatualizada**, achando que estava implementando o pedido do zero. Só ao comparar com o `origin/main` real ficou claro que a REVISÃO 63–66 (23/08, "Sala de Despacho", ver `docs/DIRECAO_VISUAL.md`) já tinha feito o mesmo trabalho — e de forma mais rigorosa (raio 2px, zero sombra, tipografia Archivo/IBM Plex Sans/Mono, amarelo só como estado, contraste documentado). Aplicar os 5 commits por cima teria **regredido** o trabalho já existente. **Os 5 commits foram abandonados, nunca mergeados em nada.**
+
+- **P71 fechada com prova real** (ver Pendências): a tipografia da REVISÃO 66 nunca tinha sido vista fora do sandbox sem acesso ao Google Fonts. Servida localmente com internet de verdade: `document.fonts.check()` true para as 3 famílias, `h1` resolve pra Archivo, não caiu em fallback. Commit `4f0cd18`, push direto no `main` (fast-forward, autorizado pelo Érico).
+- **Landing e tela de login confirmadas ao vivo em `megalinksbr.com.br`** (fetch direto, sem cache — `cache-control: no-cache, must-revalidate`, sem service worker): o redesign da REVISÃO 63 e a banda de prova social da REVISÃO 153 (PR #18, `a70bcee`) estão mesmo no ar, com os números batendo (6.924/3.122/645).
+
+### Por que o Érico não viu nada diferente
+
+A própria REVISÃO 153 já tinha escopado isso: a landing recebeu a mudança grande; o painel (`index.html`, 26 telas) só recebeu troca de tokens na REVISÃO 66 (23/08) — raio, sombra, cor, tipografia — **sem mudar layout, densidade ou remover emoji**, decisão de escopo explícita, não esquecimento (ver P70/P89 abaixo). Quem espera uma reformulação visual grande do painel e olha rápido pode não notar a troca de token. **Esta sessão não conseguiu confirmar o painel logado** (sem credencial de teste) — só a tela de login, que está atualizada.
+
+### O que NÃO foi feito (decisão de escopo, mesma da REVISÃO 153)
+
+- Nenhuma mudança de layout ou densidade nas 26 telas do painel.
+- Limpeza de emoji (1123 ocorrências, ver REVISÃO 153/P70/P89) — Érico confirmou nesta sessão que quer manter os emoji como estão.
+- Nenhum teste no painel logado.
+
+### Estado ao encerrar
+
+- `git stash` no checkout local com alterações pré-existentes de outra sessão (`frontend/onboarding.js`, `wa-engine/package.json`, `wa-engine/server.js`) — preservadas, não aplicadas, não avaliadas por esta sessão.
+- Branch `redesign/megalinks-ui` (5 commits, não mergeada) — **não usar**, foi superada pela REVISÃO 66.
+- Branch local `sync/origin-main` = `main` + o commit da P71.
+
+### REVISÃO 153 — 15/09/2026 — Landing: banda de prova social com número real da base (sem inventar). NÃO commitado no EasyPanel ainda — trabalho em branch local `redesign/megalinks-ui-v2`, não mergeado em `main`.** ⚠️ **Atualização da REVISÃO 154: esse push aconteceu — PR #18 (`a70bcee`) está mergeado em `main` e confirmado ao vivo em produção.**
 
 ### O que foi pedido
 
@@ -10992,6 +11021,7 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P150** | 🟡 **Checkout local ficou 626 commits à frente / 841 atrás do `origin/main` (defasagem de ~1 mês, parado em `b75b5e8` de 11/08) — causou uma sessão inteira de retrabalho antes de perceber.** A sessão da REVISÃO 154 fez 5 commits de restilização visual em cima da cópia desatualizada, achando que implementava o pedido do Érico do zero, até descobrir que a REVISÃO 66 já tinha feito o mesmo trabalho (mais rigoroso) em cima do `main` real. Os 5 commits (branch `redesign/megalinks-ui`) foram abandonados sem merge — não custou nada em produção, mas custou a sessão inteira. **Causa não determinada:** não ficou claro se os 626 commits locais são trabalho não empurrado por alguém, ou resíduo de outro fluxo (deploy direto, outra máquina, outro clone). Recomendação: `git fetch origin main && git rev-list --left-right --count main...origin/main` no início de toda sessão que for mexer em `frontend/index.html` ou qualquer arquivo grande — não confiar só no checkout local | 15/09 |
 | **P149** | 🟡 **Desafio antibot do ML aceito como produto no caminho principal — CODADO E DEPLOYADO, COMPORTAMENTO AINDA NÃO MEDIDO.** Ver a entrada "NOVA — REVISÃO 150" no topo do arquivo para o detalhe completo (2 usuários diferentes medidos nos logs, antes do fix). `wa-engine/server.js` ganhou o filtro `DESAFIOS_ANTIBOT_ML`; commit `034bb65` no `main`, `/health` do `wa-engine` com `uptime` baixo batendo com o horário do push confirma que o Deploy no EasyPanel já rodou (15/09 ~03:00 UTC). Falta só a prova de comportamento: o desafio não é determinístico, então falta um caso real acontecer de novo e confirmar no `query_logs` que agora sai `ok:false`/`sem_titulo_antibot` em vez do título do captcha | 15/09 |
 | **P146** | 🟡 **Link nativo Shopee no disparo pros grupos WhatsApp — CODADO E DEPLOYADO (`send-post` v30/deploy 65, `group-blast` v9/deploy 21), NÃO MEDIDO EM PRODUÇÃO.** Pedido do Érico: os grupos ainda saíam com o encurtador próprio mesmo depois da P143 (que só cobria a "Postar Agora"). `linkFinalDoProduto` (async) tenta o link nativo da Shopee (Open API oficial, App Key/App Secret) antes de cair no `an_redir`+encurtador de sempre; `ehLinkNativoShopee` evita reembrulhar o resultado. **Decisão do Érico: só Shopee no automático — ML fica de fora** (o link nativo do ML usa o endpoint não documentado do painel de Afiliados com cookie de sessão pessoal; automatizar isso no disparo recorrente multiplicaria o risco de flag na conta, ao contrário da Shopee que usa App Key/App Secret). Falta: disparar um produto Shopee real (Post Automático ou Disparo Manual) com App Secret configurado e conferir no grupo que o link saiu `s.shopee.com.br/XXXX` cru; conferir que ML e as demais lojas não regrediram; conferir que Shopee sem App Secret cai no fallback de sempre | 14/09 |\n| ~~P144~~ | ✅ **FECHADA (12/09, REVISÃO 147).** O push que a REVISÃO 146 deixou registrado como bloqueado (proxy da sessão negando `git push` com 403 + `device_bash` fora do ar) já tinha acontecido antes desta sessão começar — `git clone --depth=1` fresco do `main` mostrou `HEAD` em `7b1b713`, com `docs/ESTADO_ATUAL.md` (REVISÃO 146), `frontend/index.html` (P145/"Clonar 100%") e `clone-ingest` v21 todos presentes. Não foi medido quem rodou o commit/push nem quando. Os dois bugs de infraestrutura em si (proxy de repositório autorizado da sessão, bug de Plan9 drive share do Windows) não foram reconfirmados como corrigidos — só contornados. Se reaparecerem numa sessão futura, não assumir que "já foi resolvido" | 12/09 |
 | **P148** | 🟢 **Post Vídeo (Elite+) — Érico confirmou os dois testes principais: o vídeo chegou certo no grupo do WhatsApp (legenda/link ok) e o modo "post completo" (REVISÃO 152) também funcionou de ponta a ponta.** Ver "Última alteração" (REVISÕES 150/151/152). Falta ainda: (a) testar edição de verdade (trocar vídeo, trocar grupos de um agendamento já existente); (b) testar cancelamento e caminho de falha (grupo sem `group_jid`, sessão desconectada) e conferir que o vídeo continua no Storage quando `partial_failed`/`failed` | 14/09 |
