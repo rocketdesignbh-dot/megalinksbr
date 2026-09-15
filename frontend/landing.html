@@ -364,6 +364,23 @@ footer a:hover{color:var(--tx)}
   </div>
 </div>
 
+<!-- ============ PROVA (medido no Supabase, não inventado — ver docs/ESTADO_ATUAL.md
+     "Regra de ouro do projeto" e docs/DIRECAO_VISUAL.md "Nunca invente prova
+     social". Atualizar a query abaixo periodicamente e trocar os números —
+     nunca subir um número sem medir de novo.
+     select status, count(*) from scheduled_posts group by status;  -> sent: 6924
+     select count(*) from short_links;                              -> 3122
+     select count(*) from products;                                 -> 645
+     Medido em 15/09/2026. ============ -->
+<div class="strip" aria-label="Números da operação, medidos na base">
+  <div class="wrap" style="gap:14px 40px">
+    <span class="lbl">Na base hoje</span>
+    <span class="mono"><b class="y">6.924</b> despachos entregues</span><s>·</s>
+    <span class="mono"><b class="y">3.122</b> links com rastreio próprio</span><s>·</s>
+    <span class="mono"><b class="y">645</b> produtos monitorados</span>
+  </div>
+</div>
+
 <!-- ============ 01 PROBLEMA ============ -->
 <section id="problema">
   <div class="wrap sec">
