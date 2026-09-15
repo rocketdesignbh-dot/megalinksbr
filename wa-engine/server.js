@@ -1373,6 +1373,33 @@ async function scrapeDoWithFailover(targetUrl, tokens) {
 // Aceita opcionalmente ?userScrapeToken=... (primário) e ?userScrapeToken2=... (backup).
 // Cada usuário traz seu próprio crédito; quando o primário esgota (401), usa o backup;
 // se ambos esgotarem (ou não houver token pessoal), cai no token compartilhado da plataforma.
+// MEDIDO em produção 12/09 e 15/09 (dois usuários diferentes, ambos via
+// credencial pessoal — cookie_pessoal e scrape.do+backup): quando o ML serve a
+// página de DESAFIO ANTIBOT em vez do produto, ela tem um <h1>/og:title própria
+// ("Por segurança, complete esta etapa") que a cadeia de fallback abaixo aceita
+// como se fosse o título do produto — passa no guard `!title` porque não está
+// vazio, e o /ml-product devolve ok:true com esse texto. Log real:
+//   [ML] wa-engine ok=true title=Por segurança, complete esta etapa tokenUsado=cookie_pessoal
+//   [product-search v34] success=true name=Por segurança, complete esta etapa
+// Um caso chegou a gerar link de afiliado nativo para a página de captcha.
+// A `product-search` já tinha esse filtro (lista `desafios`, REVISÃO 88/v30),
+// mas só no fallback via Microlink — nunca existiu aqui, no caminho principal
+// (cookie pessoal / Scrape.do), que é o que roda para quem tem credencial
+// própria. Mesma comparação por INCLUSÃO, pelo mesmo motivo: o sufixo do
+// desafio varia.
+const DESAFIOS_ANTIBOT_ML = [
+    'complete esta etapa',
+    'por segurança, complete',
+    'verifique que você não é um robô',
+    'verifique que voce nao e um robo',
+    'algo salió mal',
+    'algo salio mal',
+];
+function tituloEhDesafioAntibot(t) {
+    const low = (t || '').toLowerCase().trim();
+    return DESAFIOS_ANTIBOT_ML.some(d => low.includes(d));
+}
+
 app.get('/ml-product', verifyToken, async (req, res) => {
     const url = (req.query.url || '').trim();
     if (!url) return res.status(400).json({ ok: false, error: 'url obrigatório' });
@@ -1441,6 +1468,10 @@ app.get('/ml-product', verifyToken, async (req, res) => {
                     || $c('h1').first().text().trim()
                     || $c('meta[property="og:title"]').attr('content')?.trim()
                     || '').slice(0, 200);
+                if (t && tituloEhDesafioAntibot(t)) {
+                    console.log(`[ml-product] cookie pessoal caiu em DESAFIO ANTIBOT ("${t}") em ${targetUrl.slice(0, 60)} — tentando próxima URL`);
+                    continue;
+                }
                 if (t) {
                     console.log(`[ml-product] título OK via cookie pessoal em ${targetUrl.slice(0, 60)}`);
                     scrape = { ok: true, html: cookieTry.html, tokenUsed: 'cookie_pessoal', lastStatus: 200 };
@@ -1463,6 +1494,11 @@ app.get('/ml-product', verifyToken, async (req, res) => {
                     || $('h1').first().text().trim()
                     || $('meta[property="og:title"]').attr('content')?.trim()
                     || '').slice(0, 200);
+                if (title && tituloEhDesafioAntibot(title)) {
+                    console.log(`[ml-product] Scrape.do caiu em DESAFIO ANTIBOT ("${title}") em ${targetUrl.slice(0, 60)} — tentando próxima URL`);
+                    title = ''; scrape = { ok: false, html: null, tokenUsed: null, lastStatus: scrape.lastStatus };
+                    continue;
+                }
                 if (title) { console.log(`[ml-product] título OK em ${targetUrl.slice(0, 60)}`); break; }
                 console.log(`[ml-product] sem título em ${targetUrl.slice(0, 60)} — tentando próxima URL`);
             }

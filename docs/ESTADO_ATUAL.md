@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 149 — 14/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 150 — 15/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -44,6 +44,40 @@
 > **Documentos históricos** (`RESUMO_PROJETO_MEGALINKSBR.md` de 03/07,
 > `ADENDO_RESUMO_30-07_noite.md`) ficam como registro de sessão. Não são estado
 > atual e não devem ser usados para decidir nada.
+
+---
+
+> 🔴 **NOVA — REVISÃO 150 (15/09) — DESAFIO ANTIBOT DO ML ACEITO COMO PRODUTO, DE
+> NOVO, MAS NO CAMINHO PRINCIPAL DESTA VEZ.** Érico reportou print de "Promos da
+> Paty" (Patricia Cella, `72dcb0dc-…`) com o preview do import mostrando "Por
+> segurança, complete esta etapa" como se fosse o nome do produto. **MEDIDO nos
+> logs do Supabase, dois usuários diferentes, dois dias diferentes:**
+> ```
+> 15/09 01:29 UTC user=72dcb0dc-… (Patricia): [ML] wa-engine ok=true title=Por
+>   segurança, complete esta etapa tokenUsado=cookie_pessoal
+>   [product-search v34] success=true name=Por segurança, complete esta etapa
+> 12/09 03:14 UTC user=d63dd97f-…: mesmo padrão — e chegou a gerar link nativo
+>   (meli.la/1FUDRaf) para a página de captcha
+> ```
+> **Causa:** o filtro `desafios` que a REVISÃO 88 (v30) criou só foi aplicado no
+> fallback via Microlink da `product-search`. O caminho PRINCIPAL — `wa-engine`
+> `/ml-product`, usado por qualquer usuário com credencial pessoal (cookie ou
+> Scrape.do próprio) — nunca teve esse filtro: a cadeia de extração de título
+> (`h1.ui-pdp-title` → `h1` genérico → `og:title`) aceita o `<h1>`/`og:title` da
+> própria página de desafio como se fosse o título do produto, passa no único
+> guard existente (`!title` → antibot) porque não está vazio, e devolve
+> `ok:true`. **Não é específico da conta da Patricia** — os dois usuários
+> medidos usavam credencial pessoal (cookie e Scrape.do+backup), então qualquer
+> usuário nessa condição está exposto sempre que o ML servir o desafio.
+> **Conserto aplicado nesta sessão:** `wa-engine/server.js` ganhou
+> `DESAFIOS_ANTIBOT_ML`/`tituloEhDesafioAntibot()` (mesma lista da
+> `product-search`, comparação por inclusão) checado nos dois pontos de
+> extração (cookie pessoal e Scrape.do) — título de desafio agora é tratado
+> como "sem título" e cai no mesmo caminho de erro `sem_titulo_antibot` que já
+> existia, em vez de virar sucesso. **NÃO MEDIDO EM PRODUÇÃO ainda** — falta
+> reproduzir o desafio de verdade (não é determinístico) e conferir que agora
+> vem `ok:false`/`availabilitySignal:"sem_titulo_antibot"` em vez do título do
+> captcha. Deploy pendente no EasyPanel (rebuild do `wa-engine`).
 
 ---
 
@@ -10912,6 +10946,7 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P149** | 🟡 **Desafio antibot do ML aceito como produto no caminho principal — CODADO, NÃO DEPLOYADO, NÃO MEDIDO.** Ver a entrada "NOVA — REVISÃO 150" no topo do arquivo para o detalhe completo (2 usuários diferentes medidos nos logs). `wa-engine/server.js` ganhou o filtro `DESAFIOS_ANTIBOT_ML`, mas o deploy no EasyPanel ainda não foi feito nesta sessão e o comportamento pós-fix não foi reproduzido em produção (o desafio não é determinístico — falta um caso real para confirmar `ok:false`/`sem_titulo_antibot` em vez do título do captcha) | 15/09 |
 | **P146** | 🟡 **Link nativo Shopee no disparo pros grupos WhatsApp — CODADO E DEPLOYADO (`send-post` v30/deploy 65, `group-blast` v9/deploy 21), NÃO MEDIDO EM PRODUÇÃO.** Pedido do Érico: os grupos ainda saíam com o encurtador próprio mesmo depois da P143 (que só cobria a "Postar Agora"). `linkFinalDoProduto` (async) tenta o link nativo da Shopee (Open API oficial, App Key/App Secret) antes de cair no `an_redir`+encurtador de sempre; `ehLinkNativoShopee` evita reembrulhar o resultado. **Decisão do Érico: só Shopee no automático — ML fica de fora** (o link nativo do ML usa o endpoint não documentado do painel de Afiliados com cookie de sessão pessoal; automatizar isso no disparo recorrente multiplicaria o risco de flag na conta, ao contrário da Shopee que usa App Key/App Secret). Falta: disparar um produto Shopee real (Post Automático ou Disparo Manual) com App Secret configurado e conferir no grupo que o link saiu `s.shopee.com.br/XXXX` cru; conferir que ML e as demais lojas não regrediram; conferir que Shopee sem App Secret cai no fallback de sempre | 14/09 |\n| ~~P144~~ | ✅ **FECHADA (12/09, REVISÃO 147).** O push que a REVISÃO 146 deixou registrado como bloqueado (proxy da sessão negando `git push` com 403 + `device_bash` fora do ar) já tinha acontecido antes desta sessão começar — `git clone --depth=1` fresco do `main` mostrou `HEAD` em `7b1b713`, com `docs/ESTADO_ATUAL.md` (REVISÃO 146), `frontend/index.html` (P145/"Clonar 100%") e `clone-ingest` v21 todos presentes. Não foi medido quem rodou o commit/push nem quando. Os dois bugs de infraestrutura em si (proxy de repositório autorizado da sessão, bug de Plan9 drive share do Windows) não foram reconfirmados como corrigidos — só contornados. Se reaparecerem numa sessão futura, não assumir que "já foi resolvido" | 12/09 |
 | **P148** | 🟢 **Post Vídeo (Elite+) — Érico confirmou os dois testes principais: o vídeo chegou certo no grupo do WhatsApp (legenda/link ok) e o modo "post completo" (REVISÃO 152) também funcionou de ponta a ponta.** Ver "Última alteração" (REVISÕES 150/151/152). Falta ainda: (a) testar edição de verdade (trocar vídeo, trocar grupos de um agendamento já existente); (b) testar cancelamento e caminho de falha (grupo sem `group_jid`, sessão desconectada) e conferir que o vídeo continua no Storage quando `partial_failed`/`failed` | 14/09 |
 | **P145** | 🟡 **"Clonar 100%" (`clone_sources.clone_full_content`) — CODADO, backend DEPLOYADO, NÃO MEDIDO.** Ver seção "Clone Post — Clonar 100%" acima para o detalhe completo. Falta: ligar o toggle numa fonte real, esperar uma captura, e conferir se `products.description` saiu com frase coerente (não com lixo nem com auto-promoção do grupo-fonte que o filtro devia ter pego) | 12/09 |
