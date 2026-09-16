@@ -1870,7 +1870,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <th style="text-align:left;padding:12px 16px;color:var(--mut);font-weight:600">Recurso</th>
               <th style="text-align:center;padding:12px 8px">⚡ Starter</th>
               <th style="text-align:center;padding:12px 8px">🚀 Pro</th>
-              <th style="text-align:center;padding:12px 8px;background:rgba(139,92,246,.08)">🔥 Elite</th>
+              <th style="text-align:center;padding:12px 8px;background:var(--volt-soft)">🔥 Elite</th>
               <th style="text-align:center;padding:12px 8px">👑 Premium</th>
             </tr>
           </thead>
@@ -5787,8 +5787,8 @@ geral:`
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:6px"><input type="checkbox" id="pgNaoRepetir" style="width:auto" onchange="pgNaoRepetirAlerta()"> 🚫 Não repetir produto <small style="color:var(--mut);font-weight:400">(produto que já saiu hoje neste grupo não sai de novo hoje — amanhã ele volta ao rodízio)</small></label>
       <div id="pgNaoRepetirAviso" class="alert y" style="display:none;margin:0 0 14px"></div>
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgExcluirAposPostar" style="width:auto" onchange="pgNaoRepetirAlerta()"> 🗑️ Excluir automaticamente após postar <small style="color:var(--mut);font-weight:400">(some do grupo assim que sai no disparo — libera espaço pra cadastrar produtos novos. Não tem desfazer.)</small></label>
-      <div style="border:1px solid var(--bd);border-radius:2px;padding:11px 12px;margin-bottom:14px;background:rgba(139,92,246,.07)">
-        <label style="display:flex;gap:9px;align-items:center;font-weight:600"><input type="checkbox" id="pgSmart" style="width:auto" onchange="pgSmartAplicar()"> 🧠 Horários Inteligentes <span class="pill" style="background:rgba(139,92,246,.18);color:#A78BFA;flex:none;font-size:10px;padding:1px 7px">ELITE+</span></label>
+      <div style="border:1px solid var(--bd);border-radius:2px;padding:11px 12px;margin-bottom:14px;background:var(--volt-soft)">
+        <label style="display:flex;gap:9px;align-items:center;font-weight:600"><input type="checkbox" id="pgSmart" style="width:auto" onchange="pgSmartAplicar()"> 🧠 Horários Inteligentes <span class="pill" style="background:var(--volt);color:var(--volt-fg);flex:none;font-size:10px;padding:1px 7px">ELITE+</span></label>
         <div style="font-size:12px;color:var(--tx2);margin-top:7px;line-height:1.65">Posta só nas janelas de maior audiência, dividindo seus produtos entre elas. <strong>Substitui intervalo e horário.</strong><br>${SMART_JANELAS.map(j=>j.rot).join(" · ")} <small style="color:var(--mut)">(a última é a melhor)</small><br>Até ${SMART_MAX_DIA} posts/dia, no mínimo ${SMART_PISO_MIN} min entre um e outro. O que não couber hoje entra amanhã.</div>
         <label id="pgSmartFdsBox" style="display:none;gap:9px;align-items:center;margin-top:10px;font-size:13px"><input type="checkbox" id="pgSmartFds" style="width:auto"> Aplicar também no fim de semana <small style="color:var(--mut)">(sem isso, sáb e dom não postam)</small></label>
       </div>
@@ -7876,7 +7876,7 @@ function renderPlans(){
     const plans=["starter","pro","elite","premium"];
     cmp.innerHTML=rows.map((r,i)=>`<tr style="border-bottom:1px solid var(--bd);${i%2===0?"background:rgba(255,255,255,.02)":""}">
       <td style="padding:10px 16px;color:var(--tx2);font-size:12.5px">${r[0]}</td>
-      ${plans.map(p=>`<td style="text-align:center;padding:10px 8px;font-size:12.5px;font-weight:500;${p==="elite"?"background:rgba(139,92,246,.06)":""}">${r[1](p)}</td>`).join("")}
+      ${plans.map(p=>`<td style="text-align:center;padding:10px 8px;font-size:12.5px;font-weight:500;${p==="elite"?"background:var(--volt-soft)":""}">${r[1](p)}</td>`).join("")}
     </tr>`).join("");
   }
 }
