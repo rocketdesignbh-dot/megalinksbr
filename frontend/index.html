@@ -293,7 +293,7 @@ tr:hover td{background:var(--surf2)}
 .auth-tabs{display:flex;background:var(--bg);border-radius:2px;padding:3px;gap:3px;margin-bottom:16px}
 .auth-tabs button{flex:1;padding:7px;background:transparent;border:none;color:var(--mut);font-weight:600;border-radius:2px;font-size:13px;transition:.12s}
 .auth-tabs button.on{background:var(--surf2);color:var(--tx);box-shadow:none}
-.auth-err{color:var(--red);font-size:12.5px;margin-bottom:10px;display:none;padding:10px 12px;background:rgba(255,81,104,.08);border:1px solid rgba(255,81,104,.2);border-radius:2px}
+.auth-err{color:var(--red);font-size:12.5px;margin-bottom:10px;display:none;padding:10px 12px;background:rgba(226,112,95,.08);border:1px solid rgba(226,112,95,.2);border-radius:2px}
 .auth-demo{margin-top:14px}
 .hint{font-size:12px;color:var(--mut);margin-top:5px}
 
@@ -1616,7 +1616,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
         </div>
         <div class="g2" style="gap:10px;align-items:end">
-          <div class="field" style="margin:0"><label>Seu token do Scrape.do <span style="color:#FF6B6B">*</span> <small style="font-weight:400;color:var(--mut)">obrigatório</small></label>
+          <div class="field" style="margin:0"><label>Seu token do Scrape.do <span style="color:var(--red)">*</span> <small style="font-weight:400;color:var(--mut)">obrigatório</small></label>
             <input id="scrapeDoTokenInput" placeholder="Cole aqui o token da sua conta Scrape.do" type="password" required aria-required="true"></div>
           <button class="btn btn-volt btn-sm" onclick="salvarScrapeDoToken()">💾 Salvar token</button>
         </div>
@@ -2739,8 +2739,8 @@ async function carregarScrapeDoStatus(){
       // preencher o produto à mão). Este aviso NÃO é o banner dispensável: ele
       // fica enquanto o campo estiver vazio, independente do "não avisar mais".
       input.placeholder="Obrigatório — cole aqui o token da sua conta Scrape.do";
-      input.style.borderColor="#FF6B6B";
-      status.style.color="#FF6B6B";
+      input.style.borderColor="var(--red)";
+      status.style.color="var(--red)";
       status.innerHTML="⚠️ <strong>Campo obrigatório e ainda vazio.</strong> Sem o token, suas buscas de Mercado Livre usam a cota compartilhada da plataforma e podem falhar quando ela se esgotar.";
     }
   }catch(e){console.warn("carregarScrapeDoStatus:",e);}
@@ -2850,7 +2850,7 @@ async function salvarScrapeDoToken(){
   const input=document.getElementById("scrapeDoTokenInput");
   const token=(input?.value||"").trim();
   if(!token){
-    if(input){input.style.borderColor="#FF6B6B";input.focus();}
+    if(input){input.style.borderColor="var(--red)";input.focus();}
     toast("O token do Scrape.do é obrigatório — cole o token antes de salvar.","⚠️");
     return;
   }
@@ -2956,7 +2956,7 @@ async function loadCreds(){
 const PLAN_FALLBACK={
   starter:{plan:"starter",label:"Starter",color:"#10B981",price_month:57.90,wa_groups:1,wa_channels:2,wa_connections:1,wa_post_automation:true,tg_channels:1,tg_post_automation:false,marketplaces:2,links_simultaneous:10,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:false,support_level:"comunidade",clone_post:false,clone_auto:false,clone_sources_max:0,smart_schedule:false,stock_monitor:false,auto_posts_daily:1,sort_order:1,video_post:false,max_products:15},
   pro:{plan:"pro",label:"Pro",color:"#3B82F6",price_month:97.90,wa_groups:3,wa_channels:6,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,marketplaces:3,links_simultaneous:30,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:true,support_level:"email",clone_post:true,clone_auto:true,clone_sources_max:1,smart_schedule:false,stock_monitor:true,auto_posts_daily:null,sort_order:2,video_post:false,max_products:50},
-  elite:{plan:"elite",label:"Elite",color:"#8B5CF6",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",clone_post:true,clone_auto:true,clone_sources_max:3,smart_schedule:true,stock_monitor:true,auto_posts_daily:null,sort_order:3,video_post:true,max_products:150},
+  elite:{plan:"elite",label:"Elite",color:"#9B8FC9",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",clone_post:true,clone_auto:true,clone_sources_max:3,smart_schedule:true,stock_monitor:true,auto_posts_daily:null,sort_order:3,video_post:true,max_products:150},
   premium:{plan:"premium",label:"Premium",color:"var(--warn)",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",clone_post:true,clone_auto:true,clone_sources_max:10,smart_schedule:true,stock_monitor:true,auto_posts_daily:null,sort_order:4,video_post:true,max_products:300}
 };
 let PLAN_FEATURES={...PLAN_FALLBACK};
@@ -7128,7 +7128,7 @@ async function wireProdLista(){
       <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
         <span style="font-size:15px;font-weight:700">${data.length} produto${data.length===1?"":"s"} neste grupo</span>
         <span style="font-size:12.5px;color:var(--tx2)">${semTeto?`· ${totalConta} na conta · sem teto`:`· <b>${totalConta}</b> de <b>${max}</b> na conta`}</span>
-        ${foraDoAr?`<span class="pill" style="background:rgba(255,81,104,.12);color:var(--red)">${foraDoAr} fora do ar</span>`:""}
+        ${foraDoAr?`<span class="pill" style="background:rgba(226,112,95,.12);color:var(--red)">${foraDoAr} fora do ar</span>`:""}
       </div>
       ${semTeto?"":`<div style="height:6px;background:var(--surf2,var(--bg2));border-radius:99px;overflow:hidden;margin-top:8px"><div style="height:100%;width:${pct}%;background:${corBarra};transition:width .3s"></div></div>`}
       ${avisoTeto}
@@ -7220,7 +7220,7 @@ function prodPintarLista(){
       <div class="pimg">${p.image_url?`<img src="${p.image_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:2px${fora?";filter:grayscale(1)":""}">`:"📦"}</div>
       <div style="flex:1;min-width:0">
         <strong${fora?' style="text-decoration:line-through"':""}>${p.title||"Sem título"}</strong>
-        ${fora?'<span class="pill" style="background:rgba(255,81,104,.12);color:var(--red);margin-left:6px">fora do ar na loja</span>':""}<br>
+        ${fora?'<span class="pill" style="background:rgba(226,112,95,.12);color:var(--red);margin-left:6px">fora do ar na loja</span>':""}<br>
         <small style="color:var(--mut)">${p.price?`R$ ${Number(p.price).toFixed(2).replace(".",",")} · `:""}${p.discount_pct?p.discount_pct+"% OFF · ":""}<span class="mono" style="color:var(--volt-tx);font-size:10px">${(p.affiliate_url||"").slice(0,60)}${(p.affiliate_url||"").length>60?"…":""}</span></small>
         <div style="font-size:11px;color:${idade.cor};margin-top:2px">${idade.semConferencia?"🔍 ":(idade.nunca?"⚠️ ":(idade.velho?"🕐 ":""))}${idade.txt}</div>
       </div>
@@ -8386,7 +8386,7 @@ function renderAdminVisao(){
   const meses=["Jul","Ago","Set","Out","Nov","Dez","Jan","Fev","Mar","Abr","Mai","Jun"];const mrrV=z,novos=z;const mx=1;
   mrrChart.innerHTML=meses.map((m,i)=>`<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:3px"><div style="display:flex;gap:2px;align-items:flex-end;height:120px"><div class="bar" style="height:0%" data-t="${m}: sem dados"></div><div class="bar alt" style="height:0%" data-t="${m}: sem dados"></div></div><div style="text-align:center;font-size:9.5px;color:var(--mut)">${m}</div></div>`).join("");
   // distribuição real por plano
-  const dist=[["STARTER",USERS.filter(u=>u.plano==="STARTER").length,"#10B981"],["PRO",USERS.filter(u=>u.plano==="PRO").length,"#3B82F6"],["ELITE",USERS.filter(u=>u.plano==="ELITE").length,"#8B5CF6"],["PREMIUM",USERS.filter(u=>u.plano==="PREMIUM").length,"var(--warn)"]];const tot=Math.max(1,dist.reduce((a,d)=>a+d[1],0));
+  const dist=[["STARTER",USERS.filter(u=>u.plano==="STARTER").length,"#10B981"],["PRO",USERS.filter(u=>u.plano==="PRO").length,"#3B82F6"],["ELITE",USERS.filter(u=>u.plano==="ELITE").length,"#9B8FC9"],["PREMIUM",USERS.filter(u=>u.plano==="PREMIUM").length,"var(--warn)"]];const tot=Math.max(1,dist.reduce((a,d)=>a+d[1],0));
   planDist.innerHTML=dist.map(d=>`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><strong>${d[0]}</strong><span style="color:var(--mut)">${d[1]} · ${Math.round(d[1]/tot*100)}%</span></div><div class="prog-mini"><i style="width:${d[1]/tot*100}%;background:${d[2]}"></i></div></div>`).join("");
   admFeed.innerHTML='<div class="feed"><span class="fic">•</span><span style="color:var(--mut)">Nenhuma atividade ainda. Os eventos aparecerão aqui conforme os clientes usarem a plataforma.</span></div>';
 }
@@ -8606,7 +8606,7 @@ function renderSubs(){
   }
 
   // Distribuição por método de pagamento (billing_type do Asaas)
-  const metCores={PIX:"var(--green)",BOLETO:"#6FA3C4",CREDIT_CARD:"#C9A15A",DEBIT_CARD:"#8B5CF6",UNDEFINED:"#8892a6"};
+  const metCores={PIX:"var(--green)",BOLETO:"#6FA3C4",CREDIT_CARD:"#C9A15A",DEBIT_CARD:"#9B8FC9",UNDEFINED:"#8892a6"};
   const metLabel={PIX:"PIX",BOLETO:"Boleto",CREDIT_CARD:"Cartão de crédito",DEBIT_CARD:"Cartão de débito",UNDEFINED:"Outro"};
   const porMetodo={};
   PAYMENTS.forEach(p=>{const k=(p.metodo||"UNDEFINED").toUpperCase();porMetodo[k]=(porMetodo[k]||0)+1;});
@@ -10297,8 +10297,8 @@ function cloneRenderFila(){
   const badge={
     pending:'<span class="pill" style="background:rgba(245,197,24,.15);color:var(--gold)">aguardando revisão</span>',
     approved:'<span class="pill" style="background:rgba(25,226,125,.15);color:var(--volt-tx)">publicado</span>',
-    rejected:'<span class="pill" style="background:rgba(255,81,104,.12);color:var(--red)">descartado</span>',
-    failed:'<span class="pill" style="background:rgba(255,81,104,.2);color:var(--red)">falhou</span>',
+    rejected:'<span class="pill" style="background:rgba(226,112,95,.12);color:var(--red)">descartado</span>',
+    failed:'<span class="pill" style="background:rgba(226,112,95,.2);color:var(--red)">falhou</span>',
     expired:'<span class="pill" style="background:rgba(255,255,255,.08);color:var(--tx2)">expirou sem revisão</span>'
   };
   // Quando a loja nao tem integracao automatica (Amazon, por exemplo), titulo e
@@ -12420,22 +12420,22 @@ async function enterApp(profile){
     const isTrialExpired=trialExp&&trialExp<new Date();
     if(isTrialExpired||profile.sub_status==="canceled"){
       authGate.style.display="none";
-      document.body.innerHTML=`<div style="min-height:100vh;background:var(--volt-fg);display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;padding:20px">
+      document.body.innerHTML=`<div style="min-height:100vh;background:var(--bg);display:flex;align-items:center;justify-content:center;font-family:var(--body);padding:20px">
         <div style="max-width:480px;width:100%;text-align:center">
           <img src="/icon.png" alt="Mega Links BR" style="width:72px;border-radius:50%;margin-bottom:20px">
-          <h1 style="color:#FFD33F;font-size:24px;font-weight:700;margin:0 0 12px">Seu trial encerrou</h1>
-          <p style="color:#aaa;font-size:15px;line-height:1.6;margin:0 0 28px">Seus 7 dias gratuitos chegaram ao fim. Escolha um plano para continuar automatizando suas vendas na Mega Links BR.</p>
+          <h1 style="color:var(--volt-tx);font-family:var(--disp);font-size:24px;font-weight:700;margin:0 0 12px">Seu trial encerrou</h1>
+          <p style="color:var(--tx2);font-size:15px;line-height:1.6;margin:0 0 28px">Seus 7 dias gratuitos chegaram ao fim. Escolha um plano para continuar automatizando suas vendas na Mega Links BR.</p>
           <div style="display:grid;gap:12px;margin-bottom:24px">
-            <div style="background:#111118;border:1px solid #222;border-radius:2px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
-              <div style="text-align:left"><div style="color:#10B981;font-weight:700;font-size:13px">⚡ STARTER</div><div style="color:#aaa;font-size:12px;margin-top:2px">Shopee · Postar Agora</div></div>
-              <button onclick="location.href='/'" style="background:#10B981;color:#fff;border:none;padding:8px 18px;border-radius:2px;font-weight:700;cursor:pointer;font-size:13px">R$ 57,90/mês</button>
+            <div style="background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+              <div style="text-align:left"><div style="color:var(--tx);font-family:var(--disp);font-weight:700;font-size:13px">STARTER</div><div style="color:var(--tx2);font-size:12px;margin-top:2px">Shopee · Postar Agora</div></div>
+              <button onclick="location.href='/'" class="btn btn-ghost btn-sm">R$ 57,90/mês</button>
             </div>
-            <div style="background:#111118;border:1px solid #8B5CF6;border-radius:2px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
-              <div style="text-align:left"><div style="color:#8B5CF6;font-weight:700;font-size:13px">🔥 ELITE — MAIS POPULAR</div><div style="color:#aaa;font-size:12px;margin-top:2px">Automação 24/7 · MegaIA · Rastreamento</div></div>
-              <button onclick="location.href='/'" style="background:#8B5CF6;color:#fff;border:none;padding:8px 18px;border-radius:2px;font-weight:700;cursor:pointer;font-size:13px">R$ 157,90/mês</button>
+            <div style="background:var(--volt-soft);border:1px solid var(--volt-tx);border-radius:var(--r);padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+              <div style="text-align:left"><div style="color:var(--volt-tx);font-family:var(--disp);font-weight:700;font-size:13px">ELITE — MAIS POPULAR</div><div style="color:var(--tx2);font-size:12px;margin-top:2px">Automação 24/7 · MegaIA · Rastreamento</div></div>
+              <button onclick="location.href='/'" class="btn btn-volt btn-sm">R$ 157,90/mês</button>
             </div>
           </div>
-          <button onclick="SB.auth.signOut().then(()=>location.reload())" style="background:transparent;border:1px solid #333;color:#666;padding:10px 24px;border-radius:2px;cursor:pointer;font-size:13px">Sair da conta</button>
+          <button onclick="SB.auth.signOut().then(()=>location.reload())" class="btn btn-ghost btn-sm" style="background:transparent">Sair da conta</button>
         </div>
       </div>`;
       return;
@@ -13063,7 +13063,7 @@ function createRateLimitStatusBar() {
       </div>
       
       <!-- Timer de penalidade (se penalizado) -->
-      <div id="rateLimitPenaltyTimer" style="display:none;background:var(--red);background:rgba(255,81,104,.1);border:1px solid rgba(255,81,104,.3);border-radius:2px;padding:8px;text-align:center">
+      <div id="rateLimitPenaltyTimer" style="display:none;background:rgba(226,112,95,.1);border:1px solid rgba(226,112,95,.3);border-radius:2px;padding:8px;text-align:center">
         <div style="color:var(--red);font-weight:700;font-size:13px;margin-bottom:4px">
           🚫 PENALIZADO
         </div>
