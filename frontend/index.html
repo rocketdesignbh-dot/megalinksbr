@@ -273,7 +273,17 @@ tr:hover td{background:var(--surf2)}
 /* ── AUTH ── */
 /* Gate de entrada — mesma linguagem da landing: régua de 1px, raio 2px,
    sem sombra e sem glow. À esquerda, o registro de despacho; à direita, o form. */
-.authbg{position:fixed;inset:0;display:grid;grid-template-columns:1fr;background:#14161A;z-index:2000;overflow:auto}
+.authbg{
+  /* O gate de login e sempre escuro ("Sala de Despacho"), independente do
+     tema claro/escuro escolhido pelo usuario dentro do app -- so o --bg
+     hardcoded acima ja seguia essa regra. Os tokens de texto/superficie
+     abaixo NAO seguiam: com tema claro salvo, --tx virava quase-preto
+     (#14161A) sobre este fundo que continua #14161A, apagando o wordmark
+     "Mega Links" e outros textos por completo. Redeclarando os valores do
+     tema escuro aqui fecha o vazamento pra toda a subarvore. */
+  --bg:#14161A; --bg2:#191C21; --surf:#191C21; --surf2:#1F232A; --surf3:#262B33;
+  --bd:#282C33; --bd2:#343941; --tx:#E9E7E2; --tx2:#9BA0A6; --mut:#828891; --volt-tx:#FFC107;
+  position:fixed;inset:0;display:grid;grid-template-columns:1fr;background:#14161A;z-index:2000;overflow:auto}
 @media (min-width:940px){.authbg{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr)}}
 .auth-side{display:none;border-right:1px solid #282C33;padding:54px 48px;flex-direction:column;justify-content:space-between}
 @media (min-width:940px){.auth-side{display:flex}}
