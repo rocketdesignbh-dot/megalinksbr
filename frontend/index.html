@@ -40,8 +40,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      (docs/DIRECAO_VISUAL.md) tem UM acento, o amarelo, e ele significa estado.
      Ficam apontando para tokens vivos para nao quebrar nenhum uso esquecido. */
   --pink:var(--volt); --sky:var(--tx2); --violet:var(--tx2);
-  --red:#E2705F; --green:#7FB98D;
+  --red:#E2705F; --green:var(--green);
   --red-soft:rgba(226,112,95,.12); --green-soft:rgba(127,185,141,.15);
+  --warn:#C9A15A; --warn-soft:rgba(201,161,90,.12);
   --r:2px; --r-sm:2px; --r-xs:2px;
   --disp:"Archivo","Helvetica Neue",Arial,sans-serif;
   --body:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
@@ -326,7 +327,7 @@ tr:hover td{background:var(--surf2)}
 .cs-dest{font-size:12px;color:var(--tx2);line-height:1.5}
 .cs-bar{height:5px;border-radius:99px;background:rgba(255,255,255,.09);overflow:hidden}
 .cs-bar>i{display:block;height:100%;background:var(--volt);border-radius:99px}
-.cs-bar.full>i{background:#F59E0B}
+.cs-bar.full>i{background:var(--warn)}
 .cs-meta{font-size:11.5px;color:var(--mut);line-height:1.6}
 .cs-veredito{font-size:11.5px;color:var(--tx2);line-height:1.65;border-top:1px solid var(--bd);padding-top:9px}
 .cs-veredito b{color:var(--tx)}
@@ -341,8 +342,8 @@ tr:hover td{background:var(--surf2)}
 .cs-loja.on{border-color:var(--volt-tx);background:rgba(25,226,125,.14);color:var(--volt-tx)}
 .cs-loja-conta{font-size:11px;color:var(--mut);line-height:1.6;margin-top:7px}
 .cs-loja-conta b{color:var(--tx2)}
-.cs-barrado{font-size:11.5px;color:#F59E0B;line-height:1.6;margin-top:7px;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.25);border-radius:2px;padding:7px 9px}
-.cs-barrado b{color:#F59E0B}
+.cs-barrado{font-size:11.5px;color:var(--warn);line-height:1.6;margin-top:7px;background:rgba(201,161,90,.10);border:1px solid rgba(201,161,90,.25);border-radius:2px;padding:7px 9px}
+.cs-barrado b{color:var(--warn)}
 .cs-teto-bt{font-family:inherit;font-size:12px;font-weight:700;line-height:1;width:20px;height:20px;margin-left:4px;border-radius:2px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2);vertical-align:middle}
 .cs-teto-bt:hover{border-color:var(--volt-tx);color:var(--volt-tx)}
 /* Paginação da fila de clones */
@@ -1253,7 +1254,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
 
     <!-- Falha ao verificar o acesso: nao afirmar que esta liberado nem que nao esta -->
-    <div class="card" id="mrErr" style="display:none;border-color:rgba(239,68,68,.35)">
+    <div class="card" id="mrErr" style="display:none;border-color:rgba(226,112,95,.35)">
       <div class="ch">⚠️ Não foi possível verificar seu acesso</div>
       <div class="cb">
         <p style="color:var(--mut);margin:0 0 12px" id="mrErrMsg"></p>
@@ -2587,7 +2588,7 @@ function cupomRenderLista(){
   const vencidos=COUPONS.filter(c=>c.validade&&new Date(c.validade)<new Date()).length;
   if(kpis)kpis.innerHTML=[
     ["Total de cupons",COUPONS.length,"#6FA3C4"],
-    ["Marketplaces",Object.keys(lojaMap).length,"#7FB98D"],
+    ["Marketplaces",Object.keys(lojaMap).length,"var(--green)"],
     ["Top loja",topLoja?topLoja[0]:"—","#C9A15A"],
     ["Vencidos",vencidos,"#E2705F"]
   ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv" style="color:${k[2]};font-size:${String(k[1]).length>6?"16px":"22px"}">${k[1]}</div></div>`).join("");
@@ -2956,7 +2957,7 @@ const PLAN_FALLBACK={
   starter:{plan:"starter",label:"Starter",color:"#10B981",price_month:57.90,wa_groups:1,wa_channels:2,wa_connections:1,wa_post_automation:true,tg_channels:1,tg_post_automation:false,marketplaces:2,links_simultaneous:10,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:false,support_level:"comunidade",clone_post:false,clone_auto:false,clone_sources_max:0,smart_schedule:false,stock_monitor:false,auto_posts_daily:1,sort_order:1,video_post:false,max_products:15},
   pro:{plan:"pro",label:"Pro",color:"#3B82F6",price_month:97.90,wa_groups:3,wa_channels:6,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,marketplaces:3,links_simultaneous:30,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:true,support_level:"email",clone_post:true,clone_auto:true,clone_sources_max:1,smart_schedule:false,stock_monitor:true,auto_posts_daily:null,sort_order:2,video_post:false,max_products:50},
   elite:{plan:"elite",label:"Elite",color:"#8B5CF6",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",clone_post:true,clone_auto:true,clone_sources_max:3,smart_schedule:true,stock_monitor:true,auto_posts_daily:null,sort_order:3,video_post:true,max_products:150},
-  premium:{plan:"premium",label:"Premium",color:"#F59E0B",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",clone_post:true,clone_auto:true,clone_sources_max:10,smart_schedule:true,stock_monitor:true,auto_posts_daily:null,sort_order:4,video_post:true,max_products:300}
+  premium:{plan:"premium",label:"Premium",color:"var(--warn)",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",clone_post:true,clone_auto:true,clone_sources_max:10,smart_schedule:true,stock_monitor:true,auto_posts_daily:null,sort_order:4,video_post:true,max_products:300}
 };
 let PLAN_FEATURES={...PLAN_FALLBACK};
 let MY_PLAN="starter";
@@ -3175,7 +3176,7 @@ async function loadAnalitico(){
   // Placeholders de loading
   const kpiRowEl=document.getElementById("kpiRow");
   if(kpiRowEl)kpiRowEl.innerHTML=[
-    {l:"Cliques hoje",v:"…",c:"#7FB98D"},
+    {l:"Cliques hoje",v:"…",c:"var(--green)"},
     {l:"Comissões estimadas",v:"—",c:"#6FA3C4"},
     {l:"Posts enviados",v:"…",c:"#C9A15A"},
     {l:"CTR médio",v:"—",c:"#E2705F"}
@@ -3219,9 +3220,9 @@ async function loadAnalitico(){
       const area=path+` L${x(13)},${H-26} L${x(0)},${H-26} Z`;
       let grid="",lbl="";
       for(let g=0;g<=4;g++){const v=mx*g/4,yy=y(v);grid+=`<line x1="${P}" x2="${W-8}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="3 4"/>`;lbl+=`<text x="${P-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`;}
-      const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="#7FB98D" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
+      const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="var(--green)" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
       const xl=labels.map((t,i)=>i%2?"":`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${t}</text>`).join("");
-      document.getElementById("chArea").innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7FB98D" stop-opacity=".4"/><stop offset="1" stop-color="#7FB98D" stop-opacity="0"/></linearGradient><linearGradient id="gr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7FB98D"/><stop offset="1" stop-color="#6FA3C4"/></linearGradient></defs>${grid}${lbl}<path d="${area}" fill="url(#ga)"/><path d="${path}" fill="none" stroke="url(#gr)" stroke-width="2.6" stroke-linecap="round"/>${dots}${xl}</svg>`;
+      document.getElementById("chArea").innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--green)" stop-opacity=".4"/><stop offset="1" stop-color="var(--green)" stop-opacity="0"/></linearGradient><linearGradient id="gr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="var(--green)"/><stop offset="1" stop-color="#6FA3C4"/></linearGradient></defs>${grid}${lbl}<path d="${area}" fill="url(#ga)"/><path d="${path}" fill="none" stroke="url(#gr)" stroke-width="2.6" stroke-linecap="round"/>${dots}${xl}</svg>`;
       const tot=data.reduce((a,b)=>a+b,0);
       const chTotEl=document.getElementById("chTot");
       if(chTotEl)chTotEl.textContent=tot.toLocaleString("pt-BR")+" cliques";
@@ -3323,7 +3324,7 @@ function spark(d,c){const w=86,h=30,mx=Math.max(...d),mn=Math.min(...d);
   const p=d.map((v,i)=>(i/(d.length-1)*w).toFixed(1)+","+(h-((v-mn)/(mx-mn||1))*(h-4)-2).toFixed(1)).join(" ");
   return `<svg class="sp" width="${w}" height="${h}"><polyline points="${p}" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"/></svg>`;}
 kpiRow.innerHTML=[
-  {l:"Cliques hoje",v:"—",d:"carregando…",c:"#7FB98D",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {l:"Cliques hoje",v:"—",d:"carregando…",c:"var(--green)",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
   {l:"Cliques 14 dias",v:"—",d:"carregando…",c:"#6FA3C4",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
   {l:"Posts enviados",v:"—",d:"carregando…",c:"#C9A15A",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
   {l:"Links rastreados",v:"—",d:"carregando…",c:"#9B8FC9",s:[0,0,0,0,0,0,0,0,0,0,0,0]}
@@ -3367,9 +3368,9 @@ async function loadPostAutomatico(){
     // KPIs
     if(paKpis)paKpis.innerHTML=[
       ["Total de grupos",(dbGrupos||[]).length,"#6FA3C4"],
-      ["Automações ativas",ativos.length,"#7FB98D"],
+      ["Automações ativas",ativos.length,"var(--green)"],
       ["Disparos hoje",totalHoje,"#C9A15A"],
-      ["Sucesso hoje",sucessoHoje,"#7FB98D"]
+      ["Sucesso hoje",sucessoHoje,"var(--green)"]
     ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv" style="color:${k[2]}">${k[1]}</div></div>`).join("");
 
     // Mapa de posts por grupo
@@ -3411,7 +3412,7 @@ async function loadPostAutomatico(){
           if(!S.waConnected)falta.push("WA");
           if(!(g.produtos||0))falta.push("produtos");
           if(!(g.grupos_wa||0)&&!(g.canais||0))falta.push("destinos");
-          const autoColor=!hasPostAuto?"var(--mut)":autoAtivo?"#22c55e":falta.length?"#ef4444":"#f59e0b";
+          const autoColor=!hasPostAuto?"var(--mut)":autoAtivo?"var(--green)":falta.length?"var(--red)":"var(--warn)";
           const autoLabel=!hasPostAuto?"MANUAL 🔒":autoAtivo?"● ATIVO":falta.length?"● INATIVO":"● PAUSADO";
           const pg=postsPorGrupo[db.id]||{total:0,ok:0};
           const iniciou=db.created_at?new Date(db.created_at).toLocaleDateString("pt-BR"):"—";
@@ -3441,9 +3442,9 @@ async function loadPostAutomatico(){
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">💬 Grupos WA</span><strong>${g.grupos_wa||0}</strong></div>
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">📅 Ativo desde</span><strong>${iniciou}</strong></div>
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">🕐 Último post</span><strong style="font-size:11px">${ultimo}</strong></div>
-              ${pg.total>0?`<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">✅ Sucesso</span><strong style="color:${pg.ok===pg.total?"#7FB98D":"#f59e0b"}">${pg.ok}/${pg.total}</strong></div>`:""}
+              ${pg.total>0?`<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">✅ Sucesso</span><strong style="color:${pg.ok===pg.total?"var(--green)":"var(--warn)"}">${pg.ok}/${pg.total}</strong></div>`:""}
             </div>
-            ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 14px 10px;padding:5px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:2px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
+            ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 14px 10px;padding:5px 10px;background:rgba(226,112,95,.08);border:1px solid rgba(226,112,95,.2);border-radius:2px;font-size:11px;color:var(--red)">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
             <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bd)">
               ${btnAuto}
               <button class="btn btn-ghost btn-sm" style="padding:0 12px" onclick="editarGrupo('${gid}')" title="Editar grupo">✏️</button>
@@ -3539,7 +3540,7 @@ function renderAnaliticoChart(data,labels,total,tipo){
   let path="M"+x(0)+","+y(data[0]);data.forEach((v,i)=>{if(i)path+=" L"+x(i)+","+y(v);});
   const area=path+` L${x(data.length-1)},${H-26} L${x(0)},${H-26} Z`;let grid="",lbl="";
   for(let g=0;g<=4;g++){const v=Math.round(mx*g/4),yy=y(v);grid+=`<line x1="${P}" x2="${W-8}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="3 4"/>`;lbl+=`<text x="${P-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`;}
-  const color=tipo==="posts"?"#C9A15A":"#7FB98D";
+  const color=tipo==="posts"?"#C9A15A":"var(--green)";
   const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="${color}" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
   const xl=labels.map((t,i)=>i%2?"":`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${t}</text>`).join("");
   const gradId=tipo==="posts"?"gp":"ga";
@@ -4071,9 +4072,9 @@ function rrow(o){
   const lojaSourceMap={"Shopee":"Shopee","Mercado Livre":"Mercado Livre","Amazon":"Amazon","AliExpress":"AliExpress","Magalu":"Magalu","AWIN":"AWIN","Shein":"Shein","Natura":"Natura","TerabyteShop":"TerabyteShop"};
   const lojaRequerCred=lojaSourceMap.hasOwnProperty(o.loja||"");
   const temCred=!lojaRequerCred||!!(CREDS_STATE[o.loja||""]&&Object.keys(CREDS_STATE[o.loja||""]||{}).length>0);
-  const semCredBadge=!temCred?`<div style="position:absolute;top:0;left:0;right:0;background:rgba(239,68,68,.85);color:#fff;font-size:10px;font-weight:700;padding:4px 8px;text-align:center;letter-spacing:.03em">⚠️ SEM CREDENCIAL — configure em Afiliados</div>`:"";
+  const semCredBadge=!temCred?`<div style="position:absolute;top:0;left:0;right:0;background:rgba(226,112,95,.85);color:#fff;font-size:10px;font-weight:700;padding:4px 8px;text-align:center;letter-spacing:.03em">⚠️ SEM CREDENCIAL — configure em Afiliados</div>`:"";
   const dataAttr=`data-oferta='${JSON.stringify(o).replace(/'/g,"&#39;")}'`;
-  return `<div class="radar-card ${novaFlag}" style="${!temCred?"border-color:rgba(239,68,68,.5)":""}">
+  return `<div class="radar-card ${novaFlag}" style="${!temCred?"border-color:rgba(226,112,95,.5)":""}">
     <div class="radar-card-img" style="position:relative">${imgHtml}${discBadge}${scoreBadge}${semCredBadge}</div>
     <div class="radar-card-body">
       <div class="radar-card-title">${o.p||"Produto"}</div>
@@ -4085,11 +4086,11 @@ function rrow(o){
         ${(o.de&&o.de>por)?`<span class="de">R$ ${o.de.toFixed(2).replace(".",",")}</span>`:""}
         <span class="por">R$ ${por.toFixed(2).replace(".",",")}</span>
       </div>
-      ${!temCred?`<div style="font-size:11px;color:#ef4444;background:rgba(239,68,68,.1);border-radius:2px;padding:5px 8px;line-height:1.4">⚠️ Sem credencial para <strong>${o.loja}</strong>. Postar agora não vai gerar comissão. <a href="#" onclick="setRole('afiliado');go('config-afiliados');return false" style="color:#ef4444;font-weight:700;text-decoration:underline">Configurar</a></div>`:""}
+      ${!temCred?`<div style="font-size:11px;color:var(--red);background:rgba(226,112,95,.1);border-radius:2px;padding:5px 8px;line-height:1.4">⚠️ Sem credencial para <strong>${o.loja}</strong>. Postar agora não vai gerar comissão. <a href="#" onclick="setRole('afiliado');go('config-afiliados');return false" style="color:var(--red);font-weight:700;text-decoration:underline">Configurar</a></div>`:""}
       <div class="radar-card-actions">
         ${temCred
           ?`<button class="btn btn-volt btn-sm" ${dataAttr} onclick="postarOferta(JSON.parse(this.dataset.oferta.replace(/&#39;/g,&quot;'&quot;)))">⚡ Postar</button>`
-          :`<button class="btn btn-sm" style="flex:1;justify-content:center;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);cursor:default" title="Configure suas credenciais de ${o.loja} em Config Afiliados para postar com comissão" onclick="setRole('afiliado');go('config-afiliados')">🔒 Configurar</button>`
+          :`<button class="btn btn-sm" style="flex:1;justify-content:center;background:rgba(226,112,95,.15);color:var(--red);border:1px solid rgba(226,112,95,.3);cursor:default" title="Configure suas credenciais de ${o.loja} em Config Afiliados para postar com comissão" onclick="setRole('afiliado');go('config-afiliados')">🔒 Configurar</button>`
         }
         <button class="btn btn-gold btn-sm" ${dataAttr} onclick="abrirAdicionarGrupo(JSON.parse(this.dataset.oferta.replace(/&#39;/g,&quot;'&quot;)))" title="Adicionar a um Grupo de Oferta">📦 Grupo</button>
         ${o.link?`<a class="btn btn-ghost btn-sm" href="${o.link}" target="_blank" rel="noopener" title="Abrir no site">↗</a>`:""}
@@ -5155,7 +5156,7 @@ function waBotoes(l,estado){
   const p=waPrincipal();
   const ehPrincipal=p&&p.id===l.id;
   const rec='<button class="btn btn-volt btn-sm" onclick="waReconectar(\''+l.phone.replace(/'/g,"")+'\')">⟳ Reconectar</button>';
-  const desc='<button class="btn btn-ghost btn-sm" style="color:#ef4444;border-color:#ef4444" onclick="waDesconectar(\''+l.id+'\')">Desconectar</button>';
+  const desc='<button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red)" onclick="waDesconectar(\''+l.id+'\')">Desconectar</button>';
   const rem='<button class="btn btn-ghost btn-sm" style="color:var(--mut)" onclick="waRemoverInstancia(\''+l.id+'\')">🗑 Remover</button>';
   const princ=(!ehPrincipal&&estado==="online")?'<button class="btn btn-ghost btn-sm" onclick="waDefinirPrincipal(\''+l.id+'\')">★ Tornar principal</button>':'';
   if(estado==="online")return princ+desc;
@@ -5165,8 +5166,8 @@ function waBotoes(l,estado){
   return desc+rem;
 }
 
-const WA_DICA_QUEDA='<div style="width:100%;margin-bottom:8px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.3);border-radius:2px;padding:10px 12px;font-size:12px;line-height:1.6;display:flex;gap:8px;align-items:flex-start">'
-  +'<span style="font-size:18px">⚠️</span><div><strong style="color:#ef4444">Sessão derrubada?</strong><br>'
+const WA_DICA_QUEDA='<div style="width:100%;margin-bottom:8px;background:rgba(226,112,95,.10);border:1px solid rgba(226,112,95,.3);border-radius:2px;padding:10px 12px;font-size:12px;line-height:1.6;display:flex;gap:8px;align-items:flex-start">'
+  +'<span style="font-size:18px">⚠️</span><div><strong style="color:var(--red)">Sessão derrubada?</strong><br>'
   +'✅ <strong>Celular</strong> pode ficar ligado normalmente — não interfere.<br>'
   +'⚠️ <strong>WA Desktop ou WA Web</strong> aberto no celular derruba esta sessão. Feche-os antes de reconectar.'
   +'<br><small style="color:var(--mut)">Se Reconectar não funcionar, o WhatsApp invalidou as credenciais remotamente — use Gerar QR Code.</small></div></div>';
@@ -5546,23 +5547,23 @@ function renderGrupos(){const has=S.grupos.length>0;
     if(!S.waConnected)falta.push("WA");
     if(!(g.produtos||0))falta.push("produtos");
     if(!(g.grupos_wa||0)&&!(g.canais||0))falta.push("destinos WA");
-    const autoColor=!hasPostAuto?"var(--mut)":autoAtivo?"#22c55e":falta.length?"#ef4444":"#f59e0b";
+    const autoColor=!hasPostAuto?"var(--mut)":autoAtivo?"var(--green)":falta.length?"var(--red)":"var(--warn)";
     const autoLabel=!hasPostAuto?"MANUAL 🔒":autoAtivo?"ATIVO":falta.length?`INATIVO`:falta.length?"PAUSADO":"PAUSADO";
     const autoIcon=!hasPostAuto?"🔒":autoAtivo?"▶":"⏸";
 
     // WA status
     const waOk=S.waConnected&&((g.grupos_wa||0)>0||(g.canais||0)>0);
-    const waColor=waOk?"#22c55e":"#ef4444";
+    const waColor=waOk?"var(--green)":"var(--red)";
     const waLabel=!S.waConnected?"DESCONECTADO":waOk?`💬 ${g.grupos_wa||0} · 📣 ${g.canais||0}`:"SEM DESTINOS";
 
     // Telegram status
     const tgOk=(g.telegram||0)>0;
-    const tgColor=tgOk?"#22c55e":"#ef4444";
+    const tgColor=tgOk?"var(--green)":"var(--red)";
     const tgLabel=tgOk?`${g.telegram} canal${g.telegram>1?"is":""}`:"DESCONECTADO";
 
     // Produtos
     const prodOk=(g.produtos||0)>0;
-    const prodColor=prodOk?"#22c55e":"#ef4444";
+    const prodColor=prodOk?"var(--green)":"var(--red)";
 
     // Produtos que existem no grupo mas nao estao entrando no rodizio agora.
     // Sem isso eles somem do disparo em silencio -- o grupo so fica mais quieto.
@@ -5620,8 +5621,8 @@ function renderGrupos(){const has=S.grupos.length>0;
           <span style="font-size:11px;font-weight:700;color:${waColor}">${waLabel}</span>
         </div>
       </div>
-      ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:2px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
-      ${(foraRodizio||g.prodAgendados)?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:2px;font-size:11px;color:#f59e0b;cursor:pointer" onclick="editarGrupo('${g.id}')" title="Estes produtos continuam cadastrados, mas não estão sendo postados agora. Clique para abrir o grupo.">⏳ Fora do rodízio: ${detalhesFora}</div>`:""}
+      ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(226,112,95,.08);border:1px solid rgba(226,112,95,.2);border-radius:2px;font-size:11px;color:var(--red)">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
+      ${(foraRodizio||g.prodAgendados)?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(201,161,90,.08);border:1px solid rgba(201,161,90,.25);border-radius:2px;font-size:11px;color:var(--warn);cursor:pointer" onclick="editarGrupo('${g.id}')" title="Estes produtos continuam cadastrados, mas não estão sendo postados agora. Clique para abrir o grupo.">⏳ Fora do rodízio: ${detalhesFora}</div>`:""}
       <!-- Botões de ação — só Editar e Apagar aqui; automação fica em Visão Post Aut. -->
       <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bd)">
         <button class="btn btn-volt btn-sm" style="flex:1;justify-content:center" onclick="editarGrupo('${g.id}')">✏️ Editar</button>
@@ -5730,7 +5731,7 @@ function dispararGrupoMostrarErros(nomeGrupo,d){
     </div>`;
   }).join("")||"<p style='color:var(--mut);font-size:12.5px'>Sem detalhes por destino.</p>";
   const bodyHtml=`<div style="padding:16px">
-    <p style="margin-bottom:10px;font-size:13px">"${esc(nomeGrupo)}" disparado com <b>${d.sent||0}</b> envio(s) e <b style="color:#ef4444">${d.failed||0}</b> falha(s) de ${d.products||0} produto(s).</p>
+    <p style="margin-bottom:10px;font-size:13px">"${esc(nomeGrupo)}" disparado com <b>${d.sent||0}</b> envio(s) e <b style="color:var(--red)">${d.failed||0}</b> falha(s) de ${d.products||0} produto(s).</p>
     <div style="font-weight:700;font-size:12.5px;margin-bottom:8px">Destinos com falha:</div>
     ${listaHtml}
   </div>`;
@@ -5825,7 +5826,7 @@ geral:`
   <!-- Clone Post — aprovação automática por grupo de destino -->
   <div class="card" style="margin-top:14px"><div class="ch">🤖 Clone Post — captura automática deste grupo</div><div class="cb">
     <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:10px"><input type="checkbox" id="pgCloneAutoApprove" style="width:auto" onchange="pgCloneAutoApproveAlerta()"> ✅ Aprovação Automática <small style="color:var(--mut);font-weight:400">(ofertas capturadas por Fonte automática que a loja confirmar vão direto pro rodízio deste grupo, sem passar pela fila de revisão)</small></label>
-    <div id="pgCloneAutoApproveAlerta" style="display:none;border:2px solid #ef4444;border-radius:2px;padding:12px 14px;background:rgba(239,68,68,.12)">
+    <div id="pgCloneAutoApproveAlerta" style="display:none;border:2px solid var(--red);border-radius:2px;padding:12px 14px;background:rgba(226,112,95,.12)">
       <div style="display:flex;gap:10px;align-items:flex-start">
         <span style="font-size:22px;line-height:1">⚠️</span>
         <span style="font-size:12.5px;line-height:1.65;color:var(--tx)"><strong>Atenção: com isso ligado, o que a Fonte capturar entra no seu grupo sozinho, sem você revisar antes.</strong><br>
@@ -8319,7 +8320,7 @@ aiInput.addEventListener("keydown",e=>{if(e.key==="Enter")aiSendMsg();});
 
 /* ================= ADMIN: DADOS ================= */
 const PLANO_V={STARTER:0,STARTER_:57.9,PRO:97.9,ELITE:157.9,PREMIUM:297.9};
-function avColor(i){const c=["#7FB98D","#6FA3C4","#C9A15A","#E2705F","#9B8FC9"];return c[i%c.length];}
+function avColor(i){const c=["var(--green)","#6FA3C4","#C9A15A","#E2705F","#9B8FC9"];return c[i%c.length];}
 // USERS agora vem do banco (vazio até existirem clientes reais)
 let USERS=[];
 let PAYMENTS=[];
@@ -8377,7 +8378,7 @@ function renderAdminVisao(){
   const mrr=payingUsers.reduce((a,u)=>a+u.mrr,0);
   const z=[0,0,0,0,0,0,0,0,0,0,0,0];
   admKpis.innerHTML=[
-    ["MRR total","R$ "+mrr.toLocaleString("pt-BR",{minimumFractionDigits:2}),"#7FB98D",z],
+    ["MRR total","R$ "+mrr.toLocaleString("pt-BR",{minimumFractionDigits:2}),"var(--green)",z],
     ["Usuários ativos",ativos+"","#6FA3C4",z],
     ["Em trial",trial+"","#C9A15A",z],
     ["Churn mensal","—","#E2705F",z]
@@ -8385,7 +8386,7 @@ function renderAdminVisao(){
   const meses=["Jul","Ago","Set","Out","Nov","Dez","Jan","Fev","Mar","Abr","Mai","Jun"];const mrrV=z,novos=z;const mx=1;
   mrrChart.innerHTML=meses.map((m,i)=>`<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:3px"><div style="display:flex;gap:2px;align-items:flex-end;height:120px"><div class="bar" style="height:0%" data-t="${m}: sem dados"></div><div class="bar alt" style="height:0%" data-t="${m}: sem dados"></div></div><div style="text-align:center;font-size:9.5px;color:var(--mut)">${m}</div></div>`).join("");
   // distribuição real por plano
-  const dist=[["STARTER",USERS.filter(u=>u.plano==="STARTER").length,"#10B981"],["PRO",USERS.filter(u=>u.plano==="PRO").length,"#3B82F6"],["ELITE",USERS.filter(u=>u.plano==="ELITE").length,"#8B5CF6"],["PREMIUM",USERS.filter(u=>u.plano==="PREMIUM").length,"#F59E0B"]];const tot=Math.max(1,dist.reduce((a,d)=>a+d[1],0));
+  const dist=[["STARTER",USERS.filter(u=>u.plano==="STARTER").length,"#10B981"],["PRO",USERS.filter(u=>u.plano==="PRO").length,"#3B82F6"],["ELITE",USERS.filter(u=>u.plano==="ELITE").length,"#8B5CF6"],["PREMIUM",USERS.filter(u=>u.plano==="PREMIUM").length,"var(--warn)"]];const tot=Math.max(1,dist.reduce((a,d)=>a+d[1],0));
   planDist.innerHTML=dist.map(d=>`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><strong>${d[0]}</strong><span style="color:var(--mut)">${d[1]} · ${Math.round(d[1]/tot*100)}%</span></div><div class="prog-mini"><i style="width:${d[1]/tot*100}%;background:${d[2]}"></i></div></div>`).join("");
   admFeed.innerHTML='<div class="feed"><span class="fic">•</span><span style="color:var(--mut)">Nenhuma atividade ainda. Os eventos aparecerão aqui conforme os clientes usarem a plataforma.</span></div>';
 }
@@ -8578,7 +8579,7 @@ function renderSubs(){
   const payingUsers=USERS.filter(u=>!u.is_vip&&!u.is_admin);
   const mrr=payingUsers.reduce((a,u)=>a+u.mrr,0);
   const payingCount=payingUsers.filter(u=>u.mrr).length;
-  subKpis.innerHTML=[["MRR","R$ "+mrr.toLocaleString("pt-BR",{minimumFractionDigits:2}),"#7FB98D"],["ARR projetado","R$ "+(mrr*12).toLocaleString("pt-BR",{minimumFractionDigits:2}),"#6FA3C4"],["Ticket médio","R$ "+brl(mrr/Math.max(1,payingCount)),"#C9A15A"],["Inadimplentes",payingUsers.filter(u=>u.status==="past_due").length+"","#E2705F"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">dados reais</div></div>`).join("");
+  subKpis.innerHTML=[["MRR","R$ "+mrr.toLocaleString("pt-BR",{minimumFractionDigits:2}),"var(--green)"],["ARR projetado","R$ "+(mrr*12).toLocaleString("pt-BR",{minimumFractionDigits:2}),"#6FA3C4"],["Ticket médio","R$ "+brl(mrr/Math.max(1,payingCount)),"#C9A15A"],["Inadimplentes",payingUsers.filter(u=>u.status==="past_due").length+"","#E2705F"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">dados reais</div></div>`).join("");
 
   if(!PAYMENTS.length){
     payBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--mut);padding:24px">Nenhum pagamento registrado ainda. Assim que o gateway (Asaas) estiver integrado, as cobranças aparecerão aqui automaticamente.</td></tr>';
@@ -8605,7 +8606,7 @@ function renderSubs(){
   }
 
   // Distribuição por método de pagamento (billing_type do Asaas)
-  const metCores={PIX:"#7FB98D",BOLETO:"#6FA3C4",CREDIT_CARD:"#C9A15A",DEBIT_CARD:"#8B5CF6",UNDEFINED:"#8892a6"};
+  const metCores={PIX:"var(--green)",BOLETO:"#6FA3C4",CREDIT_CARD:"#C9A15A",DEBIT_CARD:"#8B5CF6",UNDEFINED:"#8892a6"};
   const metLabel={PIX:"PIX",BOLETO:"Boleto",CREDIT_CARD:"Cartão de crédito",DEBIT_CARD:"Cartão de débito",UNDEFINED:"Outro"};
   const porMetodo={};
   PAYMENTS.forEach(p=>{const k=(p.metodo||"UNDEFINED").toUpperCase();porMetodo[k]=(porMetodo[k]||0)+1;});
@@ -8627,7 +8628,7 @@ function renderSubs(){
 
 /* ADMIN: INSTÂNCIAS */
 async function renderInstancias(){
-  instKpis.innerHTML=[["Sessões online","—","#7FB98D"],["Offline (24h)","—","#E2705F"],["Canais OWNER","—","#6FA3C4"],["Canais ADMIN","—","#9B8FC9"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">aguardando dados</div></div>`).join("");
+  instKpis.innerHTML=[["Sessões online","—","var(--green)"],["Offline (24h)","—","#E2705F"],["Canais OWNER","—","#6FA3C4"],["Canais ADMIN","—","#9B8FC9"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">aguardando dados</div></div>`).join("");
   instBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--mut);padding:30px">Carregando sessões do wa-engine…</td></tr>';
   try{
     const r=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:waAuthHeaders()});
@@ -8636,7 +8637,7 @@ async function renderInstancias(){
     const sessions=Array.isArray(d)?d:d.sessions||[];
     const online=sessions.filter(s=>s.status==="connected"||s.status==="open").length;
     const offline=sessions.filter(s=>s.status!=="connected"&&s.status!=="open").length;
-    instKpis.innerHTML=[["Sessões online",online+"","#7FB98D"],["Offline (24h)",offline+"","#E2705F"],["Canais OWNER","—","#6FA3C4"],["Canais ADMIN","—","#9B8FC9"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div></div>`).join("");
+    instKpis.innerHTML=[["Sessões online",online+"","var(--green)"],["Offline (24h)",offline+"","#E2705F"],["Canais OWNER","—","#6FA3C4"],["Canais ADMIN","—","#9B8FC9"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div></div>`).join("");
     instBody.innerHTML=sessions.length?sessions.map(s=>{
       const on=s.status==="connected"||s.status==="open";
       return `<tr><td>${s.userId||s.phone||"—"}</td><td class="mono" style="font-size:12px">${s.phone||s.jid||"—"}</td><td>${on?'<span class="pill volt"><span class="d"></span>connected</span>':'<span class="pill red"><span class="d"></span>disconnected</span>'}</td><td>—</td><td>—</td><td style="color:var(--mut)">${s.lastSeen||"agora"}</td></tr>`;
@@ -8698,7 +8699,7 @@ async function renderQueue(){
     const falhas24=falhas24h?.length||0;
 
     filaKpis.innerHTML=[
-      ["Automações ativas",(groups?.length||0)+"","#7FB98D"],
+      ["Automações ativas",(groups?.length||0)+"","var(--green)"],
       ["Disparos hoje",disparosHoje+"","#6FA3C4"],
       ["Sucesso",taxaSucesso,"#C9A15A"],
       ["Falhas (24h)",falhas24+"","#E2705F"]
@@ -8915,7 +8916,7 @@ function renderVip(){
   const vitalicio=VIP_LIST.filter(v=>v.tipo==="vitalicio").length;
   if(document.getElementById("vipKpis"))
     document.getElementById("vipKpis").innerHTML=[
-      ["VIPs ativos",ativos+"","#7FB98D"],
+      ["VIPs ativos",ativos+"","var(--green)"],
       ["Vitalícios",vitalicio+"","#C9A15A"],
       ["Expirados",VIP_LIST.filter(v=>vipStatus(v)==="expirado").length+"","#E2705F"],
       ["Total cadastrado",VIP_LIST.length+"","#6FA3C4"]
@@ -13810,7 +13811,7 @@ function mrProgresso(p){
     return;
   }
   if(p.stage === 'failed'){
-    bar.style.width = '100%'; bar.style.background = '#EF4444';
+    bar.style.width = '100%'; bar.style.background = 'var(--red)';
     txt.textContent = `Falhou: ${p.message || p.code || 'erro desconhecido'}`;
     return;
   }
