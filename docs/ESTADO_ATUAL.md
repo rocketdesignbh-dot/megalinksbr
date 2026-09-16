@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 154 — 15/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 155 — 16/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1732,6 +1732,37 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 155 — 16/09/2026 — Restilização pedida de novo (3ª vez: REVISÃO 63-66, depois REVISÃO 154 investigou e não mudou código, agora esta sessão mudou código de verdade). Checkout sincronizado com `origin/main` (0/0 de divergência, `git fetch` conferido no início) — não é o bug da REVISÃO 154. Branch `redesign/megalinks-ui-v3`, 15 commits, NÃO mergeada em `main`.**
+
+### O que foi pedido e como foi resolvido o "já foi feito"
+
+Érico mandou o mesmo brief extenso de restilização completa (tokens, header, componentes, dashboard, formulários, tabelas, responsividade, a11y, motion) pela 3ª vez. A sessão leu este arquivo primeiro, achou a REVISÃO 63-66 e a REVISÃO 154, **avisou o Érico explicitamente por `AskUserQuestion`** de que o design system já existia e estava em produção, oferecendo (a) auditar gaps restantes, (b) refazer mesmo assim, ou (c) só mostrar o estado atual. Érico escolheu **(b) refazer mesmo assim**, e depois especificou **ênfase na Fase 2 do brief (usar as skills/agentes de design disponíveis)**. A sessão carregou a skill `ui-ux-pro-max` e usou `mcp__21st__search` antes de tocar em qualquer CSS — mas **não adotou a paleta genérica que a `ui-ux-pro-max` sugeriu** (azul/verde, produto SaaS genérico) porque conflitava com a paleta de marca que o próprio Érico especificou no brief (preto/amarelo/branco/cinza, que já é a paleta da REVISÃO 66) — usou a skill só pra princípios (contraste, motion, checklist), não pra cor.
+
+### O que a auditoria (3 agentes em paralelo: design system, acessibilidade, responsividade) encontrou
+
+Ao contrário da REVISÃO 154 (que só confirmou "já foi feito, não fizemos nada"), esta sessão auditou o `index.html` (13.821 linhas) de verdade e achou trabalho real pendente que a REVISÃO 66 não tinha pego:
+
+- **6 sistemas de cor duplicados coexistindo com os tokens**, todos varridos e fechados nesta sessão: amarelo (`rgba(245,197,24,)` × 2 rodadas, ~40 lugares ao todo), verde (`rgba(34,197,94,)`), azul remanescente em `.pill.sky`/`.btn-sky`/`.alert.b` (o `--sky` já apontava pra `--tx2` desde a REVISÃO 66, mas o CSS usava azul de verdade em paralelo), um **quinto vermelho** (`rgba(255,81,104,)` em `.auth-err` e mais 5 lugares), a **paleta neon dos KPIs do admin** (`#19E27D`/`#39C0FF`/`#FFB020`/`#FF4D8D`/`#9B7DFF`, 56 ocorrências — o `#FF4D8D` era literalmente o `--pink` que a REVISÃO 66 documentou ter aposentado), a **paleta Tailwind dos indicadores de status** (`#ef4444`/`#f59e0b`/`#22c55e`, Post Automático/WhatsApp/Telegram/Radar), e **roxo Tailwind** (`#8B5CF6`, selo "Elite"/método de pagamento). Todos realinhados aos tokens existentes ou a um novo `--warn` (âmbar dessaturado, pro caso "aviso/pendente" que não tinha equivalente).
+- **Foco de teclado zerado** em botão/nav/tab/pill (só `<input>` tinha) — `.tab:focus{outline:none}` explicitamente sem repor nada. Falha real de WCAG 2.4.7. Corrigido com `:focus-visible` global.
+- **Modais sem gerenciamento de foco nenhum** (sem `role="dialog"`, sem trap de Tab, sem devolver foco ao fechar) — `openModal`/`closeModal` reescritos, testado ao vivo (abrir → foco entra, Tab não escapa, Esc/clique-fora/× devolvem foco).
+- Um modal bespoke (`#modalForgot`, "Recuperar Senha") vivia fora do sistema `.mbg` inteiro — migrado.
+- ~12 botões de fechar modal sem `aria-label`; ~9 imagens de produto sem `alt`; ícone-botões do topbar (tema, notificações, avatar) sem nome acessível; busca (`#openPal`) era `<div onclick>`.
+- 45 de 46 checkboxes nativos sem `accent-color` (azul do SO em vez do tema).
+- Uma tela real de conversão (paywall de trial encerrado, `document.body.innerHTML` no fluxo de trial/cancelamento) 100% fora do sistema — reescrita com tokens.
+- 3 empty states fracos (só texto, sem ícone/ação) alinhados ao padrão que o resto do app já usa.
+- `.mf` (rodapé de modal) sem `flex-wrap`; `.cs-grid` sem o breakpoint de 520px que `.radar-grid` já tinha; `.sgrid/.stat` era classe morta sem CSS nenhum.
+
+### O que NÃO foi feito (decisão herdada + limitação desta sessão)
+
+- **Emoji mantido como está**, por decisão explícita do Érico já registrada na REVISÃO 154 ("quer manter os emoji como estão") — só removi emoji em 3 casos de **duplicação literal** (nav com SVG *e* emoji fazendo o mesmo papel: Postar Agora, Post Automático, Post Vídeo), não uma limpeza geral.
+- **Não confirmado visualmente**: a paleta neon dos KPIs do admin e a tela de conversão de trial exigem login real (admin ou trial expirado) que esta sessão não tinha. Troca mecânica de valor de cor, baixo risco, mas **falta conferir no navegador do Érico**.
+- Escala de espaçamento (a auditoria classificou como menor impacto) e uma varredura visual final tela-por-tela (as 26 telas que a REVISÃO 66 percorreu uma a uma) não foram feitas.
+- **Branch não mergeada em `main`** — os 15 commits estão só em `redesign/megalinks-ui-v3` local.
+
+### Estado ao encerrar
+
+Branch `redesign/megalinks-ui-v3`, 15 commits, working tree limpa. Cada commit testado individualmente via `frontend-static` (porta 5173) — console sem erro novo, foco de teclado conferido ao vivo com Tab de verdade num modal real.
 
 **REVISÃO 154 — 15/09/2026 — Sessão pediu restilização completa de novo (mesmo pedido da REVISÃO 153, sem saber que ela já tinha rodado); nada de visual novo foi commitado — a sessão foi de investigação, fechou a P71 e registrou a P150. NADA de código mudou nesta sessão.**
 
