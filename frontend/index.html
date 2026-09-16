@@ -238,6 +238,21 @@ tr:hover td{background:var(--surf2)}
 .sgrid .stat{text-align:center;background:var(--surf2);border:1px solid var(--bd);border-radius:var(--r-sm);padding:10px 6px}
 .sgrid .stat .v{font-size:17px;font-weight:700;font-family:var(--disp)}
 .sgrid .stat .l{font-size:10.5px;color:var(--mut);margin-top:2px;text-transform:uppercase;letter-spacing:.03em}
+.chan-quick{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px 18px;background:var(--qc-bg);border:1px solid var(--qc-bd);border-radius:var(--r-sm);transition:.15s;width:100%}
+.chan-quick:hover{border-color:var(--qc)}
+.chan-quick:focus-visible{outline:2px solid var(--qc);outline-offset:2px;border-color:var(--qc)}
+.chan-quick .ci{width:42px;height:42px;border-radius:var(--r-sm);background:var(--qc-bg2);display:flex;align-items:center;justify-content:center;flex:none;color:var(--qc)}
+.chan-quick .ct{flex:1;text-align:left}
+.chan-quick .ct b{display:block;font-weight:700;font-size:13px;color:var(--tx)}
+.chan-quick .ct small{display:block;font-size:12px;color:var(--mut)}
+.chan-quick .arrow{color:var(--qc);font-size:16px;opacity:.7}
+.cta-primary{all:unset;box-sizing:border-box;cursor:pointer;background:var(--volt-soft);border:1px solid rgba(255,193,7,.38);border-radius:var(--r);padding:24px 26px;margin-bottom:20px;display:flex;align-items:center;gap:18px;transition:.15s;width:100%}
+.cta-primary:hover{border-color:var(--volt)}
+.cta-primary:focus-visible{outline:2px solid var(--volt);outline-offset:2px;border-color:var(--volt)}
+.cta-primary .ci{width:56px;height:56px;border-radius:2px;background:var(--volt);display:flex;align-items:center;justify-content:center;flex:none;color:var(--volt-fg)}
+.cta-primary .ct{flex:1;text-align:left}
+.cta-primary .ct b{display:block;font-family:var(--disp);font-weight:700;font-size:18px;color:var(--volt-tx)}
+.cta-primary .ct span{display:block;font-size:13px;color:var(--tx2);margin-top:3px}
 
 /* ── SPLASH BOAS-VINDAS ── */
 
@@ -712,15 +727,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 
   <!-- Modal Recuperar Senha -->
-  <div id="modalForgot" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:none;align-items:center;justify-content:center">
-    <div class="card" style="width:90%;max-width:400px;background:var(--surf)">
-      <div class="cb">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-          <h2 style="font-size:18px;font-weight:700">Recuperar Senha</h2>
-          <button type="button" onclick="closeForgotPass()" style="background:none;border:none;color:var(--tx);font-size:24px;cursor:pointer">×</button>
-        </div>
+  <div class="mbg" id="modalForgot" aria-labelledby="modalForgotTitle">
+    <div class="modal" style="max-width:400px">
+      <div class="mh"><span id="modalForgotTitle">Recuperar Senha</span><button type="button" class="mx" aria-label="Fechar" onclick="closeForgotPass()">×</button></div>
+      <div class="mb">
         <p style="color:var(--tx2);margin-bottom:14px;font-size:13px">Insira seu e-mail para receber um link de recuperação de senha</p>
-        <div class="field"><label>E-mail</label><input id="forgotEmail" type="email" placeholder="seu@email.com"></div>
+        <div class="field"><label>E-mail</label><input id="forgotEmail" type="email" placeholder="seu@email.com" autofocus></div>
         <div class="alert" id="forgotErr" style="display:none;margin-bottom:14px"></div>
         <button class="btn btn-volt" onclick="sendResetLink()" style="width:100%;justify-content:center" id="btnResetSend">Enviar link de reset</button>
         <div style="text-align:center;margin-top:12px;color:var(--tx2);font-size:12px;display:none" id="forgotMsg">Verifique seu e-mail para o link de recuperação</div>
@@ -760,9 +772,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- AFILIADO -->
   <nav class="nav-grp show" id="navAfiliado">
     <a class="nav active" href="/painel/dashboard" data-page="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Dashboard</a>
-    <a class="nav" href="/painel/post-relampago" data-page="post-relampago"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M13 2L4.5 13.5H11L10 22L19.5 10H13L13 2Z"/></svg>🚀 Postar Agora</a>
-    <a class="nav" href="/painel/post-automatico" data-page="post-automatico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>⚡ Post. Automático<span class="tag dot" id="autoPostBadge" style="display:none">0</span></a>
-    <a class="nav" href="/painel/post-video" data-page="post-video" id="navPostVideo" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M17 9l4-2v10l-4-2"/></svg>🎬 Post Vídeo</a>
+    <a class="nav" href="/painel/post-relampago" data-page="post-relampago"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M13 2L4.5 13.5H11L10 22L19.5 10H13L13 2Z"/></svg>Postar Agora</a>
+    <a class="nav" href="/painel/post-automatico" data-page="post-automatico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Post. Automático<span class="tag dot" id="autoPostBadge" style="display:none">0</span></a>
+    <a class="nav" href="/painel/post-video" data-page="post-video" id="navPostVideo" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M17 9l4-2v10l-4-2"/></svg>Post Vídeo</a>
     <a class="nav" href="/painel/link-rapido" data-page="link-rapido"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Link Rápido</a>
     <a class="nav" href="/painel/clone-post" data-page="clone-post"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Clone Post<span class="tag dot" id="cloneBadge" style="display:none">0</span></a>
     <a class="nav" href="/painel/radar" data-page="radar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 3v4.5M12 12l6-4"/></svg>Radar de Ofertas<span class="tag dot" id="radarBadge">0</span></a>
@@ -1165,14 +1177,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- Banner de upgrade contextual (injetado via JS) -->
     <div id="upgradeBannerDash"></div>
     <!-- CTA de Postagem — item PRINCIPAL da Dashboard -->
-    <div onclick="go('post-relampago')" style="cursor:pointer;background:var(--volt-soft);border:1px solid rgba(255,193,7,.38);border-radius:var(--r);padding:24px 26px;margin-bottom:20px;display:flex;align-items:center;gap:18px;transition:.15s" onmouseover="this.style.borderColor='rgba(255,77,141,.7)'" onmouseout="this.style.borderColor='rgba(255,77,141,.4)'">
-      <div style="width:56px;height:56px;border-radius:2px;background:var(--volt);display:flex;align-items:center;justify-content:center;font-size:28px;flex:none">⚡</div>
-      <div style="flex:1">
-        <div style="font-family:var(--disp);font-weight:700;font-size:18px;color:var(--volt-tx)">Postar Agora</div>
-        <div style="font-size:13px;color:var(--tx2);margin-top:3px">Viu uma oferta? Cole o link, ajuste e dispare para seus canais em segundos.</div>
-      </div>
-      <svg viewBox="0 0 24 24" fill="none" stroke="var(--volt-tx)" stroke-width="2" width="22" style="flex:none"><path d="M9 18l6-6-6-6"/></svg>
-    </div>
+    <button type="button" class="cta-primary" onclick="go('post-relampago')">
+      <span class="ci"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></span>
+      <span class="ct"><b>Postar Agora</b><span>Viu uma oferta? Cole o link, ajuste e dispare para seus canais em segundos.</span></span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--volt-tx)" stroke-width="2" width="22" style="flex:none" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
     <!-- Comece por aqui — só aparece enquanto o onboarding não estiver 100% completo -->
     <div class="card" id="onbCard" style="display:none">
       <div class="ch">🚀 Configure sua conta <span class="r" id="onbPct" style="font-size:12px;color:var(--volt-tx);font-weight:700"></span></div>
@@ -1541,22 +1550,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <!-- Cards de ação rápida — sempre visíveis -->
     <div class="g2-mob" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-      <div onclick="btnAddGrupo.click()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px 18px;background:rgba(37,185,79,.06);border:1px solid rgba(37,185,79,.25);border-radius:2px;transition:.15s" onmouseover="this.style.borderColor='#25b94f'" onmouseout="this.style.borderColor='rgba(37,185,79,.25)'">
-        <div style="width:42px;height:42px;border-radius:2px;background:rgba(37,185,79,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none">📱</div>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:13px">Adicionar grupo WhatsApp</div>
-          <div style="font-size:12px;color:var(--mut)">Selecione de seus grupos conectados</div>
-        </div>
-        <span style="color:rgba(37,185,79,.7);font-size:16px">→</span>
-      </div>
-      <div onclick="btnAddGrupo.click()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px 18px;background:rgba(41,159,217,.06);border:1px solid rgba(41,159,217,.25);border-radius:2px;transition:.15s" onmouseover="this.style.borderColor='#299fd9'" onmouseout="this.style.borderColor='rgba(41,159,217,.25)'">
-        <div style="width:42px;height:42px;border-radius:2px;background:rgba(41,159,217,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none">✈️</div>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:13px">Adicionar grupo Telegram</div>
-          <div style="font-size:12px;color:var(--mut)">Veja como vincular via bot</div>
-        </div>
-        <span style="color:rgba(41,159,217,.7);font-size:16px">→</span>
-      </div>
+      <button type="button" class="chan-quick" onclick="btnAddGrupo.click()" style="--qc:#25b94f;--qc-bg:rgba(37,185,79,.06);--qc-bg2:rgba(37,185,79,.15);--qc-bd:rgba(37,185,79,.25)">
+        <span class="ci"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+        <span class="ct"><b>Adicionar grupo WhatsApp</b><small>Selecione de seus grupos conectados</small></span>
+        <span class="arrow" aria-hidden="true">→</span>
+      </button>
+      <button type="button" class="chan-quick" onclick="btnAddGrupo.click()" style="--qc:#299fd9;--qc-bg:rgba(41,159,217,.06);--qc-bg2:rgba(41,159,217,.15);--qc-bd:rgba(41,159,217,.25)">
+        <span class="ci"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></span>
+        <span class="ct"><b>Adicionar grupo Telegram</b><small>Veja como vincular via bot</small></span>
+        <span class="arrow" aria-hidden="true">→</span>
+      </button>
     </div>
     <div id="grupoLimiteAlert" style="display:none;background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.4);border-radius:2px;padding:12px 16px;margin-bottom:12px;align-items:center;gap:12px;font-size:13px"></div>
     <div id="grupoStarterBanner" style="display:none;background:var(--volt-soft);border:1px solid rgba(245,197,24,.3);border-radius:2px;padding:14px 18px;margin-bottom:14px;align-items:center;gap:14px;font-size:13px">
@@ -1942,7 +1945,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div style="background:var(--bg2);border-radius:2px;padding:14px">
           <div style="font-size:20px;margin-bottom:6px">📚</div>
           <div style="font-size:12px;font-weight:700;color:var(--tx1);margin-bottom:4px">Antes de abrir chamado</div>
-          <div style="font-size:12px;color:var(--tx2)">Consulte o <span style="color:var(--volt-tx);cursor:pointer" onclick="go('faq')">FAQ</span> — muitas dúvidas já têm resposta lá.</div>
+          <div style="font-size:12px;color:var(--tx2)">Consulte o <a href="/painel/faq" onclick="event.preventDefault();go('faq')" style="color:var(--volt-tx);text-decoration:underline">FAQ</a> — muitas dúvidas já têm resposta lá.</div>
         </div>
       </div>
     </div>
@@ -2060,7 +2063,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <label>Buscar usuário</label>
           <div style="position:relative">
             <input id="vipSearch" placeholder="Digite o nome do usuário..." autocomplete="off" oninput="searchUsers(this.value)" style="padding-right:40px">
-            <svg onclick="vipSearch.value='';searchUsers('')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;cursor:pointer;color:var(--tx2);opacity:0.6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <button type="button" aria-label="Limpar busca" onclick="vipSearch.value='';searchUsers('')" style="all:unset;position:absolute;right:12px;top:50%;transform:translateY(-50%);width:24px;height:24px;display:grid;place-items:center;cursor:pointer;color:var(--tx2);opacity:0.6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
             <div class="autocomplete-list" id="vipSearchResults" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surf);border:1px solid var(--bd);border-radius:var(--r-sm);max-height:180px;overflow-y:auto;z-index:10;margin-top:4px">
             </div>
           </div>
@@ -3230,12 +3233,43 @@ function closeDD(){document.querySelectorAll(".dd").forEach(d=>d.classList.remov
 btnNotif.onclick=e=>{e.stopPropagation();const o=ddNotif.classList.contains("open");closeDD();ddNotif.classList.toggle("open",!o);};
 btnUser.onclick=e=>{e.stopPropagation();const o=ddUser.classList.contains("open");closeDD();ddUser.classList.toggle("open",!o);};
 document.addEventListener("click",closeDD);
-function openModal(id){document.getElementById(id).classList.add("open");}
-function closeModal(id){document.getElementById(id).classList.remove("open");}
+let _modalLastFocus=null;
+function _modalFocusables(box){
+  return [...box.querySelectorAll('button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')]
+    .filter(x=>x.offsetParent!==null);
+}
+function openModal(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  _modalLastFocus=document.activeElement;
+  el.classList.add("open");
+  if(!el.hasAttribute("role")){el.setAttribute("role","dialog");el.setAttribute("aria-modal","true");}
+  const box=el.querySelector(".modal")||el;
+  const items=_modalFocusables(box);
+  const preferred=box.querySelector("[autofocus]")||items[0]||box;
+  preferred.focus?.({preventScroll:true});
+  el._trapHandler=e=>{
+    if(e.key!=="Tab")return;
+    const list=_modalFocusables(box);
+    if(!list.length)return;
+    const first=list[0],last=list[list.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  };
+  el.addEventListener("keydown",el._trapHandler);
+}
+function closeModal(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.classList.remove("open");
+  if(el._trapHandler){el.removeEventListener("keydown",el._trapHandler);el._trapHandler=null;}
+  if(_modalLastFocus&&document.body.contains(_modalLastFocus))_modalLastFocus.focus();
+  _modalLastFocus=null;
+}
 // Modal com data-bloqueante nao fecha por clique no fundo nem por ESC. O de
 // perfil incompleto e um deles: o afterLogin faz return sem chamar enterApp, entao
 // fechar por acidente deixava o usuario numa tela em branco -- sem app e sem login.
-document.querySelectorAll(".mbg").forEach(m=>m.addEventListener("click",e=>{if(e.target===m&&!m.dataset.bloqueante)m.classList.remove("open");}));
+document.querySelectorAll(".mbg").forEach(m=>m.addEventListener("click",e=>{if(e.target===m&&!m.dataset.bloqueante)closeModal(m.id);}));
 // Rastreia botao clicado para ancorar toast proximo a ele (desktop)
 let _twAnchor=null;
 document.addEventListener('click',e=>{
@@ -3638,7 +3672,7 @@ function renderOnb(){
   const done=ONB.filter(s=>s.done).length,pct=Math.round(done/ONB.length*100);
   // Renderiza items com sublinha descritiva e seta nos clicáveis
   osteps.innerHTML=ONB.map(s=>`
-    <li class="${s.done?"done":""}" style="${s.go&&!s.done?'cursor:pointer':'cursor:default'}" ${s.go&&!s.done?`onclick="go('${s.go}')"`:""}>
+    <li class="${s.done?"done":""}" style="${s.go&&!s.done?'cursor:pointer':'cursor:default'}" ${s.go&&!s.done?`role="button" tabindex="0" onclick="go('${s.go}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();go('${s.go}')}"`:""}>
       <span class="ostep"></span>
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600;color:${s.done?'var(--tx2)':'var(--tx)'}">${s.t}</div>
@@ -8057,7 +8091,7 @@ function renderPal(){const items=palItems();palSel=Math.min(palSel,Math.max(0,it
 function execPal(p){closePalette();if(p.act)p.act();else go(p.go);}
 palInput.addEventListener("input",()=>{palSel=0;renderPal();});
 palInput.addEventListener("keydown",e=>{const items=palItems();if(e.key==="ArrowDown"){palSel=Math.min(palSel+1,items.length-1);renderPal();e.preventDefault();}else if(e.key==="ArrowUp"){palSel=Math.max(palSel-1,0);renderPal();e.preventDefault();}else if(e.key==="Enter"&&items[palSel])execPal(items[palSel]);});
-document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();palbg.classList.contains("open")?closePalette():openPalette();}if(e.key==="Escape"){closePalette();closeDrawer();document.querySelectorAll(".mbg:not([data-bloqueante])").forEach(m=>m.classList.remove("open"));}});
+document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();palbg.classList.contains("open")?closePalette():openPalette();}if(e.key==="Escape"){closePalette();closeDrawer();document.querySelectorAll(".mbg.open:not([data-bloqueante])").forEach(m=>closeModal(m.id));}});
 
 /* ================= MEGAIA ================= */
 let _aiSessionStarted=false;
@@ -8996,16 +9030,15 @@ function selectUserForVip(userId,userName){
 
 /* ═══ RESET DE SENHA ═══ */
 function openForgotPass(){
-  document.getElementById("modalForgot").style.display="flex";
   document.getElementById("forgotEmail").value="";
-  document.getElementById("forgotEmail").focus();
   document.getElementById("forgotErr").style.display="none";
   document.getElementById("forgotMsg").style.display="none";
   document.getElementById("btnResetSend").style.display="block";
+  openModal("modalForgot");
 }
 
 function closeForgotPass(){
-  document.getElementById("modalForgot").style.display="none";
+  closeModal("modalForgot");
 }
 
 async function sendResetLink(){
