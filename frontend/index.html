@@ -44,6 +44,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   --red-soft:rgba(226,112,95,.12); --green-soft:rgba(127,185,141,.15);
   --warn:#C9A15A; --warn-soft:rgba(201,161,90,.12);
   --r:2px; --r-sm:2px; --r-xs:2px;
+  /* Escala de espacamento (base 4px). Nao migrei os ~13.000 paddings/margins
+     inline existentes para isso de forma retroativa -- risco de regressao
+     visual em milhares de pontos por um ganho cosmetico, desproporcional.
+     Serve de referencia pra componentes novos ou revisados a partir de agora
+     (ver .cta-primary/.chan-quick como exemplo, ja usam 14/16/18/24px). */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px; --sp-7:48px;
   --disp:"Archivo","Helvetica Neue",Arial,sans-serif;
   --body:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,monospace;
