@@ -2585,10 +2585,10 @@ function cupomRenderLista(){
   const topLoja=Object.entries(lojaMap).sort((a,b)=>b[1]-a[1])[0];
   const vencidos=COUPONS.filter(c=>c.validade&&new Date(c.validade)<new Date()).length;
   if(kpis)kpis.innerHTML=[
-    ["Total de cupons",COUPONS.length,"#39C0FF"],
-    ["Marketplaces",Object.keys(lojaMap).length,"#19E27D"],
-    ["Top loja",topLoja?topLoja[0]:"—","#FFB020"],
-    ["Vencidos",vencidos,"#FF4D8D"]
+    ["Total de cupons",COUPONS.length,"#6FA3C4"],
+    ["Marketplaces",Object.keys(lojaMap).length,"#7FB98D"],
+    ["Top loja",topLoja?topLoja[0]:"—","#C9A15A"],
+    ["Vencidos",vencidos,"#E2705F"]
   ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv" style="color:${k[2]};font-size:${String(k[1]).length>6?"16px":"22px"}">${k[1]}</div></div>`).join("");
 
   if(!filtrados.length){
@@ -3174,10 +3174,10 @@ async function loadAnalitico(){
   // Placeholders de loading
   const kpiRowEl=document.getElementById("kpiRow");
   if(kpiRowEl)kpiRowEl.innerHTML=[
-    {l:"Cliques hoje",v:"…",c:"#19E27D"},
-    {l:"Comissões estimadas",v:"—",c:"#39C0FF"},
-    {l:"Posts enviados",v:"…",c:"#FFB020"},
-    {l:"CTR médio",v:"—",c:"#FF4D8D"}
+    {l:"Cliques hoje",v:"…",c:"#7FB98D"},
+    {l:"Comissões estimadas",v:"—",c:"#6FA3C4"},
+    {l:"Posts enviados",v:"…",c:"#C9A15A"},
+    {l:"CTR médio",v:"—",c:"#E2705F"}
   ].map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv" id="kpi_${k.l.replace(/\s/g,'_')}">${k.v}</div><div class="kd" id="kpid_${k.l.replace(/\s/g,'_')}" style="color:var(--mut)">carregando…</div></div>`).join("");
   try{
     // Cliques hoje
@@ -3218,9 +3218,9 @@ async function loadAnalitico(){
       const area=path+` L${x(13)},${H-26} L${x(0)},${H-26} Z`;
       let grid="",lbl="";
       for(let g=0;g<=4;g++){const v=mx*g/4,yy=y(v);grid+=`<line x1="${P}" x2="${W-8}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="3 4"/>`;lbl+=`<text x="${P-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`;}
-      const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="#19E27D" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
+      const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="#7FB98D" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
       const xl=labels.map((t,i)=>i%2?"":`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${t}</text>`).join("");
-      document.getElementById("chArea").innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#19E27D" stop-opacity=".4"/><stop offset="1" stop-color="#19E27D" stop-opacity="0"/></linearGradient><linearGradient id="gr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#19E27D"/><stop offset="1" stop-color="#39C0FF"/></linearGradient></defs>${grid}${lbl}<path d="${area}" fill="url(#ga)"/><path d="${path}" fill="none" stroke="url(#gr)" stroke-width="2.6" stroke-linecap="round"/>${dots}${xl}</svg>`;
+      document.getElementById("chArea").innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7FB98D" stop-opacity=".4"/><stop offset="1" stop-color="#7FB98D" stop-opacity="0"/></linearGradient><linearGradient id="gr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7FB98D"/><stop offset="1" stop-color="#6FA3C4"/></linearGradient></defs>${grid}${lbl}<path d="${area}" fill="url(#ga)"/><path d="${path}" fill="none" stroke="url(#gr)" stroke-width="2.6" stroke-linecap="round"/>${dots}${xl}</svg>`;
       const tot=data.reduce((a,b)=>a+b,0);
       const chTotEl=document.getElementById("chTot");
       if(chTotEl)chTotEl.textContent=tot.toLocaleString("pt-BR")+" cliques";
@@ -3322,10 +3322,10 @@ function spark(d,c){const w=86,h=30,mx=Math.max(...d),mn=Math.min(...d);
   const p=d.map((v,i)=>(i/(d.length-1)*w).toFixed(1)+","+(h-((v-mn)/(mx-mn||1))*(h-4)-2).toFixed(1)).join(" ");
   return `<svg class="sp" width="${w}" height="${h}"><polyline points="${p}" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"/></svg>`;}
 kpiRow.innerHTML=[
-  {l:"Cliques hoje",v:"—",d:"carregando…",c:"#19E27D",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
-  {l:"Cliques 14 dias",v:"—",d:"carregando…",c:"#39C0FF",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
-  {l:"Posts enviados",v:"—",d:"carregando…",c:"#FFB020",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
-  {l:"Links rastreados",v:"—",d:"carregando…",c:"#9B7DFF",s:[0,0,0,0,0,0,0,0,0,0,0,0]}
+  {l:"Cliques hoje",v:"—",d:"carregando…",c:"#7FB98D",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {l:"Cliques 14 dias",v:"—",d:"carregando…",c:"#6FA3C4",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {l:"Posts enviados",v:"—",d:"carregando…",c:"#C9A15A",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {l:"Links rastreados",v:"—",d:"carregando…",c:"#9B8FC9",s:[0,0,0,0,0,0,0,0,0,0,0,0]}
 ].map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv" id="kpi_${k.l.replace(/\s/g,'_')}">${k.v}</div><div class="kd" style="color:var(--mut)" id="kpid_${k.l.replace(/\s/g,'_')}">${k.d}</div>${spark(k.s,k.c)}</div>`).join("");
 
 // Abre direto o fluxo de criação de Grupo de Oferta a partir do Post Automático.
@@ -3365,10 +3365,10 @@ async function loadPostAutomatico(){
 
     // KPIs
     if(paKpis)paKpis.innerHTML=[
-      ["Total de grupos",(dbGrupos||[]).length,"#39C0FF"],
-      ["Automações ativas",ativos.length,"#19E27D"],
-      ["Disparos hoje",totalHoje,"#FFB020"],
-      ["Sucesso hoje",sucessoHoje,"#19E27D"]
+      ["Total de grupos",(dbGrupos||[]).length,"#6FA3C4"],
+      ["Automações ativas",ativos.length,"#7FB98D"],
+      ["Disparos hoje",totalHoje,"#C9A15A"],
+      ["Sucesso hoje",sucessoHoje,"#7FB98D"]
     ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv" style="color:${k[2]}">${k[1]}</div></div>`).join("");
 
     // Mapa de posts por grupo
@@ -3440,7 +3440,7 @@ async function loadPostAutomatico(){
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">💬 Grupos WA</span><strong>${g.grupos_wa||0}</strong></div>
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">📅 Ativo desde</span><strong>${iniciou}</strong></div>
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">🕐 Último post</span><strong style="font-size:11px">${ultimo}</strong></div>
-              ${pg.total>0?`<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">✅ Sucesso</span><strong style="color:${pg.ok===pg.total?"#19E27D":"#f59e0b"}">${pg.ok}/${pg.total}</strong></div>`:""}
+              ${pg.total>0?`<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">✅ Sucesso</span><strong style="color:${pg.ok===pg.total?"#7FB98D":"#f59e0b"}">${pg.ok}/${pg.total}</strong></div>`:""}
             </div>
             ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 14px 10px;padding:5px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:2px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
             <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bd)">
@@ -3538,7 +3538,7 @@ function renderAnaliticoChart(data,labels,total,tipo){
   let path="M"+x(0)+","+y(data[0]);data.forEach((v,i)=>{if(i)path+=" L"+x(i)+","+y(v);});
   const area=path+` L${x(data.length-1)},${H-26} L${x(0)},${H-26} Z`;let grid="",lbl="";
   for(let g=0;g<=4;g++){const v=Math.round(mx*g/4),yy=y(v);grid+=`<line x1="${P}" x2="${W-8}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="3 4"/>`;lbl+=`<text x="${P-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`;}
-  const color=tipo==="posts"?"#FFB020":"#19E27D";
+  const color=tipo==="posts"?"#C9A15A":"#7FB98D";
   const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="${color}" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
   const xl=labels.map((t,i)=>i%2?"":`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${t}</text>`).join("");
   const gradId=tipo==="posts"?"gp":"ga";
@@ -8318,7 +8318,7 @@ aiInput.addEventListener("keydown",e=>{if(e.key==="Enter")aiSendMsg();});
 
 /* ================= ADMIN: DADOS ================= */
 const PLANO_V={STARTER:0,STARTER_:57.9,PRO:97.9,ELITE:157.9,PREMIUM:297.9};
-function avColor(i){const c=["#19E27D","#39C0FF","#FFB020","#FF4D8D","#9B7DFF"];return c[i%c.length];}
+function avColor(i){const c=["#7FB98D","#6FA3C4","#C9A15A","#E2705F","#9B8FC9"];return c[i%c.length];}
 // USERS agora vem do banco (vazio até existirem clientes reais)
 let USERS=[];
 let PAYMENTS=[];
@@ -8376,10 +8376,10 @@ function renderAdminVisao(){
   const mrr=payingUsers.reduce((a,u)=>a+u.mrr,0);
   const z=[0,0,0,0,0,0,0,0,0,0,0,0];
   admKpis.innerHTML=[
-    ["MRR total","R$ "+mrr.toLocaleString("pt-BR",{minimumFractionDigits:2}),"#19E27D",z],
-    ["Usuários ativos",ativos+"","#39C0FF",z],
-    ["Em trial",trial+"","#FFB020",z],
-    ["Churn mensal","—","#FF4D8D",z]
+    ["MRR total","R$ "+mrr.toLocaleString("pt-BR",{minimumFractionDigits:2}),"#7FB98D",z],
+    ["Usuários ativos",ativos+"","#6FA3C4",z],
+    ["Em trial",trial+"","#C9A15A",z],
+    ["Churn mensal","—","#E2705F",z]
   ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">dados reais</div>${spark(k[3],k[2])}</div>`).join("");
   const meses=["Jul","Ago","Set","Out","Nov","Dez","Jan","Fev","Mar","Abr","Mai","Jun"];const mrrV=z,novos=z;const mx=1;
   mrrChart.innerHTML=meses.map((m,i)=>`<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:3px"><div style="display:flex;gap:2px;align-items:flex-end;height:120px"><div class="bar" style="height:0%" data-t="${m}: sem dados"></div><div class="bar alt" style="height:0%" data-t="${m}: sem dados"></div></div><div style="text-align:center;font-size:9.5px;color:var(--mut)">${m}</div></div>`).join("");
@@ -8577,7 +8577,7 @@ function renderSubs(){
   const payingUsers=USERS.filter(u=>!u.is_vip&&!u.is_admin);
   const mrr=payingUsers.reduce((a,u)=>a+u.mrr,0);
   const payingCount=payingUsers.filter(u=>u.mrr).length;
-  subKpis.innerHTML=[["MRR","R$ "+mrr.toLocaleString("pt-BR",{minimumFractionDigits:2}),"#19E27D"],["ARR projetado","R$ "+(mrr*12).toLocaleString("pt-BR",{minimumFractionDigits:2}),"#39C0FF"],["Ticket médio","R$ "+brl(mrr/Math.max(1,payingCount)),"#FFB020"],["Inadimplentes",payingUsers.filter(u=>u.status==="past_due").length+"","#FF4D8D"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">dados reais</div></div>`).join("");
+  subKpis.innerHTML=[["MRR","R$ "+mrr.toLocaleString("pt-BR",{minimumFractionDigits:2}),"#7FB98D"],["ARR projetado","R$ "+(mrr*12).toLocaleString("pt-BR",{minimumFractionDigits:2}),"#6FA3C4"],["Ticket médio","R$ "+brl(mrr/Math.max(1,payingCount)),"#C9A15A"],["Inadimplentes",payingUsers.filter(u=>u.status==="past_due").length+"","#E2705F"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">dados reais</div></div>`).join("");
 
   if(!PAYMENTS.length){
     payBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--mut);padding:24px">Nenhum pagamento registrado ainda. Assim que o gateway (Asaas) estiver integrado, as cobranças aparecerão aqui automaticamente.</td></tr>';
@@ -8604,7 +8604,7 @@ function renderSubs(){
   }
 
   // Distribuição por método de pagamento (billing_type do Asaas)
-  const metCores={PIX:"#19E27D",BOLETO:"#39C0FF",CREDIT_CARD:"#FFB020",DEBIT_CARD:"#8B5CF6",UNDEFINED:"#8892a6"};
+  const metCores={PIX:"#7FB98D",BOLETO:"#6FA3C4",CREDIT_CARD:"#C9A15A",DEBIT_CARD:"#8B5CF6",UNDEFINED:"#8892a6"};
   const metLabel={PIX:"PIX",BOLETO:"Boleto",CREDIT_CARD:"Cartão de crédito",DEBIT_CARD:"Cartão de débito",UNDEFINED:"Outro"};
   const porMetodo={};
   PAYMENTS.forEach(p=>{const k=(p.metodo||"UNDEFINED").toUpperCase();porMetodo[k]=(porMetodo[k]||0)+1;});
@@ -8626,7 +8626,7 @@ function renderSubs(){
 
 /* ADMIN: INSTÂNCIAS */
 async function renderInstancias(){
-  instKpis.innerHTML=[["Sessões online","—","#19E27D"],["Offline (24h)","—","#FF4D8D"],["Canais OWNER","—","#39C0FF"],["Canais ADMIN","—","#9B7DFF"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">aguardando dados</div></div>`).join("");
+  instKpis.innerHTML=[["Sessões online","—","#7FB98D"],["Offline (24h)","—","#E2705F"],["Canais OWNER","—","#6FA3C4"],["Canais ADMIN","—","#9B8FC9"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">aguardando dados</div></div>`).join("");
   instBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--mut);padding:30px">Carregando sessões do wa-engine…</td></tr>';
   try{
     const r=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:waAuthHeaders()});
@@ -8635,7 +8635,7 @@ async function renderInstancias(){
     const sessions=Array.isArray(d)?d:d.sessions||[];
     const online=sessions.filter(s=>s.status==="connected"||s.status==="open").length;
     const offline=sessions.filter(s=>s.status!=="connected"&&s.status!=="open").length;
-    instKpis.innerHTML=[["Sessões online",online+"","#19E27D"],["Offline (24h)",offline+"","#FF4D8D"],["Canais OWNER","—","#39C0FF"],["Canais ADMIN","—","#9B7DFF"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div></div>`).join("");
+    instKpis.innerHTML=[["Sessões online",online+"","#7FB98D"],["Offline (24h)",offline+"","#E2705F"],["Canais OWNER","—","#6FA3C4"],["Canais ADMIN","—","#9B8FC9"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div></div>`).join("");
     instBody.innerHTML=sessions.length?sessions.map(s=>{
       const on=s.status==="connected"||s.status==="open";
       return `<tr><td>${s.userId||s.phone||"—"}</td><td class="mono" style="font-size:12px">${s.phone||s.jid||"—"}</td><td>${on?'<span class="pill volt"><span class="d"></span>connected</span>':'<span class="pill red"><span class="d"></span>disconnected</span>'}</td><td>—</td><td>—</td><td style="color:var(--mut)">${s.lastSeen||"agora"}</td></tr>`;
@@ -8697,10 +8697,10 @@ async function renderQueue(){
     const falhas24=falhas24h?.length||0;
 
     filaKpis.innerHTML=[
-      ["Automações ativas",(groups?.length||0)+"","#19E27D"],
-      ["Disparos hoje",disparosHoje+"","#39C0FF"],
-      ["Sucesso",taxaSucesso,"#FFB020"],
-      ["Falhas (24h)",falhas24+"","#FF4D8D"]
+      ["Automações ativas",(groups?.length||0)+"","#7FB98D"],
+      ["Disparos hoje",disparosHoje+"","#6FA3C4"],
+      ["Sucesso",taxaSucesso,"#C9A15A"],
+      ["Falhas (24h)",falhas24+"","#E2705F"]
     ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div></div>`).join("");
 
     queueUpcoming=(groups||[]).map(g=>({...g,...filaEta(g,now)})).sort((a,b)=>a.etaMin-b.etaMin);
@@ -8914,10 +8914,10 @@ function renderVip(){
   const vitalicio=VIP_LIST.filter(v=>v.tipo==="vitalicio").length;
   if(document.getElementById("vipKpis"))
     document.getElementById("vipKpis").innerHTML=[
-      ["VIPs ativos",ativos+"","#19E27D"],
-      ["Vitalícios",vitalicio+"","#FFB020"],
-      ["Expirados",VIP_LIST.filter(v=>vipStatus(v)==="expirado").length+"","#FF4D8D"],
-      ["Total cadastrado",VIP_LIST.length+"","#39C0FF"]
+      ["VIPs ativos",ativos+"","#7FB98D"],
+      ["Vitalícios",vitalicio+"","#C9A15A"],
+      ["Expirados",VIP_LIST.filter(v=>vipStatus(v)==="expirado").length+"","#E2705F"],
+      ["Total cadastrado",VIP_LIST.length+"","#6FA3C4"]
     ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv" style="color:${k[2]}">${k[1]}</div></div>`).join("");
 
   const badge=document.getElementById("vipBadge");
