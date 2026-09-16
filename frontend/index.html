@@ -845,15 +845,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <button class="ibtn" id="mobMenu" onclick="toggleMobMenu()" title="Menu" aria-label="Abrir menu">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
-    <div class="search" id="openPal" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg> Buscar páginas, ações, usuários… <span class="kbd">Ctrl K</span></div>
+    <button type="button" class="search" id="openPal" style="display:none;text-align:left;font-family:inherit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg> Buscar páginas, ações, usuários… <span class="kbd">Ctrl K</span></button>
     <div class="top-r">
       <!-- Botão stats (mobile only) -->
       <button class="ibtn" id="mobStats" onclick="go(S.role==='admin'?'adm-visao':'dashboard')" title="Estatísticas" aria-label="Ver estatísticas">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><path d="M4 20V8M10 20V4M16 20v-9M21 20H3"/></svg>
       </button>
-      <button class="ibtn" id="themeT" title="Tema"><svg id="iMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><path d="M21 13A8.5 8.5 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg><svg id="iSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" style="display:none"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M4.8 4.8l1.8 1.8M17.4 17.4l1.8 1.8M4.8 19.2l1.8-1.8M17.4 6.6l1.8-1.8"/></svg></button>
+      <button class="ibtn" id="themeT" title="Tema" aria-label="Alternar tema claro/escuro"><svg id="iMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><path d="M21 13A8.5 8.5 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg><svg id="iSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" style="display:none"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M4.8 4.8l1.8 1.8M17.4 17.4l1.8 1.8M4.8 19.2l1.8-1.8M17.4 6.6l1.8-1.8"/></svg></button>
       <div style="position:relative">
-        <button class="ibtn" id="btnNotif"><span class="pip"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><path d="M17 8a5 5 0 1 0-10 0c0 5-2 6-2 6h14s-2-1-2-6"/><path d="M10.5 19a1.7 1.7 0 0 0 3 0"/></svg></button>
+        <button class="ibtn" id="btnNotif" title="Notificações" aria-label="Notificações"><span class="pip"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><path d="M17 8a5 5 0 1 0-10 0c0 5-2 6-2 6h14s-2-1-2-6"/><path d="M10.5 19a1.7 1.7 0 0 0 3 0"/></svg></button>
         <div class="dd" id="ddNotif">
           <div class="ddh" style="font-family:var(--disp);font-weight:600;display:flex;justify-content:space-between">Notificações <span class="pill gray">0 novas</span></div>
           <button class="ddi"><span>👋</span><span>Bem-vindo à Mega Links BR!<br><small>Configure seus afiliados para começar.</small></span></button>
@@ -861,7 +861,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </div>
       <div style="position:relative">
-        <button class="av" id="btnUser">U</button>
+        <button class="av" id="btnUser" aria-label="Menu da conta" aria-haspopup="true">U</button>
         <div class="dd" id="ddUser">
           <div class="ddh"><div style="font-weight:700">Usuário</div><div style="font-size:12px;color:var(--mut)">—</div></div>
           <button class="ddi" onclick="go('meus-dados')">👤 Meu perfil</button>
