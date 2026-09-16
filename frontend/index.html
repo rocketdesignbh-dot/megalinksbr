@@ -34,12 +34,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      traco. No escuro sao iguais; no claro o de texto escurece para passar em
      contraste (ver docs/DIRECAO_VISUAL.md). */
   --volt-tx:#FFC107;
+  --volt-fg:#0c0c0e;
   --gold:#FFC107;
   /* --pink/--sky/--violet foram aposentados na REVISAO 66: a direcao de arte
      (docs/DIRECAO_VISUAL.md) tem UM acento, o amarelo, e ele significa estado.
      Ficam apontando para tokens vivos para nao quebrar nenhum uso esquecido. */
   --pink:var(--volt); --sky:var(--tx2); --violet:var(--tx2);
   --red:#E2705F; --green:#7FB98D;
+  --red-soft:rgba(226,112,95,.12); --green-soft:rgba(127,185,141,.15);
   --r:2px; --r-sm:2px; --r-xs:2px;
   --disp:"Archivo","Helvetica Neue",Arial,sans-serif;
   --body:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
@@ -67,6 +69,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
+}
 body{font-family:var(--body);background:var(--bg);color:var(--tx);font-size:13.5px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 /* Fundo: papel milimetrado, nao mancha colorida. As duas manchas radiais
    (blobs) sairam na REVISAO 66 — ver docs/DIRECAO_VISUAL.md. */
@@ -173,7 +178,7 @@ h1.pt{font-size:20px;font-weight:700;letter-spacing:-.03em}
 .btn-red{background:var(--red)}
 .btn-ghost{background:var(--surf2);color:var(--tx);border:1px solid var(--bd2)}
 .btn-ghost:hover{background:var(--surf3)}
-.btn-sky{background:var(--sky);color:#0c0c0e}
+.btn-sky{background:var(--surf2);color:var(--tx);border:1px solid var(--bd2)}
 .btn-sm{padding:6px 12px;font-size:12px;border-radius:2px}
 .btn-lg{padding:12px 26px;font-size:14.5px;border-radius:2px}
 
@@ -181,12 +186,12 @@ h1.pt{font-size:20px;font-weight:700;letter-spacing:-.03em}
 .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:2px;font-size:11px;font-weight:600}
 .pill .d{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.7;flex:none}
 .pill.volt{background:rgba(245,197,24,.15);color:var(--volt-tx)}
-.pill.sky{background:rgba(57,192,255,.15);color:var(--sky)}
+.pill.sky{background:var(--surf2);color:var(--tx2)}
 .pill.pink{background:var(--volt-soft);color:var(--volt-tx)}
-.pill.red{background:rgba(255,81,104,.15);color:var(--red)}
+.pill.red{background:var(--red-soft);color:var(--red)}
 .pill.gray{background:var(--surf2);color:var(--mut)}
-.pill.gold{background:rgba(245,197,24,.15);color:var(--gold)}
-.pill.green{background:rgba(34,197,94,.15);color:var(--green)}
+.pill.gold{background:var(--volt-soft);color:var(--gold)}
+.pill.green{background:var(--green-soft);color:var(--green)}
 
 /* ── KPI cards ── */
 .kpi{background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:16px;position:relative;overflow:hidden}
@@ -207,10 +212,10 @@ h1.pt{font-size:20px;font-weight:700;letter-spacing:-.03em}
 
 /* ── ALERTS ── */
 .alert{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:var(--r-sm);font-size:13px;margin-bottom:14px}
-.alert.b{background:rgba(57,192,255,.08);border:1px solid rgba(57,192,255,.2);color:var(--sky)}
-.alert.y{background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.2);color:var(--gold)}
-.alert.g{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);color:var(--green)}
-.alert.r{background:rgba(255,81,104,.08);border:1px solid rgba(255,81,104,.2);color:var(--red)}
+.alert.b{background:var(--surf2);border:1px solid var(--bd2);color:var(--tx2)}
+.alert.y{background:var(--volt-soft);border:1px solid rgba(255,193,7,.2);color:var(--gold)}
+.alert.g{background:var(--green-soft);border:1px solid rgba(127,185,141,.3);color:var(--green)}
+.alert.r{background:var(--red-soft);border:1px solid rgba(226,112,95,.3);color:var(--red)}
 
 /* ── TABLES ── */
 table{width:100%;border-collapse:collapse}
@@ -225,9 +230,14 @@ tr:hover td{background:var(--surf2)}
 .modal{background:var(--surf);border:1px solid var(--bd2);border-radius:2px;width:100%;max-width:540px;box-shadow:none;max-height:90vh;display:flex;flex-direction:column}
 .mh{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bd);font-size:14px;font-weight:700}
 .mb{padding:20px;overflow-y:auto;flex:1}
-.mf{padding:14px 20px;border-top:1px solid var(--bd);display:flex;gap:8px;justify-content:flex-end}
+.mf{padding:14px 20px;border-top:1px solid var(--bd);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+@media (max-width:520px){.mf{flex-direction:column-reverse}.mf .btn{width:100%;justify-content:center}}
 .mx{background:var(--surf2);border:1px solid var(--bd);border-radius:2px;color:var(--mut);width:28px;height:28px;display:grid;place-items:center;font-size:16px;transition:.12s;cursor:pointer}
 .mx:hover{background:var(--surf3);color:var(--tx)}
+.sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.sgrid .stat{text-align:center;background:var(--surf2);border:1px solid var(--bd);border-radius:var(--r-sm);padding:10px 6px}
+.sgrid .stat .v{font-size:17px;font-weight:700;font-family:var(--disp)}
+.sgrid .stat .l{font-size:10.5px;color:var(--mut);margin-top:2px;text-transform:uppercase;letter-spacing:.03em}
 
 /* ── SPLASH BOAS-VINDAS ── */
 
@@ -293,6 +303,7 @@ tr:hover td{background:var(--surf2)}
 /* Fontes automaticas (Clone Post Fase 2). Mesmo auto-fill/minmax dos Grupos de
    Oferta: o layout ja colapsa sozinho no celular, sem media query propria. */
 .cs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+@media (max-width:520px){.cs-grid{grid-template-columns:1fr}}
 .cs-card{background:var(--surf2);border:1px solid var(--bd2);border-radius:var(--r-sm);padding:14px;display:flex;flex-direction:column;gap:10px}
 .cs-card.off{opacity:.62}
 .cs-card h4{margin:0;font-size:13.5px;font-weight:700;line-height:1.35;word-break:break-word}
@@ -1468,7 +1479,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <!-- Modal Shopee em Massa -->
     <div class="mbg" id="modalShopeeEmMassa"><div class="modal" style="max-width:560px">
-      <div class="mh">🛍️ Importar em Massa <button class="mx" onclick="closeModal('modalShopeeEmMassa')">×</button></div>
+      <div class="mh">🛍️ Importar em Massa <button class="mx" aria-label="Fechar" onclick="closeModal('modalShopeeEmMassa')">×</button></div>
       <div class="mb">
         <div class="alert b" style="margin-bottom:12px"><div>Cole um ou mais links (um por linha). A loja é identificada pelo próprio link — Shopee, Mercado Livre, Amazon e as demais suportadas. Cada link vira um produto no Grupo de Oferta escolhido.</div></div>
         <div class="field">
@@ -1699,7 +1710,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- Modal Novo/Editar Cupom -->
   <div class="mbg" id="modalCupom">
     <div class="modal" style="max-width:480px">
-      <div class="mh"><strong id="modalCupomTitulo">Novo Cupom</strong><button class="mx" onclick="closeModal('modalCupom')">×</button></div>
+      <div class="mh"><strong id="modalCupomTitulo">Novo Cupom</strong><button class="mx" aria-label="Fechar" onclick="closeModal('modalCupom')">×</button></div>
       <div class="mb">
         <div class="field"><label>Marketplace <span style="color:var(--red)">*</span></label>
           <select id="cupomModalLoja" onchange="cupomModalLojaChange()">
@@ -1739,7 +1750,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- Modal configurar loja -->
   <div class="mbg" id="modalLoja">
     <div class="modal" style="max-width:480px">
-      <div class="mh"><strong id="modalLojaTitulo">Configurar loja</strong><button class="mx" onclick="closeModal('modalLoja')">×</button></div>
+      <div class="mh"><strong id="modalLojaTitulo">Configurar loja</strong><button class="mx" aria-label="Fechar" onclick="closeModal('modalLoja')">×</button></div>
       <div class="mb" id="modalLojaConteudo"></div>
       <div class="mf">
         <button class="btn btn-ghost" onclick="closeModal('modalLoja')">Cancelar</button>
@@ -2031,7 +2042,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- Modal novo VIP -->
   <div class="mbg" id="modalErroLog">
     <div class="modal" style="max-width:520px">
-      <div class="mh"><strong style="font-family:var(--disp)">❌ Detalhe do erro</strong><button class="mx" onclick="closeModal('modalErroLog')">×</button></div>
+      <div class="mh"><strong style="font-family:var(--disp)">❌ Detalhe do erro</strong><button class="mx" aria-label="Fechar" onclick="closeModal('modalErroLog')">×</button></div>
       <div class="mb">
         <div id="erroLogBody" style="font-size:13px;line-height:1.6"></div>
         <div style="display:flex;gap:8px;margin-top:16px">
@@ -2043,7 +2054,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
   <div class="mbg" id="modalVip">
     <div class="modal" style="max-width:520px">
-      <div class="mh"><strong style="font-family:var(--disp)">⭐ Conceder acesso VIP</strong><button class="mx" onclick="closeModal('modalVip')">×</button></div>
+      <div class="mh"><strong style="font-family:var(--disp)">⭐ Conceder acesso VIP</strong><button class="mx" aria-label="Fechar" onclick="closeModal('modalVip')">×</button></div>
       <div class="mb">
         <div class="field">
           <label>Buscar usuário</label>
@@ -2230,7 +2241,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
     <span class="pill volt" style="margin-left:auto;margin-right:8px">BETA</span>
-    <button class="mx" onclick="closeDrawer()">×</button>
+    <button class="mx" aria-label="Fechar" onclick="closeDrawer()">×</button>
   </div>
 
   <!-- Ações rápidas (sempre visíveis no topo) -->
@@ -2260,7 +2271,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- ============ MODAIS ============ -->
 <div class="mbg" id="modalBoasVindas"><div class="modal">
-  <div class="mh">🎉 Bem-vindo(a) à Mega Links BR<button class="mx" onclick="fecharBoasVindas()">×</button></div>
+  <div class="mh">🎉 Bem-vindo(a) à Mega Links BR<button class="mx" aria-label="Fechar" onclick="fecharBoasVindas()">×</button></div>
   <div class="mb">
     <p style="margin:0 0 14px;color:var(--tx2);font-size:13.5px">Oi, <strong id="bvNome" style="color:var(--tx)"></strong>! Sua conta foi criada e o trial já está ativo. Em 3 passos você já sai divulgando ofertas automaticamente:</p>
     <ul class="osteps" style="margin:0 0 4px">
@@ -2276,7 +2287,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div></div>
 <div class="mbg" id="modalGrupo"><div class="modal">
-  <div class="mh">Novo Grupo de Oferta <button class="mx" onclick="closeModal('modalGrupo')">×</button></div>
+  <div class="mh">Novo Grupo de Oferta <button class="mx" aria-label="Fechar" onclick="closeModal('modalGrupo')">×</button></div>
   <div class="mb"><div class="field"><label>Nome do Grupo de Oferta</label><input id="inNomeGrupo" placeholder="ex.: Achadinhos da Semana"></div>
     <div class="alert b" style="margin:0">💡 Nomeie pelo <strong>nicho</strong>. Cada Grupo de Oferta reúne canais, lojas e regras daquele nicho.</div></div>
   <div class="mf"><button class="btn btn-ghost" onclick="closeModal('modalGrupo')">Cancelar</button><button class="btn btn-volt" id="btnSalvarGrupo">Criar Grupo de Oferta</button></div>
@@ -2293,7 +2304,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <button class="btn btn-volt" id="cpiSubmit" style="width:100%;justify-content:center" onclick="salvarPerfilIncompleto()">Continuar</button>
 </div></div>
 <div class="mbg" id="modalCheckout"><div class="modal" style="max-width:440px">
-  <div class="mh"><div><div style="font-family:var(--disp)">Assinar plano <span id="ckPlanLabel"></span></div><div style="font-size:13px;color:var(--mut)" id="ckValor"></div></div><button class="mx" onclick="closeModal('modalCheckout')">×</button></div>
+  <div class="mh"><div><div style="font-family:var(--disp)">Assinar plano <span id="ckPlanLabel"></span></div><div style="font-size:13px;color:var(--mut)" id="ckValor"></div></div><button class="mx" aria-label="Fechar" onclick="closeModal('modalCheckout')">×</button></div>
   <div class="mb" id="ckBody" style="padding-top:8px"></div>
 </div></div>
 
@@ -2301,7 +2312,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- ===== MODAL: ADICIONAR PRODUTO DO RADAR A UM GRUPO ===== -->
 <div class="mbg" id="modalRadarGrupo"><div class="modal" style="max-width:760px">
-  <div class="mh">📦 Adicionar produto ao Grupo de Oferta <button class="mx" onclick="closeModal('modalRadarGrupo')">×</button></div>
+  <div class="mh">📦 Adicionar produto ao Grupo de Oferta <button class="mx" aria-label="Fechar" onclick="closeModal('modalRadarGrupo')">×</button></div>
   <div class="mb">
     <div class="field"><label>Grupo de Oferta de destino</label>
       <select id="rgGrupoSel" onchange="rgRenderCupomSelect();rgUpdatePreview()"><option value="">— Selecione um grupo —</option></select>
@@ -3901,7 +3912,7 @@ function rgUpdatePreview(){
   const grupo=S.grupos.find(g=>String(g.id)===String(gid));
   const gNomeEl=document.getElementById("rgGrupoNomePreview");
   if(gNomeEl)gNomeEl.textContent=grupo?.nome||"Grupo de Afiliados";
-  const fotoHtml=img?`<img src="${img}" style="width:100%;height:80px;object-fit:cover;border-radius:2px;margin-bottom:6px">`:'<span class="img">🛍️</span>';
+  const fotoHtml=img?`<img src="${img}" alt="" style="width:100%;height:80px;object-fit:cover;border-radius:2px;margin-bottom:6px">`:'<span class="img">🛍️</span>';
   const head=document.getElementById("rgHead")?.value||"🔥 OFERTA RELÂMPAGO 🔥";
   const emojiDe=document.getElementById("rgEmojiDe")?.value||"";
   const emojiPor=document.getElementById("rgEmojiPor")?.value||"";
@@ -4842,15 +4853,17 @@ function waQuedaBarra(mostrar){
   if(!wrap)return;
   el=document.createElement("div");
   el.id="waQuedaAlerta";
-  el.style.cssText="position:sticky;top:0;z-index:60;margin:0 0 14px;padding:14px 16px;border-radius:12px;border:1px solid #ff4d4f;background:linear-gradient(90deg,rgba(255,77,79,.18),rgba(255,77,79,.06));display:flex;gap:12px;align-items:center;flex-wrap:wrap;box-shadow:0 6px 24px rgba(255,77,79,.18)";
-  el.innerHTML='<span style="font-size:22px" id="waQuedaIco">🚨</span>'
-    +'<div style="flex:1;min-width:220px"><div style="font-weight:800;color:#ff6b6d;letter-spacing:.2px">SUA CONEXÃO DO WHATSAPP CAIU</div>'
+  el.style.cssText="position:sticky;top:0;z-index:60;margin:0 0 14px;padding:14px 16px;border-radius:var(--r-sm);border:1px solid var(--red);background:var(--red-soft);display:flex;gap:12px;align-items:center;flex-wrap:wrap;box-shadow:none";
+  el.innerHTML='<svg id="waQuedaIco" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+    +'<div style="flex:1;min-width:220px"><div style="font-weight:700;color:var(--red);letter-spacing:.2px">SUA CONEXÃO DO WHATSAPP CAIU</div>'
     +'<div style="font-size:13px;color:var(--tx2);margin-top:2px">Enquanto ela estiver fora, <strong>nada é enviado</strong>: posts automáticos, Clone Post e disparos para grupos ficam parados. Pareie o número de novo — leva 30 segundos.</div></div>'
-    +'<button class="btn btn-volt" onclick="go(\'conexao\')">📲 Parear agora</button>';
+    +'<button class="btn btn-volt" onclick="go(\'conexao\')">Parear agora</button>';
   wrap.insertBefore(el,wrap.firstChild);
-  // Pisca discreto: chama atencao sem virar carrossel de CSS.
-  let on=true;
-  el._blink=setInterval(()=>{const i=document.getElementById("waQuedaIco");if(!i){clearInterval(el._blink);return;}i.style.opacity=(on=!on)?"1":".25";},700);
+  // Pisca discreto: chama atencao sem virar carrossel de CSS. Respeita reduced-motion.
+  if(!window.matchMedia||!window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+    let on=true;
+    el._blink=setInterval(()=>{const i=document.getElementById("waQuedaIco");if(!i){clearInterval(el._blink);return;}i.style.opacity=(on=!on)?"1":".35";},700);
+  }
 }
 async function waQuedaCheck(){
   try{
@@ -5691,7 +5704,7 @@ function dispararGrupoMostrarErros(nomeGrupo,d){
     modal=document.createElement("div");
     modal.className="mbg";modal.id="modalDisparoErros";
     modal.innerHTML=`<div class="modal" style="max-width:520px">
-      <div class="mh">⚠️ Resultado do disparo <button class="mx" onclick="closeModal('modalDisparoErros')">×</button></div>
+      <div class="mh">⚠️ Resultado do disparo <button class="mx" aria-label="Fechar" onclick="closeModal('modalDisparoErros')">×</button></div>
       <div id="modalDisparoErrosBody"></div>
     </div>`;
     document.body.appendChild(modal);
@@ -6130,7 +6143,7 @@ async function impBuscarLink(id){
     const body=document.getElementById(`imp_${id}_body`);
     const prev=document.getElementById(`imp_${id}_preview`);
     if(body)body.innerHTML=`<div class="prod" style="align-items:center">
-      <div class="pimg">${window._impData[id].image_url?`<img src="${window._impData[id].image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:2px">`:"🛒"}</div>
+      <div class="pimg">${window._impData[id].image_url?`<img src="${window._impData[id].image_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:2px">`:"🛒"}</div>
       <div style="flex:1"><strong>${window._impData[id].title}</strong><br>
       <small style="color:var(--mut)">${precoOrigNum?`De R$ ${String(precoOrigNum).replace(".",",")} · `:""}${precoAtualNum?`Por R$ ${String(precoAtualNum).replace(".",",")}`:""} ${window._impData[id].discount_pct?" · "+window._impData[id].discount_pct+"% OFF":""}</small></div>
     </div>`;
@@ -6803,7 +6816,7 @@ function renderMn(){
   if(!el)return;
   el.innerHTML=mnProds.length?mnProds.map((p,i)=>`
     <div class="prod">
-      <div class="pimg">${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:2px">`:"📦"}</div>
+      <div class="pimg">${p.foto?`<img src="${p.foto}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:2px">`:"📦"}</div>
       <div style="flex:1">
         <strong>${p.nome}</strong><br>
         <small style="color:var(--mut)">${p.preco?`R$ ${p.preco} · `:""}${p.desc||""}</small><br>
@@ -7168,7 +7181,7 @@ function prodPintarLista(){
     <div class="prod" style="align-items:center${fora?";opacity:.6":""}">
       <input type="checkbox" class="prod-chk" value="${p.id}" ${PROD_SEL.has(String(p.id))?"checked":""} onchange="prodSelItem('${p.id}',this.checked)" title="Selecionar para apagar" style="width:auto;margin:0 2px 0 0;flex:none;cursor:pointer">
       <span class="prod-num" style="color:var(--mut);font-size:11.5px;font-variant-numeric:tabular-nums;min-width:34px;text-align:right;flex:none">${i+1}.</span>
-      <div class="pimg">${p.image_url?`<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:2px${fora?";filter:grayscale(1)":""}">`:"📦"}</div>
+      <div class="pimg">${p.image_url?`<img src="${p.image_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:2px${fora?";filter:grayscale(1)":""}">`:"📦"}</div>
       <div style="flex:1;min-width:0">
         <strong${fora?' style="text-decoration:line-through"':""}>${p.title||"Sem título"}</strong>
         ${fora?'<span class="pill" style="background:rgba(255,81,104,.12);color:var(--red);margin-left:6px">fora do ar na loja</span>':""}<br>
@@ -7334,7 +7347,7 @@ async function prodImportarLink(){
     const prev=document.getElementById("prodImportPreview");
     if(body)body.innerHTML=`
       <div class="prod" style="align-items:center">
-        <div class="pimg">${_prodImportData.image_url?`<img src="${_prodImportData.image_url}" onerror="_prodImgFallback(this)" style="width:100%;height:100%;object-fit:cover;border-radius:2px">`:"📦"}</div>
+        <div class="pimg">${_prodImportData.image_url?`<img src="${_prodImportData.image_url}" alt="" onerror="_prodImgFallback(this)" style="width:100%;height:100%;object-fit:cover;border-radius:2px">`:"📦"}</div>
         <div style="flex:1"><strong>${_prodImportData.title}</strong><br>
           <small style="color:var(--mut)">${_prodImportData.price?`R$ ${_prodImportData.price} · `:""}${_prodImportData.discount_pct?_prodImportData.discount_pct+"% OFF":""}</small></div>
       </div>`;
@@ -8397,7 +8410,7 @@ function openUser(id){
   userDetail.innerHTML=`
   <div class="mh"><div class="uflex"><span class="av-sm" style="background:${avColor(u._idx||0)};width:38px;height:38px">${u.nome[0]}</span>
     <div><div style="font-family:var(--disp)">${u.nome}</div><small style="color:var(--mut)">${u.email}</small></div></div>
-    <button class="mx" onclick="closeModal('modalUser')">×</button></div>
+    <button class="mx" aria-label="Fechar" onclick="closeModal('modalUser')">×</button></div>
   <div class="mb">
     <div class="sgrid" style="grid-template-columns:repeat(3,1fr);margin:0 0 16px">
       <div class="stat"><div class="v">${u.plano}</div><div class="l">Plano atual</div></div>
@@ -11265,7 +11278,7 @@ function prPreencherStep2(){
 
   // Foto
   const fw=document.getElementById("prFotoWrap");
-  if(p.foto){fw.innerHTML=`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='🛍️'">`;}
+  if(p.foto){fw.innerHTML=`<img src="${p.foto}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='🛍️'">`;}
   else{fw.innerHTML="🛍️";}
   PR.fotoDataUrl=p.foto||null;
 
@@ -11824,7 +11837,7 @@ function prUpdatePreview(){
   const grupoSel=S.grupos.find(g=>PR.gruposSel.has(g.id));
   const gNome=document.getElementById("prGrupoNome");
   if(gNome)gNome.textContent=grupoSel?.nome||"Grupo de Afiliados";
-  const fotoHtml=PR.fotoDataUrl?`<img src="${PR.fotoDataUrl}" style="width:100%;height:80px;object-fit:cover;border-radius:2px;margin-bottom:6px">`:'<span class="img">🛍️</span>';
+  const fotoHtml=PR.fotoDataUrl?`<img src="${PR.fotoDataUrl}" alt="" style="width:100%;height:80px;object-fit:cover;border-radius:2px;margin-bottom:6px">`:'<span class="img">🛍️</span>';
   const{before,after}=prMontarTexto({nome,de,por,cta,link,htmlMode:true});
   const bub=document.getElementById("prPreviewBub");
   if(bub){
@@ -11841,7 +11854,7 @@ function prUploadFoto(input){
   rd.onload=e=>{
     PR.fotoDataUrl=e.target.result;
     const fw=document.getElementById("prFotoWrap");
-    if(fw)fw.innerHTML=`<img src="${PR.fotoDataUrl}" style="width:100%;height:100%;object-fit:cover">`;
+    if(fw)fw.innerHTML=`<img src="${PR.fotoDataUrl}" alt="" style="width:100%;height:100%;object-fit:cover">`;
     prUpdatePreview();
   };rd.readAsDataURL(f);
 }
@@ -12374,7 +12387,7 @@ async function enterApp(profile){
       authGate.style.display="none";
       document.body.innerHTML=`<div style="min-height:100vh;background:#0c0c0e;display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;padding:20px">
         <div style="max-width:480px;width:100%;text-align:center">
-          <img src="/icon.png" style="width:72px;border-radius:50%;margin-bottom:20px">
+          <img src="/icon.png" alt="Mega Links BR" style="width:72px;border-radius:50%;margin-bottom:20px">
           <h1 style="color:#FFD33F;font-size:24px;font-weight:700;margin:0 0 12px">Seu trial encerrou</h1>
           <p style="color:#aaa;font-size:15px;line-height:1.6;margin:0 0 28px">Seus 7 dias gratuitos chegaram ao fim. Escolha um plano para continuar automatizando suas vendas na Mega Links BR.</p>
           <div style="display:grid;gap:12px;margin-bottom:24px">
