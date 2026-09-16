@@ -73,6 +73,12 @@ html{scroll-behavior:smooth}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
 }
+/* Foco de teclado: :focus-visible so aparece pra quem navega via teclado (nao
+   no clique de mouse). Sem isso, botao/nav/tab/pill nao tinham NENHUM
+   indicador visivel de foco -- so os inputs tinham (via box-shadow proprio,
+   por isso ficam de fora aqui pra nao dobrar o anel). */
+:focus-visible{outline:2px solid var(--volt-tx);outline-offset:2px}
+input:focus-visible,select:focus-visible,textarea:focus-visible{outline:none}
 body{font-family:var(--body);background:var(--bg);color:var(--tx);font-size:13.5px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 /* Fundo: papel milimetrado, nao mancha colorida. As duas manchas radiais
    (blobs) sairam na REVISAO 66 — ver docs/DIRECAO_VISUAL.md. */
@@ -426,6 +432,7 @@ tr:hover td{background:var(--surf2)}
 .tab{background:var(--surf2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx2);padding:6px 13px;font-size:12px;font-weight:600;transition:.12s;cursor:pointer;white-space:nowrap;outline:none;-webkit-appearance:none;appearance:none;user-select:none}
 .tab:hover{border-color:var(--bd);color:var(--tx)}
 .tab:focus{outline:none;box-shadow:none}
+.tab:focus-visible{outline:2px solid var(--volt-tx);outline-offset:1px}
 .tab.active{background:var(--volt-soft);border-color:rgba(245,197,24,.3);color:var(--volt-tx)}
 .tp{display:none}.tp.on{display:block}
 
