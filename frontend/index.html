@@ -1790,7 +1790,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- Lista de canais -->
     <div class="card" style="margin-top:16px">
       <div class="ch">📣 Canais vinculados <span class="r"><button class="btn btn-ghost btn-sm" onclick="tgCarregarCanais()">↻ Atualizar</button></span></div>
-      <div class="cb" id="tgCanalList"><div style="text-align:center;padding:32px;color:var(--mut)">Nenhum canal adicionado ainda.</div></div>
+      <div class="cb" id="tgCanalList"><div style="text-align:center;padding:32px 20px"><div style="font-size:36px;margin-bottom:8px">📡</div><h3 style="margin-bottom:6px">Nenhum canal adicionado ainda</h3><p style="color:var(--tx2)">Cole o link do seu canal do Telegram no formulário acima para começar a receber ofertas nele.</p></div></div>
     </div>
 
     <!-- Teste de envio -->
@@ -5834,7 +5834,7 @@ geral:`
   </div></div>
   <!-- Presets salvos -->
   <div class="card" style="margin-top:0"><div class="ch">💾 Pré-configurações salvas <span class="r"><button class="btn btn-volt btn-sm" onclick="pgSalvarPreset()">＋ Salvar configuração atual</button></span></div>
-    <div class="cb" id="pgPresetList"><p style="color:var(--mut);font-size:13px">Nenhuma configuração salva ainda. Configure acima e clique em "Salvar configuração atual".</p></div>
+    <div class="cb" id="pgPresetList"><div style="text-align:center;padding:24px 20px"><div style="font-size:32px;margin-bottom:8px">💾</div><h3 style="margin-bottom:6px;font-size:14px">Nenhuma configuração salva ainda</h3><p style="color:var(--tx2);font-size:13px">Configure acima e clique em <strong>＋ Salvar configuração atual</strong> para reaproveitar depois.</p></div></div>
   </div>
   <div style="display:flex;gap:10px;align-items:center">
     <button class="btn btn-volt" onclick="salvarGeral()">💾 Salvar configurações</button>
@@ -5870,7 +5870,7 @@ wacanais:`
     <button class="btn btn-volt" id="wcBuscar">Buscar canal</button>
     <div id="wcResult" style="margin-top:14px"></div>
   </div></div>
-  <div class="card"><div class="ch">📡 Canais vinculados</div><div class="cb" id="wcList"><p style="color:var(--mut);text-align:center;padding:20px">Nenhum canal vinculado ainda.</p></div></div>`,
+  <div class="card"><div class="ch">📡 Canais vinculados</div><div class="cb" id="wcList"><div style="text-align:center;padding:24px 20px"><div style="font-size:32px;margin-bottom:8px">📡</div><h3 style="margin-bottom:6px;font-size:14px">Nenhum canal vinculado ainda</h3><p style="color:var(--tx2);font-size:13px">Vincule um grupo ou canal acima para este Grupo de Oferta começar a postar.</p></div></div></div>`,
 ia:`
   <div class="alert y">🧪 <strong>MegaIA — BETA.</strong> Reescreve e formata suas mensagens automaticamente para converter mais.</div>
   <div class="g2"><div class="card" style="margin:0"><div class="ch">Antes</div><div class="cb"><div class="msg ai" style="max-width:100%">fone bluetooth barato 9,99 link https://loja.com aproveita</div></div></div>
@@ -6499,7 +6499,7 @@ function pgSalvarPreset(){
 function pgRenderPresets(){
   const el=document.getElementById("pgPresetList");if(!el)return;
   const presets=JSON.parse(localStorage.getItem("mlbr_presets")||"[]");
-  if(!presets.length){el.innerHTML='<p style="color:var(--mut);font-size:13px">Nenhuma configuração salva ainda.</p>';return;}
+  if(!presets.length){el.innerHTML='<div style="text-align:center;padding:24px 20px"><div style="font-size:32px;margin-bottom:8px">💾</div><h3 style="margin-bottom:6px;font-size:14px">Nenhuma configuração salva ainda</h3><p style="color:var(--tx2);font-size:13px">Configure acima e clique em <strong>＋ Salvar configuração atual</strong> para reaproveitar depois.</p></div>';return;}
   el.innerHTML=presets.map((p,i)=>`
     <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:2px">
       <div style="flex:1">
@@ -6544,7 +6544,7 @@ async function wireWaCanais(){
       canaisVinc=data.map(r=>({db_id:r.id,nome:r.name,role:(r.role||"owner").toUpperCase(),link:r.channel_link||"",whatsappId:r.channel_whatsapp_id||null}));
       S.grupoAtual.canais=canaisVinc.length;
       const wcList=document.getElementById("wcList");
-      if(wcList)wcList.innerHTML=canaisVinc.length?canaisVinc.map(renderCanalItem).join(""):'<p style="color:var(--mut);text-align:center;padding:20px">Nenhum canal vinculado ainda.</p>';
+      if(wcList)wcList.innerHTML=canaisVinc.length?canaisVinc.map(renderCanalItem).join(""):'<div style="text-align:center;padding:24px 20px"><div style="font-size:32px;margin-bottom:8px">📡</div><h3 style="margin-bottom:6px;font-size:14px">Nenhum canal vinculado ainda</h3><p style="color:var(--tx2);font-size:13px">Vincule um grupo ou canal acima para este Grupo de Oferta começar a postar.</p></div>';
     }
   }
   const btn=document.getElementById("wcBuscar");
@@ -7982,7 +7982,7 @@ async function tgCarregarCanais(){
   const list=document.getElementById("tgCanalList");
   const testeSelect=document.getElementById("tgTesteCanal");
   if(!list)return;
-  if(!TG_CANAIS.length){list.innerHTML='<div style="text-align:center;padding:32px;color:var(--mut)">Nenhum canal adicionado ainda.</div>';return;}
+  if(!TG_CANAIS.length){list.innerHTML='<div style="text-align:center;padding:32px 20px"><div style="font-size:36px;margin-bottom:8px">📡</div><h3 style="margin-bottom:6px">Nenhum canal adicionado ainda</h3><p style="color:var(--tx2)">Cole o link do seu canal do Telegram no formulário acima para começar a receber ofertas nele.</p></div>';return;}
   list.innerHTML=TG_CANAIS.map(c=>`
     <div class="prod" style="align-items:center">
       <div class="pimg">📣</div>
