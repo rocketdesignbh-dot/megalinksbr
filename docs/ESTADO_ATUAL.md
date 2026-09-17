@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 161 — 17/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 162 — 17/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1732,6 +1732,39 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 162 — 17/09/2026 — Conferência de preço: Shopee passa a ser conferida (Open API), Amazon volta a ser lida (ia depois do ML e nunca era alcançada) e há uma segunda rodada às 18h. `product-refresh` v22 (deploy 31) NO AR, conferida byte a byte; cron `product-refresh-noite` criado; frontend pushado (`2eee727`) e servido. MEDIDO em produção: 9 rodadas reais, 316 leituras, 67 preços corrigidos, 280 de 285 produtos Shopee conferidos.**
+
+### Pedido e diagnóstico (MEDIDO antes de codar)
+
+- **Pedido:** o Érico perguntou como resolver as observações da lista de produtos ("esta loja ainda não é conferida", "preço conferido há X dias") e aprovou: (1) conferir a Shopee, (2) Amazon 2x/dia, (3) corrigir o texto desatualizado do aviso.
+- **Shopee:** 30 produtos reais consultados na Open API (assinatura feita no próprio banco com `extensions.digest`; atenção: é preciso assinar `body::text` do jsonb, senão dá 10020). Resultado: **30/30 com dados, 7 com preço diferente do gravado**.
+- **Amazon — a causa real:** `product_refresh_runs` mostrava as 7 últimas rodadas **todas** `interrompido_por_tempo`, com **0 a 4 lidos de 73**. Motivo: o ML (bloqueado, P151) abortava a cada 15 s e consumia os 70 s da rodada antes da vez da Amazon, que era a última. Hoje: `conferidos_amazon` = 0.
+
+### O que mudou
+
+- **`product-refresh` v22:**
+  - (a) balde `shopee` (orçamento 40, reserva 12, teto de 25 s): `consultarShopee` usa `productOfferV2 {priceMin priceDiscountRate}` com a credencial do **dono** (`affiliate_credentials`, `App Key || ID de Afiliado` + `App Secret`). O "De" é derivado da taxa só quando taxa > 0 (mesma regra da `product-search` v33). Com taxa 0 o "De" gravado **não** é apagado, salvo se ficou ≤ preço novo. Sem resultado na API → `estado:'sem_dados'`: carimba e grava `unavailable_signal='shopee:fora_das_ofertas'`, sem strike e sem expirar. Link sem LOJA/ITEM ou dono sem credencial → pulo por condição, com carimbo.
+  - (b) ordem nova: `sem_verificador → shopee → amazon → mercado_livre`, com `LIMITE_MS_POR_BALDE` (shopee 25 s, amazon 45 s) e `DEADLINE_MS` de 70 s para 100 s.
+  - (c) corpo `lojas:[…]` restringe os baldes.
+  - (d) **`precoAmazon` passou para a janela de 12000 e a leitura de "De" da `product-search` v32.** No dryRun, a janela de 4000 apagaria 5 "De" certos; com a correção, 2 (páginas sem riscado). "Preço não confirmado" caiu de 15 para 7.
+  - Contadores novos: `conferidos_shopee`, `shopee_fora_das_ofertas`, `baldes_cortados_por_tempo`, `lojas_pedidas`.
+- **Cron `product-refresh-noite`** (`0 21 * * *` = 18h BRT, `{"lojas":["shopee","amazon"]}`); migração `20260917150000_schedule_product_refresh_noite.sql`. O `product-refresh-daily` (06h, todas as lojas) continua igual.
+- **Dados:**
+  - `price_checked_at = null` nos 86 produtos Shopee carimbados pelo pulo antigo ("sem verificador"), porque a tela passaria a dizer "conferido" sem ninguém ter lido.
+  - **51 links encurtados `s.shopee.com.br/…`** (em `original_url`) foram resolvidos pelo cabeçalho `Location` (via `net.http_get`) e regravados como `https://shopee.com.br/product/LOJA/ITEM`. Resultado: 285/285 conferíveis. Isso também ajuda o link nativo do disparo (`gerarLinkNativoShopee` exige esse formato).
+- **Frontend:**
+  - `PROD_LOJAS_COM_VERIFICADOR` inclui `shopee`.
+  - `prodMotivoSemConferencia` ganhou os motivos `url` (Shopee sem LOJA/ITEM), `cred` (sem App Key/App Secret) e `ofertas` (`shopee:fora_das_ofertas`), cada um com texto próprio.
+  - O aviso de preço agora diz "roda às 06h (todas as lojas) e às 18h (Amazon e Shopee), em lotes"; antes dizia "alcança 12 produtos por rodada", o que estava errado desde a v21.
+
+### Prova
+
+- `get_edge_function` v31 idêntica ao repo.
+- dryRuns: Shopee com 32 lidos em 9 s e 0 erros; Amazon com 36 e depois 31 lidos em cerca de 46 s (antes, 0 a 4).
+- 9 rodadas reais: **316 lidos, 67 preços corrigidos, 1 "De" apagado**. Exemplos: Fritadeira Philco (Amazon, outro grupo) de 399 para 559,90; Geladeira Brastemp de 3899 para 4389.
+- Shopee: **280/285 conferidos**, 3 fora do catálogo de ofertas.
+- Tela logada do Érico: o aviso "100 produtos não têm conferência automática" **sumiu**.
 
 **REVISÕES 160 e 161 — 17/09/2026 — Status real do post automático em todas as telas, e ligar/pausar só no Post. Automático (com atalho nos grupos). SÓ FRONTEND, pushado (`44344e3`, `3d820c9`), servido em produção e CONFIRMADO NA TELA PELO ÉRICO. Mais uma correção de dado (tags da Amazon).**
 
@@ -10978,6 +11011,13 @@ na "Última alteração" da REVISÃO 32.
 - **Status real** vem de `grupoStatusDisparo(g)`, espelho da ordem de gates do `send-post` v30, e aparece nas três telas. Loop desligado + cursor no fim = 🟡 "Em espera" (comportamento esperado; posta quando entra produto novo), não erro.
 - Aprovação de ofertas continua **só** na fila do Clone Post (decisão do Érico, 17/09).
 
+### Conferência de preço — `product-refresh` v22 (REVISÃO 162, 17/09 — MEDIDA)
+
+- Lojas conferidas: **Mercado Livre** (wa-engine/Scrape.do, custo de crédito), **Amazon** (página direta, custo zero) e **Shopee** (Open API com a credencial do dono, custo zero).
+- Rodadas: **06h BRT** (`product-refresh-daily`, todas as lojas) e **18h BRT** (`product-refresh-noite`, só Shopee e Amazon).
+- Orçamento por rodada: shopee 40, amazon 45, mercado_livre 8, sem_verificador 20. Ordem shopee → amazon → ML, com teto de tempo por balde.
+- Shopee fora do catálogo de ofertas = `unavailable_signal='shopee:fora_das_ofertas'`: não expira, só avisa na tela.
+
 ### Link Rápido (aba nova, 03/08 — NÃO MEDIDA EM PRODUÇÃO)
 
 Aba do menu do afiliado, logo abaixo de "Postar Agora" (`data-page="link-rapido"`,
@@ -11118,6 +11158,8 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P157** | 🟡 **Links encurtados da Shopee voltam a entrar pela captura.** Os 51 atuais foram resolvidos na REVISÃO 162, mas produto novo com `original_url = s.shopee.com.br/…` volta a ser "sem link consultável" (pulo por condição da `product-refresh` v22). Saída: gravar a URL normalizada da `resolve-link` como `original_url` na `clone-ingest`/Postar Agora, ou resolver o `Location` dentro da `product-refresh` | 17/09 |
+| **P156** | 🟡 **Uma conta Elite (VIP, 4–5 produtos Shopee) tem credencial Shopee recusada pela API (`error [10020]: Invalid Signature`).** Os produtos dela ficam `desconhecido` em toda rodada (sem carimbo, sempre na frente da fila de nulos, ocupando cerca de 5 das 40 vagas) e o Postar Agora/link nativo da Shopee dessa conta também deve falhar. Ação: avisar a dona para recadastrar App Key/App Secret. Opcional: tratar 10020 como pulo por condição com carimbo | 17/09 |
 | **P155** | 🟡 **Fila do admin (`filaEta`) usa hora UTC para decidir "fora da janela".** `const brHour=now.getUTCHours()` com comentário "ok p/ ordenação relativa". Mas o `inWindow` sai dessa hora, então o painel admin pode mostrar "fora da janela" (ou o contrário) errado por 3 horas. Achado na REVISÃO 160, **não corrigido** (fora do escopo pedido). O status dos usuários (`grupoStatusDisparo`) já usa Brasília | 17/09 |
 | **P154** | 🔴 **Um novo PAT clássico (`ghp_xF28…`) foi colado no chat em 17/09** e usado em todos os pushes das REVISÕES 156–161, feitos pela CLI a partir de um clone limpo no dispositivo do Érico. **Precisa ser revogado** (mesma classe da P72). O push pela nuvem continua negado pelo proxy de sessão (403, mesma coisa da P144) | 17/09 |
 | **P150** | 🟡 **Checkout local ficou 626 commits à frente / 841 atrás do `origin/main` (defasagem de ~1 mês, parado em `b75b5e8` de 11/08) — causou uma sessão inteira de retrabalho antes de perceber.** A sessão da REVISÃO 154 fez 5 commits de restilização visual em cima da cópia desatualizada, achando que implementava o pedido do Érico do zero, até descobrir que a REVISÃO 66 já tinha feito o mesmo trabalho (mais rigoroso) em cima do `main` real. Os 5 commits (branch `redesign/megalinks-ui`) foram abandonados sem merge — não custou nada em produção, mas custou a sessão inteira. **Causa não determinada:** não ficou claro se os 626 commits locais são trabalho não empurrado por alguém, ou resíduo de outro fluxo (deploy direto, outra máquina, outro clone). Recomendação: `git fetch origin main && git rev-list --left-right --count main...origin/main` no início de toda sessão que for mexer em `frontend/index.html` ou qualquer arquivo grande — não confiar só no checkout local | 15/09 |
