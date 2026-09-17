@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 159 — 17/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 161 — 17/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1732,6 +1732,54 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÕES 160 e 161 — 17/09/2026 — Status real do post automático em todas as telas, e ligar/pausar só no Post. Automático (com atalho nos grupos). SÓ FRONTEND, pushado (`44344e3`, `3d820c9`), servido em produção e CONFIRMADO NA TELA PELO ÉRICO. Mais uma correção de dado (tags da Amazon).**
+
+### O que disparou a sessão
+
+O Érico mandou um print da lista de produtos do grupo **Achadinhos Eletrodomésticos** (`73493b98-…`) perguntando se as observações cinzas ("esta loja ainda não é conferida automaticamente", "preço conferido há X dias") estavam travando a postagem, e por que não havia botão de aprovar.
+
+**MEDIDO:**
+- As observações são **só informativas**. O próprio código diz: *"NADA é barrado no disparo"*.
+- A causa real era `cursor_index=141` de 141 produtos com `loop_enabled=false`. O log do `send-post` repetia a cada minuto: `[FIM-DA-LISTA] grupo=73493b98… cursor=141 total=141 — Post em Loop desligado, aguardando produto novo`.
+- **Nenhuma tela mostrava isso.** O card do Post. Automático exibia "● ATIVO".
+- Às 13:35 UTC entrou um produto novo, o grupo postou e voltou a esperar. O comportamento está certo (é o modo "não repetir" da REVISÃO 142); o defeito era a tela não contar.
+- Na base inteira: **13 dos 17 grupos com automação ligada estavam nesse estado de espera**, quase todos os "Achadinhos" do Érico com `delete_after_post=true` (1 produto que já saiu, esperando o próximo da captura).
+- Não há botão de aprovar em produto de grupo porque ele **não precisa de aprovação**: aprovação só existe na fila do Clone Post. Decisão do Érico, a partir da recomendação: **aprovação continua no Clone Post**.
+
+### Correção de dado (sem deploy)
+
+13 produtos da Amazon desse grupo tinham `affiliate_url` com `tag=analuizashop3-20` (tag de terceiro). O `send-post` troca a tag pela do dono na hora do disparo (`gerarLinkAfiliado` → `u.searchParams.set("tag", …)`), então **a comissão nunca foi afetada**; só a tela mostrava a tag errada. Com autorização do Érico:
+
+```
+update products set affiliate_url = regexp_replace(affiliate_url, '([?&])tag=analuizashop3-20(&|$)', '\1tag=eko04e-20\2')
+where niche_group_id='73493b98-…' and user_id=<Érico> and source='amazon' and affiliate_url ~ '[?&]tag=analuizashop3-20(&|$)'
+```
+
+Resultado: 13 linhas. Conferido depois: nenhum produto da Amazon da conta com outra tag. Os 96 an_redir de Shopee do grupo usam o ID de afiliado do Érico; 3 estão sem `affiliate_id` gravado, o que o disparo também reescreve.
+
+### REVISÃO 160 — `grupoStatusDisparo(g)`: uma regra, três telas
+
+- A função mora logo depois de `SMART_JANELAS` no `index.html`. Os testes seguem a **ordem dos gates do `send-post` v30**: plano → ligado → WA/destinos → produtos elegíveis (fora do ar / validade / agendado / loja fora do plano, espelhando `PLAN_MARKETPLACES` em `PLANO_LOJAS_DISPARO`) → teto diário → fim de semana → janela (normal ou Horários Inteligentes) → **fim da lista com loop desligado** → "não repetir" esgotado. **Mexeu num, mexe no outro.**
+- Plano segue o servidor: `is_vip ? elite : plan` (`planoDoDisparo`).
+- Ficam de fora, de propósito: credencial de loja faltando (aparece como falha no log de disparos) e o ritmo fino dos Horários Inteligentes.
+- Saídas: 🟢 Postando (próximo "por volta das HH:MM" e, sem loop, "faltam X de N"), 🟡 Em espera / Limite do dia / Todos já saíram hoje, 🌙 Fora do horário / das janelas, ⏸ Pausado / fim de semana, 🔴 Não está postando (falta WA / destino / produto disponível), 🔒 Manual.
+- `loadGroups` passou a trazer `cursorIndex`, `lastPostAt`, `intervalMin`, `prodElegiveis`, `prodForaPlano`, `enviadosHoje` e `elegiveisPostadosHoje` (mesmo "hoje" do `send-post`: data de Brasília + `T00:00:00Z`).
+- **Onde aparece:** faixa `#egStatus` no topo do Editar Grupo (re-renderiza ao salvar); rótulo e explicação nos cards do Post. Automático (que agora chama `loadGroups()` antes de desenhar); rótulo nos cards da lista de Grupos de Oferta, com explicação quando está em espera ou com erro.
+- **Prova:** 11 cenários exercitados em Node (incluindo o do grupo real: 142/142, loop off → "Em espera"), render conferido em Chromium, `node --check` limpo, `index.html` servido contém `grupoStatusDisparo`. O Érico confirmou na tela.
+
+### REVISÃO 161 — ligar/pausar só no Post. Automático (pedido do Érico)
+
+- **Editar Grupo › Geral:** o checkbox `pgAuto` saiu. No lugar, `#pgAutoAtalho` (`renderPgAutoAtalho`) mostra "ligado/desligado" e o botão "▶ Ligar / ⏸ Pausar no Post. Automático →".
+- **`salvarGeral` não grava mais `post_auto_enabled`.** "Limpar tudo" não pausa, e carregar uma pré-configuração não mexe no liga/desliga (o `auto` do preset ficou só informativo).
+- **Cards da lista de Grupos de Oferta:** ganharam o atalho na linha de ações (antes o `btnStart` era montado e nunca usado). A linha falsa "🔀 Aleatório: ✅" (ordem aleatória acabou na v23 do `send-post`) virou "🔁 Loop: ligado/desligado".
+- **`abrirPostAutomatico(gid)`:** guarda `window._paFoco` e navega. O `loadPostAutomatico` rola até `#pa-card-<gid>` e o destaca com borda amarela.
+- O único lugar que liga ou pausa continua sendo o `togglePostAuto`, com as validações de sempre. O subtítulo da página Post. Automático explica o papel dela.
+- **Prova:** render conferido; `index.html` servido contém `abrirPostAutomatico` e `pgAutoAtalho`, sem `id="pgAuto"`. O Érico confirmou o fluxo na tela.
+
+### Também nesta sessão (já registrado nas REVISÕES 156–159)
+
+Link Rápido com link nativo Shopee/ML (`product-search` v35→v36), trava de produto ML recusado (`error_code 111`). Depois do deploy da v36, **2 links ML reais saíram OK** pela conta do Érico (logs 13:01 e 13:02 UTC, `ok=true`), então não houve regressão. O ramo do 111 **ainda não foi exercitado na tela** (P153).
 
 **REVISÃO 159 — 17/09/2026 — P153 (parte Link Rápido): produto de ML recusado pelo programa de afiliados agora TRAVA o Link Rápido, com aviso para escolher outro produto. `product-search` v36 (deploy 65) NO AR e conferido idêntico ao repo; frontend pushado. Tela NÃO medida ainda.**
 
@@ -11064,6 +11112,8 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P155** | 🟡 **Fila do admin (`filaEta`) usa hora UTC para decidir "fora da janela".** `const brHour=now.getUTCHours()` com comentário "ok p/ ordenação relativa". Mas o `inWindow` sai dessa hora, então o painel admin pode mostrar "fora da janela" (ou o contrário) errado por 3 horas. Achado na REVISÃO 160, **não corrigido** (fora do escopo pedido). O status dos usuários (`grupoStatusDisparo`) já usa Brasília | 17/09 |
+| **P154** | 🔴 **Um novo PAT clássico (`ghp_xF28…`) foi colado no chat em 17/09** e usado em todos os pushes das REVISÕES 156–161, feitos pela CLI a partir de um clone limpo no dispositivo do Érico. **Precisa ser revogado** (mesma classe da P72). O push pela nuvem continua negado pelo proxy de sessão (403, mesma coisa da P144) | 17/09 |
 | **P150** | 🟡 **Checkout local ficou 626 commits à frente / 841 atrás do `origin/main` (defasagem de ~1 mês, parado em `b75b5e8` de 11/08) — causou uma sessão inteira de retrabalho antes de perceber.** A sessão da REVISÃO 154 fez 5 commits de restilização visual em cima da cópia desatualizada, achando que implementava o pedido do Érico do zero, até descobrir que a REVISÃO 66 já tinha feito o mesmo trabalho (mais rigoroso) em cima do `main` real. Os 5 commits (branch `redesign/megalinks-ui`) foram abandonados sem merge — não custou nada em produção, mas custou a sessão inteira. **Causa não determinada:** não ficou claro se os 626 commits locais são trabalho não empurrado por alguém, ou resíduo de outro fluxo (deploy direto, outra máquina, outro clone). Recomendação: `git fetch origin main && git rev-list --left-right --count main...origin/main` no início de toda sessão que for mexer em `frontend/index.html` ou qualquer arquivo grande — não confiar só no checkout local | 15/09 |
 | ~~P149~~ | ✅ **FECHADA POR COMPORTAMENTO (16/09).** Érico reportou "ML continua com erro no Postar Agora, meu perfil e o da Patricia não conseguem". **MEDIDO no query_logs, ~22 buscas reais de ML dos dois usuários entre 15/09 16:36 e 16/09 02:33, todas depois do deploy:** zero ocorrências de DESAFIO ANTIBOT ou de título de captcha virando produto — o filtro do wa-engine funcionou 100% das vezes que o desafio apareceu (10 casos caíram no fallback Microlink e a página /gz/account-verification com título "Mercado Libre" foi **corretamente rejeitada**, success:false, em vez de virar produto fantasma). **O que o Érico está sentindo é outro problema, não este:** das 22 tentativas, só 8 tiveram resposta limpa do wa-engine na hora; **9 (41%) estouraram os 70 s e abortaram** (`[ML] wa-engine falhou: The signal has been aborted`) antes de cair no Microlink — visto nos dois usuários, inclusive hoje 02:32 UTC na conta do próprio Érico. Isso é o Mercado Livre bloqueando com mais força as duas contas agora (mesmo sintoma do aviso que já existe no frontend sobre o Scrape.do sinalizado pelo ML), não um bug de código introduzido por este conserto. Ver P151 | 16/09 |
 | **P153** | 🟡 **[Link Rápido: CODADO e deployado na REVISÃO 159, tela não medida — Postar Agora: ainda aberto]** Link Rápido/Postar Agora: produto de ML inelegível no programa de afiliados (`error_code 111`; o caso medido estava INDISPONÍVEL no site) sai VERDE, com o link do encurtador próprio. Medido em 17/09 (REVISÃO 158) com `MLB2086858407`/`MLB4577631357`. A `gerarLinkNativoML` só loga o 400 e devolve `null`, então a tela não sabe distinguir "sem cookie" de "o ML não paga comissão neste item". Saída possível (NÃO decidida): a `product-search` devolver `motivo:"ml_item_inelegivel"` quando vier o 111, e o front mostrar amarelo ("o Mercado Livre não paga comissão de afiliado neste produto") em vez do verde | 17/09 |
