@@ -1567,6 +1567,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section class="page" id="page-editar-grupo">
     <div class="phead"><div><h1 class="pt">Grupo de Oferta: <span id="egNome">—</span> <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:12px" onclick="editarNomeGrupoAtual()" title="Renomear grupo">✏️</button></h1><div class="psub">Configure lojas, layout, canais e o agendamento deste grupo.</div></div>
       <button class="btn btn-ghost" onclick="go('canais-grupos')">← Voltar</button></div>
+    <div id="egStatus"></div>
     <div class="tabs-l1" id="tabsL1"></div>
     <div class="tabs-l2" id="tabsBar"></div>
     <div id="tabPanes"></div>
@@ -2455,17 +2456,28 @@ async function loadGroups(){
       loopEnabled:!!r.loop_enabled,
       deleteAfterPost:!!r.delete_after_post,
       cloneAutoApprove:!!r.clone_auto_approve,
+      // REVISÃO 160 — o que o status do disparo precisa (grupoStatusDisparo)
+      cursorIndex:r.cursor_index??0,
+      lastPostAt:r.last_post_at||null,
+      intervalMin:r.interval_minutes??10,
     }));
     // ─── Buscar contagens reais de grupos WA, canais e produtos vinculados ───
     try{
       const nicheIds=S.grupos.map(g=>g.db_id);
       if(nicheIds.length){
-        const[{data:wgData},{data:chData},{data:prData}]=await Promise.all([
+        // REVISÃO 160 — mesmo "hoje" do send-post (data de Brasília + T00:00:00Z).
+        const hojeDisparo=new Date(Date.now()-3*3600*1000).toISOString().slice(0,10)+"T00:00:00Z";
+        const[{data:wgData},{data:chData},{data:prData},{data:envHoje}]=await Promise.all([
           SB.from("whatsapp_groups").select("niche_group_id").in("niche_group_id",nicheIds),
           SB.from("whatsapp_channels").select("niche_group_id").in("niche_group_id",nicheIds),
-          SB.from("products").select("niche_group_id,expired,valid_until,never_expires,scheduled_at").in("niche_group_id",nicheIds)
+          SB.from("products").select("id,niche_group_id,source,expired,valid_until,never_expires,scheduled_at").in("niche_group_id",nicheIds),
+          SB.from("scheduled_posts").select("group_id,product_id").in("group_id",nicheIds).eq("is_manual",false).eq("status","sent").gte("sent_at",hojeDisparo)
         ]);
         const wgCount={},chCount={},prCount={},prFora={},prVenc={},prAgend={};
+        const prEleg={},prForaPlano={},envCount={},envIds={};
+        (envHoje||[]).forEach(r=>{const k=r.group_id;envCount[k]=(envCount[k]||0)+1;(envIds[k]=envIds[k]||new Set()).add(r.product_id);});
+        const lojasPlano=PLANO_LOJAS_DISPARO[planoDoDisparo()]||null;
+        const elegIds={};
         (wgData||[]).forEach(r=>{wgCount[r.niche_group_id]=(wgCount[r.niche_group_id]||0)+1;});
         (chData||[]).forEach(r=>{chCount[r.niche_group_id]=(chCount[r.niche_group_id]||0)+1;});
         // Mesma precedencia do send-post v15: fora do ar > validade vencida > agendado.
@@ -2474,6 +2486,7 @@ async function loadGroups(){
         (prData||[]).forEach(r=>{
           const k=r.niche_group_id;
           prCount[k]=(prCount[k]||0)+1;
+          if(lojasPlano&&!lojasPlano.includes(r.source||"manual")){prForaPlano[k]=(prForaPlano[k]||0)+1;return;}
           if(r.expired===true){prFora[k]=(prFora[k]||0)+1;return;}
           if(r.never_expires!==true&&r.valid_until){
             const t=new Date(r.valid_until).getTime();
@@ -2481,8 +2494,10 @@ async function loadGroups(){
           }
           if(r.scheduled_at){
             const t=new Date(r.scheduled_at).getTime();
-            if(Number.isFinite(t)&&t>agoraTs){prAgend[k]=(prAgend[k]||0)+1;}
+            if(Number.isFinite(t)&&t>agoraTs){prAgend[k]=(prAgend[k]||0)+1;return;}
           }
+          prEleg[k]=(prEleg[k]||0)+1;
+          (elegIds[k]=elegIds[k]||[]).push(r.id);
         });
         S.grupos.forEach(g=>{
           g.grupos_wa=wgCount[g.db_id]||0;
@@ -2491,6 +2506,11 @@ async function loadGroups(){
           g.prodForaAr=prFora[g.db_id]||0;
           g.prodVencidos=prVenc[g.db_id]||0;
           g.prodAgendados=prAgend[g.db_id]||0;
+          g.prodForaPlano=prForaPlano[g.db_id]||0;
+          g.prodElegiveis=prEleg[g.db_id]||0;
+          g.enviadosHoje=envCount[g.db_id]||0;
+          const ids=envIds[g.db_id];
+          g.elegiveisPostadosHoje=ids?(elegIds[g.db_id]||[]).filter(id=>ids.has(id)).length:0;
         });
       }
     }catch(e){console.warn("loadGroups counts fallback:",e);}
@@ -3303,6 +3323,9 @@ async function loadPostAutomatico(){
   const hojeInicio=new Date();hojeInicio.setHours(0,0,0,0);
 
   try{
+    // REVISÃO 160: o status do card sai de grupoStatusDisparo, que precisa do
+    // S.grupos fresco (cursor, último post, produtos elegíveis, envios de hoje).
+    await loadGroups();
     const [{data:dbGrupos},{data:postsHoje},{data:log},{data:logManual}]=await Promise.all([
       SB.from("niche_groups").select("id,name,post_auto_enabled,interval_minutes,start_hour,end_hour,created_at,last_post_at,last_manual_blast_at").eq("user_id",uid).order("created_at"),
       SB.from("scheduled_posts").select("group_id,status").eq("user_id",uid).gte("sent_at",hojeInicio.toISOString()),
@@ -3361,12 +3384,11 @@ async function loadPostAutomatico(){
         paLista.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">`+(dbGrupos||[]).map(db=>{
           const g=S.grupos.find(x=>x.id===db.id||x.db_id===db.id)||{nome:db.name,postAuto:db.post_auto_enabled,produtos:0,grupos_wa:0,canais:0,telegram:0,intervalo:db.interval_minutes+"min"};
           const autoAtivo=g.postAuto||db.post_auto_enabled;
-          const falta=[];
-          if(!S.waConnected)falta.push("WA");
-          if(!(g.produtos||0))falta.push("produtos");
-          if(!(g.grupos_wa||0)&&!(g.canais||0))falta.push("destinos");
-          const autoColor=!hasPostAuto?"var(--mut)":autoAtivo?"#22c55e":falta.length?"#ef4444":"#f59e0b";
-          const autoLabel=!hasPostAuto?"MANUAL 🔒":autoAtivo?"● ATIVO":falta.length?"● INATIVO":"● PAUSADO";
+          // REVISÃO 160: "● ATIVO" dizia só que a chave estava ligada — o grupo
+          // podia estar parado no fim da lista. O rótulo agora é o status real.
+          const st=grupoStatusDisparo({...g,postAuto:autoAtivo});
+          const autoColor=GRUPO_STATUS_COR[st.nivel];
+          const autoLabel=`${st.icone} ${esc(st.titulo)}`;
           const pg=postsPorGrupo[db.id]||{total:0,ok:0};
           const iniciou=db.created_at?new Date(db.created_at).toLocaleDateString("pt-BR"):"—";
           const ultimo=db.last_post_at?new Date(db.last_post_at).toLocaleString("pt-BR"):"Nunca";
@@ -3397,7 +3419,7 @@ async function loadPostAutomatico(){
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">🕐 Último post</span><strong style="font-size:11px">${ultimo}</strong></div>
               ${pg.total>0?`<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">✅ Sucesso</span><strong style="color:${pg.ok===pg.total?"#19E27D":"#f59e0b"}">${pg.ok}/${pg.total}</strong></div>`:""}
             </div>
-            ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 14px 10px;padding:5px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:2px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
+            ${st.detalhe?`<div style="margin:0 14px 10px;padding:6px 10px;border:1px solid var(--bd);border-left:3px solid ${autoColor};border-radius:2px;font-size:11.5px;line-height:1.5;color:var(--tx2)">${esc(st.detalhe)}${st.acao?`<br><span style="color:var(--mut)">${esc(st.acao)}</span>`:""}</div>`:""}
             <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bd)">
               ${btnAuto}
               <button class="btn btn-ghost btn-sm" style="padding:0 12px" onclick="editarGrupo('${gid}')" title="Editar grupo">✏️</button>
@@ -5494,12 +5516,10 @@ function renderGrupos(){const has=S.grupos.length>0;
   gBody.innerHTML=S.grupos.map(g=>{
     // Post Auto status
     const autoAtivo=g.postAuto;
-    const falta=[];
-    if(!S.waConnected)falta.push("WA");
-    if(!(g.produtos||0))falta.push("produtos");
-    if(!(g.grupos_wa||0)&&!(g.canais||0))falta.push("destinos WA");
-    const autoColor=!hasPostAuto?"var(--mut)":autoAtivo?"#22c55e":falta.length?"#ef4444":"#f59e0b";
-    const autoLabel=!hasPostAuto?"MANUAL 🔒":autoAtivo?"ATIVO":falta.length?`INATIVO`:falta.length?"PAUSADO":"PAUSADO";
+    // REVISÃO 160: mesmo status real do Post. Automático e do Editar Grupo.
+    const stDisp=grupoStatusDisparo(g);
+    const autoColor=GRUPO_STATUS_COR[stDisp.nivel];
+    const autoLabel=`<span title="${esc(stDisp.detalhe).replace(/"/g,"&quot;")}">${esc(stDisp.titulo.split(" — ")[0])}</span>`;
     const autoIcon=!hasPostAuto?"🔒":autoAtivo?"▶":"⏸";
 
     // WA status
@@ -5572,7 +5592,7 @@ function renderGrupos(){const has=S.grupos.length>0;
           <span style="font-size:11px;font-weight:700;color:${waColor}">${waLabel}</span>
         </div>
       </div>
-      ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:2px;font-size:11px;color:#ef4444">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
+      ${(stDisp.nivel==="erro"||stDisp.nivel==="espera")?`<div style="margin:0 16px 10px;padding:6px 10px;border:1px solid var(--bd);border-left:3px solid ${autoColor};border-radius:2px;font-size:11.5px;line-height:1.5;color:var(--tx2)">${stDisp.icone} ${esc(stDisp.detalhe)}${stDisp.acao?`<br><span style="color:var(--mut)">${esc(stDisp.acao)}</span>`:""}</div>`:""}
       ${(foraRodizio||g.prodAgendados)?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:2px;font-size:11px;color:#f59e0b;cursor:pointer" onclick="editarGrupo('${g.id}')" title="Estes produtos continuam cadastrados, mas não estão sendo postados agora. Clique para abrir o grupo.">⏳ Fora do rodízio: ${detalhesFora}</div>`:""}
       <!-- Botões de ação — só Editar e Apagar aqui; automação fica em Visão Post Aut. -->
       <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bd)">
@@ -5624,7 +5644,7 @@ async function loadTabProdCounts(){
     _tabProdCounts["prod-meus"]=data?.length||0;
   }catch(e){}
 }
-function editarGrupo(id,tab){S.grupoAtual=S.grupos.find(g=>String(g.id)===String(id)||String(g.db_id)===String(id));if(!S.grupoAtual){toast("Grupo não encontrado.","⚠️");return;}PROD_EDIT_ID=null;egNome.textContent=S.grupoAtual.nome+" · ID "+id;_tabProdCounts={};loadTabProdCounts().then(()=>buildTabs());go("editar-grupo");if(tab)setTimeout(()=>{const t=document.querySelector(`.etab[data-tab="${tab}"]`);if(t)t.click();},250);}
+function editarGrupo(id,tab){S.grupoAtual=S.grupos.find(g=>String(g.id)===String(id)||String(g.db_id)===String(id));if(!S.grupoAtual){toast("Grupo não encontrado.","⚠️");return;}PROD_EDIT_ID=null;egNome.textContent=S.grupoAtual.nome+" · ID "+id;renderEgStatus();_tabProdCounts={};loadTabProdCounts().then(()=>buildTabs());go("editar-grupo");if(tab)setTimeout(()=>{const t=document.querySelector(`.etab[data-tab="${tab}"]`);if(t)t.click();},250);}
 async function editarNomeGrupoAtual(){
   const g=S.grupoAtual;if(!g){toast("Grupo não encontrado.","⚠️");return;}
   const novoNome=prompt("Novo nome do grupo:",g.nome||"");
@@ -5729,6 +5749,86 @@ const SMART_JANELAS=[
 ];
 const SMART_PISO_MIN=10;
 const SMART_MAX_DIA=SMART_JANELAS.reduce((t,j)=>t+Math.floor((j.fim-j.ini)/SMART_PISO_MIN),0);
+
+/* ── REVISÃO 160 — status do disparo automático, UMA regra para as três telas ──
+   Pedido do Érico em 17/09: o grupo "Achadinhos Eletrodomésticos" ficou sem
+   postar (cursor 141 de 141, Post em Loop desligado — log do send-post:
+   "[FIM-DA-LISTA] … aguardando produto novo") e NENHUMA tela dizia isso: o card
+   do Post. Automático mostrava "● ATIVO". Medido no mesmo dia: 13 dos 17 grupos
+   com automação ligada estavam nesse estado.
+   A ordem dos testes abaixo é a ORDEM DOS GATES do send-post (v30): plano →
+   ligado → WA/destinos → produtos → teto diário → fim de semana → janela →
+   fim da lista → "não repetir". Mexeu lá, mexe aqui — senão a tela volta a
+   mentir. Fica de fora, de propósito: credencial de loja faltando (o send-post
+   registra como falha visível no log de disparos) e o ritmo fino dos Horários
+   Inteligentes (quantos já saíram vs. esperados na janela). */
+const PLANO_LOJAS_DISPARO={ // ESPELHO do PLAN_MARKETPLACES do send-post
+  starter:["shopee","mercado_livre","manual","outra"],
+  pro:["shopee","mercado_livre","amazon","manual","outra"],
+};
+function planoDoDisparo(){return (MY_PROFILE&&MY_PROFILE.is_vip)?"elite":MY_PLAN;} // send-post: is_vip ? elite : plan
+function grupoStatusDisparo(g){
+  const pf=PLAN_FEATURES[planoDoDisparo()]||{};
+  const R=(nivel,icone,titulo,detalhe,acao)=>({nivel,icone,titulo,detalhe:detalhe||"",acao:acao||""});
+  if(!pf.wa_post_automation)return R("manual","🔒","Disparo manual","Seu plano não inclui Post Automático.");
+  if(!g.postAuto)return R("pausa","⏸","Pausado","O Post Automático está desligado neste grupo.","Para ligar, marque ⚙️ Post Automático e salve.");
+  const falta=[];
+  if(!S.waConnected)falta.push("conectar o WhatsApp");
+  if(!(g.grupos_wa||0)&&!(g.canais||0))falta.push("vincular um grupo ou canal de destino");
+  if(falta.length)return R("erro","🔴","Não está postando",`Falta ${falta.join(" e ")}.`);
+  const total=g.produtos||0;
+  const eleg=(typeof g.prodElegiveis==="number")?g.prodElegiveis:total;
+  if(!total)return R("erro","🔴","Sem produtos","Cadastre produtos neste grupo para o disparo começar.");
+  if(!eleg){
+    const por=[
+      g.prodForaAr?`${g.prodForaAr} fora do ar na loja`:"",
+      g.prodVencidos?`${g.prodVencidos} com validade vencida`:"",
+      g.prodAgendados?`${g.prodAgendados} aguardando a data agendada`:"",
+      g.prodForaPlano?`${g.prodForaPlano} de loja fora do seu plano`:"",
+    ].filter(Boolean).join(" · ");
+    return R("erro","🔴","Nenhum produto disponível agora",`Os ${total} produtos estão fora do rodízio${por?": "+por:""}.`);
+  }
+  const teto=pf.auto_posts_daily;
+  if(teto>0&&(g.enviadosHoje||0)>=teto)return R("espera","🟡","Limite do dia atingido",`O plano ${pf.label||""} faz ${teto} disparo${teto>1?"s":""} automático${teto>1?"s":""} por dia em cada grupo. Volta amanhã.`);
+  const br=new Date(Date.now()-3*3600*1000);
+  const hBR=br.getUTCHours(),minBR=hBR*60+br.getUTCMinutes(),dow=br.getUTCDay();
+  const fds=dow===0||dow===6;
+  const hhmm=m=>String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
+  const smart=!!g.smartSchedule&&!!pf.smart_schedule;
+  if(smart){
+    if(fds&&!g.smartWeekend)return R("pausa","⏸","Sem postagem no fim de semana","Os Horários Inteligentes deste grupo não rodam sábado e domingo. Volta na segunda.");
+    if(!SMART_JANELAS.some(j=>minBR>=j.ini&&minBR<j.fim)){
+      const prox=SMART_JANELAS.find(j=>j.ini>minBR)||SMART_JANELAS[0];
+      return R("pausa","🌙","Fora das janelas",`Horários Inteligentes — próxima janela às ${hhmm(prox.ini)}.`);
+    }
+  }else{
+    if(fds&&g.weekendEnabled===false)return R("pausa","⏸","Sem postagem no fim de semana","Este grupo não posta sábado e domingo. Volta na segunda.");
+    const ini=g.startHour??0,fim=g.endHour??23;
+    const dentro=ini<=fim?(hBR>=ini&&hBR<=fim):(hBR>=ini||hBR<=fim);
+    if(!dentro)return R("pausa","🌙","Fora do horário",`Posta das ${ini}h às ${fim}h59. Volta às ${ini}h.`);
+  }
+  const cursor=g.cursorIndex||0;
+  if(!g.loopEnabled&&cursor>=eleg)return R("espera","🟡","Em espera — todos os produtos já saíram",`Os ${eleg} produto${eleg>1?"s":""} deste grupo já foram postados. Ele volta a postar sozinho assim que entrar produto novo.`,"Para a lista recomeçar do primeiro produto, ligue o 🔁 Post em Loop.");
+  if(g.noRepeatDaily&&g.loopEnabled&&(g.elegiveisPostadosHoje||0)>=eleg)return R("espera","🟡","Todos os produtos já saíram hoje","Com 🚫 Não repetir produto ligado, a lista volta amanhã.");
+  const restam=g.loopEnabled?"":` · faltam ${eleg-cursor} de ${eleg} produtos`;
+  if(smart)return R("ok","🟢","Postando",`Horários Inteligentes — janela aberta agora${restam}.`);
+  const iv=g.intervalMin||10;
+  const ult=g.lastPostAt?new Date(g.lastPostAt).getTime():0;
+  const prox=ult+iv*60000;
+  const quando=prox<=Date.now()?"a qualquer momento":"por volta das "+new Date(prox).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+  return R("ok","🟢","Postando",`A cada ${iv} min — próximo ${quando}${restam}.`);
+}
+const GRUPO_STATUS_COR={ok:"#22c55e",espera:"#f59e0b",pausa:"var(--mut)",erro:"#ef4444",manual:"var(--mut)"};
+const GRUPO_STATUS_ALERTA={ok:"g",espera:"y",pausa:"b",erro:"r",manual:"b"};
+// Faixa completa (topo do Editar Grupo).
+function grupoStatusFaixa(g){
+  const st=grupoStatusDisparo(g);
+  return `<div class="alert ${GRUPO_STATUS_ALERTA[st.nivel]}" style="margin:0 0 14px"><span><strong>${st.icone} Disparo automático: ${esc(st.titulo)}</strong>${st.detalhe?`<br>${esc(st.detalhe)}`:""}${st.acao?`<br><small style="opacity:.85">${esc(st.acao)}</small>`:""}</span></div>`;
+}
+function renderEgStatus(){
+  const el=document.getElementById("egStatus");
+  if(el&&S.grupoAtual)el.innerHTML=grupoStatusFaixa(S.grupoAtual);
+}
 
 const PANES={
 geral:`
@@ -6416,7 +6516,7 @@ async function salvarGeral(){
       }).eq("id",g.db_id);
     }catch(e){console.warn("salvarGeral update:",e);}
   }
-  await persistGroups();renderGrupos();prodIdeaisCalc();
+  await persistGroups();renderGrupos();prodIdeaisCalc();renderEgStatus();
 
   // Feedback visual
   const msg=document.getElementById("pgSalvoMsg");
