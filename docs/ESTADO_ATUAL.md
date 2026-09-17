@@ -10972,6 +10972,12 @@ na "Última alteração" da REVISÃO 32.
 
 ---
 
+### Post Automático — status e liga/pausa (REVISÕES 160–161, 17/09 — CONFIRMADO NA TELA)
+
+- **Ligar e pausar só na página Post. Automático** (`togglePostAuto`). A lista de Grupos de Oferta e o Editar Grupo têm só atalho (`abrirPostAutomatico(gid)` → rola e destaca `#pa-card-<gid>`). `salvarGeral` não grava `post_auto_enabled`.
+- **Status real** vem de `grupoStatusDisparo(g)`, espelho da ordem de gates do `send-post` v30, e aparece nas três telas. Loop desligado + cursor no fim = 🟡 "Em espera" (comportamento esperado; posta quando entra produto novo), não erro.
+- Aprovação de ofertas continua **só** na fila do Clone Post (decisão do Érico, 17/09).
+
 ### Link Rápido (aba nova, 03/08 — NÃO MEDIDA EM PRODUÇÃO)
 
 Aba do menu do afiliado, logo abaixo de "Postar Agora" (`data-page="link-rapido"`,
