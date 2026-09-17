@@ -1766,6 +1766,10 @@ abaixo — cada linha ali tem o detalhe técnico.
 - Shopee: **280/285 conferidos**, 3 fora do catálogo de ofertas.
 - Tela logada do Érico: o aviso "100 produtos não têm conferência automática" **sumiu**.
 
+### Adendo — tag da Amazon de terceiro nos links antigos (17/09, dado, sem deploy)
+
+O Érico explicou que usava a tag Amazon da Ana Luiza (`analuizashop3-20`) no próprio perfil até trocar para `eko04e-20`. Havia **382 `short_links`** dele (15/07 a 04/09, 43 cliques no histórico, 0 nos últimos 7 dias) redirecionando com a tag antiga. Perguntei se era para apagar: apagar quebraria os posts antigos e levaria os cliques junto (`link_clicks` tem `ON DELETE CASCADE`). **Decisão do Érico: trocar a tag.** `long_url` e `destination` foram regravados com `tag=eko04e-20`. Um link (`pd8c10s`, 26/08) estava sem `https://` e com `?ref=analuizashop3-20` (defeito antigo de URL sem protocolo); foi corrigido para `https://…?…tag=eko04e-20`. Conferido depois: 0 ocorrências de `analuizashop3` em `short_links`, `products` e `affiliate_credentials` da conta.
+
 **REVISÕES 160 e 161 — 17/09/2026 — Status real do post automático em todas as telas, e ligar/pausar só no Post. Automático (com atalho nos grupos). SÓ FRONTEND, pushado (`44344e3`, `3d820c9`), servido em produção e CONFIRMADO NA TELA PELO ÉRICO. Mais uma correção de dado (tags da Amazon).**
 
 ### O que disparou a sessão
