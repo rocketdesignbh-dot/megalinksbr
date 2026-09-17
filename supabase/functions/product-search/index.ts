@@ -1,3 +1,14 @@
+// product-search v36 — Link Rapido trava produto de ML recusado pelo programa (17/09)
+// v36 (REVISAO 159, P153): MEDIDO em 17/09 — o ML responde HTTP 400
+//   {"error":{"message":"URL not allowed in affiliates program","error_code":111}}
+//   para anuncio que nao pode receber link de afiliado (o caso medido estava
+//   INDISPONIVEL no site; recusado em todos os formatos de URL, com controles
+//   aceitos na mesma rodada). Ate a v35 isso virava `null` igual a qualquer
+//   outra falha e o Link Rapido entregava o link do encurtador com alerta verde.
+//   Agora o modo "link_nativo" devolve motivo:"ml_item_recusado" SO nesse caso;
+//   o front trava e explica. Outras falhas (sem cookie, sessao expirada, CSRF,
+//   rede) continuam devolvendo so native_link:false e caem no fluxo de sempre.
+//   O Postar Agora (fetchMercadoLivre) NAO mudou.
 // product-search v35 — modo "link_nativo" para o Link Rapido (16/09)
 // v35 (REVISAO 156): pedido do Erico — o Link Rapido continuava saindo com o
 //   encurtador proprio (megalinksbr.com.br/r/...) para Shopee e ML, enquanto
@@ -364,7 +375,12 @@ async function fetchCsrfTokenML(url: string, cookieHeader: string): Promise<stri
 }
 
 async function gerarLinkNativoML(url: string, cookieHeader: string, tag: string): Promise<string | null> {
-  if (!cookieHeader || !tag) return null;
+  return (await gerarLinkNativoMLDetalhado(url, cookieHeader, tag)).link;
+}
+
+// v36: mesma chamada, mas diz se o ML RECUSOU o anuncio (error_code 111).
+async function gerarLinkNativoMLDetalhado(url: string, cookieHeader: string, tag: string): Promise<{ link: string | null; recusado: boolean }> {
+  if (!cookieHeader || !tag) return { link: null, recusado: false };
   try {
     const csrfToken = await fetchCsrfTokenML(url, cookieHeader);
     const r = await fw("https://www.mercadolivre.com.br/affiliate-program/api/v2/stripe/user/links", {
@@ -381,14 +397,17 @@ async function gerarLinkNativoML(url: string, cookieHeader: string, tag: string)
       body: JSON.stringify({ url, tag }),
     }, 12000);
     if (!r.ok) {
-      console.warn(`[ML][link-nativo] HTTP ${r.status}: ${(await r.text().catch(() => "")).slice(0, 200)}`);
-      return null;
+      const corpo = await r.text().catch(() => "");
+      console.warn(`[ML][link-nativo] HTTP ${r.status}: ${corpo.slice(0, 200)}`);
+      let codigo: unknown = null;
+      try { codigo = JSON.parse(corpo)?.error?.error_code; } catch { /* corpo nao-JSON */ }
+      return { link: null, recusado: r.status === 400 && Number(codigo) === 111 };
     }
     const d = await r.json();
-    return d?.short_url || null;
+    return { link: d?.short_url || null, recusado: false };
   } catch (e) {
     console.warn(`[ML][link-nativo] falhou: ${(e as Error).message}`);
-    return null;
+    return { link: null, recusado: false };
   }
 }
 
@@ -939,14 +958,14 @@ async function consultarShein(url: string): Promise<any> {
 }
 
 // v35 — so o link nativo, sem ler o produto (Link Rapido). Nunca lanca.
-async function somenteLinkNativo(url: string, store: string, credentials: any, sb: ReturnType<typeof createClient> | null, userId: string | null): Promise<string | null> {
+async function somenteLinkNativo(url: string, store: string, credentials: any, sb: ReturnType<typeof createClient> | null, userId: string | null): Promise<{ link: string | null; motivo?: string }> {
   try {
     if (store === "shopee") {
       const appId = String(credentials?.shopee_app_id ?? "").trim();
       const appSecret = String(credentials?.shopee_app_secret ?? "").trim();
-      if (!appId || !appSecret) return null;
+      if (!appId || !appSecret) return { link: null };
       const m = url.split("#")[0].match(/\/product\/(\d+)\/(\d+)/);
-      if (!m) return null;
+      if (!m) return { link: null };
       const query = `{ productOfferV2(itemId: ${m[2]}, shopId: ${m[1]}) { nodes { offerLink } } }`;
       const ts = Math.floor(Date.now() / 1000);
       const payload = JSON.stringify({ query });
@@ -956,34 +975,35 @@ async function somenteLinkNativo(url: string, store: string, credentials: any, s
         headers: { "Content-Type": "application/json", "Authorization": `SHA256 Credential=${appId},Timestamp=${ts},Signature=${sig}` },
         body: payload,
       }, 12000);
-      if (!r.ok) { console.warn(`[shopee][link-nativo] HTTP ${r.status}`); return null; }
+      if (!r.ok) { console.warn(`[shopee][link-nativo] HTTP ${r.status}`); return { link: null }; }
       const d = await r.json();
-      if (Array.isArray(d?.errors) && d.errors.length) { console.warn(`[shopee][link-nativo] API recusou: ${d.errors[0]?.message}`); return null; }
-      return d?.data?.productOfferV2?.nodes?.[0]?.offerLink || null;
+      if (Array.isArray(d?.errors) && d.errors.length) { console.warn(`[shopee][link-nativo] API recusou: ${d.errors[0]?.message}`); return { link: null }; }
+      return { link: d?.data?.productOfferV2?.nodes?.[0]?.offerLink || null };
     }
     if (store === "mercadolivre") {
       const [, , mlCookie] = await getPersonalMlCredentials(sb, userId);
-      if (!mlCookie) return null;
+      if (!mlCookie) return { link: null };
       const tag = await getMlAffiliateTag(sb, userId);
-      if (!tag) return null;
-      return await gerarLinkNativoML(url, mlCookie, tag);
+      if (!tag) return { link: null };
+      const r = await gerarLinkNativoMLDetalhado(url, mlCookie, tag);
+      return r.recusado ? { link: null, motivo: "ml_item_recusado" } : { link: r.link };
     }
   } catch (e) { console.warn(`[link-nativo] falhou: ${(e as Error).message}`); }
-  return null;
+  return { link: null };
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   try {
     const { url, credentials = {}, modo = "" } = await req.json();
-    console.log(`[product-search v35] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
+    console.log(`[product-search v36] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
     if (!url || !/^https?:\/\//i.test(url))
       return new Response(JSON.stringify({ success: false, motivo: "url_sem_protocolo", error: "O link colado não começa com http:// ou https://. Copie o endereço completo da página do produto." }), { status: 400, headers: { ...CORS, "Content-Type": "application/json" } });
 
     const store = detectStore(url);
     const authHeader = req.headers.get("authorization");
     const userId = getUserIdFromJwt(authHeader);
-    console.log(`[product-search v35] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
+    console.log(`[product-search v36] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
 
     const waEngineUrl = Deno.env.get("WA_ENGINE_URL") || "https://megalinksbr-wa-engine.fwezsn.easypanel.host";
     const waEngineToken = Deno.env.get("WA_ENGINE_TOKEN") || "";
@@ -991,10 +1011,10 @@ Deno.serve(async (req: Request) => {
 
     if (modo === "link_nativo") {
       const nativo = await somenteLinkNativo(url, store, credentials, sb, userId);
-      console.log(`[product-search v35] link_nativo store=${store} ok=${!!nativo} user=${userId ?? "anon"}`);
-      return new Response(JSON.stringify(nativo
-        ? { success: true, store, native_link: true, short_link: nativo }
-        : { success: false, store, native_link: false }),
+      console.log(`[product-search v36] link_nativo store=${store} ok=${!!nativo.link} motivo=${nativo.motivo ?? "-"} user=${userId ?? "anon"}`);
+      return new Response(JSON.stringify(nativo.link
+        ? { success: true, store, native_link: true, short_link: nativo.link }
+        : { success: false, store, native_link: false, ...(nativo.motivo ? { motivo: nativo.motivo } : {}) }),
         { headers: { ...CORS, "Content-Type": "application/json" } });
     }
 
@@ -1031,7 +1051,7 @@ Deno.serve(async (req: Request) => {
       result = result || { success: false, source: "none", store, motivo: "loja_sem_integracao", error: "Loja sem integração automática. Preencha manualmente." };
     }
 
-    console.log(`[product-search v35] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
+    console.log(`[product-search v36] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
     return new Response(JSON.stringify(result), { headers: { ...CORS, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ success: false, error: (e as Error).message }), { status: 500, headers: { ...CORS, "Content-Type": "application/json" } });

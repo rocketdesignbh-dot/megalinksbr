@@ -9829,9 +9829,16 @@ async function lrGerar(){
     if(loja==="Shopee"||loja==="Mercado Livre"){
       lrMsg("b","🔗 Gerando o link oficial de afiliado da "+lojaSafe+"…");
       const nativo=await lrLinkNativo(d.url,jwt);
-      if(nativo){
-        LR_LINK=nativo;
+      if(nativo&&nativo.link){
+        LR_LINK=nativo.link;
         lrRender(d,loja,true,true);
+        return;
+      }
+      // REVISÃO 159 (P153) — o ML recusou o anúncio no programa de afiliados
+      // (error_code 111; medido em anúncio indisponível). Trava: não entrega
+      // link nenhum, porque nem o link com matt_* renderia comissão.
+      if(nativo&&nativo.motivo==="ml_item_recusado"){
+        lrMsg("r",'<span><strong>❌ O Mercado Livre não gera link de afiliado para este produto.</strong><br>O anúncio provavelmente está <strong>indisponível</strong> (pausado, esgotado ou encerrado) ou fora do programa de afiliados — divulgar esse link não daria comissão.<br><strong>Nenhum link foi gerado — escolha outro produto pra divulgar.</strong></span>');
         return;
       }
     }
@@ -9851,7 +9858,8 @@ async function lrGerar(){
   }
 }
 
-// Pede à product-search só o link nativo (Shopee/ML). Nunca lança: null = usar o fluxo de sempre.
+// Pede à product-search só o link nativo (Shopee/ML). Nunca lança.
+// Devolve {link} ou {link:null, motivo}; null = usar o fluxo de sempre.
 async function lrLinkNativo(url,jwt){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),30000);
@@ -9864,7 +9872,8 @@ async function lrLinkNativo(url,jwt){
     });
     if(!r.ok)return null;
     const d=await r.json();
-    return (d&&d.success&&d.native_link&&d.short_link)?String(d.short_link):null;
+    if(d&&d.success&&d.native_link&&d.short_link)return {link:String(d.short_link)};
+    return {link:null,motivo:(d&&d.motivo)||""};
   }catch(e){console.warn("[link-rapido] link nativo falhou:",e&&e.message?e.message:e);return null;}
   finally{clearTimeout(timeout);}
 }
