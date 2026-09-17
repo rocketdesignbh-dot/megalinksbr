@@ -7066,7 +7066,7 @@ function prodMax(){
    Duas listas do mesmo vocabulário em lugares diferentes é exatamente o risco
    `mercadolivre`/`mercado_livre` da P31 — por isso aqui usamos o MESMO enum do
    banco (`products.source`), e não os slugs da resolve-link. Mexeu lá, mexe aqui. */
-const PROD_LOJAS_COM_VERIFICADOR=new Set(["mercado_livre","amazon"]);
+const PROD_LOJAS_COM_VERIFICADOR=new Set(["mercado_livre","amazon","shopee"]); // REVISÃO 162: + shopee (product-refresh v22)
 
 /* 🔴 O CARIMBO NÃO SIGNIFICA "FOI CONSULTADO NA LOJA".
    A product-refresh grava `price_checked_at` em TRÊS pulos por condição —
@@ -7090,8 +7090,17 @@ function prodMotivoSemConferencia(p){
   if(!url)return "url";
   try{ const u=new URL(url,window.location.origin);
        if(u.hostname.replace(/^www\./,"")==="megalinksbr.com.br"&&u.pathname.startsWith("/r/"))return "url"; }catch(e){}
-  // (c) loja sem verificador — hoje tudo que não é Mercado Livre nem Amazon
+  // (c) loja sem verificador — hoje tudo que não é Mercado Livre, Amazon nem Shopee
   if(!PROD_LOJAS_COM_VERIFICADOR.has(String(p.source||"")))return "loja";
+  // (d) REVISÃO 162 — Shopee: a product-refresh v22 só confere com o link na
+  // forma /product/LOJA/ITEM (ou -i.LOJA.ITEM) E com App Key + App Secret do
+  // dono. Nos dois casos ela carimba sem ler — a tela não pode dizer "conferido".
+  if(p.source==="shopee"){
+    if(!/\/product\/\d+\/\d+|-i\.\d+\.\d+/.test(url))return "url";
+    const c=(CREDS_STATE&&CREDS_STATE["Shopee"])||{};
+    if(!String(c["App Secret"]||"").trim()||!String(c["App Key"]||c["ID de Afiliado"]||"").trim())return "cred";
+    if(String(p.unavailable_signal||"")==="shopee:fora_das_ofertas")return "ofertas";
+  }
   return null;
 }
 
@@ -7104,6 +7113,8 @@ function prodIdadePreco(p){
   if(motivo==="plano")return {txt:"seu plano não inclui conferência automática de preço",cor:"var(--mut)",velho:false,nunca:false,semConferencia:true};
   if(motivo==="loja") return {txt:"esta loja ainda não é conferida automaticamente",cor:"var(--mut)",velho:false,nunca:false,semConferencia:true};
   if(motivo==="url")  return {txt:"sem link consultável — não dá para conferir o preço",cor:"var(--gold)",velho:false,nunca:false,semConferencia:true};
+  if(motivo==="cred") return {txt:"cadastre App Key e App Secret da Shopee para conferir o preço",cor:"var(--gold)",velho:false,nunca:false,semConferencia:true};
+  if(motivo==="ofertas")return {txt:"fora do catálogo de ofertas da Shopee — preço não conferido",cor:"var(--gold)",velho:false,nunca:false,semConferencia:true};
   if(!iso)return {txt:"preço nunca conferido",cor:"var(--gold)",velho:true,nunca:true,semConferencia:false};
   const h=Math.floor((Date.now()-new Date(iso).getTime())/3600000);
   if(!Number.isFinite(h))return {txt:"",cor:"var(--mut)",velho:false,nunca:false,semConferencia:false};
@@ -7143,7 +7154,7 @@ async function wireProdLista(){
   // inflaria o alarme e escondia a causa. Os inconferíveis viram linha própria.
   const idades=data.map(p=>({p,a:prodIdadePreco(p),m:prodMotivoSemConferencia(p)}));
   const semConf=idades.filter(x=>x.a.semConferencia).length;
-  const semConfPorMotivo={plano:0,loja:0,url:0};
+  const semConfPorMotivo={plano:0,loja:0,url:0,cred:0,ofertas:0};
   idades.forEach(x=>{if(x.m)semConfPorMotivo[x.m]++;});
   const nunca=idades.filter(x=>x.a.nunca).length;
   const velhos=idades.filter(x=>x.a.velho&&!x.a.nunca).length;
@@ -7162,18 +7173,20 @@ async function wireProdLista(){
   const avisoPreco=(nunca||velhos)?`<div class="alert b" style="margin:10px 0 0;font-size:12.5px"><div>🕐 ${[
       nunca?`<b>${nunca}</b> produto(s) com preço <b>nunca conferido</b> na loja`:"",
       velhos?`<b>${velhos}</b> com preço conferido há 3 dias ou mais`:""
-    ].filter(Boolean).join(" · ")}. O post usa o preço gravado aqui, não o preço de agora — a conferência automática roda 1x por dia e alcança 12 produtos por rodada.</div></div>`:"";
+    ].filter(Boolean).join(" · ")}. O post usa o preço gravado aqui, não o preço de agora. A conferência automática roda às 06h (todas as lojas) e às 18h (Amazon e Shopee), em lotes — produtos novos entram nas próximas rodadas.</div></div>`:"";
   // Linha própria, e não somada ao aviso acima: aqui o problema não é atraso,
   // é ausência de mecanismo. Juntar os dois faria parecer que basta esperar.
   // A explicação segue o motivo REAL. Dizer "a Shopee não tem verificador" para
   // quem está travado pelo plano seria trocar uma informação errada por outra.
   const explicaSemConf=(()=>{
     const m=semConfPorMotivo;
-    if(m.plano&&!m.loja&&!m.url)return `o plano ${myFeatures().label} não inclui monitoramento de preço e estoque. O preço deles é o que foi gravado no cadastro e não muda sozinho.`;
+    if(m.plano&&!m.loja&&!m.url&&!m.cred&&!m.ofertas)return `o plano ${myFeatures().label} não inclui monitoramento de preço e estoque. O preço deles é o que foi gravado no cadastro e não muda sozinho.`;
     const partes=[];
     if(m.plano)partes.push(`<b>${m.plano}</b> pelo plano ${myFeatures().label}, que não inclui monitoramento`);
-    if(m.loja) partes.push(`<b>${m.loja}</b> em loja sem verificador — só Mercado Livre e Amazon são consultados hoje`);
-    if(m.url)  partes.push(`<b>${m.url}</b> sem link original consultável`);
+    if(m.loja) partes.push(`<b>${m.loja}</b> em loja sem verificador — hoje são consultados Mercado Livre, Amazon e Shopee`);
+    if(m.url)  partes.push(`<b>${m.url}</b> sem link original consultável (link encurtado ou sem o código do produto)`);
+    if(m.cred) partes.push(`<b>${m.cred}</b> da Shopee sem App Key/App Secret cadastrados em <a href="#" onclick="go('config-afiliados');return false">Config Afiliados</a>`);
+    if(m.ofertas)partes.push(`<b>${m.ofertas}</b> fora do catálogo de ofertas da Shopee`);
     return partes.join(" · ")+". O preço deles é o que foi gravado no cadastro e não muda sozinho.";
   })();
   const avisoSemConf=semConf?`<div class="alert y" style="margin:10px 0 0;font-size:12.5px"><div>🔍 <b>${semConf}</b> produto(s) <b>não têm conferência automática</b> de preço: ${explicaSemConf}</div></div>`:"";

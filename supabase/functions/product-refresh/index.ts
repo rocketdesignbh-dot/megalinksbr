@@ -1,4 +1,40 @@
-// Mega Links BR · Edge Function "product-refresh" v21
+// Mega Links BR · Edge Function "product-refresh" v22
+// v22 (17/09, REVISAO 162): TRES mudancas pedidas pelo Erico, todas MEDIDAS antes.
+//
+//   (a) A SHOPEE PASSA A SER CONFERIDA, pela Open API oficial de afiliados
+//       (productOfferV2, App Key/App Secret do DONO — mesma assinatura SHA-256 da
+//       product-search). Custo ZERO de Scrape.do. MEDIDO em 17/09 com 30 produtos
+//       reais do Erico: 30/30 responderam; 7 tinham preco diferente do gravado
+//       (185 -> 213,98; 3489 -> 3627,90; 1799 -> 1649...). Antes eram 100 produtos
+//       "sem conferencia" so no grupo Achadinhos Eletrodomesticos.
+//       Regras do "de" (decisao da P32/v33 da product-search): so afirma "de"
+//       DERIVADO da taxa quando taxa > 0 e o derivado e maior que o preco. Com taxa
+//       0 a API nao diz nada sobre riscado — MEDIDO: varios produtos com "de" vindo
+//       do post clonado voltam com taxa 0 —, entao o "de" gravado NAO e apagado
+//       (undefined = "nao olhei"), EXCETO quando ele ficou menor ou igual ao preco
+//       novo, que publicaria desconto zero/negativo.
+//       Sem no na resposta (produto fora do catalogo de ofertas): carimba e grava
+//       unavailable_signal='shopee:fora_das_ofertas', SEM strike e SEM expirar —
+//       nao medido o bastante para tirar produto do rodizio. Sem carimbo, esse
+//       produto ocuparia a frente de toda rodada (fila de nulos).
+//
+//   (b) A AMAZON PASSA NA FRENTE DO MERCADO LIVRE, com teto de tempo por balde.
+//       MEDIDO em product_refresh_runs: as 7 ultimas rodadas foram TODAS
+//       `interrompido_por_tempo`, com 0 a 4 produtos lidos de 73. O detalhe de
+//       17/09 mostra por que: leituras de ML abortando no timeout de 15 s
+//       ("The signal has been aborted", o bloqueio da P151) consumiam o DEADLINE
+//       inteiro e a Amazon — ultima da fila — nunca era lida. A ordem da v21
+//       protegia o ML da Amazon; o risco real hoje e o contrario.
+//       Ordem nova: sem_verificador -> shopee -> amazon -> mercado_livre, com
+//       LIMITE_MS_POR_BALDE para shopee e amazon, e DEADLINE_MS de 70 s para 100 s
+//       (o cron espera 120 s).
+//
+//   (d) precoAmazon com a janela de 12000 e a leitura de "de" da product-search
+//       v32 (dryRun de 17/09 apagaria 5 "de" certos com a janela de 4000).
+//
+//   (c) `lojas` no corpo: restringe a rodada a alguns baldes. Usado pelo cron
+//       novo das 21:00 UTC ({"lojas":["shopee","amazon"]}), que confere de novo as
+//       duas lojas de custo zero sem gastar credito de ML.
 // v21 (13/08, P57): ORCAMENTO POR LOJA no lugar de UM lote global.
 //
 //      A v20 carregava `BATCH = 12` candidatos e deixava todas as lojas
@@ -228,6 +264,7 @@ const WA_ENGINE_TOKEN = Deno.env.get('WA_ENGINE_TOKEN') ?? '';
 // REGIME DE CUSTO, nao por gosto: ver o cabecalho da v21.
 const ORCAMENTO_POR_BALDE: Record<string, number> = {
   sem_verificador: 20,   // nao consulta loja nenhuma, so recebe carimbo. Custo de rede ZERO.
+  shopee: 40,            // v22: Open API oficial com a credencial do dono. Custo ZERO.
   mercado_livre: 8,      // wa-engine / Scrape.do. Quem nao tem token proprio ainda
                          // esbarra no MAX_POOL_POR_RODADA la embaixo.
   amazon: 45,            // `fetch` direto na pagina: sem Scrape.do, sem credito, so relogio.
@@ -236,21 +273,29 @@ const ORCAMENTO_POR_BALDE: Record<string, number> = {
 // teto: vaga que um lado nao usar passa para o outro, e o balde nunca encolhe.
 const RESERVA_ANTIGOS: Record<string, number> = {
   sem_verificador: 7,
+  shopee: 12,
   mercado_livre: 3,
   amazon: 15,
 };
 const MAX_POOL_POR_RODADA = 5;    // teto de chamadas que caem no token da plataforma
 const TOLERANCIA_PRECO = 0.05;    // 5%
-const DEADLINE_MS = 70000;        // orcamento de relogio da rodada
+const DEADLINE_MS = 100000;       // orcamento de relogio da rodada (v22: 70 s -> 100 s; o cron espera 120 s)
+// v22: teto de relogio POR BALDE. Balde que estoura para de consumir e o proximo
+// comeca — sem isto um balde lento (hoje: o ML abortando) come a rodada inteira.
+const LIMITE_MS_POR_BALDE: Record<string, number> = {
+  shopee: 25000,
+  amazon: 45000,
+};
 const TIMEOUT_CONSULTA_MS = 15000;
 const STRIKES_PARA_EXPIRAR = 2;   // rodadas consecutivas de "indisponivel"
 
 const PLANOS_COM_MONITORAMENTO = new Set(['pro', 'elite', 'premium', 'infinity']);
-const LOJAS_COM_VERIFICADOR = new Set(['mercado_livre', 'amazon']);
+const LOJAS_COM_VERIFICADOR = new Set(['mercado_livre', 'amazon', 'shopee']);
 
 const ONDE_LOJA: Record<string, string> = {
   mercado_livre: 'no Mercado Livre',
   amazon: 'na Amazon',
+  shopee: 'na Shopee',
 };
 
 // UA de navegador real. A Amazon devolve captcha para cliente sem UA plausivel,
@@ -291,8 +336,13 @@ type Consulta =
   | {
       estado: 'ok'; preco: number | null; usouPool: boolean; disponibilidade: string; sinal: string;
       precoDe?: number | null; imagem?: string | null;
+      // v22 (Shopee): taxa de desconto afirmada pela loja. undefined = nao olhei.
+      desconto?: number | null;
     }
   | { estado: 'indisponivel'; sinal: string }
+  // v22: a loja respondeu, mas nao tem dado deste produto (Shopee fora do
+  // catalogo de ofertas). Carimba, nao expira, nao mexe em preco.
+  | { estado: 'sem_dados'; sinal: string }
   | { estado: 'desconhecido'; motivo: string };
 
 async function consultarML(url: string, cred: { token: string; token2: string; cookie: string }): Promise<Consulta> {
@@ -354,6 +404,58 @@ async function consultarML(url: string, cred: { token: string; token2: string; c
   }
 }
 
+// ── v22 · Shopee pela Open API oficial de afiliados ─────────────────────
+async function sha256Hex(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// /product/LOJA/ITEM (forma normalizada da resolve-link) ou -i.LOJA.ITEM (link do
+// app). Link encurtado (s.shopee.com.br) NAO e resolvido aqui: isso seria uma
+// chamada de rede a mais por produto — ele cai no pulo por condicao.
+function idsShopee(url: string): { shop: string; item: string } | null {
+  const limpo = url.split('#')[0];
+  const m = limpo.match(/\/product\/(\d+)\/(\d+)/) || limpo.match(/-i\.(\d+)\.(\d+)/);
+  return m ? { shop: m[1], item: m[2] } : null;
+}
+
+async function consultarShopee(ids: { shop: string; item: string }, cred: { app: string; sec: string }): Promise<Consulta> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), TIMEOUT_CONSULTA_MS);
+  try {
+    const payload = JSON.stringify({ query: `{ productOfferV2(itemId: ${ids.item}, shopId: ${ids.shop}) { nodes { priceMin priceDiscountRate } } }` });
+    const ts = Math.floor(Date.now() / 1000);
+    const sig = await sha256Hex(`${cred.app}${ts}${payload}${cred.sec}`);
+    const r = await fetch('https://open-api.affiliate.shopee.com.br/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `SHA256 Credential=${cred.app},Timestamp=${ts},Signature=${sig}` },
+      body: payload,
+      signal: ctrl.signal,
+    });
+    if (!r.ok) return { estado: 'desconhecido', motivo: `shopee HTTP ${r.status}` };
+    const d = await r.json().catch(() => null);
+    if (Array.isArray(d?.errors) && d.errors.length) {
+      return { estado: 'desconhecido', motivo: `shopee recusou: ${String(d.errors[0]?.message ?? '').slice(0, 60)}` };
+    }
+    const node = d?.data?.productOfferV2?.nodes?.[0];
+    if (!node) return { estado: 'sem_dados', sinal: 'shopee:fora_das_ofertas' };
+    const preco = Number(node.priceMin);
+    const precoOk = Number.isFinite(preco) && preco > 0 ? preco : null;
+    const taxa = Number(node.priceDiscountRate ?? 0);
+    let precoDe: number | null | undefined = undefined;
+    let desconto: number | null | undefined = undefined;
+    if (precoOk !== null && taxa > 0 && taxa < 100) {
+      const bruto = Math.round((precoOk / (1 - taxa / 100)) * 100) / 100;
+      if (bruto > precoOk) { precoDe = bruto; desconto = Math.round(taxa); }
+    }
+    return { estado: 'ok', preco: precoOk, precoDe, desconto, usouPool: false, disponibilidade: 'disponivel', sinal: 'shopee:api' };
+  } catch (e) {
+    return { estado: 'desconhecido', motivo: `excecao: ${(e instanceof Error ? e.message : String(e)).slice(0, 70)}` };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 // ── Leitura da pagina da Amazon ──────────────────────────────────────────
 // A justificativa de cada regra esta no cabecalho da v15. Estas funcoes devolvem
 // null com folga: nesta rodada, nao ler nada custa uma rodada; ler errado vai
@@ -373,7 +475,11 @@ function precoAmazon(html: string): { por: number | null; de: number | null } {
   // 1. Ancora. Sem o div nao ha buybox -- e sem buybox nao ha preco a afirmar.
   const p = html.indexOf('<div id="corePriceDisplay_desktop_feature_div"');
   if (p < 0) return vazio;
-  const bloco = html.slice(p, p + 4000);
+  // v22: janela 4000 -> 12000, IGUAL a product-search v32. MEDIDO la (B0DBF65JYY):
+  // o bloco tem 4623 caracteres e o `basisPrice` com o "de" fica alem dos 4000.
+  // Com a janela curta, toda leitura boa APAGAVA o "de" certo (a reconciliacao
+  // recebe `null` = "a loja nao mostra"). No dryRun de 17/09 seriam 5 apagamentos.
+  const bloco = html.slice(p, p + 12000);
 
   // 2. Duas testemunhas independentes do MESMO numero.
   const mRotulo = bloco.match(/id="apex-pricetopay-accessibility-label"[\s\S]{0,300}?>[^0-9<]*([\d.]+,\d{2})/);
@@ -385,10 +491,18 @@ function precoAmazon(html: string): { por: number | null; de: number | null } {
   const viaVisivel = brParaNumero(`${mInteiro[1]},${mCentavos[1]}`);
   if (viaRotulo === null || viaVisivel === null || viaRotulo !== viaVisivel) return vazio;
 
-  // 3. O "de" e opcional e so vale se for maior que o "por".
-  const mBase = bloco.match(/basisPrice[\s\S]{0,250}?([\d.]+,\d{2})/);
-  const de = mBase ? brParaNumero(mBase[1]) : null;
-  return { por: viaRotulo, de: de !== null && de > viaRotulo ? de : null };
+  // 3. O "de" e opcional e so vale se for maior que o "por". v22: mesma leitura
+  // da product-search v32 — riscado explicito (data-a-strike) e depois TODAS as
+  // ocorrencias de basisPrice; vence a primeira maior que o "por".
+  const candidatos: number[] = [];
+  for (const m of bloco.matchAll(/data-a-strike="true"[\s\S]{0,400}?R\$\s*([\d.]+,\d{2})/g)) {
+    const v = brParaNumero(m[1]); if (v !== null) candidatos.push(v);
+  }
+  for (const m of bloco.matchAll(/basisPrice[\s\S]{0,250}?([\d.]+,\d{2})/g)) {
+    const v = brParaNumero(m[1]); if (v !== null) candidatos.push(v);
+  }
+  const de = candidatos.find((v) => v > viaRotulo) ?? null;
+  return { por: viaRotulo, de };
 }
 
 function imagemAmazon(html: string): string | null {
@@ -558,6 +672,8 @@ Deno.serve(async (req: Request) => {
   // normal nunca corrigiria — ela preservaria o erro para sempre. Desligada por
   // padrao; o cron diario NAO usa.
   const forcarPreco = body.forcarPreco === true || url0.searchParams.get('forcarPreco') === '1';
+  // v22: restringe a rodada a alguns baldes (ex.: ["shopee","amazon"] no cron da noite).
+  const lojasPedidas = Array.isArray(body.lojas) ? new Set((body.lojas as unknown[]).map((x) => String(x))) : null;
 
   if (!WA_ENGINE_TOKEN) {
     return json({ ok: false, motivo: 'WA_ENGINE_TOKEN nao configurado', nota: 'Nenhum produto foi alterado.' });
@@ -569,7 +685,7 @@ Deno.serve(async (req: Request) => {
   // discount_pct entra na v19: sem ele no select, `p.discount_pct` e undefined e a
   // guarda que zera o desconto orfao nunca dispararia -- defeito silencioso, do
   // tipo que so aparece quando alguem for conferir por que nao aconteceu nada.
-  const campos = 'id, title, source, price, price_original, discount_pct, image_url, original_url, affiliate_url, user_id, unavailable_strikes';
+  const campos = 'id, title, source, price, price_original, discount_pct, image_url, original_url, affiliate_url, user_id, unavailable_strikes, unavailable_signal';
   let produtos: any[] | null = null;
   let error: { message: string } | null = null;
   // Contam de que fila cada candidato veio. Sem isto nao ha como provar que a
@@ -624,9 +740,11 @@ Deno.serve(async (req: Request) => {
         // da P31 de novo.
         aplicar: (q: any) => q.not('source', 'in', `(${[...LOJAS_COM_VERIFICADOR].join(',')})`),
       },
-      { chave: 'mercado_livre', aplicar: (q: any) => q.eq('source', 'mercado_livre') },
+      // v22: Shopee e Amazon (custo zero) ANTES do ML. Ver o cabecalho (b).
+      { chave: 'shopee', aplicar: (q: any) => q.eq('source', 'shopee') },
       { chave: 'amazon', aplicar: (q: any) => q.eq('source', 'amazon') },
-    ];
+      { chave: 'mercado_livre', aplicar: (q: any) => q.eq('source', 'mercado_livre') },
+    ].filter((b) => !lojasPedidas || lojasPedidas.has(b.chave));
 
     // Duas consultas por balde (novos / antigos), todas em paralelo. Sao leituras
     // de BANCO, nao de loja -- nao custam credito nem relogio de rede.
@@ -667,6 +785,7 @@ Deno.serve(async (req: Request) => {
       candidatosNovos += doNovos.length;
       candidatosAntigos += doAntigos.length;
       candidatosPorBalde[chave] = doNovos.length + doAntigos.length;
+      for (const x of [...doNovos, ...doAntigos]) x.__balde = chave;
       selecionados.push(...doNovos, ...doAntigos);
     }
     produtos = selecionados;
@@ -677,6 +796,7 @@ Deno.serve(async (req: Request) => {
 
   const donos = [...new Set(produtos.map((p) => p.user_id).filter(Boolean))];
   const credPorDono: Record<string, { token: string; token2: string; cookie: string }> = {};
+  const shopeePorDono: Record<string, { app: string; sec: string }> = {};
   const perfilPorDono: Record<string, { id: string; email: string; plan: string; is_vip: boolean; phone: string }> = {};
   if (donos.length) {
     const { data: perfis } = await SB.from('profiles')
@@ -689,6 +809,17 @@ Deno.serve(async (req: Request) => {
       };
       perfilPorDono[pf.id] = { id: pf.id, email: String(pf.email ?? ''), phone: String(pf.phone ?? ''), plan: String(pf.plan ?? 'starter'), is_vip: pf.is_vip === true };
     }
+    // v22: credencial da Shopee do DONO (mesmo "App Key || ID de Afiliado" do front).
+    if (produtos.some((p) => p.source === 'shopee')) {
+      const { data: creds } = await SB.from('affiliate_credentials')
+        .select('user_id, credentials').eq('store', 'shopee').in('user_id', donos);
+      for (const c of creds ?? []) {
+        const cr: any = c.credentials ?? {};
+        const app = String(cr['App Key'] || cr['ID de Afiliado'] || '').trim();
+        const sec = String(cr['App Secret'] || '').trim();
+        if (app && sec) shopeePorDono[c.user_id] = { app, sec };
+      }
+    }
   }
 
   let conferidos = 0, precoMudou = 0, desconhecidos = 0, pulados = 0, usosDoPool = 0;
@@ -697,11 +828,22 @@ Deno.serve(async (req: Request) => {
   let imagensPreenchidas = 0, precoSemLeitura = 0;
   let deCorrigidos = 0, deApagados = 0;
   let interrompidoPorTempo = false;
+  let conferidosShopee = 0, shopeeForaDasOfertas = 0;
+  const baldesCortados: string[] = [];
+  let baldeAtual = '', inicioBalde = Date.now();
   const detalhes: string[] = [];
   const avisos: string[] = [];
 
   for (const p of produtos) {
     if (Date.now() - inicio > DEADLINE_MS) { interrompidoPorTempo = true; break; }
+    // v22: teto de relogio por balde (a lista vem agrupada por balde, em ordem).
+    const balde = String(p.__balde ?? '');
+    if (balde !== baldeAtual) { baldeAtual = balde; inicioBalde = Date.now(); }
+    const limiteBalde = LIMITE_MS_POR_BALDE[balde];
+    if (limiteBalde && Date.now() - inicioBalde > limiteBalde) {
+      if (!baldesCortados.includes(balde)) baldesCortados.push(balde);
+      continue;
+    }
 
     const agora = new Date().toISOString();
     const url = String(p.original_url || p.affiliate_url || '');
@@ -733,7 +875,18 @@ Deno.serve(async (req: Request) => {
     }
 
     let res: Consulta;
-    if (loja === 'amazon') {
+    if (loja === 'shopee') {
+      const ids = idsShopee(url);
+      const cred = shopeePorDono[p.user_id];
+      if (!ids || !cred) {
+        pulados++;
+        detalhes.push(`- ${nome} — shopee: ${!ids ? 'link sem LOJA/ITEM (encurtado?)' : 'dono sem App Key/App Secret'}`);
+        if (!dryRun) await SB.from('products').update({ price_checked_at: agora }).eq('id', p.id);
+        continue;
+      }
+      res = await consultarShopee(ids, cred);
+      conferidosShopee++;
+    } else if (loja === 'amazon') {
       res = await consultarAmazon(url);
       conferidosAmazon++;
     } else {
@@ -781,6 +934,13 @@ Deno.serve(async (req: Request) => {
       desconhecidos++; detalhes.push(`? ${nome} — ${res.motivo}`); continue;
     }
 
+    if (res.estado === 'sem_dados') {
+      shopeeForaDasOfertas++;
+      detalhes.push(`~ ${nome} — fora do catalogo de ofertas da Shopee; preco mantido`);
+      if (!dryRun) await SB.from('products').update({ price_checked_at: agora, unavailable_signal: res.sinal }).eq('id', p.id);
+      continue;
+    }
+
     if (res.usouPool) usosDoPool++;
 
     const strikesAtuais = Number(p.unavailable_strikes ?? 0);
@@ -795,6 +955,8 @@ Deno.serve(async (req: Request) => {
     // dois -- e o jeito de esquecer um lado.
     const patch: Record<string, unknown> = { price_checked_at: agora, price_changed: false };
     if (zerar) { patch.unavailable_strikes = 0; patch.unavailable_signal = null; }
+    // v22: voltou ao catalogo de ofertas da Shopee.
+    if (loja === 'shopee' && String(p.unavailable_signal ?? '').startsWith('shopee:')) patch.unavailable_signal = null;
 
     // Imagem: so preenche o que esta vazio. Trocar imagem existente nao foi pedido
     // e a que esta la pode ter sido escolhida a mao.
@@ -867,6 +1029,23 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // v22 · Shopee: a taxa afirmada vira o desconto. Com taxa 0 (precoDe
+    // undefined) o "de" gravado fica — salvo se virou menor ou igual ao preco
+    // novo, que publicaria desconto zero ou negativo.
+    if (loja === 'shopee' && precoNovo) {
+      if (res.desconto !== undefined && Number(p.discount_pct) !== res.desconto) {
+        patch.discount_pct = res.desconto;
+        detalhes.push(`  desconto: ${p.discount_pct ?? 'sem'}% -> ${res.desconto ?? 'sem'}% (Shopee)`);
+      }
+      const deGravado = Number(p.price_original) || 0;
+      if (res.precoDe === undefined && deGravado > 0 && deGravado <= precoNovo) {
+        patch.price_original = null;
+        patch.discount_pct = null;
+        deApagados++;
+        detalhes.push(`  de: ${deGravado} -> sem (nao e maior que o preco novo ${precoNovo})`);
+      }
+    }
+
     if (!patch.price_changed) conferidos++;
     if (!dryRun) await SB.from('products').update(patch).eq('id', p.id);
     else detalhes.push(`  [dry] gravaria: ${JSON.stringify(patch)}`);
@@ -889,6 +1068,10 @@ Deno.serve(async (req: Request) => {
     lidos_da_loja: lidosDaLoja,
     conferidos,
     conferidos_amazon: conferidosAmazon,
+    conferidos_shopee: conferidosShopee,
+    shopee_fora_das_ofertas: shopeeForaDasOfertas,
+    baldes_cortados_por_tempo: baldesCortados,
+    lojas_pedidas: lojasPedidas ? [...lojasPedidas] : null,
     preco_mudou: precoMudou,
     preco_sem_leitura_confirmada: precoSemLeitura,
     de_corrigidos: deCorrigidos,
