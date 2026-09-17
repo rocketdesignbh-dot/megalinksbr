@@ -1,3 +1,16 @@
+// product-search v35 — modo "link_nativo" para o Link Rapido (16/09)
+// v35 (REVISAO 156): pedido do Erico — o Link Rapido continuava saindo com o
+//   encurtador proprio (megalinksbr.com.br/r/...) para Shopee e ML, enquanto
+//   Postar Agora (v34) e Grupos de Oferta (send-post v30/group-blast v9) ja
+//   saiam com o link nativo da loja. O Link Rapido nao le produto (so a
+//   resolve-link), entao chamar a busca inteira gastaria leitura de loja e,
+//   no ML, bateria no bloqueio medido na P151. Corpo {url, credentials,
+//   modo:"link_nativo"} devolve SO o link nativo, sem ler a pagina:
+//     - Shopee: Open API oficial (productOfferV2 -> offerLink), App Key/Secret
+//       vindos em `credentials` (mesmo formato do Postar Agora).
+//     - ML: mesmo gerarLinkNativoML da v34 (cookie de sessao + Etiqueta ML).
+//   Falhou ou faltou credencial -> {success:false, native_link:false} e o
+//   front cai no fluxo de sempre (an_redir/matt_* + encurtador). Sem regressao.
 // product-search v34 — link de afiliado NATIVO do Mercado Livre (11/09)
 // v34 (REVISAO 144): fetchMercadoLivre agora tenta gerar o link curto oficial
 //   (mercadolivre.com/sec/... ou equivalente) via o endpoint interno que o
@@ -925,22 +938,65 @@ async function consultarShein(url: string): Promise<any> {
   };
 }
 
+// v35 — so o link nativo, sem ler o produto (Link Rapido). Nunca lanca.
+async function somenteLinkNativo(url: string, store: string, credentials: any, sb: ReturnType<typeof createClient> | null, userId: string | null): Promise<string | null> {
+  try {
+    if (store === "shopee") {
+      const appId = String(credentials?.shopee_app_id ?? "").trim();
+      const appSecret = String(credentials?.shopee_app_secret ?? "").trim();
+      if (!appId || !appSecret) return null;
+      const m = url.split("#")[0].match(/\/product\/(\d+)\/(\d+)/);
+      if (!m) return null;
+      const query = `{ productOfferV2(itemId: ${m[2]}, shopId: ${m[1]}) { nodes { offerLink } } }`;
+      const ts = Math.floor(Date.now() / 1000);
+      const payload = JSON.stringify({ query });
+      const sig = await sha256Hex(`${appId}${ts}${payload}${appSecret}`);
+      const r = await fw("https://open-api.affiliate.shopee.com.br/graphql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `SHA256 Credential=${appId},Timestamp=${ts},Signature=${sig}` },
+        body: payload,
+      }, 12000);
+      if (!r.ok) { console.warn(`[shopee][link-nativo] HTTP ${r.status}`); return null; }
+      const d = await r.json();
+      if (Array.isArray(d?.errors) && d.errors.length) { console.warn(`[shopee][link-nativo] API recusou: ${d.errors[0]?.message}`); return null; }
+      return d?.data?.productOfferV2?.nodes?.[0]?.offerLink || null;
+    }
+    if (store === "mercadolivre") {
+      const [, , mlCookie] = await getPersonalMlCredentials(sb, userId);
+      if (!mlCookie) return null;
+      const tag = await getMlAffiliateTag(sb, userId);
+      if (!tag) return null;
+      return await gerarLinkNativoML(url, mlCookie, tag);
+    }
+  } catch (e) { console.warn(`[link-nativo] falhou: ${(e as Error).message}`); }
+  return null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   try {
-    const { url, credentials = {} } = await req.json();
-    console.log(`[product-search v34] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
+    const { url, credentials = {}, modo = "" } = await req.json();
+    console.log(`[product-search v35] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
     if (!url || !/^https?:\/\//i.test(url))
       return new Response(JSON.stringify({ success: false, motivo: "url_sem_protocolo", error: "O link colado não começa com http:// ou https://. Copie o endereço completo da página do produto." }), { status: 400, headers: { ...CORS, "Content-Type": "application/json" } });
 
     const store = detectStore(url);
     const authHeader = req.headers.get("authorization");
     const userId = getUserIdFromJwt(authHeader);
-    console.log(`[product-search v34] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
+    console.log(`[product-search v35] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
 
     const waEngineUrl = Deno.env.get("WA_ENGINE_URL") || "https://megalinksbr-wa-engine.fwezsn.easypanel.host";
     const waEngineToken = Deno.env.get("WA_ENGINE_TOKEN") || "";
     const sb = (SUPABASE_URL && SERVICE_ROLE) ? createClient(SUPABASE_URL, SERVICE_ROLE) : null;
+
+    if (modo === "link_nativo") {
+      const nativo = await somenteLinkNativo(url, store, credentials, sb, userId);
+      console.log(`[product-search v35] link_nativo store=${store} ok=${!!nativo} user=${userId ?? "anon"}`);
+      return new Response(JSON.stringify(nativo
+        ? { success: true, store, native_link: true, short_link: nativo }
+        : { success: false, store, native_link: false }),
+        { headers: { ...CORS, "Content-Type": "application/json" } });
+    }
 
     let result: any = null;
 
@@ -975,7 +1031,7 @@ Deno.serve(async (req: Request) => {
       result = result || { success: false, source: "none", store, motivo: "loja_sem_integracao", error: "Loja sem integração automática. Preencha manualmente." };
     }
 
-    console.log(`[product-search v34] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
+    console.log(`[product-search v35] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
     return new Response(JSON.stringify(result), { headers: { ...CORS, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ success: false, error: (e as Error).message }), { status: 500, headers: { ...CORS, "Content-Type": "application/json" } });

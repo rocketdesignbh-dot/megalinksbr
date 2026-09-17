@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 155 — 16/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 156 — 16/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1732,6 +1732,30 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 156 — 16/09/2026 — Link Rápido passa a entregar o link NATIVO da Shopee e do Mercado Livre, igual Postar Agora (REVISÃO 144) e Grupos de Oferta (P146). `product-search` v35 (deploy 64) NO AR e conferido idêntico ao repo; `frontend/index.html` pushado (deploy do `app` sai pelo webhook). Shopee MEDIDA no backend; ML e a tela ainda NÃO medidos.**
+
+### O que o Érico pediu
+
+"Em Link Rápido, aplique a mesma lógica dos links que você fez para Postar Agora e em Grupo de Ofertas. Lá os links da Shopee e ML ainda estão saindo com encurtamento da megalinks."
+
+### O que foi feito
+
+- **Por que não bastava copiar o `eLinkOficialDaLoja` do Postar Agora:** o Link Rápido nunca chama a `product-search` (só `resolve-link` + encurtador), então não tinha `short_link` nativo nenhum em mãos. Chamar a busca inteira leria o produto — gasta leitura de loja e, no ML, bate no bloqueio da P151.
+- **`product-search` v35:** corpo `{url, credentials, modo:"link_nativo"}` devolve SÓ o link nativo, sem ler a página (`somenteLinkNativo`). Shopee: Open API oficial (`productOfferV2 { offerLink }`) com App Key/App Secret vindos do front (mesmo `prColetarCredenciais` do Postar Agora). ML: o mesmo `gerarLinkNativoML` da v34 (cookie `ml_session_cookie` + `Etiqueta ML`). Falhou/faltou credencial → `{success:false, native_link:false}`. Sem o `modo`, a função é idêntica à v34.
+- **Frontend (`lrGerar`)**: para Shopee e Mercado Livre, depois de resolver o link e checar credencial, chama `lrLinkNativo()` (timeout 30 s). Veio link nativo → entrega ele cru, sem `encurtarLinkFinal`, com a legenda "link oficial de afiliado da <loja>". Não veio → segue exatamente o fluxo antigo (`prGerarLinkAfil` + encurtador). Amazon e demais lojas não mudaram. `node --check` limpo nos 5 blocos `<script>`.
+
+### Prova
+
+- `get_edge_function` depois do deploy: `version` 64, `index.ts` **byte a byte igual** ao repo. `verify_jwt` continua `true`.
+- Chamada real via `pg_net` com as credenciais Shopee do Érico (lidas dentro do SQL), produto `1362613236/27893329314` do Radar: **`{"success":true,"native_link":true,"short_link":"https://s.shopee.com.br/9Ki6245gNB"}`**.
+- Controles: mesma chamada **sem App Secret** → `success:false`; ML **sem usuário** (anon) → `success:false` — os dois caem no fallback, como desenhado.
+- Achado de lado: o produto `1006215031/24442629738` (o da P26) hoje volta **sem nó** na API (saiu do catálogo de ofertas). Nesse caso o Link Rápido cai no `an_redir` + encurtador — mesmo comportamento do Postar Agora.
+
+### O que NÃO foi medido
+
+- **ML nativo pelo Link Rápido**: exige JWT de usuário real (o `sub` escolhe o cookie); não dá para forjar da sessão. Código é o mesmo da v34 (provado na P143), a diferença é que a URL enviada é a canônica devolvida pela `resolve-link`.
+- **A tela em produção** (deploy do `app` pelo webhook + clique real). Ver P152.
 
 **REVISÃO 154 — 15/09/2026 — Sessão pediu restilização completa de novo (mesmo pedido da REVISÃO 153, sem saber que ela já tinha rodado); nada de visual novo foi commitado — a sessão foi de investigação, fechou a P71 e registrou a P150. NADA de código mudou nesta sessão.**
 
@@ -10897,6 +10921,12 @@ Fluxo de `lrGerar()`: `resolve-link` v5 (segue redirects, desembrulha `an_redir`
 `?go=`, **tira o afiliado de origem** e devolve `stripped[]`) → `temCredencialLoja` →
 `prGerarLinkAfil` com o `CREDS_STATE` do usuário logado → `encurtarLinkFinal`.
 
+**REVISÃO 156 (16/09):** para **Shopee e Mercado Livre**, depois do `temCredencialLoja`, o
+`lrGerar` chama `lrLinkNativo()` → `product-search` v35 `modo:"link_nativo"`. Se vier link
+nativo (`s.shopee.com.br/…` / link curto oficial do ML), ele é entregue **cru, sem
+encurtador** (sem rastreio de cliques no nosso domínio — decisão da REVISÃO 144). Se não
+vier, segue o fluxo acima. Shopee medida no backend; ML e a tela não medidos (P152).
+
 - **Verde (`alert g`) só quando as três coisas fecharam:** loja reconhecida,
   credencial presente e link **efetivamente diferente** do original. Sem credencial e
   link que voltou igual saem em **amarelo**, com atalho para Config Afiliados;
@@ -10914,7 +10944,7 @@ Fluxo de `lrGerar()`: `resolve-link` v5 (segue redirects, desembrulha `an_redir`
   `CREDS_STATE`: Shopee, Mercado Livre, Amazon, AliExpress, Magalu, Shein, Natura,
   TerabyteShop.
 - Sem gate de plano, sem tabela nova, sem Edge Function nova, sem consumo de
-  Scrape.do.
+  Scrape.do (o modo `link_nativo` da REVISÃO 156 também não lê a página).
 
 ---
 
@@ -11023,6 +11053,7 @@ código não relacionado.
 |---|---|---|
 | **P150** | 🟡 **Checkout local ficou 626 commits à frente / 841 atrás do `origin/main` (defasagem de ~1 mês, parado em `b75b5e8` de 11/08) — causou uma sessão inteira de retrabalho antes de perceber.** A sessão da REVISÃO 154 fez 5 commits de restilização visual em cima da cópia desatualizada, achando que implementava o pedido do Érico do zero, até descobrir que a REVISÃO 66 já tinha feito o mesmo trabalho (mais rigoroso) em cima do `main` real. Os 5 commits (branch `redesign/megalinks-ui`) foram abandonados sem merge — não custou nada em produção, mas custou a sessão inteira. **Causa não determinada:** não ficou claro se os 626 commits locais são trabalho não empurrado por alguém, ou resíduo de outro fluxo (deploy direto, outra máquina, outro clone). Recomendação: `git fetch origin main && git rev-list --left-right --count main...origin/main` no início de toda sessão que for mexer em `frontend/index.html` ou qualquer arquivo grande — não confiar só no checkout local | 15/09 |
 | ~~P149~~ | ✅ **FECHADA POR COMPORTAMENTO (16/09).** Érico reportou "ML continua com erro no Postar Agora, meu perfil e o da Patricia não conseguem". **MEDIDO no query_logs, ~22 buscas reais de ML dos dois usuários entre 15/09 16:36 e 16/09 02:33, todas depois do deploy:** zero ocorrências de DESAFIO ANTIBOT ou de título de captcha virando produto — o filtro do wa-engine funcionou 100% das vezes que o desafio apareceu (10 casos caíram no fallback Microlink e a página /gz/account-verification com título "Mercado Libre" foi **corretamente rejeitada**, success:false, em vez de virar produto fantasma). **O que o Érico está sentindo é outro problema, não este:** das 22 tentativas, só 8 tiveram resposta limpa do wa-engine na hora; **9 (41%) estouraram os 70 s e abortaram** (`[ML] wa-engine falhou: The signal has been aborted`) antes de cair no Microlink — visto nos dois usuários, inclusive hoje 02:32 UTC na conta do próprio Érico. Isso é o Mercado Livre bloqueando com mais força as duas contas agora (mesmo sintoma do aviso que já existe no frontend sobre o Scrape.do sinalizado pelo ML), não um bug de código introduzido por este conserto. Ver P151 | 16/09 |
+| **P152** | 🟡 **Link Rápido com link nativo (REVISÃO 156) — backend no ar e Shopee medida, TELA E ML NÃO MEDIDOS.** Falta: (1) confirmar que o webhook do EasyPanel serviu o `index.html` novo (procurar `lrLinkNativo` no HTML de produção); (2) colar um link de Shopee no Link Rápido e ver sair `s.shopee.com.br/XXXX` cru com a legenda "link oficial de afiliado"; (3) colar um link de ML (conta com `ml_session_cookie` + `Etiqueta ML`) e ver sair o link curto oficial do ML; (4) controle: Amazon continua saindo pelo encurtador. Se o ML cair no `megalinksbr.com.br/r/…`, olhar `query_logs` por `[ML][link-nativo]` (cookie expirado ou endpoint mudou, mesma leitura da P143) | 16/09 |
 | **P151** | 🟠 **Mercado Livre bloqueando pesado as buscas de Érico e Patricia — taxa de timeout de ~41% medida, causa (IP/token flagado) não isolada.** 9 de 22 buscas de ML dos dois usuários (15–16/09) estouraram os 70 s do wa-engine inteiros (`The signal has been aborted`) antes de qualquer resposta — não é o antibot de título (esse está fechado, P149), é o Scrape.do com super=true não conseguindo passar do desafio a tempo, ou nem isso. Os casos que não deram timeout, quando bateram em antibot, foram **corretamente** rejeitados (nenhum dado inventado) — mas do ponto de vista do Érico e da Patricia continua "não funciona". Não investigado ainda: se é o token pessoal deles (Scrape.do e/ou cookie ML) especificamente flagado, se é um pico de bloqueio geral do ML hoje, ou se o timeout de 70 s ficou curto de novo (mesma classe de problema da REVISÃO 88/v31, mas dessa vez sem confirmar se aumentar o timeout ajudaria — pode ser bloqueio total, não demora). Próximo passo: repetir manualmente agora o mesmo link de um dos 9 timeouts e ver se responde rápido (intermitente) ou trava de novo (bloqueio persistente) | 16/09 |
 | **P146** | 🟡 **Link nativo Shopee no disparo pros grupos WhatsApp — CODADO E DEPLOYADO (`send-post` v30/deploy 65, `group-blast` v9/deploy 21), NÃO MEDIDO EM PRODUÇÃO.** Pedido do Érico: os grupos ainda saíam com o encurtador próprio mesmo depois da P143 (que só cobria a "Postar Agora"). `linkFinalDoProduto` (async) tenta o link nativo da Shopee (Open API oficial, App Key/App Secret) antes de cair no `an_redir`+encurtador de sempre; `ehLinkNativoShopee` evita reembrulhar o resultado. **Decisão do Érico: só Shopee no automático — ML fica de fora** (o link nativo do ML usa o endpoint não documentado do painel de Afiliados com cookie de sessão pessoal; automatizar isso no disparo recorrente multiplicaria o risco de flag na conta, ao contrário da Shopee que usa App Key/App Secret). Falta: disparar um produto Shopee real (Post Automático ou Disparo Manual) com App Secret configurado e conferir no grupo que o link saiu `s.shopee.com.br/XXXX` cru; conferir que ML e as demais lojas não regrediram; conferir que Shopee sem App Secret cai no fallback de sempre | 14/09 |\n| ~~P144~~ | ✅ **FECHADA (12/09, REVISÃO 147).** O push que a REVISÃO 146 deixou registrado como bloqueado (proxy da sessão negando `git push` com 403 + `device_bash` fora do ar) já tinha acontecido antes desta sessão começar — `git clone --depth=1` fresco do `main` mostrou `HEAD` em `7b1b713`, com `docs/ESTADO_ATUAL.md` (REVISÃO 146), `frontend/index.html` (P145/"Clonar 100%") e `clone-ingest` v21 todos presentes. Não foi medido quem rodou o commit/push nem quando. Os dois bugs de infraestrutura em si (proxy de repositório autorizado da sessão, bug de Plan9 drive share do Windows) não foram reconfirmados como corrigidos — só contornados. Se reaparecerem numa sessão futura, não assumir que "já foi resolvido" | 12/09 |
 | **P148** | 🟢 **Post Vídeo (Elite+) — Érico confirmou os dois testes principais: o vídeo chegou certo no grupo do WhatsApp (legenda/link ok) e o modo "post completo" (REVISÃO 152) também funcionou de ponta a ponta.** Ver "Última alteração" (REVISÕES 150/151/152). Falta ainda: (a) testar edição de verdade (trocar vídeo, trocar grupos de um agendamento já existente); (b) testar cancelamento e caminho de falha (grupo sem `group_jid`, sessão desconectada) e conferir que o vídeo continua no Storage quando `partial_failed`/`failed` | 14/09 |

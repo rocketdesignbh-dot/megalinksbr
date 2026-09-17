@@ -9819,6 +9819,22 @@ async function lrGerar(){
       lrMsg("y",'<span><strong>⚠️ Link resolvido ('+lojaSafe+'), mas falta a sua credencial dessa loja.</strong><br>Sem o seu ID de afiliado o link sairia <strong>sem comissão nenhuma</strong>. <a href="#" onclick="go(\'config-afiliados\');return false" style="color:var(--volt-tx);font-weight:700">Configurar '+lojaSafe+' agora</a></span>');
       return;
     }
+    // REVISÃO 156 — mesma regra do Postar Agora (REVISÃO 144) e dos Grupos de
+    // Oferta (P146): Shopee e Mercado Livre saem com o link NATIVO da loja
+    // (s.shopee.com.br/… / link curto oficial do ML), sem passar pelo
+    // encurtador próprio. A product-search v35 no modo "link_nativo" só gera o
+    // link, sem ler o produto (não gasta Scrape.do). Falhou ou faltou
+    // credencial (App Secret da Shopee; cookie/Etiqueta do ML) → segue o
+    // fluxo de sempre logo abaixo, sem regressão.
+    if(loja==="Shopee"||loja==="Mercado Livre"){
+      lrMsg("b","🔗 Gerando o link oficial de afiliado da "+lojaSafe+"…");
+      const nativo=await lrLinkNativo(d.url,jwt);
+      if(nativo){
+        LR_LINK=nativo;
+        lrRender(d,loja,true,true);
+        return;
+      }
+    }
     const afil=prGerarLinkAfil(d.url,loja)||d.url;
     if(afil===d.url){
       lrMsg("y",'<span><strong>⚠️ Não consegui injetar o seu ID nesse link de '+lojaSafe+'.</strong><br>Confira em <a href="#" onclick="go(\'config-afiliados\');return false" style="color:var(--volt-tx);font-weight:700">Config Afiliados</a> se o campo do ID de afiliado dessa loja está preenchido.</span>');
@@ -9835,11 +9851,31 @@ async function lrGerar(){
   }
 }
 
-function lrRender(d,loja,encurtou){
+// Pede à product-search só o link nativo (Shopee/ML). Nunca lança: null = usar o fluxo de sempre.
+async function lrLinkNativo(url,jwt){
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),30000);
+  try{
+    const r=await fetch(`${SUPA_URL}/functions/v1/product-search`,{
+      method:"POST",
+      headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"},
+      body:JSON.stringify({url,credentials:prColetarCredenciais(),modo:"link_nativo"}),
+      signal:controller.signal
+    });
+    if(!r.ok)return null;
+    const d=await r.json();
+    return (d&&d.success&&d.native_link&&d.short_link)?String(d.short_link):null;
+  }catch(e){console.warn("[link-rapido] link nativo falhou:",e&&e.message?e.message:e);return null;}
+  finally{clearTimeout(timeout);}
+}
+
+function lrRender(d,loja,encurtou,nativo){
   const s=document.getElementById("lrStatus");
   if(!s)return;
   const rastreado=(typeof planTemRastreamento==="function")&&planTemRastreamento();
-  const nota=!encurtou
+  const nota=nativo
+    ? "link oficial de afiliado da "+lrEsc(loja||"loja")+" — sai com a cara da loja (os cliques ficam no painel de afiliados da própria loja)"
+    : !encurtou
     ? "a encurtadora não respondeu — este é o link de afiliado direto, funciona igual"
     : (rastreado
         ? "encurtado no seu domínio, com <strong>rastreio de cliques</strong> no Analítico"
