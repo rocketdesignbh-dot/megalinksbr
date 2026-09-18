@@ -1733,6 +1733,24 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
+**ADENDO à REVISÃO 163 — 18/09/2026 — "E do Mercado Livre dá pra fazer igual?" MEDIDO: o ML já carrega o equivalente ao sub_id (a `tag`/Etiqueta ML, que vira `matt_word` no link), e ele NÃO aceita tag inventada na hora. Decisão do Érico: deixar como está. NENHUMA LINHA DE CÓDIGO MUDOU.**
+
+### O que foi medido (18/09, endpoint interno de afiliados do ML, conta do Érico)
+
+| chamada | resultado |
+|---|---|
+| `POST /affiliate-program/api/v2/stripe/user/links` com `tag:"eko"` | ✅ 200 — `short_url: https://meli.la/22eNUhp`, `long_url` com `matt_word=eko&matt_tool=18051249` |
+| mesma chamada com `tag:"ekolinkrapido"` | ❌ 400 — `{"message":"Tag is not associated with this affiliate.","error_code":109}` |
+| `GET /affiliate-program/api/v2/stripe/user/tags` | ✅ 200 — `[{"tag":"eko","in_use":true},{"tag":"anan1844639","in_use":false}]` |
+
+### Leitura
+
+- **A `tag` do ML É o sub_id do ML.** Ela já vai em TODO link nativo de ML desde a REVISÃO 144 (`gerarLinkNativoMLDetalhado` manda `{url, tag}` com a Etiqueta ML) e aparece no destino como `matt_word`. Ou seja, diferente da Shopee, aqui nunca houve buraco de rastreio — só não havia separação por tela.
+- **A diferença estrutural:** na Shopee o `subIds` é texto livre, então dá para inventar `[rótulo, origem]` na hora. No ML a tag precisa **existir cadastrada na conta de afiliado** — `error_code 109` é o ML recusando tag desconhecida. Separar por tela no ML exigiria criar 2 a 4 tags no painel do ML e escolher a tag conforme a origem.
+- **Decisão do Érico (18/09): deixar como está** — o ML continua com a tag única `eko`. Não é pendência; é escolha.
+- **Achado extra, útil:** `GET /affiliate-program/api/v2/stripe/user/tags` lista as tags da conta. Serve para, no futuro, validar a Etiqueta ML cadastrada em Config Afiliados ANTES de o usuário descobrir pelo erro 109. Não implementado.
+- ⚠️ `error_code 109` (tag não cadastrada) é DIFERENTE do `error_code 111` (anúncio recusado pelo programa, tratado na v36/P153). Se um dia aparecer 109 em produção, a causa é a Etiqueta ML errada ou removida do painel do ML — não o produto.
+
 **REVISÃO 163 — 17/09/2026 — Sub-ID da Shopee passa a viajar no link nativo (Link Rápido, Postar Agora, Post Automático e Disparo Manual). `product-search` v37 (deploy 66), `send-post` v31 (deploy 66) e `group-blast` v10 (deploy 22) NO AR, conferidas byte a byte contra o repo. MEDIDO em produção: link do Link Rápido resolve com `utm_content=eko-linkrapido---` e o do Postar Agora com `utm_content=eko-postaragora---`, os dois com `mmp_pid=an_18344180897`; sem rótulo cadastrado o destino continua `utm_content=----` (sem regressão). ⚠️ Durante o deploy, o `verify_jwt` da `send-post` foi religado pela ferramenta e o Post Automático caiu com 401 por alguns minutos — consertado no cron e medido (200, `groups:17`).**
 
 ### O pedido
