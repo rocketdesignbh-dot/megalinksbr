@@ -1733,7 +1733,7 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
-**REVISÃO 155 — 16/09/2026 — Restilização pedida de novo (3ª vez: REVISÃO 63-66, depois REVISÃO 154 investigou e não mudou código, agora esta sessão mudou código de verdade). Checkout sincronizado com `origin/main` (0/0 de divergência, `git fetch` conferido no início) — não é o bug da REVISÃO 154. Branch `redesign/megalinks-ui-v3`, 15 commits, NÃO mergeada em `main`.**
+**REVISÃO 155 — 16/09/2026 — Restilização pedida de novo (3ª vez: REVISÃO 63-66, depois REVISÃO 154 investigou e não mudou código, agora esta sessão mudou código de verdade). Checkout sincronizado com `origin/main` (0/0 de divergência, `git fetch` conferido no início) — não é o bug da REVISÃO 154. Branch `redesign/megalinks-ui-v3`, 22 commits (atualizado em 18/09), NÃO mergeada em `main`.**
 
 ### O que foi pedido e como foi resolvido o "já foi feito"
 
@@ -1753,16 +1753,25 @@ Ao contrário da REVISÃO 154 (que só confirmou "já foi feito, não fizemos na
 - 3 empty states fracos (só texto, sem ícone/ação) alinhados ao padrão que o resto do app já usa.
 - `.mf` (rodapé de modal) sem `flex-wrap`; `.cs-grid` sem o breakpoint de 520px que `.radar-grid` já tinha; `.sgrid/.stat` era classe morta sem CSS nenhum.
 
+**Achados da varredura final (adendo de 18/09):**
+
+- 🔴 **Bug introduzido por esta própria sessão e corrigido:** uma troca em massa (`#7FB98D → var(--green)`, na correção da paleta neon dos KPIs) reescreveu também a definição do token, virando `--green:var(--green)` — referência circular, inválida em CSS. Todo `var(--green)` sem fallback ficou sem cor entre esse commit (`d48fee6`) e a correção (`d79a154`). Varredura por `--x:var(--x)` em `index.html` e `landing.html` confirmou que foi o único token afetado. **Lição:** trocas em massa por valor precisam pular a linha que *define* o valor.
+- 🔴 **Bug pré-existente:** com tema claro salvo, o gate de login ficava com o wordmark "Mega Links" e vários textos *invisíveis*. `.authbg` trava o fundo em `#14161A`, mas `--tx`/`--tx2`/`--bg2` continuavam herdando do tema ativo (`--tx` vira quase-preto no claro). Corrigido redeclarando os valores do tema escuro dentro de `.authbg`.
+- **4 páginas inteiras nunca tinham passado pela REVISÃO 66** (arquivos datados de 30/07, enquanto `index.html`/`landing.html` são de 23/08+): `guia.html` (Plus Jakarta Sans, `--volt:#F5C518`, raio 12px, blob radial, glow de 26px no CTA, pills 999px), `revops.html` (painel interno `noindex`, 2506 linhas: mesmas fontes antigas, `--glow` de 32px, 57 raios espalhados, duas manchas radiais no login), `termos.html` e `privacidade.html` (fonte de sistema, amarelo antigo, cinzas soltos). As quatro migradas para os tokens/tipografia atuais. Em `revops.html` mantive de propósito a paleta semântica `--money/--risk/--danger/--info` (dashboard financeiro precisa diferenciar séries), só dessaturada. `--violet/--pink` tinham zero uso lá.
+- **Escala de espaçamento:** só declarei `--sp-1..--sp-7` (base 4px) em `index.html` como referência. **Não** migrei os ~13.000 paddings/margins inline — decisão deliberada, risco de regressão em milhares de pontos por ganho cosmético.
+
+**Ainda em aberto após este adendo:** (a) KPIs do admin, tela de trial encerrado e o restante do `revops.html` logado — nunca vistos no navegador, exigem sessão real; (b) ~7 fundos escuros de badge com hex solto em `revops.html` (`#2A3A5C`, `#3A2A16`…), deixados de propósito; (c) revisão visual tela-por-tela das 26 telas logadas; (d) loading states/skeletons e microinterações além do `prefers-reduced-motion` global; (e) push/merge da branch, decisão do Érico.
+
 ### O que NÃO foi feito (decisão herdada + limitação desta sessão)
 
 - **Emoji mantido como está**, por decisão explícita do Érico já registrada na REVISÃO 154 ("quer manter os emoji como estão") — só removi emoji em 3 casos de **duplicação literal** (nav com SVG *e* emoji fazendo o mesmo papel: Postar Agora, Post Automático, Post Vídeo), não uma limpeza geral.
 - **Não confirmado visualmente**: a paleta neon dos KPIs do admin e a tela de conversão de trial exigem login real (admin ou trial expirado) que esta sessão não tinha. Troca mecânica de valor de cor, baixo risco, mas **falta conferir no navegador do Érico**.
 - Escala de espaçamento (a auditoria classificou como menor impacto) e uma varredura visual final tela-por-tela (as 26 telas que a REVISÃO 66 percorreu uma a uma) não foram feitas.
-- **Branch não mergeada em `main`** — os 15 commits estão só em `redesign/megalinks-ui-v3` local.
+- **Branch não mergeada em `main`** — os 22 commits estão só em `redesign/megalinks-ui-v3` local.
 
 ### Estado ao encerrar
 
-Branch `redesign/megalinks-ui-v3`, 15 commits, working tree limpa. Cada commit testado individualmente via `frontend-static` (porta 5173) — console sem erro novo, foco de teclado conferido ao vivo com Tab de verdade num modal real.
+Branch `redesign/megalinks-ui-v3`, 22 commits, working tree limpa. Cada commit testado individualmente via `frontend-static` (porta 5173) — console sem erro novo, foco de teclado conferido ao vivo com Tab de verdade num modal real.
 
 **REVISÃO 154 — 15/09/2026 — Sessão pediu restilização completa de novo (mesmo pedido da REVISÃO 153, sem saber que ela já tinha rodado); nada de visual novo foi commitado — a sessão foi de investigação, fechou a P71 e registrou a P150. NADA de código mudou nesta sessão.**
 
