@@ -9408,6 +9408,11 @@ function prColetarCredenciais(){
     const appSecret=c["App Secret"]||"";
     if(appKey)creds.shopee_app_id=String(appKey).trim();
     if(appSecret)creds.shopee_app_secret=String(appSecret).trim();
+    // REVISÃO 163 — rótulo de Sub-ID vai junto: com ele a product-search gera o
+    // link nativo pela mutation `generateShortLink` já carimbado (sub_id no
+    // utm_content do destino). Sem rótulo, a product-search nem chama a
+    // mutation e o link continua saindo do `offerLink` de sempre.
+    if(c["Sub-ID"])creds.shopee_sub_id=String(c["Sub-ID"]).trim();
     console.log("[creds] Shopee appKey:",appKey?"✅":"❌","appSecret:",appSecret?"✅":"❌");
   }
   // Amazon
@@ -9945,7 +9950,7 @@ async function lrGerar(){
     // fluxo de sempre logo abaixo, sem regressão.
     if(loja==="Shopee"||loja==="Mercado Livre"){
       lrMsg("b","🔗 Gerando o link oficial de afiliado da "+lojaSafe+"…");
-      const nativo=await lrLinkNativo(d.url,jwt);
+      const nativo=await lrLinkNativo(d.url,jwt,"linkrapido");
       if(nativo&&nativo.link){
         LR_LINK=nativo.link;
         lrRender(d,loja,true,true);
@@ -9977,14 +9982,14 @@ async function lrGerar(){
 
 // Pede à product-search só o link nativo (Shopee/ML). Nunca lança.
 // Devolve {link} ou {link:null, motivo}; null = usar o fluxo de sempre.
-async function lrLinkNativo(url,jwt){
+async function lrLinkNativo(url,jwt,origem){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),30000);
   try{
     const r=await fetch(`${SUPA_URL}/functions/v1/product-search`,{
       method:"POST",
       headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"},
-      body:JSON.stringify({url,credentials:prColetarCredenciais(),modo:"link_nativo"}),
+      body:JSON.stringify({url,credentials:prColetarCredenciais(),modo:"link_nativo",origem:origem||"linkrapido"}),
       signal:controller.signal
     });
     if(!r.ok)return null;

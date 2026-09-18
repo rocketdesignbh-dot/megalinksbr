@@ -1733,6 +1733,54 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
+**REVISÃO 163 — 17/09/2026 — Sub-ID da Shopee passa a viajar no link nativo (Link Rápido, Postar Agora, Post Automático e Disparo Manual). `product-search` v37 (deploy 66), `send-post` v31 (deploy 66) e `group-blast` v10 (deploy 22) NO AR, conferidas byte a byte contra o repo. MEDIDO em produção: link do Link Rápido resolve com `utm_content=eko-linkrapido---` e o do Postar Agora com `utm_content=eko-postaragora---`, os dois com `mmp_pid=an_18344180897`; sem rótulo cadastrado o destino continua `utm_content=----` (sem regressão). ⚠️ Durante o deploy, o `verify_jwt` da `send-post` foi religado pela ferramenta e o Post Automático caiu com 401 por alguns minutos — consertado no cron e medido (200, `groups:17`).**
+
+### O pedido
+
+O Érico mandou um link de destino da Shopee e perguntou se o Sub-ID dele aparecia ali. **Não aparecia:** `utm_content=----` (cinco campos vazios). Aprovou implementar "se não for interferir em nada".
+
+### O que estava acontecendo
+
+O rótulo de Sub-ID (Config Afiliados → Shopee → Sub-ID) só era usado num caminho: `shopeeSubId()` no frontend, que cola `sub_id=<rótulo>-<code>` em links `s.shopee.com.br/an_redir`. **O link NATIVO não passa por ali** — ele vem pronto do `productOfferV2.offerLink` da Open API, e o `offerLink` não carrega sub_id nenhum. Como a REVISÃO 156 (Link Rápido), a P143 (Postar Agora) e a P146 (disparo) passaram tudo para o link nativo, o rastreio por Sub-ID tinha sumido junto — sem ninguém notar.
+
+`grep` confirmou: `sub_id` não existia em `send-post/index.ts` nem em `group-blast/index.ts`.
+
+### Medições que definiram o formato (17/09, credenciais reais, direto na Open API)
+
+| `subIds` enviado | resultado |
+|---|---|
+| `["eko-teste9","","","",""]` | ❌ `error [11001]: Params Error : invalid sub id` |
+| `["eko-teste9"]` (com hífen) | ❌ `error [11001]` |
+| `["ekoteste9"]` | ✅ link gerado; destino com `utm_content=ekoteste9----` |
+| `["eko","teste9x"]` | ✅ destino com `utm_content=eko-teste9x---` |
+| sem `subIds` | ✅ mesmo link do `offerLink` |
+
+**Conclusão:** cada campo vai como um ITEM do array, sem hífen (o hífen é o separador dos 5 campos do lado da Shopee) e sem string vazia. Isso é incompatível com a convenção antiga do frontend (`<rótulo>-<code>` numa string só) — por isso o valor foi remontado como array.
+
+### O que mudou
+
+- **`product-search` v37 (deploy 66):**
+  - `subIdsShopee(rotulo, origem)` monta `[rótulo, origem]` já higienizado (`[^a-zA-Z0-9_]` fora, 20 caracteres no máximo). **Sem rótulo cadastrado devolve `[]` e a mutation nem é chamada** — o caminho fica idêntico ao de antes.
+  - `shopeeShortLinkComSubId()` chama `mutation generateShortLink(input:{originUrl, subIds}){shortLink}`. Qualquer falha devolve `null` e quem chamou cai no `offerLink` de sempre.
+  - `fetchShopee` (Postar Agora) usa origem `postaragora`; `somenteLinkNativo` (Link Rápido) usa a origem que vem no corpo, default `linkrapido`.
+  - O corpo da requisição ganhou `origem`; `credentials` ganhou `shopee_sub_id`.
+- **`send-post` v31 (deploy 66)** e **`group-blast` v10 (deploy 22):** mesmo helper, origem `postauto` e `grupo`, lendo `cred["Sub-ID"]` das credenciais do dono do grupo.
+- **Frontend:** `prColetarCredenciais()` passa `shopee_sub_id`; `lrLinkNativo(url, jwt, origem)` manda `origem:"linkrapido"`.
+
+### Prova (comportamento, não status)
+
+1. Link Rápido (`modo:"link_nativo"`, credenciais do Érico) → `https://s.shopee.com.br/9Ki8RHtgQT` → destino `utm_content=eko-linkrapido---`, `mmp_pid=an_18344180897`.
+2. Postar Agora (sem `modo`) → `https://s.shopee.com.br/7ptKeYpiZB` → destino `utm_content=eko-postaragora---`, mesmo `mmp_pid`.
+3. Controle, sem rótulo → `https://s.shopee.com.br/7fZsz2Dckl` → destino `utm_content=----`. **Nenhuma regressão para quem não cadastrou Sub-ID.**
+
+### ⚠️ O deploy derrubou o Post Automático por alguns minutos
+
+O `deploy_edge_function` **religou o `verify_jwt` da `send-post`** (estava desligado na versão 65). O cron `mega-send-post` só mandava `x-cron-secret`, então passou a receber `401 {"code":"UNAUTHORIZED_NO_AUTH_HEADER"}` — **medido**, chamando a URL com o comando exato do cron.
+
+Conserto aplicado e medido: o comando do cron (jobid 6) ganhou `Authorization: Bearer <chave anônima>`, que é pública e serve só para passar pelo portão da plataforma. **Quem autoriza continua sendo o `x-cron-secret` conferido dentro da função.** Nova chamada: `200`, `{"groups":17,...}`. Migração `20260917180000_cron_send_post_authorization_header.sql`.
+
+**Aprendizado: `deploy_edge_function` pode mexer no `verify_jwt`. Depois de todo deploy de função chamada por cron, refazer a chamada do cron e conferir o status.**
+
 **REVISÃO 162 — 17/09/2026 — Conferência de preço: Shopee passa a ser conferida (Open API), Amazon volta a ser lida (ia depois do ML e nunca era alcançada) e há uma segunda rodada às 18h. `product-refresh` v22 (deploy 31) NO AR, conferida byte a byte; cron `product-refresh-noite` criado; frontend pushado (`2eee727`) e servido. MEDIDO em produção: 9 rodadas reais, 316 leituras, 67 preços corrigidos, 280 de 285 produtos Shopee conferidos.**
 
 ### Pedido e diagnóstico (MEDIDO antes de codar)
@@ -10617,7 +10665,24 @@ antigos; hoje é **Premium**).
 
 ## Componentes — estado
 
-### Post Automático — `send-post` v29 (deploy 63) NO AR, PUSHADO
+### Sub-ID da Shopee no link nativo — `product-search` v37 / `send-post` v31 / `group-blast` v10 (REVISÃO 163)
+
+- **Onde o rótulo é cadastrado:** Config Afiliados → Shopee → "Sub-ID de rastreamento". Campo livre.
+- **Como viaja:** o link nativo passa a ser gerado pela mutation `generateShortLink(input:{originUrl, subIds})` da Open API da Shopee, com `subIds = [rótulo, origem]`. A origem diz QUAL tela gerou: `linkrapido`, `postaragora`, `postauto` (Post Automático) ou `grupo` (Disparo Manual).
+- **Onde aparece:** no relatório da Shopee, `Sub_id1` = rótulo e `Sub_id2` = origem. No destino resolvido isso aparece como `utm_content=<rótulo>-<origem>---`.
+- **Regras do valor (MEDIDAS, ver REVISÃO 163):** cada campo é um ITEM do array, **sem hífen** (o hífen é o separador dos 5 campos do lado da Shopee) e **sem string vazia** — as duas coisas dão `error [11001]: invalid sub id`. A higienização tira tudo que não for `[a-zA-Z0-9_]` e corta em 20 caracteres.
+- **Sem rótulo cadastrado, nada muda:** a mutation não é chamada e o link continua vindo do `productOfferV2.offerLink`. Medido: destino com `utm_content=----`, como sempre foi.
+- **Qualquer falha da mutation cai no `offerLink`** — o link nativo nunca deixa de sair por causa do sub_id.
+- ⚠️ **O `an_redir` do frontend (`shopeeSubId`) continua existindo e continua usando `sub_id=<rótulo>-<code>` numa string só** — ali o hífen É o separador e está certo. São dois caminhos diferentes com formatos diferentes de propósito.
+
+### Post Automático — `send-post` v31 (deploy 66) NO AR, conferida byte a byte
+
+> **REVISÃO 163 (17/09): v31 no ar (deploy 66) — Sub-ID da Shopee no link
+> nativo. ⚠️ O deploy religou o `verify_jwt` desta função e o cron passou a
+> levar 401; consertado no comando do cron (`Authorization` com a chave
+> anônima). Depois de QUALQUER deploy desta função, refazer a chamada do cron
+> e conferir o status antes de dar por encerrado.**
+
 
 > ⚠️ Histórico de desalinhamentos deste componente: REVISÃO 124 deployou v24
 > sem pushar (corrigido na 125); entre a 125 e a 126, outra sessão deployou v26
@@ -11162,6 +11227,8 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P159** | 🟡 **Sub-ID no DISPARO (Post Automático e Disparo Manual) não foi medido num post real.** O código de `send-post` v31 e `group-blast` v10 é o MESMO helper provado no Link Rápido e no Postar Agora (mesma mutation, mesmo formato de `subIds`), mas nenhum disparo de produto Shopee real foi conferido depois do deploy. Fechar assim: esperar um post automático de produto Shopee num grupo com App Key/App Secret e Sub-ID cadastrados, abrir o link que saiu e conferir `utm_content=<rótulo>-postauto---` (ou `-grupo---` no Disparo Manual) | 17/09 |
+| **P158** | 🟡 **Uma conta tem uma URL inteira gravada no campo Sub-ID** (`https://collshp.com/achadinhosbrmr?view=storefront`). A higienização transforma isso em `httpscollshpcomachadi` — não quebra nada, mas vira lixo no relatório da Shopee. Saída: validar o campo na tela de Config Afiliados (só letras, números e `_`, até 20 caracteres) e avisar a dona | 17/09 |
 | **P157** | 🟡 **Links encurtados da Shopee voltam a entrar pela captura.** Os 51 atuais foram resolvidos na REVISÃO 162, mas produto novo com `original_url = s.shopee.com.br/…` volta a ser "sem link consultável" (pulo por condição da `product-refresh` v22). Saída: gravar a URL normalizada da `resolve-link` como `original_url` na `clone-ingest`/Postar Agora, ou resolver o `Location` dentro da `product-refresh` | 17/09 |
 | **P156** | 🟡 **Uma conta Elite (VIP, 4–5 produtos Shopee) tem credencial Shopee recusada pela API (`error [10020]: Invalid Signature`).** Os produtos dela ficam `desconhecido` em toda rodada (sem carimbo, sempre na frente da fila de nulos, ocupando cerca de 5 das 40 vagas) e o Postar Agora/link nativo da Shopee dessa conta também deve falhar. Ação: avisar a dona para recadastrar App Key/App Secret. Opcional: tratar 10020 como pulo por condição com carimbo | 17/09 |
 | **P155** | 🟡 **Fila do admin (`filaEta`) usa hora UTC para decidir "fora da janela".** `const brHour=now.getUTCHours()` com comentário "ok p/ ordenação relativa". Mas o `inWindow` sai dessa hora, então o painel admin pode mostrar "fora da janela" (ou o contrário) errado por 3 horas. Achado na REVISÃO 160, **não corrigido** (fora do escopo pedido). O status dos usuários (`grupoStatusDisparo`) já usa Brasília | 17/09 |
@@ -11324,6 +11391,23 @@ código não relacionado.
 ---
 
 ## Aprendizados — não repetir
+
+**`deploy_edge_function` pode religar o `verify_jwt` — 17/09 (REVISÃO 163)**
+
+- 🔴 **MEDIDO:** a `send-post` estava com `verify_jwt: false` (versão 65). Depois
+  do deploy da v31 a resposta da própria ferramenta veio com `verify_jwt: true`,
+  e o cron `mega-send-post` — que só mandava `x-cron-secret` — passou a receber
+  `401 {"code":"UNAUTHORIZED_NO_AUTH_HEADER"}`. O Post Automático ficou fora do
+  ar até o conserto.
+- A ferramenta de deploy **não expõe** `verify_jwt`, então não dá para devolver
+  ao valor antigo por ela. O conserto foi pelo outro lado: mandar
+  `Authorization: Bearer <chave anônima>` no comando do cron. A chave anônima é
+  pública e só passa pelo portão da plataforma; quem autoriza de verdade
+  continua sendo o `x-cron-secret` conferido dentro da função.
+- **Regra:** depois de todo deploy de Edge Function chamada por `pg_cron` sem
+  `Authorization`, refazer a chamada do cron e olhar o `status_code`. Deploy que
+  volta 200 não prova que o cron continua entrando.
+
 
 **Sobre o push a partir da sessão cloud — RESOLVIDO em 02/09 (REVISÃO 120)**
 
