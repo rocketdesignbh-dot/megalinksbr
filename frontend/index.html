@@ -34,13 +34,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      traco. No escuro sao iguais; no claro o de texto escurece para passar em
      contraste (ver docs/DIRECAO_VISUAL.md). */
   --volt-tx:#FFC107;
+  --volt-fg:#0c0c0e;
   --gold:#FFC107;
   /* --pink/--sky/--violet foram aposentados na REVISAO 66: a direcao de arte
      (docs/DIRECAO_VISUAL.md) tem UM acento, o amarelo, e ele significa estado.
      Ficam apontando para tokens vivos para nao quebrar nenhum uso esquecido. */
   --pink:var(--volt); --sky:var(--tx2); --violet:var(--tx2);
   --red:#E2705F; --green:#7FB98D;
+  --red-soft:rgba(226,112,95,.12); --green-soft:rgba(127,185,141,.15);
+  --warn:#C9A15A; --warn-soft:rgba(201,161,90,.12);
   --r:2px; --r-sm:2px; --r-xs:2px;
+  /* Escala de espacamento (base 4px). Nao migrei os ~13.000 paddings/margins
+     inline existentes para isso de forma retroativa -- risco de regressao
+     visual em milhares de pontos por um ganho cosmetico, desproporcional.
+     Serve de referencia pra componentes novos ou revisados a partir de agora
+     (ver .cta-primary/.chan-quick como exemplo, ja usam 14/16/18/24px). */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px; --sp-7:48px;
   --disp:"Archivo","Helvetica Neue",Arial,sans-serif;
   --body:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,monospace;
@@ -67,6 +76,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
+}
+/* Foco de teclado: :focus-visible so aparece pra quem navega via teclado (nao
+   no clique de mouse). Sem isso, botao/nav/tab/pill nao tinham NENHUM
+   indicador visivel de foco -- so os inputs tinham (via box-shadow proprio,
+   por isso ficam de fora aqui pra nao dobrar o anel). */
+:focus-visible{outline:2px solid var(--volt-tx);outline-offset:2px}
+input:focus-visible,select:focus-visible,textarea:focus-visible{outline:none}
 body{font-family:var(--body);background:var(--bg);color:var(--tx);font-size:13.5px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 /* Fundo: papel milimetrado, nao mancha colorida. As duas manchas radiais
    (blobs) sairam na REVISAO 66 — ver docs/DIRECAO_VISUAL.md. */
@@ -82,6 +100,7 @@ button{font-family:inherit;cursor:pointer}
 svg{flex:none}
 
 input,select,textarea{font-family:inherit;font-size:13.5px;width:100%;padding:9px 12px;border:1px solid var(--bd2);border-radius:var(--r-sm);background:var(--bg2);color:var(--tx);outline:none;transition:.15s}
+input[type="checkbox"],input[type="radio"]{accent-color:var(--volt-tx);width:15px;height:15px;cursor:pointer}
 input:focus,select:focus,textarea:focus{border-color:var(--volt-tx);box-shadow:0 0 0 2px rgba(255,193,7,.20)}
 input::placeholder{color:var(--mut)}
 label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:5px;letter-spacing:.02em;text-transform:uppercase}
@@ -99,7 +118,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-botto
 .rail::-webkit-scrollbar{width:4px}.rail::-webkit-scrollbar-track{background:transparent}.rail::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
 
 .brand{display:flex;align-items:center;gap:10px;padding:18px 16px 14px;border-bottom:1px solid var(--bd)}
-.brand .mark{width:32px;height:32px;border-radius:2px;background:var(--volt);display:grid;place-items:center;color:#0c0c0e;font-family:var(--disp);font-weight:700;font-size:16px;flex:none}
+.brand .mark{width:32px;height:32px;border-radius:2px;background:var(--volt);display:grid;place-items:center;color:var(--volt-fg);font-family:var(--disp);font-weight:700;font-size:16px;flex:none}
 img.mark{border-radius:50%;background:transparent}
 .brand .wm{font-family:var(--disp);font-weight:700;font-size:14.5px;line-height:1.1;letter-spacing:-.03em}
 .brand .wm i{color:var(--volt-tx);font-style:normal}
@@ -113,18 +132,18 @@ img.mark{border-radius:50%;background:transparent}
 .nav{display:flex;align-items:center;gap:9px;text-decoration:none;padding:8px 10px;border-radius:var(--r-sm);color:var(--tx2);font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid transparent;position:relative;transition:.12s}
 .nav svg{width:15px;height:15px;flex:none;stroke:currentColor;opacity:.7}
 .nav:hover{background:var(--surf2);color:var(--tx)}
-.nav.active{background:var(--volt-soft) !important;color:var(--volt-tx) !important;font-weight:700;border-color:rgba(245,197,24,.35) !important}
+.nav.active{background:var(--volt-soft) !important;color:var(--volt-tx) !important;font-weight:700;border-color:rgba(255,193,7,.35) !important}
 .nav.active svg{stroke:var(--volt-tx) !important;opacity:1}
 .nav.active::before{content:"";position:absolute;left:-10px;top:7px;bottom:7px;width:2.5px;border-radius:2px;background:var(--volt)}
 .nav .tag{margin-left:auto;font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px}
-.nav .tag.dot{background:var(--volt);color:#0c0c0e}
-.nav .tag.gold{background:var(--gold);color:#0c0c0e}
+.nav .tag.dot{background:var(--volt);color:var(--volt-fg)}
+.nav .tag.gold{background:var(--gold);color:var(--volt-fg)}
 .nav .tag.orange{background:transparent;color:var(--tx2);border:1px solid var(--bd2);font-weight:500}
 @keyframes pulse-orange{0%,100%{opacity:1}50%{opacity:.7}}
-@keyframes pulse-red-bg{0%,100%{background:rgba(255,60,60,.18);box-shadow:0 0 0 0 rgba(255,60,60,.4)}50%{background:rgba(255,60,60,.32);box-shadow:0 0 0 5px rgba(255,60,60,0)}}
-@keyframes blink-green-bg{0%,100%{background:rgba(60,220,120,.18)}50%{background:rgba(60,220,120,.42)}}
-.ml-status-red{color:#ff6b6b !important;border-color:rgba(255,60,60,.45) !important;animation:pulse-red-bg 1.6s infinite}
-.ml-status-green{color:#3fd67a !important;border-color:rgba(60,220,120,.45) !important;animation:blink-green-bg 1.1s infinite}
+@keyframes pulse-red-bg{0%,100%{background:rgba(226,112,95,.18);box-shadow:0 0 0 0 rgba(226,112,95,.4)}50%{background:rgba(226,112,95,.32);box-shadow:0 0 0 5px rgba(226,112,95,0)}}
+@keyframes blink-green-bg{0%,100%{background:rgba(127,185,141,.18)}50%{background:rgba(127,185,141,.4)}}
+.ml-status-red{color:var(--red) !important;border-color:rgba(226,112,95,.5) !important;animation:pulse-red-bg 1.6s infinite}
+.ml-status-green{color:var(--green) !important;border-color:rgba(127,185,141,.5) !important;animation:blink-green-bg 1.1s infinite}
 .nav-cta{display:flex;align-items:center;gap:10px;text-decoration:none;padding:11px 12px;border-radius:var(--r-sm);cursor:pointer;border:1px solid rgba(255,193,7,.38);position:relative;transition:.15s;background:var(--volt-soft);font-size:13px;font-weight:700;color:var(--pink);margin-bottom:4px}
 .nav-cta svg{width:17px;height:17px;flex:none;stroke:var(--volt-tx)}
 .nav-cta:hover{background:var(--volt-soft);transform:translateX(2px)}
@@ -136,7 +155,7 @@ img.mark{border-radius:50%;background:transparent}
 .role-switch button svg{width:13px;height:13px}
 .role-switch button.on{background:var(--surf2);color:var(--tx);box-shadow:none}
 
-.rail-foot{margin:auto 10px 10px;background:var(--volt-soft);border:1px solid rgba(245,197,24,.2);border-radius:var(--r-sm);padding:12px}
+.rail-foot{margin:auto 10px 10px;background:var(--volt-soft);border:1px solid rgba(255,193,7,.2);border-radius:var(--r-sm);padding:12px}
 .rail-foot strong{display:block;font-family:var(--disp);font-size:12.5px;font-weight:700;color:var(--volt-tx)}
 
 /* ── MAIN ── */
@@ -148,7 +167,7 @@ img.mark{border-radius:50%;background:transparent}
 .search:hover{border-color:var(--bd2);color:var(--tx2)}
 .ibtn{background:var(--surf);border:1px solid var(--bd);border-radius:2px;color:var(--tx2);padding:7px 8px;display:inline-grid;place-items:center;transition:.12s}
 .ibtn:hover{background:var(--surf2);color:var(--tx)}
-.av{width:32px;height:32px;border-radius:2px;background:var(--volt);color:#0c0c0e;font-weight:700;display:grid;place-items:center;border:none;position:relative;font-family:var(--disp);font-size:13px}
+.av{width:32px;height:32px;border-radius:2px;background:var(--volt);color:var(--volt-fg);font-weight:700;display:grid;place-items:center;border:none;position:relative;font-family:var(--disp);font-size:13px}
 
 .wrap{padding:22px;max-width:1300px;width:100%}
 .page{display:none;animation:up .22s ease}.page.on{display:block}
@@ -166,27 +185,27 @@ h1.pt{font-size:20px;font-weight:700;letter-spacing:-.03em}
 /* ── BUTTONS ── */
 .btn{display:inline-flex;align-items:center;gap:7px;border:none;border-radius:2px;padding:9px 16px;font-size:13px;font-weight:700;color:#fff;text-decoration:none;transition:.13s;white-space:nowrap;font-family:var(--disp)}
 .btn:hover{filter:brightness(1.08);text-decoration:none;transform:translateY(-1px)}.btn:active{transform:none}
-.btn-volt{background:var(--volt);color:#0c0c0e;box-shadow:none}
+.btn-volt{background:var(--volt);color:var(--volt-fg);box-shadow:none}
 .btn-volt:hover{background:var(--volt-2)}
-.btn-gold{background:var(--gold);color:#0c0c0e}
-.btn-pink{background:var(--volt);color:#14161A}
+.btn-gold{background:var(--gold);color:var(--volt-fg)}
+.btn-pink{background:var(--volt);color:var(--volt-fg)}
 .btn-red{background:var(--red)}
 .btn-ghost{background:var(--surf2);color:var(--tx);border:1px solid var(--bd2)}
 .btn-ghost:hover{background:var(--surf3)}
-.btn-sky{background:var(--sky);color:#0c0c0e}
+.btn-sky{background:var(--surf2);color:var(--tx);border:1px solid var(--bd2)}
 .btn-sm{padding:6px 12px;font-size:12px;border-radius:2px}
 .btn-lg{padding:12px 26px;font-size:14.5px;border-radius:2px}
 
 /* ── PILLS ── */
 .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:2px;font-size:11px;font-weight:600}
 .pill .d{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.7;flex:none}
-.pill.volt{background:rgba(245,197,24,.15);color:var(--volt-tx)}
-.pill.sky{background:rgba(57,192,255,.15);color:var(--sky)}
+.pill.volt{background:rgba(255,193,7,.15);color:var(--volt-tx)}
+.pill.sky{background:var(--surf2);color:var(--tx2)}
 .pill.pink{background:var(--volt-soft);color:var(--volt-tx)}
-.pill.red{background:rgba(255,81,104,.15);color:var(--red)}
+.pill.red{background:var(--red-soft);color:var(--red)}
 .pill.gray{background:var(--surf2);color:var(--mut)}
-.pill.gold{background:rgba(245,197,24,.15);color:var(--gold)}
-.pill.green{background:rgba(34,197,94,.15);color:var(--green)}
+.pill.gold{background:var(--volt-soft);color:var(--gold)}
+.pill.green{background:var(--green-soft);color:var(--green)}
 
 /* ── KPI cards ── */
 .kpi{background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:16px;position:relative;overflow:hidden}
@@ -207,10 +226,10 @@ h1.pt{font-size:20px;font-weight:700;letter-spacing:-.03em}
 
 /* ── ALERTS ── */
 .alert{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:var(--r-sm);font-size:13px;margin-bottom:14px}
-.alert.b{background:rgba(57,192,255,.08);border:1px solid rgba(57,192,255,.2);color:var(--sky)}
-.alert.y{background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.2);color:var(--gold)}
-.alert.g{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);color:var(--green)}
-.alert.r{background:rgba(255,81,104,.08);border:1px solid rgba(255,81,104,.2);color:var(--red)}
+.alert.b{background:var(--surf2);border:1px solid var(--bd2);color:var(--tx2)}
+.alert.y{background:var(--volt-soft);border:1px solid rgba(255,193,7,.2);color:var(--gold)}
+.alert.g{background:var(--green-soft);border:1px solid rgba(127,185,141,.3);color:var(--green)}
+.alert.r{background:var(--red-soft);border:1px solid rgba(226,112,95,.3);color:var(--red)}
 
 /* ── TABLES ── */
 table{width:100%;border-collapse:collapse}
@@ -225,16 +244,46 @@ tr:hover td{background:var(--surf2)}
 .modal{background:var(--surf);border:1px solid var(--bd2);border-radius:2px;width:100%;max-width:540px;box-shadow:none;max-height:90vh;display:flex;flex-direction:column}
 .mh{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bd);font-size:14px;font-weight:700}
 .mb{padding:20px;overflow-y:auto;flex:1}
-.mf{padding:14px 20px;border-top:1px solid var(--bd);display:flex;gap:8px;justify-content:flex-end}
+.mf{padding:14px 20px;border-top:1px solid var(--bd);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+@media (max-width:520px){.mf{flex-direction:column-reverse}.mf .btn{width:100%;justify-content:center}}
 .mx{background:var(--surf2);border:1px solid var(--bd);border-radius:2px;color:var(--mut);width:28px;height:28px;display:grid;place-items:center;font-size:16px;transition:.12s;cursor:pointer}
 .mx:hover{background:var(--surf3);color:var(--tx)}
+.sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.sgrid .stat{text-align:center;background:var(--surf2);border:1px solid var(--bd);border-radius:var(--r-sm);padding:10px 6px}
+.sgrid .stat .v{font-size:17px;font-weight:700;font-family:var(--disp)}
+.sgrid .stat .l{font-size:10.5px;color:var(--mut);margin-top:2px;text-transform:uppercase;letter-spacing:.03em}
+.chan-quick{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px 18px;background:var(--qc-bg);border:1px solid var(--qc-bd);border-radius:var(--r-sm);transition:.15s;width:100%}
+.chan-quick:hover{border-color:var(--qc)}
+.chan-quick:focus-visible{outline:2px solid var(--qc);outline-offset:2px;border-color:var(--qc)}
+.chan-quick .ci{width:42px;height:42px;border-radius:var(--r-sm);background:var(--qc-bg2);display:flex;align-items:center;justify-content:center;flex:none;color:var(--qc)}
+.chan-quick .ct{flex:1;text-align:left}
+.chan-quick .ct b{display:block;font-weight:700;font-size:13px;color:var(--tx)}
+.chan-quick .ct small{display:block;font-size:12px;color:var(--mut)}
+.chan-quick .arrow{color:var(--qc);font-size:16px;opacity:.7}
+.cta-primary{all:unset;box-sizing:border-box;cursor:pointer;background:var(--volt-soft);border:1px solid rgba(255,193,7,.38);border-radius:var(--r);padding:24px 26px;margin-bottom:20px;display:flex;align-items:center;gap:18px;transition:.15s;width:100%}
+.cta-primary:hover{border-color:var(--volt)}
+.cta-primary:focus-visible{outline:2px solid var(--volt);outline-offset:2px;border-color:var(--volt)}
+.cta-primary .ci{width:56px;height:56px;border-radius:2px;background:var(--volt);display:flex;align-items:center;justify-content:center;flex:none;color:var(--volt-fg)}
+.cta-primary .ct{flex:1;text-align:left}
+.cta-primary .ct b{display:block;font-family:var(--disp);font-weight:700;font-size:18px;color:var(--volt-tx)}
+.cta-primary .ct span{display:block;font-size:13px;color:var(--tx2);margin-top:3px}
 
 /* ── SPLASH BOAS-VINDAS ── */
 
 /* ── AUTH ── */
 /* Gate de entrada — mesma linguagem da landing: régua de 1px, raio 2px,
    sem sombra e sem glow. À esquerda, o registro de despacho; à direita, o form. */
-.authbg{position:fixed;inset:0;display:grid;grid-template-columns:1fr;background:#14161A;z-index:2000;overflow:auto}
+.authbg{
+  /* O gate de login e sempre escuro ("Sala de Despacho"), independente do
+     tema claro/escuro escolhido pelo usuario dentro do app -- so o --bg
+     hardcoded acima ja seguia essa regra. Os tokens de texto/superficie
+     abaixo NAO seguiam: com tema claro salvo, --tx virava quase-preto
+     (#14161A) sobre este fundo que continua #14161A, apagando o wordmark
+     "Mega Links" e outros textos por completo. Redeclarando os valores do
+     tema escuro aqui fecha o vazamento pra toda a subarvore. */
+  --bg:#14161A; --bg2:#191C21; --surf:#191C21; --surf2:#1F232A; --surf3:#262B33;
+  --bd:#282C33; --bd2:#343941; --tx:#E9E7E2; --tx2:#9BA0A6; --mut:#828891; --volt-tx:#FFC107;
+  position:fixed;inset:0;display:grid;grid-template-columns:1fr;background:#14161A;z-index:2000;overflow:auto}
 @media (min-width:940px){.authbg{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr)}}
 .auth-side{display:none;border-right:1px solid #282C33;padding:54px 48px;flex-direction:column;justify-content:space-between}
 @media (min-width:940px){.auth-side{display:flex}}
@@ -266,18 +315,18 @@ tr:hover td{background:var(--surf2)}
 .auth-tabs{display:flex;background:var(--bg);border-radius:2px;padding:3px;gap:3px;margin-bottom:16px}
 .auth-tabs button{flex:1;padding:7px;background:transparent;border:none;color:var(--mut);font-weight:600;border-radius:2px;font-size:13px;transition:.12s}
 .auth-tabs button.on{background:var(--surf2);color:var(--tx);box-shadow:none}
-.auth-err{color:var(--red);font-size:12.5px;margin-bottom:10px;display:none;padding:10px 12px;background:rgba(255,81,104,.08);border:1px solid rgba(255,81,104,.2);border-radius:2px}
+.auth-err{color:var(--red);font-size:12.5px;margin-bottom:10px;display:none;padding:10px 12px;background:rgba(226,112,95,.08);border:1px solid rgba(226,112,95,.2);border-radius:2px}
 .auth-demo{margin-top:14px}
 .hint{font-size:12px;color:var(--mut);margin-top:5px}
 
 /* ── MISC ── */
 .pass-wrap{position:relative}
 .pass-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--mut);font-size:14px;padding:2px;cursor:pointer}
-.tag-new{background:var(--volt);color:#0c0c0e;font-size:9px;font-weight:700;padding:1px 5px;border-radius:2px;margin-left:4px;letter-spacing:.03em}
+.tag-new{background:var(--volt);color:var(--volt-fg);font-size:9px;font-weight:700;padding:1px 5px;border-radius:2px;margin-left:4px;letter-spacing:.03em}
 .seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
 .seg button,.fc{background:var(--surf2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx2);padding:6px 12px;font-size:12.5px;font-weight:600;transition:.12s;cursor:pointer}
 .seg button:hover,.fc:hover{border-color:var(--volt-tx);color:var(--tx)}
-.seg button.on,.fc.on{background:var(--volt-soft);border-color:rgba(245,197,24,.3);color:var(--volt-tx)}
+.seg button.on,.fc.on{background:var(--volt-soft);border-color:rgba(255,193,7,.3);color:var(--volt-tx)}
 .divider{height:1px;background:var(--bd);margin:16px 0}
 .qrow{display:flex;align-items:center;padding:10px 0;border-bottom:1px solid var(--bd);font-size:13px}
 .qrow:last-child{border-bottom:none}
@@ -286,20 +335,21 @@ tr:hover td{background:var(--surf2)}
 .prod{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--bd)}
 .prod:last-child{border-bottom:none}
 .pimg{width:44px;height:44px;border-radius:2px;background:var(--surf2);display:grid;place-items:center;font-size:20px;flex:none;overflow:hidden}
-.chan-badge{background:var(--volt-soft);color:var(--volt-tx);border:1px solid rgba(245,197,24,.2);border-radius:2px;padding:2px 7px;font-size:10.5px;font-weight:700}
+.chan-badge{background:var(--volt-soft);color:var(--volt-tx);border:1px solid rgba(255,193,7,.2);border-radius:2px;padding:2px 7px;font-size:10.5px;font-weight:700}
 
 /* ── RADAR DE OFERTAS — Cards ── */
 .radar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
 /* Fontes automaticas (Clone Post Fase 2). Mesmo auto-fill/minmax dos Grupos de
    Oferta: o layout ja colapsa sozinho no celular, sem media query propria. */
 .cs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+@media (max-width:520px){.cs-grid{grid-template-columns:1fr}}
 .cs-card{background:var(--surf2);border:1px solid var(--bd2);border-radius:var(--r-sm);padding:14px;display:flex;flex-direction:column;gap:10px}
 .cs-card.off{opacity:.62}
 .cs-card h4{margin:0;font-size:13.5px;font-weight:700;line-height:1.35;word-break:break-word}
 .cs-dest{font-size:12px;color:var(--tx2);line-height:1.5}
 .cs-bar{height:5px;border-radius:99px;background:rgba(255,255,255,.09);overflow:hidden}
 .cs-bar>i{display:block;height:100%;background:var(--volt);border-radius:99px}
-.cs-bar.full>i{background:#F59E0B}
+.cs-bar.full>i{background:var(--warn)}
 .cs-meta{font-size:11.5px;color:var(--mut);line-height:1.6}
 .cs-veredito{font-size:11.5px;color:var(--tx2);line-height:1.65;border-top:1px solid var(--bd);padding-top:9px}
 .cs-veredito b{color:var(--tx)}
@@ -311,11 +361,11 @@ tr:hover td{background:var(--surf2)}
 .cs-loja-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .cs-loja{font-family:inherit;font-size:11.5px;font-weight:600;line-height:1;padding:6px 10px;border-radius:2px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2);transition:.12s}
 .cs-loja:hover{border-color:var(--tx2);color:var(--tx)}
-.cs-loja.on{border-color:var(--volt-tx);background:rgba(25,226,125,.14);color:var(--volt-tx)}
+.cs-loja.on{border-color:var(--volt-tx);background:rgba(127,185,141,.14);color:var(--volt-tx)}
 .cs-loja-conta{font-size:11px;color:var(--mut);line-height:1.6;margin-top:7px}
 .cs-loja-conta b{color:var(--tx2)}
-.cs-barrado{font-size:11.5px;color:#F59E0B;line-height:1.6;margin-top:7px;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.25);border-radius:2px;padding:7px 9px}
-.cs-barrado b{color:#F59E0B}
+.cs-barrado{font-size:11.5px;color:var(--warn);line-height:1.6;margin-top:7px;background:rgba(201,161,90,.10);border:1px solid rgba(201,161,90,.25);border-radius:2px;padding:7px 9px}
+.cs-barrado b{color:var(--warn)}
 .cs-teto-bt{font-family:inherit;font-size:12px;font-weight:700;line-height:1;width:20px;height:20px;margin-left:4px;border-radius:2px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2);vertical-align:middle}
 .cs-teto-bt:hover{border-color:var(--volt-tx);color:var(--volt-tx)}
 /* Paginação da fila de clones */
@@ -323,19 +373,19 @@ tr:hover td{background:var(--surf2)}
 .cl-pg-info{font-size:12px;color:var(--mut)}
 .cl-pg-bt{font-family:inherit;font-size:12.5px;font-weight:700;line-height:1;min-width:28px;height:28px;padding:0 8px;border-radius:2px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2)}
 .cl-pg-bt:hover:not(:disabled){border-color:var(--volt-tx);color:var(--volt-tx)}
-.cl-pg-bt.on{background:var(--volt);border-color:var(--volt-tx);color:#0c0c0e}
+.cl-pg-bt.on{background:var(--volt);border-color:var(--volt-tx);color:var(--volt-fg)}
 .cl-pg-bt:disabled{opacity:.35;cursor:default}
 .cl-pg-el{color:var(--mut);font-size:12px;padding:0 2px}
 /* Contador dentro da sub-aba do Clone Post. */
 .cl-tabn{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:99px;font-size:10.5px;font-weight:700;background:rgba(255,255,255,.10);color:inherit}
-.tab.active .cl-tabn{background:rgba(245,197,24,.22)}
-.cl-tabn.pend{background:rgba(245,197,24,.25);color:var(--gold)}
+.tab.active .cl-tabn{background:rgba(255,193,7,.22)}
+.cl-tabn.pend{background:rgba(255,193,7,.25);color:var(--gold)}
 /* Filtro de status da fila. Mesmo visual dos chips de loja das fontes — dois
    filtros na mesma tela com aparencia diferente seriam dois idiomas. */
 .cl-fchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
 .cl-fchip{font-family:inherit;font-size:11.5px;font-weight:600;line-height:1;padding:6px 10px;border-radius:2px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2);transition:.12s;white-space:nowrap}
 .cl-fchip:hover{border-color:var(--tx2);color:var(--tx)}
-.cl-fchip.on{border-color:var(--volt-tx);background:rgba(25,226,125,.14);color:var(--volt-tx)}
+.cl-fchip.on{border-color:var(--volt-tx);background:rgba(127,185,141,.14);color:var(--volt-tx)}
 /* Linha da fila de clones. No desktop os botões ficam à direita do texto; no
    celular eles espremiam o título em 3 linhas — a 390px sobravam ~300px de
    largura para o texto, com Aprovar/Descartar em flex:none comendo o resto.
@@ -372,7 +422,7 @@ tr:hover td{background:var(--surf2)}
 .cs-upd{font-size:11px;color:var(--mut);margin-right:10px;font-weight:400}
 .radar-card{background:var(--surf);border:1px solid var(--bd2);border-radius:2px;overflow:hidden;display:flex;flex-direction:column;transition:.15s;position:relative}
 .radar-card:hover{border-color:var(--bd);transform:translateY(-2px);box-shadow:none}
-.radar-card.is-new::before{content:"🆕 NOVA";position:absolute;top:8px;left:8px;background:var(--volt);color:#0c0c0e;font-size:9px;font-weight:700;padding:3px 6px;border-radius:2px;letter-spacing:.05em;z-index:2}
+.radar-card.is-new::before{content:"🆕 NOVA";position:absolute;top:8px;left:8px;background:var(--volt);color:var(--volt-fg);font-size:9px;font-weight:700;padding:3px 6px;border-radius:2px;letter-spacing:.05em;z-index:2}
 .radar-card-img{position:relative;background:#0a0a0c;aspect-ratio:1/1;display:grid;place-items:center;overflow:hidden}
 .radar-card-img img{width:100%;height:100%;object-fit:cover}
 .radar-card-img .fallback{font-size:46px;opacity:.4}
@@ -398,7 +448,8 @@ tr:hover td{background:var(--surf2)}
 .tab{background:var(--surf2);border:1px solid var(--bd2);border-radius:2px;color:var(--tx2);padding:6px 13px;font-size:12px;font-weight:600;transition:.12s;cursor:pointer;white-space:nowrap;outline:none;-webkit-appearance:none;appearance:none;user-select:none}
 .tab:hover{border-color:var(--bd);color:var(--tx)}
 .tab:focus{outline:none;box-shadow:none}
-.tab.active{background:var(--volt-soft);border-color:rgba(245,197,24,.3);color:var(--volt-tx)}
+.tab:focus-visible{outline:2px solid var(--volt-tx);outline-offset:1px}
+.tab.active{background:var(--volt-soft);border-color:rgba(255,193,7,.3);color:var(--volt-tx)}
 .tp{display:none}.tp.on{display:block}
 
 /* showLoading/hideLoading movidas para o JS principal (antes ficavam dentro do CSS por engano) */
@@ -435,7 +486,7 @@ tr:hover td{background:var(--surf2)}
 .notch::after{content:"";width:60px;height:8px;background:#1c1c20;border-radius:2px}
 .scr{background:#1b1f2e;min-height:280px;padding:10px}
 .wah{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:#eee;margin-bottom:8px}
-.gp{width:22px;height:22px;border-radius:50%;background:var(--volt);color:#0c0c0e;display:grid;place-items:center;font-size:9px;font-weight:700}
+.gp{width:22px;height:22px;border-radius:50%;background:var(--volt);color:var(--volt-fg);display:grid;place-items:center;font-size:9px;font-weight:700}
 .bub{background:#2a3142;border-radius:2px;padding:9px 11px;font-size:9.5px;color:#dde;line-height:1.5;white-space:pre-line}
 .bub .lnk{color:var(--volt-tx);display:block;margin-top:5px}
 .bub .img{font-size:28px;display:block;text-align:center;margin-bottom:6px}
@@ -478,8 +529,8 @@ tr:hover td{background:var(--surf2)}
 .plan ul li::before{content:"✓";color:var(--volt-tx);font-weight:700;flex:none}
 .plan ul li.no{color:var(--mut)}
 .plan ul li.no::before{content:"×";color:var(--mut)}
-.plan-tag{position:absolute;top:-10px;right:18px;background:var(--volt);color:#0c0c0e;font-size:10px;font-weight:700;padding:3px 10px;border-radius:2px;letter-spacing:.05em}
-.plan-cur{position:absolute;top:-10px;left:18px;background:var(--sky);color:#0c0c0e;font-size:10px;font-weight:700;padding:3px 10px;border-radius:2px;letter-spacing:.05em}
+.plan-tag{position:absolute;top:-10px;right:18px;background:var(--volt);color:var(--volt-fg);font-size:10px;font-weight:700;padding:3px 10px;border-radius:2px;letter-spacing:.05em}
+.plan-cur{position:absolute;top:-10px;left:18px;background:var(--sky);color:var(--volt-fg);font-size:10px;font-weight:700;padding:3px 10px;border-radius:2px;letter-spacing:.05em}
 
 .bill-toggle{display:flex;background:var(--surf2);border-radius:2px;padding:3px;gap:3px;margin:0 auto 24px;max-width:280px}
 .bill-toggle button{flex:1;background:transparent;border:none;color:var(--mut);font-weight:600;padding:7px;border-radius:2px;font-size:12.5px;font-family:inherit;cursor:pointer}
@@ -496,7 +547,7 @@ tr:hover td{background:var(--surf2)}
 .osteps li{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--tx2)}
 .osteps li.done{color:var(--tx2);text-decoration:line-through;opacity:.6}
 .osteps .ostep{width:18px;height:18px;border-radius:50%;background:var(--surf2);border:2px solid var(--bd2);flex:none;display:grid;place-items:center;font-size:10px;font-weight:700;color:transparent}
-.osteps li.done .ostep{background:var(--volt);border-color:var(--volt-tx);color:#0c0c0e}
+.osteps li.done .ostep{background:var(--volt);border-color:var(--volt-tx);color:var(--volt-fg)}
 .osteps li.done .ostep::before{content:"✓"}
 
 /* ── HEATMAP MELHOR HORÁRIO ── */
@@ -512,7 +563,7 @@ tr:hover td{background:var(--surf2)}
 .tabs-l1{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
 .tabs-l1 .tl1{background:var(--surf);border:1px solid var(--bd);border-radius:2px;color:var(--tx2);padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:.12s;font-family:var(--disp)}
 .tabs-l1 .tl1:hover{border-color:var(--bd2);color:var(--tx)}
-.tabs-l1 .tl1.active{background:var(--volt);color:#0c0c0e;border-color:var(--volt-tx);box-shadow:none}
+.tabs-l1 .tl1.active{background:var(--volt);color:var(--volt-fg);border-color:var(--volt-tx);box-shadow:none}
 .tabs-l2{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 14px;margin-bottom:14px;border-bottom:1px solid var(--bd)}
 .tabs-l2 .tab{flex:0 0 auto}
 
@@ -538,8 +589,8 @@ tr:hover td{background:var(--surf2)}
 .drw{position:fixed;top:0;right:-420px;width:420px;height:100vh;background:var(--surf);border-left:1px solid var(--bd);z-index:500;display:flex;flex-direction:column;transition:.25s cubic-bezier(.4,0,.2,1);box-shadow:none}
 .drw.on,.drw.open{right:0}
 .drwh{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--bd);font-weight:700;font-size:14px;position:relative}
-.ai-status-dot{position:absolute;bottom:-2px;right:-3px;width:8px;height:8px;border-radius:50%;background:var(--volt);border:2px solid var(--surf);box-shadow:0 0 0 0 rgba(245,197,24,.5);animation:pulse 2s infinite}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(245,197,24,.6)}70%{box-shadow:0 0 0 8px rgba(245,197,24,0)}100%{box-shadow:0 0 0 0 rgba(245,197,24,0)}}
+.ai-status-dot{position:absolute;bottom:-2px;right:-3px;width:8px;height:8px;border-radius:50%;background:var(--volt);border:2px solid var(--surf);box-shadow:0 0 0 0 rgba(255,193,7,.5);animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,193,7,.6)}70%{box-shadow:0 0 0 8px rgba(255,193,7,0)}100%{box-shadow:0 0 0 0 rgba(255,193,7,0)}}
 .ai-quick{padding:14px 16px;border-bottom:1px solid var(--bd);background:var(--bg2)}
 .ai-quick-h{font-size:11px;color:var(--mut);font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px}
 .ai-quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -548,7 +599,7 @@ tr:hover td{background:var(--surf2)}
 .ai-qa:hover{border-color:var(--volt-tx);background:var(--volt-soft);color:var(--volt-tx)}
 .ai-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
 .ai-msg{padding:10px 14px;border-radius:2px;font-size:13px;line-height:1.55;max-width:88%}
-.ai-msg.u,.ai-msg.me{background:var(--volt);color:#0c0c0e;align-self:flex-end;font-weight:500}
+.ai-msg.u,.ai-msg.me{background:var(--volt);color:var(--volt-fg);align-self:flex-end;font-weight:500}
 .ai-msg.a,.ai-msg.ai{background:var(--surf2);border:1px solid var(--bd);color:var(--tx);align-self:flex-start}
 .ai-msg-wrap{display:flex;flex-direction:column;align-self:flex-start;max-width:88%}
 .ai-copy-btn{align-self:flex-end;margin-top:4px;background:transparent;border:1px solid var(--bd);color:var(--tx-dim,#999);font-size:11px;padding:4px 9px;border-radius:2px;cursor:pointer;display:flex;align-items:center;gap:4px;-webkit-tap-highlight-color:transparent}
@@ -560,7 +611,7 @@ tr:hover td{background:var(--surf2)}
 .ai-inp{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--bd)}
 .ai-inp input{border-radius:2px}
 .ai-inp .btn{padding:8px 14px;font-size:14px}
-.fab{position:fixed;bottom:20px;right:20px;z-index:400;background:var(--volt);color:#0c0c0e;border:none;border-radius:2px;padding:10px 16px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:7px;box-shadow:none;transition:.15s;font-family:var(--disp);cursor:pointer;animation:fabBeat 3s ease-in-out infinite}
+.fab{position:fixed;bottom:20px;right:20px;z-index:400;background:var(--volt);color:var(--volt-fg);border:none;border-radius:2px;padding:10px 16px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:7px;box-shadow:none;transition:.15s;font-family:var(--disp);cursor:pointer;animation:fabBeat 3s ease-in-out infinite}
 .fab:hover{transform:translateY(-2px);filter:brightness(1.08)}
 @keyframes fabBeat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 
@@ -586,7 +637,7 @@ tr:hover td{background:var(--surf2)}
 #mobStats{display:none}
 /* ── MOBILE ── */
 @media(max-width:820px){
-  .g2,.g3,.g4,.g23{grid-template-columns:1fr}
+  .g2,.g3,.g4,.g23{grid-template-columns:minmax(0,1fr)}
   .rail{transform:translateX(-100%);transition:transform .25s ease;box-shadow:none;z-index:200}
   .rail.mob-open{transform:translateX(0);box-shadow:none}
   #mobOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(3px);z-index:199}
@@ -594,7 +645,7 @@ tr:hover td{background:var(--surf2)}
   .main{margin-left:0}
   .top{padding:9px 14px;gap:9px}
   .search{display:none}
-  #mobMenu{display:inline-grid;background:var(--volt);border-color:var(--volt-tx);color:#0c0c0e;width:40px;height:40px}
+  #mobMenu{display:inline-grid;background:var(--volt);border-color:var(--volt-tx);color:var(--volt-fg);width:40px;height:40px}
   #mobStats{display:inline-grid}
   .wrap{padding:14px}
   .phead{flex-direction:column;align-items:flex-start;gap:10px}
@@ -610,7 +661,21 @@ tr:hover td{background:var(--surf2)}
   .login-icon{display:block}
 }
 @keyframes spin{to{transform:rotate(360deg)}}
+/* Skeleton: pulso de opacidade, sem gradiente/shimmer. Com reduced-motion a
+   regra global zera a animacao e o bloco fica estatico. */
+@keyframes skelPulse{0%,100%{opacity:.45}50%{opacity:1}}
+.skel{display:block;background:var(--surf3);border-radius:var(--r-sm);animation:skelPulse 1.4s ease-in-out infinite}
+.skel-list{display:flex;flex-direction:column;gap:10px;padding:6px 0}
+.skel-row{height:44px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* Entrada de overlays: 140-180ms, so opacidade + 8px de translate. Sem saida
+   animada de proposito -- o display:none imediato mantem fechamento e
+   devolucao de foco previsiveis. prefers-reduced-motion ja zera tudo isto. */
+@keyframes mbgIn{from{opacity:0}to{opacity:1}}
+.mbg.open,.mbg.on{animation:mbgIn .14s ease-out}
+.mbg.open .modal,.mbg.on .modal{animation:fadeInUp .18s ease-out}
+.dd.open{animation:fadeInUp .14s ease-out}
 /* Botao desabilitado — ate 26/08 nao havia estilo nenhum, entao o "Buscar"
    continuava com cara de clicavel enquanto a busca automatica ja estava rodando
    e o usuario clicava de novo. */
@@ -701,15 +766,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 
   <!-- Modal Recuperar Senha -->
-  <div id="modalForgot" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:none;align-items:center;justify-content:center">
-    <div class="card" style="width:90%;max-width:400px;background:var(--surf)">
-      <div class="cb">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-          <h2 style="font-size:18px;font-weight:700">Recuperar Senha</h2>
-          <button type="button" onclick="closeForgotPass()" style="background:none;border:none;color:var(--tx);font-size:24px;cursor:pointer">×</button>
-        </div>
+  <div class="mbg" id="modalForgot" aria-labelledby="modalForgotTitle">
+    <div class="modal" style="max-width:400px">
+      <div class="mh"><span id="modalForgotTitle">Recuperar Senha</span><button type="button" class="mx" aria-label="Fechar" onclick="closeForgotPass()">×</button></div>
+      <div class="mb">
         <p style="color:var(--tx2);margin-bottom:14px;font-size:13px">Insira seu e-mail para receber um link de recuperação de senha</p>
-        <div class="field"><label>E-mail</label><input id="forgotEmail" type="email" placeholder="seu@email.com"></div>
+        <div class="field"><label>E-mail</label><input id="forgotEmail" type="email" placeholder="seu@email.com" autofocus></div>
         <div class="alert" id="forgotErr" style="display:none;margin-bottom:14px"></div>
         <button class="btn btn-volt" onclick="sendResetLink()" style="width:100%;justify-content:center" id="btnResetSend">Enviar link de reset</button>
         <div style="text-align:center;margin-top:12px;color:var(--tx2);font-size:12px;display:none" id="forgotMsg">Verifique seu e-mail para o link de recuperação</div>
@@ -749,9 +811,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- AFILIADO -->
   <nav class="nav-grp show" id="navAfiliado">
     <a class="nav active" href="/painel/dashboard" data-page="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Dashboard</a>
-    <a class="nav" href="/painel/post-relampago" data-page="post-relampago"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M13 2L4.5 13.5H11L10 22L19.5 10H13L13 2Z"/></svg>🚀 Postar Agora</a>
-    <a class="nav" href="/painel/post-automatico" data-page="post-automatico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>⚡ Post. Automático<span class="tag dot" id="autoPostBadge" style="display:none">0</span></a>
-    <a class="nav" href="/painel/post-video" data-page="post-video" id="navPostVideo" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M17 9l4-2v10l-4-2"/></svg>🎬 Post Vídeo</a>
+    <a class="nav" href="/painel/post-relampago" data-page="post-relampago"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M13 2L4.5 13.5H11L10 22L19.5 10H13L13 2Z"/></svg>Postar Agora</a>
+    <a class="nav" href="/painel/post-automatico" data-page="post-automatico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Post. Automático<span class="tag dot" id="autoPostBadge" style="display:none">0</span></a>
+    <a class="nav" href="/painel/post-video" data-page="post-video" id="navPostVideo" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M17 9l4-2v10l-4-2"/></svg>Post Vídeo</a>
     <a class="nav" href="/painel/link-rapido" data-page="link-rapido"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Link Rápido</a>
     <a class="nav" href="/painel/clone-post" data-page="clone-post"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Clone Post<span class="tag dot" id="cloneBadge" style="display:none">0</span></a>
     <a class="nav" href="/painel/radar" data-page="radar"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 3v4.5M12 12l6-4"/></svg>Radar de Ofertas<span class="tag dot" id="radarBadge">0</span></a>
@@ -813,15 +875,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <button class="ibtn" id="mobMenu" onclick="toggleMobMenu()" title="Menu" aria-label="Abrir menu">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
-    <div class="search" id="openPal" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg> Buscar páginas, ações, usuários… <span class="kbd">Ctrl K</span></div>
+    <button type="button" class="search" id="openPal" style="display:none;text-align:left;font-family:inherit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg> Buscar páginas, ações, usuários… <span class="kbd">Ctrl K</span></button>
     <div class="top-r">
       <!-- Botão stats (mobile only) -->
       <button class="ibtn" id="mobStats" onclick="go(S.role==='admin'?'adm-visao':'dashboard')" title="Estatísticas" aria-label="Ver estatísticas">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><path d="M4 20V8M10 20V4M16 20v-9M21 20H3"/></svg>
       </button>
-      <button class="ibtn" id="themeT" title="Tema"><svg id="iMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><path d="M21 13A8.5 8.5 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg><svg id="iSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" style="display:none"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M4.8 4.8l1.8 1.8M17.4 17.4l1.8 1.8M4.8 19.2l1.8-1.8M17.4 6.6l1.8-1.8"/></svg></button>
+      <button class="ibtn" id="themeT" title="Tema" aria-label="Alternar tema claro/escuro"><svg id="iMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><path d="M21 13A8.5 8.5 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg><svg id="iSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" style="display:none"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M4.8 4.8l1.8 1.8M17.4 17.4l1.8 1.8M4.8 19.2l1.8-1.8M17.4 6.6l1.8-1.8"/></svg></button>
       <div style="position:relative">
-        <button class="ibtn" id="btnNotif"><span class="pip"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><path d="M17 8a5 5 0 1 0-10 0c0 5-2 6-2 6h14s-2-1-2-6"/><path d="M10.5 19a1.7 1.7 0 0 0 3 0"/></svg></button>
+        <button class="ibtn" id="btnNotif" title="Notificações" aria-label="Notificações"><span class="pip"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><path d="M17 8a5 5 0 1 0-10 0c0 5-2 6-2 6h14s-2-1-2-6"/><path d="M10.5 19a1.7 1.7 0 0 0 3 0"/></svg></button>
         <div class="dd" id="ddNotif">
           <div class="ddh" style="font-family:var(--disp);font-weight:600;display:flex;justify-content:space-between">Notificações <span class="pill gray">0 novas</span></div>
           <button class="ddi"><span>👋</span><span>Bem-vindo à Mega Links BR!<br><small>Configure seus afiliados para começar.</small></span></button>
@@ -829,7 +891,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </div>
       <div style="position:relative">
-        <button class="av" id="btnUser">U</button>
+        <button class="av" id="btnUser" aria-label="Menu da conta" aria-haspopup="true">U</button>
         <div class="dd" id="ddUser">
           <div class="ddh"><div style="font-weight:700">Usuário</div><div style="font-size:12px;color:var(--mut)">—</div></div>
           <button class="ddi" onclick="go('meus-dados')">👤 Meu perfil</button>
@@ -1140,7 +1202,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
       <div class="card">
         <div class="ch">🗓️ Fila de vídeos agendados</div>
-        <div class="cb" id="pvFila"><p style="color:var(--mut);text-align:center;padding:28px">Carregando…</p></div>
+        <div class="cb" id="pvFila"><div class="skel-list" role="status"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div></div>
       </div>
     </div>
   </section>
@@ -1154,14 +1216,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- Banner de upgrade contextual (injetado via JS) -->
     <div id="upgradeBannerDash"></div>
     <!-- CTA de Postagem — item PRINCIPAL da Dashboard -->
-    <div onclick="go('post-relampago')" style="cursor:pointer;background:var(--volt-soft);border:1px solid rgba(255,193,7,.38);border-radius:var(--r);padding:24px 26px;margin-bottom:20px;display:flex;align-items:center;gap:18px;transition:.15s" onmouseover="this.style.borderColor='rgba(255,77,141,.7)'" onmouseout="this.style.borderColor='rgba(255,77,141,.4)'">
-      <div style="width:56px;height:56px;border-radius:2px;background:var(--volt);display:flex;align-items:center;justify-content:center;font-size:28px;flex:none">⚡</div>
-      <div style="flex:1">
-        <div style="font-family:var(--disp);font-weight:700;font-size:18px;color:var(--volt-tx)">Postar Agora</div>
-        <div style="font-size:13px;color:var(--tx2);margin-top:3px">Viu uma oferta? Cole o link, ajuste e dispare para seus canais em segundos.</div>
-      </div>
-      <svg viewBox="0 0 24 24" fill="none" stroke="var(--volt-tx)" stroke-width="2" width="22" style="flex:none"><path d="M9 18l6-6-6-6"/></svg>
-    </div>
+    <button type="button" class="cta-primary" onclick="go('post-relampago')">
+      <span class="ci"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></span>
+      <span class="ct"><b>Postar Agora</b><span>Viu uma oferta? Cole o link, ajuste e dispare para seus canais em segundos.</span></span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--volt-tx)" stroke-width="2" width="22" style="flex:none" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
     <!-- Comece por aqui — só aparece enquanto o onboarding não estiver 100% completo -->
     <div class="card" id="onbCard" style="display:none">
       <div class="ch">🚀 Configure sua conta <span class="r" id="onbPct" style="font-size:12px;color:var(--volt-tx);font-weight:700"></span></div>
@@ -1199,9 +1258,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button>
       <button class="btn btn-volt btn-sm" onclick="loadPostAutomatico()" style="margin-left:8px">↻ Atualizar</button></div>
     <div class="g4" id="paKpis" style="margin-bottom:20px"></div>
-    <div class="card"><div class="ch">🟢 Automações Ativas</div><div class="cb" id="paLista"><p style="color:var(--mut);text-align:center;padding:28px">Carregando…</p></div></div>
-    <div class="card" style="margin-top:16px"><div class="ch">📋 Últimos Disparos Automáticos <span class="r"><span style="font-size:11px;color:var(--mut)">últimas 24h</span></span></div><div class="cb" id="paLog" style="padding:0"><p style="color:var(--mut);text-align:center;padding:28px">Carregando…</p></div></div>
-    <div class="card" style="margin-top:16px"><div class="ch">⚡ Últimos Disparos Manuais <span class="r"><span style="font-size:11px;color:var(--mut)">últimas 24h</span></span></div><div class="cb" id="paLogManual" style="padding:0"><p style="color:var(--mut);text-align:center;padding:28px">Carregando…</p></div></div>
+    <div class="card"><div class="ch">🟢 Automações Ativas</div><div class="cb" id="paLista"><div class="skel-list" role="status"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div></div></div>
+    <div class="card" style="margin-top:16px"><div class="ch">📋 Últimos Disparos Automáticos <span class="r"><span style="font-size:11px;color:var(--mut)">últimas 24h</span></span></div><div class="cb" id="paLog" style="padding:0"><div class="skel-list" role="status" style="padding:14px 16px"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div></div></div>
+    <div class="card" style="margin-top:16px"><div class="ch">⚡ Últimos Disparos Manuais <span class="r"><span style="font-size:11px;color:var(--mut)">últimas 24h</span></span></div><div class="cb" id="paLogManual" style="padding:0"><div class="skel-list" role="status" style="padding:14px 16px"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div></div></div>
   </section>
 
   <section class="page" id="page-analitico">
@@ -1211,7 +1270,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="card"><div class="ch">📈 Posts enviados · últimos 14 dias <span class="r">total: <strong id="chTot" style="color:var(--tx)"></strong></span></div><div class="cb" id="chArea"></div></div>
     <div class="card"><div class="ch">🔥 Melhores horários para postar <span class="r">baseado nos seus cliques</span></div><div class="cb">
       <div class="heat-wrap"><div class="heat" id="heat"></div></div>
-      <div class="heat-leg"><span>Menos</span><span class="sq" style="background:var(--surf2)"></span><span class="sq" style="background:rgba(245,197,24,.32)"></span><span class="sq" style="background:rgba(245,197,24,.6)"></span><span class="sq" style="background:var(--volt)"></span><span>Mais</span></div>
+      <div class="heat-leg"><span>Menos</span><span class="sq" style="background:var(--surf2)"></span><span class="sq" style="background:rgba(255,193,7,.32)"></span><span class="sq" style="background:rgba(255,193,7,.6)"></span><span class="sq" style="background:var(--volt)"></span><span>Mais</span></div>
     </div></div>
   </section>
 
@@ -1223,7 +1282,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="card" id="mrBoot"><div class="cb" style="color:var(--mut);padding:30px;text-align:center">Carregando…</div></div>
 
     <!-- Modulo nao liberado para a conta (403 MODULE_DISABLED) -->
-    <div class="card" id="mrLocked" style="display:none;border-color:rgba(245,197,24,.25)">
+    <div class="card" id="mrLocked" style="display:none;border-color:rgba(255,193,7,.25)">
       <div class="ch">🔒 Ainda não liberado</div>
       <div class="cb">
         <p style="color:var(--mut);margin:0 0 12px">O Mega Results está em piloto fechado e ainda não foi liberado para esta conta.</p>
@@ -1232,7 +1291,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
 
     <!-- Falha ao verificar o acesso: nao afirmar que esta liberado nem que nao esta -->
-    <div class="card" id="mrErr" style="display:none;border-color:rgba(239,68,68,.35)">
+    <div class="card" id="mrErr" style="display:none;border-color:rgba(226,112,95,.35)">
       <div class="ch">⚠️ Não foi possível verificar seu acesso</div>
       <div class="cb">
         <p style="color:var(--mut);margin:0 0 12px" id="mrErrMsg"></p>
@@ -1307,7 +1366,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div></div>
 
         <!-- Nivel 1 de dedupe: arquivo ja importado (doc 08 §12) -->
-        <div class="card" id="mrDup" style="display:none;border-color:rgba(245,197,24,.35)">
+        <div class="card" id="mrDup" style="display:none;border-color:rgba(255,193,7,.35)">
           <div class="ch">⚠️ Este arquivo já foi importado</div>
           <div class="cb">
             <p style="color:var(--mut);margin:0 0 12px" id="mrDupMsg"></p>
@@ -1374,14 +1433,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="tp on" id="ctab-fila">
         <div class="card">
           <div class="ch">🗂️ Fila de clones <span class="r"><span id="clfUpd" class="cs-upd"></span><a href="#" onclick="cloneFilaAtualizar();return false">atualizar</a></span></div>
-          <div class="cb" id="cloneFila"><div style="color:var(--tx2);font-size:13px">Carregando…</div></div>
+          <div class="cb" id="cloneFila"><div class="skel-list" role="status"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div></div>
         </div>
       </div>
 
       <div class="tp" id="ctab-fontes">
         <div class="card">
           <div class="ch">🤖 Fontes automáticas <span class="r"><span id="csUpd" class="cs-upd"></span><a href="#" onclick="csAtualizar();return false">atualizar</a></span></div>
-          <div class="cb" id="csBox"><div style="color:var(--tx2);font-size:13px">Carregando…</div></div>
+          <div class="cb" id="csBox"><div class="skel-list" role="status"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div></div>
         </div>
       </div>
     </div>
@@ -1456,7 +1515,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div id="radarScrapeBanner"></div>
 
     <!-- Grid de ofertas -->
-    <div id="radarStarterBanner" style="display:none;background:var(--volt-soft);border:1px solid rgba(245,197,24,.3);border-radius:2px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <div id="radarStarterBanner" style="display:none;background:var(--volt-soft);border:1px solid rgba(255,193,7,.3);border-radius:2px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <span style="font-size:20px">🔒</span>
       <div style="flex:1;min-width:180px">
         <div style="font-size:13px;font-weight:700;color:var(--volt-tx)">Radar limitado ao plano Starter</div>
@@ -1468,7 +1527,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <!-- Modal Shopee em Massa -->
     <div class="mbg" id="modalShopeeEmMassa"><div class="modal" style="max-width:560px">
-      <div class="mh">🛍️ Importar em Massa <button class="mx" onclick="closeModal('modalShopeeEmMassa')">×</button></div>
+      <div class="mh">🛍️ Importar em Massa <button class="mx" aria-label="Fechar" onclick="closeModal('modalShopeeEmMassa')">×</button></div>
       <div class="mb">
         <div class="alert b" style="margin-bottom:12px"><div>Cole um ou mais links (um por linha). A loja é identificada pelo próprio link — Shopee, Mercado Livre, Amazon e as demais suportadas. Cada link vira um produto no Grupo de Oferta escolhido.</div></div>
         <div class="field">
@@ -1498,11 +1557,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="phead"><div><h1 class="pt">Conexão WhatsApp</h1><div class="psub">Pareie seu número para publicar automaticamente em grupos e canais.
       <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button></div></div></div>
     <!-- Sessões conectadas (aparece primeiro quando há conexão) -->
-    <div class="card" id="instCard" style="display:none;border-color:rgba(245,197,24,.25)"><div class="ch">📱 Suas conexões <span class="pill gray" id="instCount" style="margin-left:6px"></span> <span class="r"><button class="btn btn-ghost btn-sm" onclick="renderInstCard()" style="font-size:11px">↻ Atualizar</button></span></div><div class="cb" id="instList"></div></div>
+    <div class="card" id="instCard" style="display:none;border-color:rgba(255,193,7,.25)"><div class="ch">📱 Suas conexões <span class="pill gray" id="instCount" style="margin-left:6px"></span> <span class="r"><button class="btn btn-ghost btn-sm" onclick="renderInstCard()" style="font-size:11px">↻ Atualizar</button></span></div><div class="cb" id="instList"></div></div>
     <!-- Parear novo número -->
     <div class="g2">
       <div class="card" id="cardParear" style="margin:0"><div class="ch">📲 Parear novo número</div><div class="cb">
-        <div id="pareaTetoAviso" style="display:none;background:rgba(255,176,32,.12);border:1px solid rgba(255,176,32,.4);border-radius:2px;padding:12px 16px;align-items:center;gap:12px;margin-bottom:14px;font-size:13px"></div>
+        <div id="pareaTetoAviso" style="display:none;background:rgba(201,161,90,.12);border:1px solid rgba(201,161,90,.4);border-radius:2px;padding:12px 16px;align-items:center;gap:12px;margin-bottom:14px;font-size:13px"></div>
         <div class="g2" style="gap:12px">
           <div class="field"><label>Código do país</label><select><option>+55 BR</option><option>+351 PT</option></select></div>
           <div class="field"><label>DDD</label><input id="waDDD" value="31" maxlength="3"></div>
@@ -1530,25 +1589,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <!-- Cards de ação rápida — sempre visíveis -->
     <div class="g2-mob" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-      <div onclick="btnAddGrupo.click()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px 18px;background:rgba(37,185,79,.06);border:1px solid rgba(37,185,79,.25);border-radius:2px;transition:.15s" onmouseover="this.style.borderColor='#25b94f'" onmouseout="this.style.borderColor='rgba(37,185,79,.25)'">
-        <div style="width:42px;height:42px;border-radius:2px;background:rgba(37,185,79,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none">📱</div>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:13px">Adicionar grupo WhatsApp</div>
-          <div style="font-size:12px;color:var(--mut)">Selecione de seus grupos conectados</div>
-        </div>
-        <span style="color:rgba(37,185,79,.7);font-size:16px">→</span>
-      </div>
-      <div onclick="btnAddGrupo.click()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:16px 18px;background:rgba(41,159,217,.06);border:1px solid rgba(41,159,217,.25);border-radius:2px;transition:.15s" onmouseover="this.style.borderColor='#299fd9'" onmouseout="this.style.borderColor='rgba(41,159,217,.25)'">
-        <div style="width:42px;height:42px;border-radius:2px;background:rgba(41,159,217,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none">✈️</div>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:13px">Adicionar grupo Telegram</div>
-          <div style="font-size:12px;color:var(--mut)">Veja como vincular via bot</div>
-        </div>
-        <span style="color:rgba(41,159,217,.7);font-size:16px">→</span>
-      </div>
+      <button type="button" class="chan-quick" onclick="btnAddGrupo.click()" style="--qc:#25b94f;--qc-bg:rgba(37,185,79,.06);--qc-bg2:rgba(37,185,79,.15);--qc-bd:rgba(37,185,79,.25)">
+        <span class="ci"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+        <span class="ct"><b>Adicionar grupo WhatsApp</b><small>Selecione de seus grupos conectados</small></span>
+        <span class="arrow" aria-hidden="true">→</span>
+      </button>
+      <button type="button" class="chan-quick" onclick="btnAddGrupo.click()" style="--qc:#299fd9;--qc-bg:rgba(41,159,217,.06);--qc-bg2:rgba(41,159,217,.15);--qc-bd:rgba(41,159,217,.25)">
+        <span class="ci"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></span>
+        <span class="ct"><b>Adicionar grupo Telegram</b><small>Veja como vincular via bot</small></span>
+        <span class="arrow" aria-hidden="true">→</span>
+      </button>
     </div>
-    <div id="grupoLimiteAlert" style="display:none;background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.4);border-radius:2px;padding:12px 16px;margin-bottom:12px;align-items:center;gap:12px;font-size:13px"></div>
-    <div id="grupoStarterBanner" style="display:none;background:var(--volt-soft);border:1px solid rgba(245,197,24,.3);border-radius:2px;padding:14px 18px;margin-bottom:14px;align-items:center;gap:14px;font-size:13px">
+    <div id="grupoLimiteAlert" style="display:none;background:rgba(201,161,90,.1);border:1px solid rgba(201,161,90,.4);border-radius:2px;padding:12px 16px;margin-bottom:12px;align-items:center;gap:12px;font-size:13px"></div>
+    <div id="grupoStarterBanner" style="display:none;background:var(--volt-soft);border:1px solid rgba(255,193,7,.3);border-radius:2px;padding:14px 18px;margin-bottom:14px;align-items:center;gap:14px;flex-wrap:wrap;font-size:13px">
       <span style="font-size:24px">📦</span>
       <div style="flex:1"><strong>Seu grupo pode estar postando produto que já acabou.</strong><div style="color:var(--tx2);margin-top:3px;line-height:1.5">Do plano Pro em diante, conferimos seus anúncios todo dia: o que sair de estoque é retirado do rodízio automaticamente e você recebe um aviso no WhatsApp — antes dos seus membros clicarem num link que não vende.</div></div>
       <button class="btn btn-gold btn-sm" onclick="go('assinatura')" style="flex:none">Ativar monitoramento</button>
@@ -1601,7 +1654,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
         </div>
         <div class="g2" style="gap:10px;align-items:end">
-          <div class="field" style="margin:0"><label>Seu token do Scrape.do <span style="color:#FF6B6B">*</span> <small style="font-weight:400;color:var(--mut)">obrigatório</small></label>
+          <div class="field" style="margin:0"><label>Seu token do Scrape.do <span style="color:var(--red)">*</span> <small style="font-weight:400;color:var(--mut)">obrigatório</small></label>
             <input id="scrapeDoTokenInput" placeholder="Cole aqui o token da sua conta Scrape.do" type="password" required aria-required="true"></div>
           <button class="btn btn-volt btn-sm" onclick="salvarScrapeDoToken()">💾 Salvar token</button>
         </div>
@@ -1700,7 +1753,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- Modal Novo/Editar Cupom -->
   <div class="mbg" id="modalCupom">
     <div class="modal" style="max-width:480px">
-      <div class="mh"><strong id="modalCupomTitulo">Novo Cupom</strong><button class="mx" onclick="closeModal('modalCupom')">×</button></div>
+      <div class="mh"><strong id="modalCupomTitulo">Novo Cupom</strong><button class="mx" aria-label="Fechar" onclick="closeModal('modalCupom')">×</button></div>
       <div class="mb">
         <div class="field"><label>Marketplace <span style="color:var(--red)">*</span></label>
           <select id="cupomModalLoja" onchange="cupomModalLojaChange()">
@@ -1740,7 +1793,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- Modal configurar loja -->
   <div class="mbg" id="modalLoja">
     <div class="modal" style="max-width:480px">
-      <div class="mh"><strong id="modalLojaTitulo">Configurar loja</strong><button class="mx" onclick="closeModal('modalLoja')">×</button></div>
+      <div class="mh"><strong id="modalLojaTitulo">Configurar loja</strong><button class="mx" aria-label="Fechar" onclick="closeModal('modalLoja')">×</button></div>
       <div class="mb" id="modalLojaConteudo"></div>
       <div class="mf">
         <button class="btn btn-ghost" onclick="closeModal('modalLoja')">Cancelar</button>
@@ -1755,7 +1808,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button></div></div></div>
 
     <!-- Instrução -->
-    <div class="alert y" style="margin-bottom:16px;font-size:13px">
+    <div class="alert y" style="margin-bottom:16px;font-size:13px;display:block;overflow-wrap:anywhere">
       <strong>Como funciona:</strong> Adicione <strong>@megalinksbr_bot</strong> como admin no seu canal/grupo Telegram, depois cole o link ou @username abaixo.
     </div>
 
@@ -1777,7 +1830,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- Lista de canais -->
     <div class="card" style="margin-top:16px">
       <div class="ch">📣 Canais vinculados <span class="r"><button class="btn btn-ghost btn-sm" onclick="tgCarregarCanais()">↻ Atualizar</button></span></div>
-      <div class="cb" id="tgCanalList"><div style="text-align:center;padding:32px;color:var(--mut)">Nenhum canal adicionado ainda.</div></div>
+      <div class="cb" id="tgCanalList"><div style="text-align:center;padding:32px 20px"><div style="font-size:36px;margin-bottom:8px">📡</div><h3 style="margin-bottom:6px">Nenhum canal adicionado ainda</h3><p style="color:var(--tx2)">Cole o link do seu canal do Telegram no formulário acima para começar a receber ofertas nele.</p></div></div>
     </div>
 
     <!-- Teste de envio -->
@@ -1800,7 +1853,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="alert b">ℹ️ Seu CPF é usado para reconhecimento automático da assinatura e faturamento. Mantenha-o atualizado.</div>
     
     <!-- Seu ID de usuário -->
-    <div class="card" style="max-width:780px;background:var(--volt-soft);border:1px solid rgba(245,197,24,.15);margin-bottom:16px">
+    <div class="card" style="max-width:780px;background:var(--volt-soft);border:1px solid rgba(255,193,7,.15);margin-bottom:16px">
       <div class="cb">
         <div style="display:flex;align-items:center;gap:12;flex-wrap:wrap">
           <div>
@@ -1840,7 +1893,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- Toggle Mensal/Anual -->
     <div class="bill-toggle">
       <button class="on" data-bill="m">Mensal</button>
-      <button data-bill="a">Anual <span style="background:var(--volt);color:#0c0c0e;font-size:9px;font-weight:700;padding:2px 5px;border-radius:2px;margin-left:5px">-20%</span></button>
+      <button data-bill="a">Anual <span style="background:var(--volt);color:var(--volt-fg);font-size:9px;font-weight:700;padding:2px 5px;border-radius:2px;margin-left:5px">-20%</span></button>
     </div>
 
     <!-- Grid de planos -->
@@ -1856,7 +1909,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <th style="text-align:left;padding:12px 16px;color:var(--mut);font-weight:600">Recurso</th>
               <th style="text-align:center;padding:12px 8px">⚡ Starter</th>
               <th style="text-align:center;padding:12px 8px">🚀 Pro</th>
-              <th style="text-align:center;padding:12px 8px;background:rgba(139,92,246,.08)">🔥 Elite</th>
+              <th style="text-align:center;padding:12px 8px;background:var(--volt-soft)">🔥 Elite</th>
               <th style="text-align:center;padding:12px 8px">👑 Premium</th>
             </tr>
           </thead>
@@ -1932,7 +1985,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div style="background:var(--bg2);border-radius:2px;padding:14px">
           <div style="font-size:20px;margin-bottom:6px">📚</div>
           <div style="font-size:12px;font-weight:700;color:var(--tx1);margin-bottom:4px">Antes de abrir chamado</div>
-          <div style="font-size:12px;color:var(--tx2)">Consulte o <span style="color:var(--volt-tx);cursor:pointer" onclick="go('faq')">FAQ</span> — muitas dúvidas já têm resposta lá.</div>
+          <div style="font-size:12px;color:var(--tx2)">Consulte o <a href="/painel/faq" onclick="event.preventDefault();go('faq')" style="color:var(--volt-tx);text-decoration:underline">FAQ</a> — muitas dúvidas já têm resposta lá.</div>
         </div>
       </div>
     </div>
@@ -2032,7 +2085,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- Modal novo VIP -->
   <div class="mbg" id="modalErroLog">
     <div class="modal" style="max-width:520px">
-      <div class="mh"><strong style="font-family:var(--disp)">❌ Detalhe do erro</strong><button class="mx" onclick="closeModal('modalErroLog')">×</button></div>
+      <div class="mh"><strong style="font-family:var(--disp)">❌ Detalhe do erro</strong><button class="mx" aria-label="Fechar" onclick="closeModal('modalErroLog')">×</button></div>
       <div class="mb">
         <div id="erroLogBody" style="font-size:13px;line-height:1.6"></div>
         <div style="display:flex;gap:8px;margin-top:16px">
@@ -2044,13 +2097,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
   <div class="mbg" id="modalVip">
     <div class="modal" style="max-width:520px">
-      <div class="mh"><strong style="font-family:var(--disp)">⭐ Conceder acesso VIP</strong><button class="mx" onclick="closeModal('modalVip')">×</button></div>
+      <div class="mh"><strong style="font-family:var(--disp)">⭐ Conceder acesso VIP</strong><button class="mx" aria-label="Fechar" onclick="closeModal('modalVip')">×</button></div>
       <div class="mb">
         <div class="field">
           <label>Buscar usuário</label>
           <div style="position:relative">
             <input id="vipSearch" placeholder="Digite o nome do usuário..." autocomplete="off" oninput="searchUsers(this.value)" style="padding-right:40px">
-            <svg onclick="vipSearch.value='';searchUsers('')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;cursor:pointer;color:var(--tx2);opacity:0.6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <button type="button" aria-label="Limpar busca" onclick="vipSearch.value='';searchUsers('')" style="all:unset;position:absolute;right:12px;top:50%;transform:translateY(-50%);width:24px;height:24px;display:grid;place-items:center;cursor:pointer;color:var(--tx2);opacity:0.6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
             <div class="autocomplete-list" id="vipSearchResults" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surf);border:1px solid var(--bd);border-radius:var(--r-sm);max-height:180px;overflow-y:auto;z-index:10;margin-top:4px">
             </div>
           </div>
@@ -2095,13 +2148,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 
   <!-- Modal detalhe ticket -->
-  <div id="modalTicket" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center">
-    <div class="card" style="width:92%;max-width:520px;background:var(--surf)">
-      <div class="cb">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-          <h2 style="font-size:16px;font-weight:700" id="mtSubject">—</h2>
-          <button onclick="document.getElementById('modalTicket').style.display='none'" style="background:none;border:none;color:var(--tx2);font-size:20px;cursor:pointer">✕</button>
-        </div>
+  <div class="mbg" id="modalTicket" aria-labelledby="mtSubject">
+    <div class="modal" style="max-width:520px">
+      <div class="mh"><strong id="mtSubject">—</strong><button type="button" class="mx" aria-label="Fechar" onclick="closeModal('modalTicket')">×</button></div>
+      <div class="mb">
         <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
           <span id="mtStatus" class="pill gray"></span>
           <span id="mtCat" style="font-size:12px;color:var(--mut);align-self:center"></span>
@@ -2118,7 +2168,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('mtEmail').textContent);toast('Email copiado!','📋')">📋 Copiar email</button>
           </div>
         </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end" id="mtActions"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap" id="mtActions"></div>
       </div>
     </div>
   </div>
@@ -2231,7 +2281,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
     <span class="pill volt" style="margin-left:auto;margin-right:8px">BETA</span>
-    <button class="mx" onclick="closeDrawer()">×</button>
+    <button class="mx" aria-label="Fechar" onclick="closeDrawer()">×</button>
   </div>
 
   <!-- Ações rápidas (sempre visíveis no topo) -->
@@ -2261,7 +2311,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- ============ MODAIS ============ -->
 <div class="mbg" id="modalBoasVindas"><div class="modal">
-  <div class="mh">🎉 Bem-vindo(a) à Mega Links BR<button class="mx" onclick="fecharBoasVindas()">×</button></div>
+  <div class="mh">🎉 Bem-vindo(a) à Mega Links BR<button class="mx" aria-label="Fechar" onclick="fecharBoasVindas()">×</button></div>
   <div class="mb">
     <p style="margin:0 0 14px;color:var(--tx2);font-size:13.5px">Oi, <strong id="bvNome" style="color:var(--tx)"></strong>! Sua conta foi criada e o trial já está ativo. Em 3 passos você já sai divulgando ofertas automaticamente:</p>
     <ul class="osteps" style="margin:0 0 4px">
@@ -2277,7 +2327,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div></div>
 <div class="mbg" id="modalGrupo"><div class="modal">
-  <div class="mh">Novo Grupo de Oferta <button class="mx" onclick="closeModal('modalGrupo')">×</button></div>
+  <div class="mh">Novo Grupo de Oferta <button class="mx" aria-label="Fechar" onclick="closeModal('modalGrupo')">×</button></div>
   <div class="mb"><div class="field"><label>Nome do Grupo de Oferta</label><input id="inNomeGrupo" placeholder="ex.: Achadinhos da Semana"></div>
     <div class="alert b" style="margin:0">💡 Nomeie pelo <strong>nicho</strong>. Cada Grupo de Oferta reúne canais, lojas e regras daquele nicho.</div></div>
   <div class="mf"><button class="btn btn-ghost" onclick="closeModal('modalGrupo')">Cancelar</button><button class="btn btn-volt" id="btnSalvarGrupo">Criar Grupo de Oferta</button></div>
@@ -2294,7 +2344,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <button class="btn btn-volt" id="cpiSubmit" style="width:100%;justify-content:center" onclick="salvarPerfilIncompleto()">Continuar</button>
 </div></div>
 <div class="mbg" id="modalCheckout"><div class="modal" style="max-width:440px">
-  <div class="mh"><div><div style="font-family:var(--disp)">Assinar plano <span id="ckPlanLabel"></span></div><div style="font-size:13px;color:var(--mut)" id="ckValor"></div></div><button class="mx" onclick="closeModal('modalCheckout')">×</button></div>
+  <div class="mh"><div><div style="font-family:var(--disp)">Assinar plano <span id="ckPlanLabel"></span></div><div style="font-size:13px;color:var(--mut)" id="ckValor"></div></div><button class="mx" aria-label="Fechar" onclick="closeModal('modalCheckout')">×</button></div>
   <div class="mb" id="ckBody" style="padding-top:8px"></div>
 </div></div>
 
@@ -2302,7 +2352,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- ===== MODAL: ADICIONAR PRODUTO DO RADAR A UM GRUPO ===== -->
 <div class="mbg" id="modalRadarGrupo"><div class="modal" style="max-width:760px">
-  <div class="mh">📦 Adicionar produto ao Grupo de Oferta <button class="mx" onclick="closeModal('modalRadarGrupo')">×</button></div>
+  <div class="mh">📦 Adicionar produto ao Grupo de Oferta <button class="mx" aria-label="Fechar" onclick="closeModal('modalRadarGrupo')">×</button></div>
   <div class="mb">
     <div class="field"><label>Grupo de Oferta de destino</label>
       <select id="rgGrupoSel" onchange="rgRenderCupomSelect();rgUpdatePreview()"><option value="">— Selecione um grupo —</option></select>
@@ -2376,18 +2426,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div></div>
 
-<div class="tw" id="tw"></div>
+<div class="tw" id="tw" role="status" aria-live="polite"></div>
 
 <!-- Loading Global -->
-<div id="globalLoading" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(12,12,14,.75);backdrop-filter:blur(4px);flex-direction:column;align-items:center;justify-content:center;gap:16px">
+<div id="globalLoading" role="status" aria-live="polite" aria-busy="true" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(20,22,26,.82);flex-direction:column;align-items:center;justify-content:center;gap:16px">
   <div style="position:relative;width:56px;height:56px">
-    <svg viewBox="0 0 56 56" style="width:56px;height:56px;animation:spin 1s linear infinite">
-      <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(245,197,24,.15)" stroke-width="4"/>
-      <circle cx="28" cy="28" r="24" fill="none" stroke="#F5C518" stroke-width="4" stroke-linecap="round" stroke-dasharray="60 90" stroke-dashoffset="0"/>
+    <svg viewBox="0 0 56 56" aria-hidden="true" style="width:56px;height:56px;animation:spin 1s linear infinite">
+      <circle cx="28" cy="28" r="24" fill="none" stroke="var(--volt-soft)" stroke-width="4"/>
+      <circle cx="28" cy="28" r="24" fill="none" stroke="var(--volt)" stroke-width="4" stroke-linecap="round" stroke-dasharray="60 90" stroke-dashoffset="0"/>
     </svg>
   </div>
-  <div id="globalLoadingMsg" style="color:#f0f0f4;font-size:14px;font-weight:600;letter-spacing:.02em">Carregando…</div>
-  <div style="color:#9494a8;font-size:12px">Aguarde um momento</div>
+  <div id="globalLoadingMsg" style="color:var(--tx);font-family:var(--disp);font-size:14px;font-weight:600;letter-spacing:.02em">Carregando…</div>
+  <div style="color:var(--tx2);font-size:12px">Aguarde um momento</div>
 </div>
 <script>
 /* ── LOADING GLOBAL (movido do <style> para o <script>, onde de fato funciona) ── */
@@ -2591,10 +2641,10 @@ function cupomRenderLista(){
   const topLoja=Object.entries(lojaMap).sort((a,b)=>b[1]-a[1])[0];
   const vencidos=COUPONS.filter(c=>c.validade&&new Date(c.validade)<new Date()).length;
   if(kpis)kpis.innerHTML=[
-    ["Total de cupons",COUPONS.length,"#39C0FF"],
-    ["Marketplaces",Object.keys(lojaMap).length,"#19E27D"],
-    ["Top loja",topLoja?topLoja[0]:"—","#FFB020"],
-    ["Vencidos",vencidos,"#FF4D8D"]
+    ["Total de cupons",COUPONS.length,"#6FA3C4"],
+    ["Marketplaces",Object.keys(lojaMap).length,"var(--green)"],
+    ["Top loja",topLoja?topLoja[0]:"—","#C9A15A"],
+    ["Vencidos",vencidos,"#E2705F"]
   ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv" style="color:${k[2]};font-size:${String(k[1]).length>6?"16px":"22px"}">${k[1]}</div></div>`).join("");
 
   if(!filtrados.length){
@@ -2743,8 +2793,8 @@ async function carregarScrapeDoStatus(){
       // preencher o produto à mão). Este aviso NÃO é o banner dispensável: ele
       // fica enquanto o campo estiver vazio, independente do "não avisar mais".
       input.placeholder="Obrigatório — cole aqui o token da sua conta Scrape.do";
-      input.style.borderColor="#FF6B6B";
-      status.style.color="#FF6B6B";
+      input.style.borderColor="var(--red)";
+      status.style.color="var(--red)";
       status.innerHTML="⚠️ <strong>Campo obrigatório e ainda vazio.</strong> Sem o token, suas buscas de Mercado Livre usam a cota compartilhada da plataforma e podem falhar quando ela se esgotar.";
     }
   }catch(e){console.warn("carregarScrapeDoStatus:",e);}
@@ -2854,7 +2904,7 @@ async function salvarScrapeDoToken(){
   const input=document.getElementById("scrapeDoTokenInput");
   const token=(input?.value||"").trim();
   if(!token){
-    if(input){input.style.borderColor="#FF6B6B";input.focus();}
+    if(input){input.style.borderColor="var(--red)";input.focus();}
     toast("O token do Scrape.do é obrigatório — cole o token antes de salvar.","⚠️");
     return;
   }
@@ -2958,10 +3008,10 @@ async function loadCreds(){
 
 /* ================= PLANOS REAIS (plan_features) — definido cedo, antes de qualquer uso ================= */
 const PLAN_FALLBACK={
-  starter:{plan:"starter",label:"Starter",color:"#10B981",price_month:57.90,wa_groups:1,wa_channels:2,wa_connections:1,wa_post_automation:true,tg_channels:1,tg_post_automation:false,marketplaces:2,links_simultaneous:10,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:false,support_level:"comunidade",clone_post:false,clone_auto:false,clone_sources_max:0,smart_schedule:false,stock_monitor:false,auto_posts_daily:1,sort_order:1,video_post:false,max_products:15},
-  pro:{plan:"pro",label:"Pro",color:"#3B82F6",price_month:97.90,wa_groups:3,wa_channels:6,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,marketplaces:3,links_simultaneous:30,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:true,support_level:"email",clone_post:true,clone_auto:true,clone_sources_max:1,smart_schedule:false,stock_monitor:true,auto_posts_daily:null,sort_order:2,video_post:false,max_products:50},
-  elite:{plan:"elite",label:"Elite",color:"#8B5CF6",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",clone_post:true,clone_auto:true,clone_sources_max:3,smart_schedule:true,stock_monitor:true,auto_posts_daily:null,sort_order:3,video_post:true,max_products:150},
-  premium:{plan:"premium",label:"Premium",color:"#F59E0B",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",clone_post:true,clone_auto:true,clone_sources_max:10,smart_schedule:true,stock_monitor:true,auto_posts_daily:null,sort_order:4,video_post:true,max_products:300}
+  starter:{plan:"starter",label:"Starter",color:"#7FB98D",price_month:57.90,wa_groups:1,wa_channels:2,wa_connections:1,wa_post_automation:true,tg_channels:1,tg_post_automation:false,marketplaces:2,links_simultaneous:10,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:false,support_level:"comunidade",clone_post:false,clone_auto:false,clone_sources_max:0,smart_schedule:false,stock_monitor:false,auto_posts_daily:1,sort_order:1,video_post:false,max_products:15},
+  pro:{plan:"pro",label:"Pro",color:"#7C9EC9",price_month:97.90,wa_groups:3,wa_channels:6,wa_connections:1,wa_post_automation:true,tg_channels:4,tg_post_automation:true,marketplaces:3,links_simultaneous:30,ads_creation:"basica",radar:true,click_tracking:false,mega_ia:true,support_level:"email",clone_post:true,clone_auto:true,clone_sources_max:1,smart_schedule:false,stock_monitor:true,auto_posts_daily:null,sort_order:2,video_post:false,max_products:50},
+  elite:{plan:"elite",label:"Elite",color:"#9B8FC9",price_month:157.90,wa_groups:8,wa_channels:20,wa_connections:3,wa_post_automation:true,tg_channels:12,tg_post_automation:true,marketplaces:-1,links_simultaneous:100,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"prioritario",clone_post:true,clone_auto:true,clone_sources_max:3,smart_schedule:true,stock_monitor:true,auto_posts_daily:null,sort_order:3,video_post:true,max_products:150},
+  premium:{plan:"premium",label:"Premium",color:"var(--warn)",price_month:297.90,wa_groups:20,wa_channels:50,wa_connections:10,wa_post_automation:true,tg_channels:30,tg_post_automation:true,marketplaces:-1,links_simultaneous:500,ads_creation:"completa_ia",radar:true,click_tracking:true,mega_ia:true,support_level:"vip",clone_post:true,clone_auto:true,clone_sources_max:10,smart_schedule:true,stock_monitor:true,auto_posts_daily:null,sort_order:4,video_post:true,max_products:300}
 };
 let PLAN_FEATURES={...PLAN_FALLBACK};
 let MY_PLAN="starter";
@@ -3180,10 +3230,10 @@ async function loadAnalitico(){
   // Placeholders de loading
   const kpiRowEl=document.getElementById("kpiRow");
   if(kpiRowEl)kpiRowEl.innerHTML=[
-    {l:"Cliques hoje",v:"…",c:"#19E27D"},
-    {l:"Comissões estimadas",v:"—",c:"#39C0FF"},
-    {l:"Posts enviados",v:"…",c:"#FFB020"},
-    {l:"CTR médio",v:"—",c:"#FF4D8D"}
+    {l:"Cliques hoje",v:"…",c:"var(--green)"},
+    {l:"Comissões estimadas",v:"—",c:"#6FA3C4"},
+    {l:"Posts enviados",v:"…",c:"#C9A15A"},
+    {l:"CTR médio",v:"—",c:"#E2705F"}
   ].map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv" id="kpi_${k.l.replace(/\s/g,'_')}">${k.v}</div><div class="kd" id="kpid_${k.l.replace(/\s/g,'_')}" style="color:var(--mut)">carregando…</div></div>`).join("");
   try{
     // Cliques hoje
@@ -3224,9 +3274,9 @@ async function loadAnalitico(){
       const area=path+` L${x(13)},${H-26} L${x(0)},${H-26} Z`;
       let grid="",lbl="";
       for(let g=0;g<=4;g++){const v=mx*g/4,yy=y(v);grid+=`<line x1="${P}" x2="${W-8}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="3 4"/>`;lbl+=`<text x="${P-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`;}
-      const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="#19E27D" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
+      const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="var(--green)" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
       const xl=labels.map((t,i)=>i%2?"":`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${t}</text>`).join("");
-      document.getElementById("chArea").innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#19E27D" stop-opacity=".4"/><stop offset="1" stop-color="#19E27D" stop-opacity="0"/></linearGradient><linearGradient id="gr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#19E27D"/><stop offset="1" stop-color="#39C0FF"/></linearGradient></defs>${grid}${lbl}<path d="${area}" fill="url(#ga)"/><path d="${path}" fill="none" stroke="url(#gr)" stroke-width="2.6" stroke-linecap="round"/>${dots}${xl}</svg>`;
+      document.getElementById("chArea").innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--green)" stop-opacity=".4"/><stop offset="1" stop-color="var(--green)" stop-opacity="0"/></linearGradient><linearGradient id="gr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="var(--green)"/><stop offset="1" stop-color="#6FA3C4"/></linearGradient></defs>${grid}${lbl}<path d="${area}" fill="url(#ga)"/><path d="${path}" fill="none" stroke="url(#gr)" stroke-width="2.6" stroke-linecap="round"/>${dots}${xl}</svg>`;
       const tot=data.reduce((a,b)=>a+b,0);
       const chTotEl=document.getElementById("chTot");
       if(chTotEl)chTotEl.textContent=tot.toLocaleString("pt-BR")+" cliques";
@@ -3239,12 +3289,43 @@ function closeDD(){document.querySelectorAll(".dd").forEach(d=>d.classList.remov
 btnNotif.onclick=e=>{e.stopPropagation();const o=ddNotif.classList.contains("open");closeDD();ddNotif.classList.toggle("open",!o);};
 btnUser.onclick=e=>{e.stopPropagation();const o=ddUser.classList.contains("open");closeDD();ddUser.classList.toggle("open",!o);};
 document.addEventListener("click",closeDD);
-function openModal(id){document.getElementById(id).classList.add("open");}
-function closeModal(id){document.getElementById(id).classList.remove("open");}
+let _modalLastFocus=null;
+function _modalFocusables(box){
+  return [...box.querySelectorAll('button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')]
+    .filter(x=>x.offsetParent!==null);
+}
+function openModal(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  _modalLastFocus=document.activeElement;
+  el.classList.add("open");
+  if(!el.hasAttribute("role")){el.setAttribute("role","dialog");el.setAttribute("aria-modal","true");}
+  const box=el.querySelector(".modal")||el;
+  const items=_modalFocusables(box);
+  const preferred=box.querySelector("[autofocus]")||items[0]||box;
+  preferred.focus?.({preventScroll:true});
+  el._trapHandler=e=>{
+    if(e.key!=="Tab")return;
+    const list=_modalFocusables(box);
+    if(!list.length)return;
+    const first=list[0],last=list[list.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  };
+  el.addEventListener("keydown",el._trapHandler);
+}
+function closeModal(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.classList.remove("open");
+  if(el._trapHandler){el.removeEventListener("keydown",el._trapHandler);el._trapHandler=null;}
+  if(_modalLastFocus&&document.body.contains(_modalLastFocus))_modalLastFocus.focus();
+  _modalLastFocus=null;
+}
 // Modal com data-bloqueante nao fecha por clique no fundo nem por ESC. O de
 // perfil incompleto e um deles: o afterLogin faz return sem chamar enterApp, entao
 // fechar por acidente deixava o usuario numa tela em branco -- sem app e sem login.
-document.querySelectorAll(".mbg").forEach(m=>m.addEventListener("click",e=>{if(e.target===m&&!m.dataset.bloqueante)m.classList.remove("open");}));
+document.querySelectorAll(".mbg").forEach(m=>m.addEventListener("click",e=>{if(e.target===m&&!m.dataset.bloqueante)closeModal(m.id);}));
 // Rastreia botao clicado para ancorar toast proximo a ele (desktop)
 let _twAnchor=null;
 document.addEventListener('click',e=>{
@@ -3297,10 +3378,10 @@ function spark(d,c){const w=86,h=30,mx=Math.max(...d),mn=Math.min(...d);
   const p=d.map((v,i)=>(i/(d.length-1)*w).toFixed(1)+","+(h-((v-mn)/(mx-mn||1))*(h-4)-2).toFixed(1)).join(" ");
   return `<svg class="sp" width="${w}" height="${h}"><polyline points="${p}" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"/></svg>`;}
 kpiRow.innerHTML=[
-  {l:"Cliques hoje",v:"—",d:"carregando…",c:"#19E27D",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
-  {l:"Cliques 14 dias",v:"—",d:"carregando…",c:"#39C0FF",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
-  {l:"Posts enviados",v:"—",d:"carregando…",c:"#FFB020",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
-  {l:"Links rastreados",v:"—",d:"carregando…",c:"#9B7DFF",s:[0,0,0,0,0,0,0,0,0,0,0,0]}
+  {l:"Cliques hoje",v:"—",d:"carregando…",c:"var(--green)",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {l:"Cliques 14 dias",v:"—",d:"carregando…",c:"#6FA3C4",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {l:"Posts enviados",v:"—",d:"carregando…",c:"#C9A15A",s:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {l:"Links rastreados",v:"—",d:"carregando…",c:"#9B8FC9",s:[0,0,0,0,0,0,0,0,0,0,0,0]}
 ].map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv" id="kpi_${k.l.replace(/\s/g,'_')}">${k.v}</div><div class="kd" style="color:var(--mut)" id="kpid_${k.l.replace(/\s/g,'_')}">${k.d}</div>${spark(k.s,k.c)}</div>`).join("");
 
 // Abre direto o fluxo de criação de Grupo de Oferta a partir do Post Automático.
@@ -3343,10 +3424,10 @@ async function loadPostAutomatico(){
 
     // KPIs
     if(paKpis)paKpis.innerHTML=[
-      ["Total de grupos",(dbGrupos||[]).length,"#39C0FF"],
-      ["Automações ativas",ativos.length,"#19E27D"],
-      ["Disparos hoje",totalHoje,"#FFB020"],
-      ["Sucesso hoje",sucessoHoje,"#19E27D"]
+      ["Total de grupos",(dbGrupos||[]).length,"#6FA3C4"],
+      ["Automações ativas",ativos.length,"var(--green)"],
+      ["Disparos hoje",totalHoje,"#C9A15A"],
+      ["Sucesso hoje",sucessoHoje,"var(--green)"]
     ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv" style="color:${k[2]}">${k[1]}</div></div>`).join("");
 
     // Mapa de posts por grupo
@@ -3418,7 +3499,7 @@ async function loadPostAutomatico(){
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">💬 Grupos WA</span><strong>${g.grupos_wa||0}</strong></div>
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">📅 Ativo desde</span><strong>${iniciou}</strong></div>
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">🕐 Último post</span><strong style="font-size:11px">${ultimo}</strong></div>
-              ${pg.total>0?`<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">✅ Sucesso</span><strong style="color:${pg.ok===pg.total?"#19E27D":"#f59e0b"}">${pg.ok}/${pg.total}</strong></div>`:""}
+              ${pg.total>0?`<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">✅ Sucesso</span><strong style="color:${pg.ok===pg.total?"var(--green)":"var(--warn)"}">${pg.ok}/${pg.total}</strong></div>`:""}
             </div>
             ${st.detalhe?`<div style="margin:0 14px 10px;padding:6px 10px;border:1px solid var(--bd);border-left:3px solid ${autoColor};border-radius:2px;font-size:11.5px;line-height:1.5;color:var(--tx2)">${esc(st.detalhe)}${st.acao?`<br><span style="color:var(--mut)">${esc(st.acao)}</span>`:""}</div>`:""}
             <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bd)">
@@ -3523,7 +3604,7 @@ function renderAnaliticoChart(data,labels,total,tipo){
   let path="M"+x(0)+","+y(data[0]);data.forEach((v,i)=>{if(i)path+=" L"+x(i)+","+y(v);});
   const area=path+` L${x(data.length-1)},${H-26} L${x(0)},${H-26} Z`;let grid="",lbl="";
   for(let g=0;g<=4;g++){const v=Math.round(mx*g/4),yy=y(v);grid+=`<line x1="${P}" x2="${W-8}" y1="${yy}" y2="${yy}" stroke="var(--bd)" stroke-dasharray="3 4"/>`;lbl+=`<text x="${P-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v}</text>`;}
-  const color=tipo==="posts"?"#FFB020":"#19E27D";
+  const color=tipo==="posts"?"#C9A15A":"var(--green)";
   const dots=data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="${color}" stroke="var(--surf)" stroke-width="2"><title>${labels[i]}: ${v}</title></circle>`).join("");
   const xl=labels.map((t,i)=>i%2?"":`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${t}</text>`).join("");
   const gradId=tipo==="posts"?"gp":"ga";
@@ -3544,7 +3625,7 @@ function renderAnaliticoChart(data,labels,total,tipo){
     html+=`<span class="hd" style="justify-content:flex-end;padding-right:6px">${d}</span>`;
     for(let h=0;h<24;h++){
       const v=hot(di,h);
-      const bg=v<.25?"var(--surf2)":v<.5?"rgba(245,197,24,.32)":v<.75?"rgba(245,197,24,.6)":"var(--volt)";
+      const bg=v<.25?"var(--surf2)":v<.5?"rgba(255,193,7,.32)":v<.75?"rgba(255,193,7,.6)":"var(--volt)";
       html+=`<span class="hc" style="background:${bg}" title="${d} ${h}h"></span>`;
     }
   });
@@ -3657,7 +3738,7 @@ function renderOnb(){
   const done=ONB.filter(s=>s.done).length,pct=Math.round(done/ONB.length*100);
   // Renderiza items com sublinha descritiva e seta nos clicáveis
   osteps.innerHTML=ONB.map(s=>`
-    <li class="${s.done?"done":""}" style="${s.go&&!s.done?'cursor:pointer':'cursor:default'}" ${s.go&&!s.done?`onclick="go('${s.go}')"`:""}>
+    <li class="${s.done?"done":""}" style="${s.go&&!s.done?'cursor:pointer':'cursor:default'}" ${s.go&&!s.done?`role="button" tabindex="0" onclick="go('${s.go}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();go('${s.go}')}"`:""}>
       <span class="ostep"></span>
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600;color:${s.done?'var(--tx2)':'var(--tx)'}">${s.t}</div>
@@ -3931,7 +4012,7 @@ function rgUpdatePreview(){
   const grupo=S.grupos.find(g=>String(g.id)===String(gid));
   const gNomeEl=document.getElementById("rgGrupoNomePreview");
   if(gNomeEl)gNomeEl.textContent=grupo?.nome||"Grupo de Afiliados";
-  const fotoHtml=img?`<img src="${img}" style="width:100%;height:80px;object-fit:cover;border-radius:2px;margin-bottom:6px">`:'<span class="img">🛍️</span>';
+  const fotoHtml=img?`<img src="${img}" alt="" style="width:100%;height:80px;object-fit:cover;border-radius:2px;margin-bottom:6px">`:'<span class="img">🛍️</span>';
   const head=document.getElementById("rgHead")?.value||"🔥 OFERTA RELÂMPAGO 🔥";
   const emojiDe=document.getElementById("rgEmojiDe")?.value||"";
   const emojiPor=document.getElementById("rgEmojiPor")?.value||"";
@@ -4055,9 +4136,9 @@ function rrow(o){
   const lojaSourceMap={"Shopee":"Shopee","Mercado Livre":"Mercado Livre","Amazon":"Amazon","AliExpress":"AliExpress","Magalu":"Magalu","AWIN":"AWIN","Shein":"Shein","Natura":"Natura","TerabyteShop":"TerabyteShop"};
   const lojaRequerCred=lojaSourceMap.hasOwnProperty(o.loja||"");
   const temCred=!lojaRequerCred||!!(CREDS_STATE[o.loja||""]&&Object.keys(CREDS_STATE[o.loja||""]||{}).length>0);
-  const semCredBadge=!temCred?`<div style="position:absolute;top:0;left:0;right:0;background:rgba(239,68,68,.85);color:#fff;font-size:10px;font-weight:700;padding:4px 8px;text-align:center;letter-spacing:.03em">⚠️ SEM CREDENCIAL — configure em Afiliados</div>`:"";
+  const semCredBadge=!temCred?`<div style="position:absolute;top:0;left:0;right:0;background:rgba(226,112,95,.85);color:#fff;font-size:10px;font-weight:700;padding:4px 8px;text-align:center;letter-spacing:.03em">⚠️ SEM CREDENCIAL — configure em Afiliados</div>`:"";
   const dataAttr=`data-oferta='${JSON.stringify(o).replace(/'/g,"&#39;")}'`;
-  return `<div class="radar-card ${novaFlag}" style="${!temCred?"border-color:rgba(239,68,68,.5)":""}">
+  return `<div class="radar-card ${novaFlag}" style="${!temCred?"border-color:rgba(226,112,95,.5)":""}">
     <div class="radar-card-img" style="position:relative">${imgHtml}${discBadge}${scoreBadge}${semCredBadge}</div>
     <div class="radar-card-body">
       <div class="radar-card-title">${o.p||"Produto"}</div>
@@ -4069,11 +4150,11 @@ function rrow(o){
         ${(o.de&&o.de>por)?`<span class="de">R$ ${o.de.toFixed(2).replace(".",",")}</span>`:""}
         <span class="por">R$ ${por.toFixed(2).replace(".",",")}</span>
       </div>
-      ${!temCred?`<div style="font-size:11px;color:#ef4444;background:rgba(239,68,68,.1);border-radius:2px;padding:5px 8px;line-height:1.4">⚠️ Sem credencial para <strong>${o.loja}</strong>. Postar agora não vai gerar comissão. <a href="#" onclick="setRole('afiliado');go('config-afiliados');return false" style="color:#ef4444;font-weight:700;text-decoration:underline">Configurar</a></div>`:""}
+      ${!temCred?`<div style="font-size:11px;color:var(--red);background:rgba(226,112,95,.1);border-radius:2px;padding:5px 8px;line-height:1.4">⚠️ Sem credencial para <strong>${o.loja}</strong>. Postar agora não vai gerar comissão. <a href="#" onclick="setRole('afiliado');go('config-afiliados');return false" style="color:var(--red);font-weight:700;text-decoration:underline">Configurar</a></div>`:""}
       <div class="radar-card-actions">
         ${temCred
           ?`<button class="btn btn-volt btn-sm" ${dataAttr} onclick="postarOferta(JSON.parse(this.dataset.oferta.replace(/&#39;/g,&quot;'&quot;)))">⚡ Postar</button>`
-          :`<button class="btn btn-sm" style="flex:1;justify-content:center;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);cursor:default" title="Configure suas credenciais de ${o.loja} em Config Afiliados para postar com comissão" onclick="setRole('afiliado');go('config-afiliados')">🔒 Configurar</button>`
+          :`<button class="btn btn-sm" style="flex:1;justify-content:center;background:rgba(226,112,95,.15);color:var(--red);border:1px solid rgba(226,112,95,.3);cursor:default" title="Configure suas credenciais de ${o.loja} em Config Afiliados para postar com comissão" onclick="setRole('afiliado');go('config-afiliados')">🔒 Configurar</button>`
         }
         <button class="btn btn-gold btn-sm" ${dataAttr} onclick="abrirAdicionarGrupo(JSON.parse(this.dataset.oferta.replace(/&#39;/g,&quot;'&quot;)))" title="Adicionar a um Grupo de Oferta">📦 Grupo</button>
         ${o.link?`<a class="btn btn-ghost btn-sm" href="${o.link}" target="_blank" rel="noopener" title="Abrir no site">↗</a>`:""}
@@ -4872,15 +4953,17 @@ function waQuedaBarra(mostrar){
   if(!wrap)return;
   el=document.createElement("div");
   el.id="waQuedaAlerta";
-  el.style.cssText="position:sticky;top:0;z-index:60;margin:0 0 14px;padding:14px 16px;border-radius:12px;border:1px solid #ff4d4f;background:linear-gradient(90deg,rgba(255,77,79,.18),rgba(255,77,79,.06));display:flex;gap:12px;align-items:center;flex-wrap:wrap;box-shadow:0 6px 24px rgba(255,77,79,.18)";
-  el.innerHTML='<span style="font-size:22px" id="waQuedaIco">🚨</span>'
-    +'<div style="flex:1;min-width:220px"><div style="font-weight:800;color:#ff6b6d;letter-spacing:.2px">SUA CONEXÃO DO WHATSAPP CAIU</div>'
+  el.style.cssText="position:sticky;top:0;z-index:60;margin:0 0 14px;padding:14px 16px;border-radius:var(--r-sm);border:1px solid var(--red);background:var(--red-soft);display:flex;gap:12px;align-items:center;flex-wrap:wrap;box-shadow:none";
+  el.innerHTML='<svg id="waQuedaIco" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+    +'<div style="flex:1;min-width:220px"><div style="font-weight:700;color:var(--red);letter-spacing:.2px">SUA CONEXÃO DO WHATSAPP CAIU</div>'
     +'<div style="font-size:13px;color:var(--tx2);margin-top:2px">Enquanto ela estiver fora, <strong>nada é enviado</strong>: posts automáticos, Clone Post e disparos para grupos ficam parados. Pareie o número de novo — leva 30 segundos.</div></div>'
-    +'<button class="btn btn-volt" onclick="go(\'conexao\')">📲 Parear agora</button>';
+    +'<button class="btn btn-volt" onclick="go(\'conexao\')">Parear agora</button>';
   wrap.insertBefore(el,wrap.firstChild);
-  // Pisca discreto: chama atencao sem virar carrossel de CSS.
-  let on=true;
-  el._blink=setInterval(()=>{const i=document.getElementById("waQuedaIco");if(!i){clearInterval(el._blink);return;}i.style.opacity=(on=!on)?"1":".25";},700);
+  // Pisca discreto: chama atencao sem virar carrossel de CSS. Respeita reduced-motion.
+  if(!window.matchMedia||!window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+    let on=true;
+    el._blink=setInterval(()=>{const i=document.getElementById("waQuedaIco");if(!i){clearInterval(el._blink);return;}i.style.opacity=(on=!on)?"1":".35";},700);
+  }
 }
 async function waQuedaCheck(){
   try{
@@ -5137,7 +5220,7 @@ function waBotoes(l,estado){
   const p=waPrincipal();
   const ehPrincipal=p&&p.id===l.id;
   const rec='<button class="btn btn-volt btn-sm" onclick="waReconectar(\''+l.phone.replace(/'/g,"")+'\')">⟳ Reconectar</button>';
-  const desc='<button class="btn btn-ghost btn-sm" style="color:#ef4444;border-color:#ef4444" onclick="waDesconectar(\''+l.id+'\')">Desconectar</button>';
+  const desc='<button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red)" onclick="waDesconectar(\''+l.id+'\')">Desconectar</button>';
   const rem='<button class="btn btn-ghost btn-sm" style="color:var(--mut)" onclick="waRemoverInstancia(\''+l.id+'\')">🗑 Remover</button>';
   const princ=(!ehPrincipal&&estado==="online")?'<button class="btn btn-ghost btn-sm" onclick="waDefinirPrincipal(\''+l.id+'\')">★ Tornar principal</button>':'';
   if(estado==="online")return princ+desc;
@@ -5147,8 +5230,8 @@ function waBotoes(l,estado){
   return desc+rem;
 }
 
-const WA_DICA_QUEDA='<div style="width:100%;margin-bottom:8px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.3);border-radius:2px;padding:10px 12px;font-size:12px;line-height:1.6;display:flex;gap:8px;align-items:flex-start">'
-  +'<span style="font-size:18px">⚠️</span><div><strong style="color:#ef4444">Sessão derrubada?</strong><br>'
+const WA_DICA_QUEDA='<div style="width:100%;margin-bottom:8px;background:rgba(226,112,95,.10);border:1px solid rgba(226,112,95,.3);border-radius:2px;padding:10px 12px;font-size:12px;line-height:1.6;display:flex;gap:8px;align-items:flex-start">'
+  +'<span style="font-size:18px">⚠️</span><div><strong style="color:var(--red)">Sessão derrubada?</strong><br>'
   +'✅ <strong>Celular</strong> pode ficar ligado normalmente — não interfere.<br>'
   +'⚠️ <strong>WA Desktop ou WA Web</strong> aberto no celular derruba esta sessão. Feche-os antes de reconectar.'
   +'<br><small style="color:var(--mut)">Se Reconectar não funcionar, o WhatsApp invalidou as credenciais remotamente — use Gerar QR Code.</small></div></div>';
@@ -5532,17 +5615,17 @@ function renderGrupos(){const has=S.grupos.length>0;
 
     // WA status
     const waOk=S.waConnected&&((g.grupos_wa||0)>0||(g.canais||0)>0);
-    const waColor=waOk?"#22c55e":"#ef4444";
+    const waColor=waOk?"var(--green)":"var(--red)";
     const waLabel=!S.waConnected?"DESCONECTADO":waOk?`💬 ${g.grupos_wa||0} · 📣 ${g.canais||0}`:"SEM DESTINOS";
 
     // Telegram status
     const tgOk=(g.telegram||0)>0;
-    const tgColor=tgOk?"#22c55e":"#ef4444";
-    const tgLabel=tgOk?`${g.telegram} canal${g.telegram>1?"is":""}`:"DESCONECTADO";
+    const tgColor=tgOk?"var(--green)":"var(--red)";
+    const tgLabel=tgOk?`${g.telegram} ${g.telegram>1?"canais":"canal"}`:"DESCONECTADO";
 
     // Produtos
     const prodOk=(g.produtos||0)>0;
-    const prodColor=prodOk?"#22c55e":"#ef4444";
+    const prodColor=prodOk?"var(--green)":"var(--red)";
 
     // Produtos que existem no grupo mas nao estao entrando no rodizio agora.
     // Sem isso eles somem do disparo em silencio -- o grupo so fica mais quieto.
@@ -5602,7 +5685,7 @@ function renderGrupos(){const has=S.grupos.length>0;
         </div>
       </div>
       ${(stDisp.nivel==="erro"||stDisp.nivel==="espera")?`<div style="margin:0 16px 10px;padding:6px 10px;border:1px solid var(--bd);border-left:3px solid ${autoColor};border-radius:2px;font-size:11.5px;line-height:1.5;color:var(--tx2)">${stDisp.icone} ${esc(stDisp.detalhe)}${stDisp.acao?`<br><span style="color:var(--mut)">${esc(stDisp.acao)}</span>`:""}</div>`:""}
-      ${(foraRodizio||g.prodAgendados)?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:2px;font-size:11px;color:#f59e0b;cursor:pointer" onclick="editarGrupo('${g.id}')" title="Estes produtos continuam cadastrados, mas não estão sendo postados agora. Clique para abrir o grupo.">⏳ Fora do rodízio: ${detalhesFora}</div>`:""}
+      ${(foraRodizio||g.prodAgendados)?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(201,161,90,.08);border:1px solid rgba(201,161,90,.25);border-radius:2px;font-size:11px;color:var(--warn);cursor:pointer" onclick="editarGrupo('${g.id}')" title="Estes produtos continuam cadastrados, mas não estão sendo postados agora. Clique para abrir o grupo.">⏳ Fora do rodízio: ${detalhesFora}</div>`:""}
       <!-- Botões de ação — Editar configura; ligar/pausar é atalho para o Post. Automático (REVISÃO 161). -->
       <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bd)">
         <button class="btn btn-volt btn-sm" style="flex:1;justify-content:center" onclick="editarGrupo('${g.id}')">✏️ Editar</button>
@@ -5712,7 +5795,7 @@ function dispararGrupoMostrarErros(nomeGrupo,d){
     </div>`;
   }).join("")||"<p style='color:var(--mut);font-size:12.5px'>Sem detalhes por destino.</p>";
   const bodyHtml=`<div style="padding:16px">
-    <p style="margin-bottom:10px;font-size:13px">"${esc(nomeGrupo)}" disparado com <b>${d.sent||0}</b> envio(s) e <b style="color:#ef4444">${d.failed||0}</b> falha(s) de ${d.products||0} produto(s).</p>
+    <p style="margin-bottom:10px;font-size:13px">"${esc(nomeGrupo)}" disparado com <b>${d.sent||0}</b> envio(s) e <b style="color:var(--red)">${d.failed||0}</b> falha(s) de ${d.products||0} produto(s).</p>
     <div style="font-weight:700;font-size:12.5px;margin-bottom:8px">Destinos com falha:</div>
     ${listaHtml}
   </div>`;
@@ -5721,7 +5804,7 @@ function dispararGrupoMostrarErros(nomeGrupo,d){
     modal=document.createElement("div");
     modal.className="mbg";modal.id="modalDisparoErros";
     modal.innerHTML=`<div class="modal" style="max-width:520px">
-      <div class="mh">⚠️ Resultado do disparo <button class="mx" onclick="closeModal('modalDisparoErros')">×</button></div>
+      <div class="mh">⚠️ Resultado do disparo <button class="mx" aria-label="Fechar" onclick="closeModal('modalDisparoErros')">×</button></div>
       <div id="modalDisparoErrosBody"></div>
     </div>`;
     document.body.appendChild(modal);
@@ -5828,7 +5911,7 @@ function grupoStatusDisparo(g){
   const quando=prox<=Date.now()?"a qualquer momento":"por volta das "+new Date(prox).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
   return R("ok","🟢","Postando",`A cada ${iv} min — próximo ${quando}${restam}.`);
 }
-const GRUPO_STATUS_COR={ok:"#22c55e",espera:"#f59e0b",pausa:"var(--mut)",erro:"#ef4444",manual:"var(--mut)"};
+const GRUPO_STATUS_COR={ok:"var(--green)",espera:"var(--warn)",pausa:"var(--mut)",erro:"var(--red)",manual:"var(--mut)"};
 const GRUPO_STATUS_ALERTA={ok:"g",espera:"y",pausa:"b",erro:"r",manual:"b"};
 // Faixa completa (topo do Editar Grupo).
 function grupoStatusFaixa(g){
@@ -5851,7 +5934,7 @@ function renderPgAutoAtalho(){
   }
   const gid=g.db_id||g.id;
   el.innerHTML=`<span style="font-weight:600">⚡ Post Automático:</span>
-    <strong style="color:${g.postAuto?"#22c55e":"var(--mut)"}">${g.postAuto?"ligado":"desligado"}</strong>
+    <strong style="color:${g.postAuto?"var(--green)":"var(--mut)"}">${g.postAuto?"ligado":"desligado"}</strong>
     <span style="font-size:12px;color:var(--mut);flex:1;min-width:180px">Liga e pausa na tela Post. Automático. Aqui você só configura como ele posta.</span>
     <button type="button" class="btn btn-sm ${g.postAuto?"btn-ghost":"btn-volt"}" onclick="abrirPostAutomatico('${gid}')">${g.postAuto?"⏸ Pausar":"▶ Ligar"} no Post. Automático →</button>`;
 }
@@ -5869,8 +5952,8 @@ geral:`
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:6px"><input type="checkbox" id="pgNaoRepetir" style="width:auto" onchange="pgNaoRepetirAlerta()"> 🚫 Não repetir produto <small style="color:var(--mut);font-weight:400">(produto que já saiu hoje neste grupo não sai de novo hoje — amanhã ele volta ao rodízio)</small></label>
       <div id="pgNaoRepetirAviso" class="alert y" style="display:none;margin:0 0 14px"></div>
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgExcluirAposPostar" style="width:auto" onchange="pgNaoRepetirAlerta()"> 🗑️ Excluir automaticamente após postar <small style="color:var(--mut);font-weight:400">(some do grupo assim que sai no disparo — libera espaço pra cadastrar produtos novos. Não tem desfazer.)</small></label>
-      <div style="border:1px solid var(--bd);border-radius:2px;padding:11px 12px;margin-bottom:14px;background:rgba(139,92,246,.07)">
-        <label style="display:flex;gap:9px;align-items:center;font-weight:600"><input type="checkbox" id="pgSmart" style="width:auto" onchange="pgSmartAplicar()"> 🧠 Horários Inteligentes <span class="pill" style="background:rgba(139,92,246,.18);color:#A78BFA;flex:none;font-size:10px;padding:1px 7px">ELITE+</span></label>
+      <div style="border:1px solid var(--bd);border-radius:2px;padding:11px 12px;margin-bottom:14px;background:var(--volt-soft)">
+        <label style="display:flex;gap:9px;align-items:center;font-weight:600"><input type="checkbox" id="pgSmart" style="width:auto" onchange="pgSmartAplicar()"> 🧠 Horários Inteligentes <span class="pill" style="background:var(--volt);color:var(--volt-fg);flex:none;font-size:10px;padding:1px 7px">ELITE+</span></label>
         <div style="font-size:12px;color:var(--tx2);margin-top:7px;line-height:1.65">Posta só nas janelas de maior audiência, dividindo seus produtos entre elas. <strong>Substitui intervalo e horário.</strong><br>${SMART_JANELAS.map(j=>j.rot).join(" · ")} <small style="color:var(--mut)">(a última é a melhor)</small><br>Até ${SMART_MAX_DIA} posts/dia, no mínimo ${SMART_PISO_MIN} min entre um e outro. O que não couber hoje entra amanhã.</div>
         <label id="pgSmartFdsBox" style="display:none;gap:9px;align-items:center;margin-top:10px;font-size:13px"><input type="checkbox" id="pgSmartFds" style="width:auto"> Aplicar também no fim de semana <small style="color:var(--mut)">(sem isso, sáb e dom não postam)</small></label>
       </div>
@@ -5907,7 +5990,7 @@ geral:`
   <!-- Clone Post — aprovação automática por grupo de destino -->
   <div class="card" style="margin-top:14px"><div class="ch">🤖 Clone Post — captura automática deste grupo</div><div class="cb">
     <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:10px"><input type="checkbox" id="pgCloneAutoApprove" style="width:auto" onchange="pgCloneAutoApproveAlerta()"> ✅ Aprovação Automática <small style="color:var(--mut);font-weight:400">(ofertas capturadas por Fonte automática que a loja confirmar vão direto pro rodízio deste grupo, sem passar pela fila de revisão)</small></label>
-    <div id="pgCloneAutoApproveAlerta" style="display:none;border:2px solid #ef4444;border-radius:2px;padding:12px 14px;background:rgba(239,68,68,.12)">
+    <div id="pgCloneAutoApproveAlerta" style="display:none;border:2px solid var(--red);border-radius:2px;padding:12px 14px;background:rgba(226,112,95,.12)">
       <div style="display:flex;gap:10px;align-items:flex-start">
         <span style="font-size:22px;line-height:1">⚠️</span>
         <span style="font-size:12.5px;line-height:1.65;color:var(--tx)"><strong>Atenção: com isso ligado, o que a Fonte capturar entra no seu grupo sozinho, sem você revisar antes.</strong><br>
@@ -5917,7 +6000,7 @@ geral:`
   </div></div>
   <!-- Presets salvos -->
   <div class="card" style="margin-top:0"><div class="ch">💾 Pré-configurações salvas <span class="r"><button class="btn btn-volt btn-sm" onclick="pgSalvarPreset()">＋ Salvar configuração atual</button></span></div>
-    <div class="cb" id="pgPresetList"><p style="color:var(--mut);font-size:13px">Nenhuma configuração salva ainda. Configure acima e clique em "Salvar configuração atual".</p></div>
+    <div class="cb" id="pgPresetList"><div style="text-align:center;padding:24px 20px"><div style="font-size:32px;margin-bottom:8px">💾</div><h3 style="margin-bottom:6px;font-size:14px">Nenhuma configuração salva ainda</h3><p style="color:var(--tx2);font-size:13px">Configure acima e clique em <strong>＋ Salvar configuração atual</strong> para reaproveitar depois.</p></div></div>
   </div>
   <div style="display:flex;gap:10px;align-items:center">
     <button class="btn btn-volt" onclick="salvarGeral()">💾 Salvar configurações</button>
@@ -5945,7 +6028,7 @@ recados:`
     <button class="btn btn-volt" onclick="rgAdicionar()">➕ Adicionar</button>
   </div></div>
   <div class="card"><div class="ch">📋 Itens deste grupo <span class="r"><button class="btn btn-ghost btn-sm" onclick="rgCarregar()">↻ Atualizar</button></span></div>
-    <div class="cb" id="rgLista"><p style="color:var(--mut);text-align:center;padding:20px">Carregando…</p></div></div>`,
+    <div class="cb" id="rgLista"><div class="skel-list" role="status"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div></div></div>`,
 wacanais:`
   <div class="alert ${"b"}" id="wcAlert">ℹ️ Vincule um <strong>Canal do WhatsApp</strong> a este grupo. O número conectado precisa ser <strong>Dono</strong> ou <strong>Admin</strong> do canal.</div>
   <div class="card"><div class="ch">🔗 Vincular canal <span class="r" id="wcConn"></span></div><div class="cb">
@@ -5953,11 +6036,11 @@ wacanais:`
     <button class="btn btn-volt" id="wcBuscar">Buscar canal</button>
     <div id="wcResult" style="margin-top:14px"></div>
   </div></div>
-  <div class="card"><div class="ch">📡 Canais vinculados</div><div class="cb" id="wcList"><p style="color:var(--mut);text-align:center;padding:20px">Nenhum canal vinculado ainda.</p></div></div>`,
+  <div class="card"><div class="ch">📡 Canais vinculados</div><div class="cb" id="wcList"><div style="text-align:center;padding:24px 20px"><div style="font-size:32px;margin-bottom:8px">📡</div><h3 style="margin-bottom:6px;font-size:14px">Nenhum canal vinculado ainda</h3><p style="color:var(--tx2);font-size:13px">Vincule um grupo ou canal acima para este Grupo de Oferta começar a postar.</p></div></div></div>`,
 ia:`
   <div class="alert y">🧪 <strong>MegaIA — BETA.</strong> Reescreve e formata suas mensagens automaticamente para converter mais.</div>
   <div class="g2"><div class="card" style="margin:0"><div class="ch">Antes</div><div class="cb"><div class="msg ai" style="max-width:100%">fone bluetooth barato 9,99 link https://loja.com aproveita</div></div></div>
-  <div class="card" style="margin:0"><div class="ch" style="color:var(--volt-tx)">Depois (com IA)</div><div class="cb"><div class="msg ai" style="max-width:100%;border-color:rgba(25,226,125,.4)">🎧 <b>FONE BLUETOOTH XYZ</b>\n💸 Apenas <b>R$ 9,99 no Pix</b>\n⚡ Estoque limitado!\n👉 shope.ee/abc</div></div></div></div>
+  <div class="card" style="margin:0"><div class="ch" style="color:var(--volt-tx)">Depois (com IA)</div><div class="cb"><div class="msg ai" style="max-width:100%;border-color:rgba(127,185,141,.4)">🎧 <b>FONE BLUETOOTH XYZ</b>\n💸 Apenas <b>R$ 9,99 no Pix</b>\n⚡ Estoque limitado!\n👉 shope.ee/abc</div></div></div></div>
   <div style="display:flex;gap:10px;margin-top:12px"><button class="btn btn-volt" onclick="toast('Preferência de IA salva!')">Ativar IA</button><button class="btn btn-ghost" onclick="openDrawer()">✨ Abrir MegaIA</button></div>`,
 site:`<div class="card"><div class="cb locked"><div class="li">🚀</div><h3 style="margin-bottom:6px">Site de ofertas — upgrade necessário</h3><p style="color:var(--tx2);max-width:430px;margin:0 auto 16px">Publique seus produtos em um site próprio. A partir do plano PRO.</p><button class="btn btn-gold" onclick="setRole('afiliado');go('assinatura')">Fazer upgrade</button></div></div>`,
 wagrupos:`<div id="wagruposPane"></div>`,
@@ -6041,7 +6124,7 @@ manual:`
         </div>
       </div>
       <!-- Agendamento -->
-      <div class="card" style="margin:0 0 14px;border-color:rgba(245,197,24,.3);background:rgba(245,197,24,.05)">
+      <div class="card" style="margin:0 0 14px;border-color:rgba(255,193,7,.3);background:rgba(255,193,7,.05)">
         <div class="ch" style="font-size:12px;padding:10px 14px">📅 Agendamento <small style="color:var(--mut);font-weight:400">(opcional)</small></div>
         <div class="cb" style="padding-top:0">
           <div class="g2" style="gap:10px">
@@ -6191,7 +6274,7 @@ async function rgCarregar(){
   const el=document.getElementById("rgLista");if(!el)return;
   const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
   if(!gid){el.innerHTML="";return;}
-  el.innerHTML=`<p style="color:var(--mut);text-align:center;padding:20px">Carregando…</p>`;
+  el.innerHTML=`<div class="skel-list" role="status"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div>`;
   const{data,error}=await SB.from("niche_group_extras").select("*").eq("niche_group_id",gid).order("ordem");
   if(error){el.innerHTML=`<p style="color:var(--mut);text-align:center;padding:20px">Erro ao carregar: ${error.message}</p>`;return;}
   if(!data||!data.length){el.innerHTML=`<p style="color:var(--mut);text-align:center;padding:20px">Nenhum recado ou cupom cadastrado ainda.</p>`;return;}
@@ -6260,7 +6343,7 @@ async function impBuscarLink(id){
     const body=document.getElementById(`imp_${id}_body`);
     const prev=document.getElementById(`imp_${id}_preview`);
     if(body)body.innerHTML=`<div class="prod" style="align-items:center">
-      <div class="pimg">${window._impData[id].image_url?`<img src="${window._impData[id].image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:2px">`:"🛒"}</div>
+      <div class="pimg">${window._impData[id].image_url?`<img src="${window._impData[id].image_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:2px">`:"🛒"}</div>
       <div style="flex:1"><strong>${window._impData[id].title}</strong><br>
       <small style="color:var(--mut)">${precoOrigNum?`De R$ ${String(precoOrigNum).replace(".",",")} · `:""}${precoAtualNum?`Por R$ ${String(precoAtualNum).replace(".",",")}`:""} ${window._impData[id].discount_pct?" · "+window._impData[id].discount_pct+"% OFF":""}</small></div>
     </div>`;
@@ -6327,7 +6410,7 @@ function buildTabs(){
     const grupo=TAB_GROUPS.find(g=>g.id===_currentTabL1)||TAB_GROUPS[0];
     tabsBar.innerHTML=grupo.tabs.map((t,i)=>{
       const count=_tabProdCounts[t.id]||0;
-      const countBadge=count>0?`<span style="margin-left:4px;font-size:10px;background:var(--volt);color:#0c0c0e;padding:1px 5px;border-radius:2px;font-weight:700">${count}</span>`:"";
+      const countBadge=count>0?`<span style="margin-left:4px;font-size:10px;background:var(--volt);color:var(--volt-fg);padding:1px 5px;border-radius:2px;font-weight:700">${count}</span>`:"";
       return `<button class="tab${i===0?" active":""}" data-tab="${t.id}">${t.label}${t.novo?'<span class="tag-new">NEW</span>':""}${countBadge}</button>`;
     }).join("");
     // mostra só a primeira pane da categoria; esconde todas
@@ -6402,7 +6485,7 @@ function buildTabs(){
     const hasAuto=!!(window._planHasPostAuto);
     if(!hasAuto){
       const gp=document.getElementById("pane-geral");
-      if(gp&&!gp.querySelector(".gate-banner")){const b=document.createElement("div");b.className="gate-banner";b.style.cssText="background:rgba(255,176,32,.12);border:1px solid rgba(255,176,32,.4);border-radius:2px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:14px;font-size:13px";b.innerHTML=`<span style="font-size:20px">🔒</span><span style="flex:1">Automação de posts disponível a partir do plano <strong>Pro (R$\u00a099,90/mês)</strong>.</span><button class="btn btn-gold btn-sm" onclick="go('assinatura')">Ver planos</button>`;gp.prepend(b);}
+      if(gp&&!gp.querySelector(".gate-banner")){const b=document.createElement("div");b.className="gate-banner";b.style.cssText="background:rgba(201,161,90,.12);border:1px solid rgba(201,161,90,.4);border-radius:2px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:14px;font-size:13px";b.innerHTML=`<span style="font-size:20px">🔒</span><span style="flex:1">Automação de posts disponível a partir do plano <strong>Pro (R$\u00a099,90/mês)</strong>.</span><button class="btn btn-gold btn-sm" onclick="go('assinatura')">Ver planos</button>`;gp.prepend(b);}
     }else{
       const gp=document.getElementById("pane-geral");if(gp){const bann=gp.querySelector(".gate-banner");if(bann)bann.remove();}
     }
@@ -6557,7 +6640,7 @@ function pgSalvarPreset(){
 function pgRenderPresets(){
   const el=document.getElementById("pgPresetList");if(!el)return;
   const presets=JSON.parse(localStorage.getItem("mlbr_presets")||"[]");
-  if(!presets.length){el.innerHTML='<p style="color:var(--mut);font-size:13px">Nenhuma configuração salva ainda.</p>';return;}
+  if(!presets.length){el.innerHTML='<div style="text-align:center;padding:24px 20px"><div style="font-size:32px;margin-bottom:8px">💾</div><h3 style="margin-bottom:6px;font-size:14px">Nenhuma configuração salva ainda</h3><p style="color:var(--tx2);font-size:13px">Configure acima e clique em <strong>＋ Salvar configuração atual</strong> para reaproveitar depois.</p></div>';return;}
   el.innerHTML=presets.map((p,i)=>`
     <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:2px">
       <div style="flex:1">
@@ -6601,7 +6684,7 @@ async function wireWaCanais(){
       canaisVinc=data.map(r=>({db_id:r.id,nome:r.name,role:(r.role||"owner").toUpperCase(),link:r.channel_link||"",whatsappId:r.channel_whatsapp_id||null}));
       S.grupoAtual.canais=canaisVinc.length;
       const wcList=document.getElementById("wcList");
-      if(wcList)wcList.innerHTML=canaisVinc.length?canaisVinc.map(renderCanalItem).join(""):'<p style="color:var(--mut);text-align:center;padding:20px">Nenhum canal vinculado ainda.</p>';
+      if(wcList)wcList.innerHTML=canaisVinc.length?canaisVinc.map(renderCanalItem).join(""):'<div style="text-align:center;padding:24px 20px"><div style="font-size:32px;margin-bottom:8px">📡</div><h3 style="margin-bottom:6px;font-size:14px">Nenhum canal vinculado ainda</h3><p style="color:var(--tx2);font-size:13px">Vincule um grupo ou canal acima para este Grupo de Oferta começar a postar.</p></div>';
     }
   }
   const btn=document.getElementById("wcBuscar");
@@ -6667,7 +6750,7 @@ async function vincularCanal(nome,link,whatsappId,papelReal){
   const totalCanais=S.grupos.reduce((a,g)=>a+(g.canais||0),0);
   if(totalCanais>=maxCh){
     const f=myFeatures();
-    toast(`Limite de ${maxCh} canal${maxCh>1?"is":""} WA do plano ${f.label} atingido. Faça upgrade!`,"⚠️");
+    toast(`Limite de ${maxCh} ${maxCh>1?"canais":"canal"} WA do plano ${f.label} atingido. Faça upgrade!`,"⚠️");
     go("assinatura");return;
   }
   const uid=CURRENT_USER?.id;
@@ -6845,7 +6928,7 @@ function renderWgDisp(grupos,filtro){
       // Mostra por qual numero o grupo dispara so quando ha mais de uma
       // conexao — com uma so, so poluiria a linha sem informar nada novo.
       const viaTel=(vinculado&&INSTANCIAS.length>1)?(()=>{const inst=INSTANCIAS.find(l=>l.id===wgVinculados[vincIdx]?.instance_id);return inst?` · via ${inst.phone}`:"";})():"";
-      return `<div class="prod" style="${vinculado?'background:rgba(245,197,24,.06);border-radius:2px;padding:8px':''}">
+      return `<div class="prod" style="${vinculado?'background:rgba(255,193,7,.06);border-radius:2px;padding:8px':''}">
         <div class="pimg">💬</div>
         <div style="flex:1"><strong>${nome}</strong><br>
           <small style="color:var(--mut)">${part} participantes · ${gid.split("@")[0]}${viaTel}</small>
@@ -6907,7 +6990,7 @@ function renderMn(){
   if(!el)return;
   el.innerHTML=mnProds.length?mnProds.map((p,i)=>`
     <div class="prod">
-      <div class="pimg">${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:2px">`:"📦"}</div>
+      <div class="pimg">${p.foto?`<img src="${p.foto}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:2px">`:"📦"}</div>
       <div style="flex:1">
         <strong>${p.nome}</strong><br>
         <small style="color:var(--mut)">${p.preco?`R$ ${p.preco} · `:""}${p.desc||""}</small><br>
@@ -7129,7 +7212,7 @@ async function wireProdLista(){
   const el=document.getElementById("prodListaBody");if(!el)return;
   const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
   if(!gid){el.innerHTML='<p style="color:var(--mut);text-align:center;padding:28px">Salve o grupo primeiro.</p>';return;}
-  el.innerHTML='<p style="color:var(--mut);text-align:center;padding:28px">Carregando…</p>';
+  el.innerHTML='<div class="skel-list" role="status"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div>';
   const{data,error}=await SB.from("products").select("*").eq("niche_group_id",gid).order("position");
   if(error||!data){el.innerHTML=`<p style="color:var(--red);text-align:center;padding:28px">Erro: ${error?.message||"desconhecido"}</p>`;return;}
   S.grupoAtual.produtos=data.length;renderGrupos();
@@ -7140,7 +7223,7 @@ async function wireProdLista(){
     const{count,error:e2}=await SB.from("products").select("id",{count:"exact",head:true}).eq("user_id",CURRENT_USER.id);
     if(!e2&&typeof count==="number")totalConta=count;
   }
-  loadTabProdCounts().then(()=>{const grupo=TAB_GROUPS.find(g=>g.id===_currentTabL1)||TAB_GROUPS[0];tabsBar.innerHTML=grupo.tabs.map((t,i)=>{const count=_tabProdCounts[t.id]||0;const countBadge=count>0?`<span style="margin-left:4px;font-size:10px;background:var(--volt);color:#0c0c0e;padding:1px 5px;border-radius:2px;font-weight:700">${count}</span>`:"";return `<button class="tab${tabsBar.querySelector('.tab.active')?.dataset.tab===t.id?" active":""}" data-tab="${t.id}">${t.label}${t.novo?'<span class="tag-new">NEW</span>':""}${countBadge}</button>`;}).join(""); tabsBar.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{tabsBar.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".tp").forEach(p=>p.classList.toggle("on",p.id==="pane-"+b.dataset.tab));if(b.dataset.tab==="wagrupos")wireWaGrupos();if(b.dataset.tab==="prod-meus")wireProdLista();if(MARKET_STORES.some(s=>s.id===b.dataset.tab))impRenderAlert(b.dataset.tab);if(b.dataset.tab==="prod-add"){wireProdAdd();prodIdeaisCalc();prodCupomTipoChange();}});});
+  loadTabProdCounts().then(()=>{const grupo=TAB_GROUPS.find(g=>g.id===_currentTabL1)||TAB_GROUPS[0];tabsBar.innerHTML=grupo.tabs.map((t,i)=>{const count=_tabProdCounts[t.id]||0;const countBadge=count>0?`<span style="margin-left:4px;font-size:10px;background:var(--volt);color:var(--volt-fg);padding:1px 5px;border-radius:2px;font-weight:700">${count}</span>`:"";return `<button class="tab${tabsBar.querySelector('.tab.active')?.dataset.tab===t.id?" active":""}" data-tab="${t.id}">${t.label}${t.novo?'<span class="tag-new">NEW</span>':""}${countBadge}</button>`;}).join(""); tabsBar.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{tabsBar.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".tp").forEach(p=>p.classList.toggle("on",p.id==="pane-"+b.dataset.tab));if(b.dataset.tab==="wagrupos")wireWaGrupos();if(b.dataset.tab==="prod-meus")wireProdLista();if(MARKET_STORES.some(s=>s.id===b.dataset.tab))impRenderAlert(b.dataset.tab);if(b.dataset.tab==="prod-add"){wireProdAdd();prodIdeaisCalc();prodCupomTipoChange();}});});
   if(!data.length){el.innerHTML='<p style="color:var(--mut);text-align:center;padding:28px">Nenhum produto cadastrado ainda.<br>Use a aba <strong>➕ Adicionar</strong> para começar.</p>';return;}
 
   // ─── Cabeçalho: quantos, de quanto, e o que está velho ───
@@ -7196,7 +7279,7 @@ async function wireProdLista(){
       <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
         <span style="font-size:15px;font-weight:700">${data.length} produto${data.length===1?"":"s"} neste grupo</span>
         <span style="font-size:12.5px;color:var(--tx2)">${semTeto?`· ${totalConta} na conta · sem teto`:`· <b>${totalConta}</b> de <b>${max}</b> na conta`}</span>
-        ${foraDoAr?`<span class="pill" style="background:rgba(255,81,104,.12);color:var(--red)">${foraDoAr} fora do ar</span>`:""}
+        ${foraDoAr?`<span class="pill" style="background:rgba(226,112,95,.12);color:var(--red)">${foraDoAr} fora do ar</span>`:""}
       </div>
       ${semTeto?"":`<div style="height:6px;background:var(--surf2,var(--bg2));border-radius:99px;overflow:hidden;margin-top:8px"><div style="height:100%;width:${pct}%;background:${corBarra};transition:width .3s"></div></div>`}
       ${avisoTeto}
@@ -7285,10 +7368,10 @@ function prodPintarLista(){
     <div class="prod" style="align-items:center${fora?";opacity:.6":""}">
       <input type="checkbox" class="prod-chk" value="${p.id}" ${PROD_SEL.has(String(p.id))?"checked":""} onchange="prodSelItem('${p.id}',this.checked)" title="Selecionar para apagar" style="width:auto;margin:0 2px 0 0;flex:none;cursor:pointer">
       <span class="prod-num" style="color:var(--mut);font-size:11.5px;font-variant-numeric:tabular-nums;min-width:34px;text-align:right;flex:none">${i+1}.</span>
-      <div class="pimg">${p.image_url?`<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:2px${fora?";filter:grayscale(1)":""}">`:"📦"}</div>
+      <div class="pimg">${p.image_url?`<img src="${p.image_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:2px${fora?";filter:grayscale(1)":""}">`:"📦"}</div>
       <div style="flex:1;min-width:0">
         <strong${fora?' style="text-decoration:line-through"':""}>${p.title||"Sem título"}</strong>
-        ${fora?'<span class="pill" style="background:rgba(255,81,104,.12);color:var(--red);margin-left:6px">fora do ar na loja</span>':""}<br>
+        ${fora?'<span class="pill" style="background:rgba(226,112,95,.12);color:var(--red);margin-left:6px">fora do ar na loja</span>':""}<br>
         <small style="color:var(--mut)">${p.price?`R$ ${Number(p.price).toFixed(2).replace(".",",")} · `:""}${p.discount_pct?p.discount_pct+"% OFF · ":""}<span class="mono" style="color:var(--volt-tx);font-size:10px">${(p.affiliate_url||"").slice(0,60)}${(p.affiliate_url||"").length>60?"…":""}</span></small>
         <div style="font-size:11px;color:${idade.cor};margin-top:2px">${idade.semConferencia?"🔍 ":(idade.nunca?"⚠️ ":(idade.velho?"🕐 ":""))}${idade.txt}</div>
       </div>
@@ -7451,7 +7534,7 @@ async function prodImportarLink(){
     const prev=document.getElementById("prodImportPreview");
     if(body)body.innerHTML=`
       <div class="prod" style="align-items:center">
-        <div class="pimg">${_prodImportData.image_url?`<img src="${_prodImportData.image_url}" onerror="_prodImgFallback(this)" style="width:100%;height:100%;object-fit:cover;border-radius:2px">`:"📦"}</div>
+        <div class="pimg">${_prodImportData.image_url?`<img src="${_prodImportData.image_url}" alt="" onerror="_prodImgFallback(this)" style="width:100%;height:100%;object-fit:cover;border-radius:2px">`:"📦"}</div>
         <div style="flex:1"><strong>${_prodImportData.title}</strong><br>
           <small style="color:var(--mut)">${_prodImportData.price?`R$ ${_prodImportData.price} · `:""}${_prodImportData.discount_pct?_prodImportData.discount_pct+"% OFF":""}</small></div>
       </div>`;
@@ -7834,8 +7917,8 @@ function buildPlansFromFeatures(){
     const f=planRow(key);
     const feats=[];
     feats.push((f.wa_groups===-1?"✅ Grupos WA ilimitados":"✅ "+f.wa_groups+" Grupo"+(f.wa_groups>1?"s":"")+" de WhatsApp"));
-    feats.push((f.wa_channels===-1?"✅ Canais WA ilimitados":"✅ "+f.wa_channels+" Canal"+(f.wa_channels>1?"is":"")+" WA"));
-    feats.push((f.tg_channels===-1?"✅ Telegram ilimitado":"✅ "+f.tg_channels+" Canal"+(f.tg_channels>1?"is":"")+" Telegram"));
+    feats.push((f.wa_channels===-1?"✅ Canais WA ilimitados":"✅ "+f.wa_channels+" "+(f.wa_channels>1?"Canais":"Canal")+" WA"));
+    feats.push((f.tg_channels===-1?"✅ Telegram ilimitado":"✅ "+f.tg_channels+" "+(f.tg_channels>1?"Canais":"Canal")+" Telegram"));
     feats.push("✅ "+f.wa_connections+" Conexão"+(f.wa_connections>1?"ões":"")+" WhatsApp");
     feats.push(f.marketplaces===-1?"✅ Todos os marketplaces":
       f.marketplaces===1?"✅ Shopee":
@@ -7901,7 +7984,7 @@ function renderPlans(){
         ${a?`<div style="font-size:11px;color:var(--volt-tx);font-weight:700;margin-top:2px">economize R$ ${brl(p.m*12*0.2)}/ano</div>`:""}
       </div>
       <ul>${p.f.map(f=>{const nao=f.startsWith("\u274C");return `<li class="${nao?"no":""}">${f.replace(/^[\u2705\u274C]\s*/,"")}</li>`;}).join("")}</ul>
-      ${p.key==="premium"?`<div style="font-size:11px;color:var(--tx2);background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.25);border-radius:2px;padding:8px 10px;margin:4px 0 8px;text-align:center">⚠️ Sujeito à política de uso justo — limites podem ser ajustados em caso de uso muito acima da média.</div>`:""}
+      ${p.key==="premium"?`<div style="font-size:11px;color:var(--tx2);background:rgba(255,193,7,.08);border:1px solid rgba(255,193,7,.25);border-radius:2px;padding:8px 10px;margin:4px 0 8px;text-align:center">⚠️ Sujeito à política de uso justo — limites podem ser ajustados em caso de uso muito acima da média.</div>`:""}
       ${atual
         ?`<button class="btn btn-ghost btn-lg" disabled style="width:100%;justify-content:center;opacity:.7">✅ SEU PLANO ATUAL</button>`
         :`<div style="display:flex;flex-direction:column;gap:8px;width:100%">
@@ -7945,7 +8028,7 @@ function renderPlans(){
     const plans=["starter","pro","elite","premium"];
     cmp.innerHTML=rows.map((r,i)=>`<tr style="border-bottom:1px solid var(--bd);${i%2===0?"background:rgba(255,255,255,.02)":""}">
       <td style="padding:10px 16px;color:var(--tx2);font-size:12.5px">${r[0]}</td>
-      ${plans.map(p=>`<td style="text-align:center;padding:10px 8px;font-size:12.5px;font-weight:500;${p==="elite"?"background:rgba(139,92,246,.06)":""}">${r[1](p)}</td>`).join("")}
+      ${plans.map(p=>`<td style="text-align:center;padding:10px 8px;font-size:12.5px;font-weight:500;${p==="elite"?"background:var(--volt-soft)":""}">${r[1](p)}</td>`).join("")}
     </tr>`).join("");
   }
 }
@@ -8052,7 +8135,7 @@ async function tgCarregarCanais(){
   const list=document.getElementById("tgCanalList");
   const testeSelect=document.getElementById("tgTesteCanal");
   if(!list)return;
-  if(!TG_CANAIS.length){list.innerHTML='<div style="text-align:center;padding:32px;color:var(--mut)">Nenhum canal adicionado ainda.</div>';return;}
+  if(!TG_CANAIS.length){list.innerHTML='<div style="text-align:center;padding:32px 20px"><div style="font-size:36px;margin-bottom:8px">📡</div><h3 style="margin-bottom:6px">Nenhum canal adicionado ainda</h3><p style="color:var(--tx2)">Cole o link do seu canal do Telegram no formulário acima para começar a receber ofertas nele.</p></div>';return;}
   list.innerHTML=TG_CANAIS.map(c=>`
     <div class="prod" style="align-items:center">
       <div class="pimg">📣</div>
@@ -8068,7 +8151,7 @@ async function tgValidarCanal(){
   const maxTg=lim("tg_channels")===-1?9999:lim("tg_channels");
   if(TG_CANAIS.length>=maxTg){
     const f=myFeatures();
-    toast(`Limite de ${maxTg} canal${maxTg>1?"is":""} Telegram do plano ${f.label} atingido. Faça upgrade!`,"⚠️");
+    toast(`Limite de ${maxTg} ${maxTg>1?"canais":"canal"} Telegram do plano ${f.label} atingido. Faça upgrade!`,"⚠️");
     go("assinatura");return;
   }
   const input=document.getElementById("tgChatInput");
@@ -8161,7 +8244,7 @@ function renderPal(){const items=palItems();palSel=Math.min(palSel,Math.max(0,it
 function execPal(p){closePalette();if(p.act)p.act();else go(p.go);}
 palInput.addEventListener("input",()=>{palSel=0;renderPal();});
 palInput.addEventListener("keydown",e=>{const items=palItems();if(e.key==="ArrowDown"){palSel=Math.min(palSel+1,items.length-1);renderPal();e.preventDefault();}else if(e.key==="ArrowUp"){palSel=Math.max(palSel-1,0);renderPal();e.preventDefault();}else if(e.key==="Enter"&&items[palSel])execPal(items[palSel]);});
-document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();palbg.classList.contains("open")?closePalette():openPalette();}if(e.key==="Escape"){closePalette();closeDrawer();document.querySelectorAll(".mbg:not([data-bloqueante])").forEach(m=>m.classList.remove("open"));}});
+document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();palbg.classList.contains("open")?closePalette():openPalette();}if(e.key==="Escape"){closePalette();closeDrawer();document.querySelectorAll(".mbg.open:not([data-bloqueante])").forEach(m=>closeModal(m.id));}});
 
 /* ================= MEGAIA ================= */
 let _aiSessionStarted=false;
@@ -8388,7 +8471,7 @@ aiInput.addEventListener("keydown",e=>{if(e.key==="Enter")aiSendMsg();});
 
 /* ================= ADMIN: DADOS ================= */
 const PLANO_V={STARTER:0,STARTER_:57.9,PRO:97.9,ELITE:157.9,PREMIUM:297.9};
-function avColor(i){const c=["#19E27D","#39C0FF","#FFB020","#FF4D8D","#9B7DFF"];return c[i%c.length];}
+function avColor(i){const c=["var(--green)","#6FA3C4","#C9A15A","#E2705F","#9B8FC9"];return c[i%c.length];}
 // USERS agora vem do banco (vazio até existirem clientes reais)
 let USERS=[];
 let PAYMENTS=[];
@@ -8446,15 +8529,15 @@ function renderAdminVisao(){
   const mrr=payingUsers.reduce((a,u)=>a+u.mrr,0);
   const z=[0,0,0,0,0,0,0,0,0,0,0,0];
   admKpis.innerHTML=[
-    ["MRR total","R$ "+mrr.toLocaleString("pt-BR",{minimumFractionDigits:2}),"#19E27D",z],
-    ["Usuários ativos",ativos+"","#39C0FF",z],
-    ["Em trial",trial+"","#FFB020",z],
-    ["Churn mensal","—","#FF4D8D",z]
+    ["MRR total","R$ "+mrr.toLocaleString("pt-BR",{minimumFractionDigits:2}),"var(--green)",z],
+    ["Usuários ativos",ativos+"","#6FA3C4",z],
+    ["Em trial",trial+"","#C9A15A",z],
+    ["Churn mensal","—","#E2705F",z]
   ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">dados reais</div>${spark(k[3],k[2])}</div>`).join("");
   const meses=["Jul","Ago","Set","Out","Nov","Dez","Jan","Fev","Mar","Abr","Mai","Jun"];const mrrV=z,novos=z;const mx=1;
   mrrChart.innerHTML=meses.map((m,i)=>`<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:3px"><div style="display:flex;gap:2px;align-items:flex-end;height:120px"><div class="bar" style="height:0%" data-t="${m}: sem dados"></div><div class="bar alt" style="height:0%" data-t="${m}: sem dados"></div></div><div style="text-align:center;font-size:9.5px;color:var(--mut)">${m}</div></div>`).join("");
   // distribuição real por plano
-  const dist=[["STARTER",USERS.filter(u=>u.plano==="STARTER").length,"#10B981"],["PRO",USERS.filter(u=>u.plano==="PRO").length,"#3B82F6"],["ELITE",USERS.filter(u=>u.plano==="ELITE").length,"#8B5CF6"],["PREMIUM",USERS.filter(u=>u.plano==="PREMIUM").length,"#F59E0B"]];const tot=Math.max(1,dist.reduce((a,d)=>a+d[1],0));
+  const dist=[["STARTER",USERS.filter(u=>u.plano==="STARTER").length,"var(--green)"],["PRO",USERS.filter(u=>u.plano==="PRO").length,"#7C9EC9"],["ELITE",USERS.filter(u=>u.plano==="ELITE").length,"#9B8FC9"],["PREMIUM",USERS.filter(u=>u.plano==="PREMIUM").length,"var(--warn)"]];const tot=Math.max(1,dist.reduce((a,d)=>a+d[1],0));
   planDist.innerHTML=dist.map(d=>`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><strong>${d[0]}</strong><span style="color:var(--mut)">${d[1]} · ${Math.round(d[1]/tot*100)}%</span></div><div class="prog-mini"><i style="width:${d[1]/tot*100}%;background:${d[2]}"></i></div></div>`).join("");
   admFeed.innerHTML='<div class="feed"><span class="fic">•</span><span style="color:var(--mut)">Nenhuma atividade ainda. Os eventos aparecerão aqui conforme os clientes usarem a plataforma.</span></div>';
 }
@@ -8514,7 +8597,7 @@ function openUser(id){
   userDetail.innerHTML=`
   <div class="mh"><div class="uflex"><span class="av-sm" style="background:${avColor(u._idx||0)};width:38px;height:38px">${u.nome[0]}</span>
     <div><div style="font-family:var(--disp)">${u.nome}</div><small style="color:var(--mut)">${u.email}</small></div></div>
-    <button class="mx" onclick="closeModal('modalUser')">×</button></div>
+    <button class="mx" aria-label="Fechar" onclick="closeModal('modalUser')">×</button></div>
   <div class="mb">
     <div class="sgrid" style="grid-template-columns:repeat(3,1fr);margin:0 0 16px">
       <div class="stat"><div class="v">${u.plano}</div><div class="l">Plano atual</div></div>
@@ -8647,7 +8730,7 @@ function renderSubs(){
   const payingUsers=USERS.filter(u=>!u.is_vip&&!u.is_admin);
   const mrr=payingUsers.reduce((a,u)=>a+u.mrr,0);
   const payingCount=payingUsers.filter(u=>u.mrr).length;
-  subKpis.innerHTML=[["MRR","R$ "+mrr.toLocaleString("pt-BR",{minimumFractionDigits:2}),"#19E27D"],["ARR projetado","R$ "+(mrr*12).toLocaleString("pt-BR",{minimumFractionDigits:2}),"#39C0FF"],["Ticket médio","R$ "+brl(mrr/Math.max(1,payingCount)),"#FFB020"],["Inadimplentes",payingUsers.filter(u=>u.status==="past_due").length+"","#FF4D8D"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">dados reais</div></div>`).join("");
+  subKpis.innerHTML=[["MRR","R$ "+mrr.toLocaleString("pt-BR",{minimumFractionDigits:2}),"var(--green)"],["ARR projetado","R$ "+(mrr*12).toLocaleString("pt-BR",{minimumFractionDigits:2}),"#6FA3C4"],["Ticket médio","R$ "+brl(mrr/Math.max(1,payingCount)),"#C9A15A"],["Inadimplentes",payingUsers.filter(u=>u.status==="past_due").length+"","#E2705F"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">dados reais</div></div>`).join("");
 
   if(!PAYMENTS.length){
     payBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--mut);padding:24px">Nenhum pagamento registrado ainda. Assim que o gateway (Asaas) estiver integrado, as cobranças aparecerão aqui automaticamente.</td></tr>';
@@ -8674,7 +8757,7 @@ function renderSubs(){
   }
 
   // Distribuição por método de pagamento (billing_type do Asaas)
-  const metCores={PIX:"#19E27D",BOLETO:"#39C0FF",CREDIT_CARD:"#FFB020",DEBIT_CARD:"#8B5CF6",UNDEFINED:"#8892a6"};
+  const metCores={PIX:"var(--green)",BOLETO:"#6FA3C4",CREDIT_CARD:"#C9A15A",DEBIT_CARD:"#9B8FC9",UNDEFINED:"#8892a6"};
   const metLabel={PIX:"PIX",BOLETO:"Boleto",CREDIT_CARD:"Cartão de crédito",DEBIT_CARD:"Cartão de débito",UNDEFINED:"Outro"};
   const porMetodo={};
   PAYMENTS.forEach(p=>{const k=(p.metodo||"UNDEFINED").toUpperCase();porMetodo[k]=(porMetodo[k]||0)+1;});
@@ -8696,7 +8779,7 @@ function renderSubs(){
 
 /* ADMIN: INSTÂNCIAS */
 async function renderInstancias(){
-  instKpis.innerHTML=[["Sessões online","—","#19E27D"],["Offline (24h)","—","#FF4D8D"],["Canais OWNER","—","#39C0FF"],["Canais ADMIN","—","#9B7DFF"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">aguardando dados</div></div>`).join("");
+  instKpis.innerHTML=[["Sessões online","—","var(--green)"],["Offline (24h)","—","#E2705F"],["Canais OWNER","—","#6FA3C4"],["Canais ADMIN","—","#9B8FC9"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div><div class="kd" style="color:var(--mut)">aguardando dados</div></div>`).join("");
   instBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--mut);padding:30px">Carregando sessões do wa-engine…</td></tr>';
   try{
     const r=await fetch(`${WA_ENGINE_URL}/sessions`,{headers:waAuthHeaders()});
@@ -8705,7 +8788,7 @@ async function renderInstancias(){
     const sessions=Array.isArray(d)?d:d.sessions||[];
     const online=sessions.filter(s=>s.status==="connected"||s.status==="open").length;
     const offline=sessions.filter(s=>s.status!=="connected"&&s.status!=="open").length;
-    instKpis.innerHTML=[["Sessões online",online+"","#19E27D"],["Offline (24h)",offline+"","#FF4D8D"],["Canais OWNER","—","#39C0FF"],["Canais ADMIN","—","#9B7DFF"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div></div>`).join("");
+    instKpis.innerHTML=[["Sessões online",online+"","var(--green)"],["Offline (24h)",offline+"","#E2705F"],["Canais OWNER","—","#6FA3C4"],["Canais ADMIN","—","#9B8FC9"]].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div></div>`).join("");
     instBody.innerHTML=sessions.length?sessions.map(s=>{
       const on=s.status==="connected"||s.status==="open";
       return `<tr><td>${s.userId||s.phone||"—"}</td><td class="mono" style="font-size:12px">${s.phone||s.jid||"—"}</td><td>${on?'<span class="pill volt"><span class="d"></span>connected</span>':'<span class="pill red"><span class="d"></span>disconnected</span>'}</td><td>—</td><td>—</td><td style="color:var(--mut)">${s.lastSeen||"agora"}</td></tr>`;
@@ -8767,10 +8850,10 @@ async function renderQueue(){
     const falhas24=falhas24h?.length||0;
 
     filaKpis.innerHTML=[
-      ["Automações ativas",(groups?.length||0)+"","#19E27D"],
-      ["Disparos hoje",disparosHoje+"","#39C0FF"],
-      ["Sucesso",taxaSucesso,"#FFB020"],
-      ["Falhas (24h)",falhas24+"","#FF4D8D"]
+      ["Automações ativas",(groups?.length||0)+"","var(--green)"],
+      ["Disparos hoje",disparosHoje+"","#6FA3C4"],
+      ["Sucesso",taxaSucesso,"#C9A15A"],
+      ["Falhas (24h)",falhas24+"","#E2705F"]
     ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv">${k[1]}</div></div>`).join("");
 
     queueUpcoming=(groups||[]).map(g=>({...g,...filaEta(g,now)})).sort((a,b)=>a.etaMin-b.etaMin);
@@ -8894,9 +8977,9 @@ async function abrirTicket(id){
   const mailBody=encodeURIComponent(`Re: ${t.subject}\n\n[ID do ticket: ${t.id}]\n\nOlá ${nome},\n\n`);
   document.getElementById("mtActions").innerHTML=`
     <a href="mailto:${dest}?subject=${encodeURIComponent("Re: "+t.subject+" - Mega Links BR")}&body=${mailBody}" class="btn btn-ghost btn-sm">✉️ Abrir email</a>
-    ${t.status!=="resolvido"?`<button class="btn btn-volt btn-sm" onclick="fecharTicket('${t.id}');document.getElementById('modalTicket').style.display='none'">✅ Resolver</button>`:""}
+    ${t.status!=="resolvido"?`<button class="btn btn-volt btn-sm" onclick="fecharTicket('${t.id}');closeModal('modalTicket')">✅ Resolver</button>`:""}
   `;
-  document.getElementById("modalTicket").style.display="flex";
+  openModal("modalTicket");
 }
 async function fecharTicket(id){
   const{error}=await SB.from("support_tickets").update({status:"resolvido"}).eq("id",id);
@@ -8984,10 +9067,10 @@ function renderVip(){
   const vitalicio=VIP_LIST.filter(v=>v.tipo==="vitalicio").length;
   if(document.getElementById("vipKpis"))
     document.getElementById("vipKpis").innerHTML=[
-      ["VIPs ativos",ativos+"","#19E27D"],
-      ["Vitalícios",vitalicio+"","#FFB020"],
-      ["Expirados",VIP_LIST.filter(v=>vipStatus(v)==="expirado").length+"","#FF4D8D"],
-      ["Total cadastrado",VIP_LIST.length+"","#39C0FF"]
+      ["VIPs ativos",ativos+"","var(--green)"],
+      ["Vitalícios",vitalicio+"","#C9A15A"],
+      ["Expirados",VIP_LIST.filter(v=>vipStatus(v)==="expirado").length+"","#E2705F"],
+      ["Total cadastrado",VIP_LIST.length+"","#6FA3C4"]
     ].map(k=>`<div class="kpi"><div class="kl">${k[0]}</div><div class="kv" style="color:${k[2]}">${k[1]}</div></div>`).join("");
 
   const badge=document.getElementById("vipBadge");
@@ -9100,16 +9183,15 @@ function selectUserForVip(userId,userName){
 
 /* ═══ RESET DE SENHA ═══ */
 function openForgotPass(){
-  document.getElementById("modalForgot").style.display="flex";
   document.getElementById("forgotEmail").value="";
-  document.getElementById("forgotEmail").focus();
   document.getElementById("forgotErr").style.display="none";
   document.getElementById("forgotMsg").style.display="none";
   document.getElementById("btnResetSend").style.display="block";
+  openModal("modalForgot");
 }
 
 function closeForgotPass(){
-  document.getElementById("modalForgot").style.display="none";
+  closeModal("modalForgot");
 }
 
 async function sendResetLink(){
@@ -9328,8 +9410,8 @@ const PR_CORES=[
   {nome:"Vermelho Neon",bg:"#330509",tx:"#ff3b5c"},
   {nome:"Amarelo Neon",bg:"#332b05",tx:"#fff23b"},
   {nome:"Rosa Choque",bg:"#330525",tx:"#ff3bd4"},
-  {nome:"Fundo Verde Limão",bg:"#aaff00",tx:"#0c0c0e"},
-  {nome:"Fundo Amarelo Solar",bg:"#ffe600",tx:"#0c0c0e"},
+  {nome:"Fundo Verde Limão",bg:"#aaff00",tx:"var(--volt-fg)"},
+  {nome:"Fundo Amarelo Solar",bg:"#ffe600",tx:"var(--volt-fg)"},
   {nome:"Fundo Laranja Vivo",bg:"#ff7a00",tx:"#1a0a00"},
   {nome:"Fundo Rosa Vivo",bg:"#ff2dd4",tx:"#1a0014"},
   {nome:"Fundo Ciano Vivo",bg:"#00e5ff",tx:"#001a1f"},
@@ -10414,16 +10496,16 @@ function cloneRenderFila(){
   // dentro de atributo HTML. Aspas próprias para atributo.
   const escAtt=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   const badge={
-    pending:'<span class="pill" style="background:rgba(245,197,24,.15);color:var(--gold)">aguardando revisão</span>',
-    approved:'<span class="pill" style="background:rgba(25,226,125,.15);color:var(--volt-tx)">publicado</span>',
-    rejected:'<span class="pill" style="background:rgba(255,81,104,.12);color:var(--red)">descartado</span>',
-    failed:'<span class="pill" style="background:rgba(255,81,104,.2);color:var(--red)">falhou</span>',
+    pending:'<span class="pill" style="background:rgba(255,193,7,.15);color:var(--gold)">aguardando revisão</span>',
+    approved:'<span class="pill" style="background:rgba(127,185,141,.15);color:var(--volt-tx)">publicado</span>',
+    rejected:'<span class="pill" style="background:rgba(226,112,95,.12);color:var(--red)">descartado</span>',
+    failed:'<span class="pill" style="background:rgba(226,112,95,.2);color:var(--red)">falhou</span>',
     expired:'<span class="pill" style="background:rgba(255,255,255,.08);color:var(--tx2)">expirou sem revisão</span>'
   };
   // Quando a loja nao tem integracao automatica (Amazon, por exemplo), titulo e
   // preco sao lidos do texto da mensagem capturada. Isso NAO foi conferido na
   // loja: e copia do que outra pessoa digitou. Quem aprova precisa saber.
-  const doTexto='<span class="pill" title="Titulo e preco foram lidos do texto da mensagem capturada, nao conferidos na loja. Confira antes de aprovar." style="background:rgba(245,197,24,.12);color:var(--gold);margin-left:6px">📋 do texto da mensagem</span>';
+  const doTexto='<span class="pill" title="Titulo e preco foram lidos do texto da mensagem capturada, nao conferidos na loja. Confira antes de aprovar." style="background:rgba(255,193,7,.12);color:var(--gold);margin-left:6px">📋 do texto da mensagem</span>';
   const faltaPagina=CLONE_FILA_TOTAL>CLONE_FILA_DATA.length;
   const barra=CLONE_SEL_MODO?`
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border:1px solid var(--bd2);border-radius:2px;background:var(--bg2)">
@@ -10827,7 +10909,7 @@ function csRender(){
       <div style="display:flex;gap:8px;align-items:flex-start">
         <h4 style="flex:1">${esc(f.source_label||f.source_jid)}</h4>
         ${f.active
-          ?'<span class="pill" style="background:rgba(25,226,125,.15);color:var(--volt-tx);flex:none">ativa</span>'
+          ?'<span class="pill" style="background:rgba(127,185,141,.15);color:var(--volt-tx);flex:none">ativa</span>'
           :'<span class="pill" style="background:rgba(255,255,255,.08);color:var(--tx2);flex:none">pausada</span>'}
       </div>
       <div class="cs-dest">\u2192 ${esc(nomeGrupo(f.niche_group_id))}</div>
@@ -10983,7 +11065,7 @@ async function csAbrirForm(editId){
             ${editando
               ? `<select id="csDestino" style="width:100%">${S.grupos.map(g=>`<option value="${g.db_id||g.id}"${String(editando.niche_group_id)===String(g.db_id||g.id)?" selected":""}>${esc(g.nome)}</option>`).join("")}</select>`
               : `<input id="csDestinoBusca" type="text" placeholder="🔎 Digite pra filtrar…" style="width:100%;margin-bottom:6px" oninput="csFiltrarDestino(this.value)">
-                 <div id="csDestinoLista" style="max-height:180px;overflow:auto;border:1px solid var(--bd2);border-radius:8px;padding:6px 10px">${csDestinoOpcoesHtml()}</div>
+                 <div id="csDestinoLista" style="max-height:180px;overflow:auto;border:1px solid var(--bd2);border-radius:var(--r-sm);padding:6px 10px">${csDestinoOpcoesHtml()}</div>
                  <small style="display:block;margin-top:6px;color:var(--tx2)">O mesmo grupo monitorado pode alimentar mais de um Grupo de Oferta — marque todos que devem receber.</small>`}
           </div>
         </div>
@@ -11432,7 +11514,7 @@ function prPreencherStep2(){
 
   // Foto
   const fw=document.getElementById("prFotoWrap");
-  if(p.foto){fw.innerHTML=`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='🛍️'">`;}
+  if(p.foto){fw.innerHTML=`<img src="${p.foto}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='🛍️'">`;}
   else{fw.innerHTML="🛍️";}
   PR.fotoDataUrl=p.foto||null;
 
@@ -11991,7 +12073,7 @@ function prUpdatePreview(){
   const grupoSel=S.grupos.find(g=>PR.gruposSel.has(g.id));
   const gNome=document.getElementById("prGrupoNome");
   if(gNome)gNome.textContent=grupoSel?.nome||"Grupo de Afiliados";
-  const fotoHtml=PR.fotoDataUrl?`<img src="${PR.fotoDataUrl}" style="width:100%;height:80px;object-fit:cover;border-radius:2px;margin-bottom:6px">`:'<span class="img">🛍️</span>';
+  const fotoHtml=PR.fotoDataUrl?`<img src="${PR.fotoDataUrl}" alt="" style="width:100%;height:80px;object-fit:cover;border-radius:2px;margin-bottom:6px">`:'<span class="img">🛍️</span>';
   const{before,after}=prMontarTexto({nome,de,por,cta,link,htmlMode:true});
   const bub=document.getElementById("prPreviewBub");
   if(bub){
@@ -12008,7 +12090,7 @@ function prUploadFoto(input){
   rd.onload=e=>{
     PR.fotoDataUrl=e.target.result;
     const fw=document.getElementById("prFotoWrap");
-    if(fw)fw.innerHTML=`<img src="${PR.fotoDataUrl}" style="width:100%;height:100%;object-fit:cover">`;
+    if(fw)fw.innerHTML=`<img src="${PR.fotoDataUrl}" alt="" style="width:100%;height:100%;object-fit:cover">`;
     prUpdatePreview();
   };rd.readAsDataURL(f);
 }
@@ -12187,7 +12269,7 @@ async function prDisparar(){
       successBanner.innerHTML=`<div style="background:var(--surf);border-radius:var(--r);padding:36px 40px;text-align:center;max-width:380px">
         <div style="font-size:52px;margin-bottom:12px">🚀</div>
         <h2 style="margin:0 0 8px;font-family:var(--disp)">Post disparado!</h2>
-        <p style="color:var(--tx2);margin:0 0 20px">${ok} canal${ok>1?"is":""} recebeu${ok>1?"ram":""} o post com sucesso.${err>0?`<br><small style="color:var(--mut)">${err} com falha: ${errMsgs.slice(0,2).join(", ")}</small>`:""}</p>
+        <p style="color:var(--tx2);margin:0 0 20px">${ok} ${ok>1?"canais":"canal"} recebeu${ok>1?"ram":""} o post com sucesso.${err>0?`<br><small style="color:var(--mut)">${err} com falha: ${errMsgs.slice(0,2).join(", ")}</small>`:""}</p>
         <button class="btn btn-volt" onclick="this.closest('[style*=fixed]').remove();prStep2Reset()" style="width:100%">✓ Fechar e novo post</button>
       </div>`;
       document.body.appendChild(successBanner);
@@ -12539,22 +12621,22 @@ async function enterApp(profile){
     const isTrialExpired=trialExp&&trialExp<new Date();
     if(isTrialExpired||profile.sub_status==="canceled"){
       authGate.style.display="none";
-      document.body.innerHTML=`<div style="min-height:100vh;background:#0c0c0e;display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;padding:20px">
+      document.body.innerHTML=`<div style="min-height:100vh;background:var(--bg);display:flex;align-items:center;justify-content:center;font-family:var(--body);padding:20px">
         <div style="max-width:480px;width:100%;text-align:center">
-          <img src="/icon.png" style="width:72px;border-radius:50%;margin-bottom:20px">
-          <h1 style="color:#FFD33F;font-size:24px;font-weight:700;margin:0 0 12px">Seu trial encerrou</h1>
-          <p style="color:#aaa;font-size:15px;line-height:1.6;margin:0 0 28px">Seus 7 dias gratuitos chegaram ao fim. Escolha um plano para continuar automatizando suas vendas na Mega Links BR.</p>
+          <img src="/icon.png" alt="Mega Links BR" style="width:72px;border-radius:50%;margin-bottom:20px">
+          <h1 style="color:var(--volt-tx);font-family:var(--disp);font-size:24px;font-weight:700;margin:0 0 12px">Seu trial encerrou</h1>
+          <p style="color:var(--tx2);font-size:15px;line-height:1.6;margin:0 0 28px">Seus 7 dias gratuitos chegaram ao fim. Escolha um plano para continuar automatizando suas vendas na Mega Links BR.</p>
           <div style="display:grid;gap:12px;margin-bottom:24px">
-            <div style="background:#111118;border:1px solid #222;border-radius:2px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
-              <div style="text-align:left"><div style="color:#10B981;font-weight:700;font-size:13px">⚡ STARTER</div><div style="color:#aaa;font-size:12px;margin-top:2px">Shopee · Postar Agora</div></div>
-              <button onclick="location.href='/'" style="background:#10B981;color:#fff;border:none;padding:8px 18px;border-radius:2px;font-weight:700;cursor:pointer;font-size:13px">R$ 57,90/mês</button>
+            <div style="background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+              <div style="text-align:left"><div style="color:var(--tx);font-family:var(--disp);font-weight:700;font-size:13px">STARTER</div><div style="color:var(--tx2);font-size:12px;margin-top:2px">Shopee · Postar Agora</div></div>
+              <button onclick="location.href='/'" class="btn btn-ghost btn-sm">R$ 57,90/mês</button>
             </div>
-            <div style="background:#111118;border:1px solid #8B5CF6;border-radius:2px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
-              <div style="text-align:left"><div style="color:#8B5CF6;font-weight:700;font-size:13px">🔥 ELITE — MAIS POPULAR</div><div style="color:#aaa;font-size:12px;margin-top:2px">Automação 24/7 · MegaIA · Rastreamento</div></div>
-              <button onclick="location.href='/'" style="background:#8B5CF6;color:#fff;border:none;padding:8px 18px;border-radius:2px;font-weight:700;cursor:pointer;font-size:13px">R$ 157,90/mês</button>
+            <div style="background:var(--volt-soft);border:1px solid var(--volt-tx);border-radius:var(--r);padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+              <div style="text-align:left"><div style="color:var(--volt-tx);font-family:var(--disp);font-weight:700;font-size:13px">ELITE — MAIS POPULAR</div><div style="color:var(--tx2);font-size:12px;margin-top:2px">Automação 24/7 · MegaIA · Rastreamento</div></div>
+              <button onclick="location.href='/'" class="btn btn-volt btn-sm">R$ 157,90/mês</button>
             </div>
           </div>
-          <button onclick="SB.auth.signOut().then(()=>location.reload())" style="background:transparent;border:1px solid #333;color:#666;padding:10px 24px;border-radius:2px;cursor:pointer;font-size:13px">Sair da conta</button>
+          <button onclick="SB.auth.signOut().then(()=>location.reload())" class="btn btn-ghost btn-sm" style="background:transparent">Sair da conta</button>
         </div>
       </div>`;
       return;
@@ -12692,7 +12774,7 @@ function renderUpgradeBanner(){
   else if(plan==="starter")
     motivo="Automatize, use IA e escale — por R$ ${prox.preco}/mês.";
 
-  el.innerHTML=`<div style="background:var(--surf2);border:1px solid rgba(155,125,255,.35);border-radius:2px;padding:14px 18px;display:flex;align-items:center;gap:14px;margin-bottom:20px;flex-wrap:wrap">
+  el.innerHTML=`<div style="background:var(--surf2);border:1px solid rgba(155,143,201,.35);border-radius:2px;padding:14px 18px;display:flex;align-items:center;gap:14px;margin-bottom:20px;flex-wrap:wrap">
     <div style="font-size:22px;flex:none">🚀</div>
     <div style="flex:1;min-width:180px">
       <div style="font-size:13px;font-weight:700;margin-bottom:2px">Upgrade para <span style="color:var(--volt-tx)">${prox.label}</span> — R$ ${prox.preco}/mês</div>
@@ -12707,7 +12789,7 @@ function renderUpgradeBanner(){
   // Pill no botão MegaIA se Starter
   const btnIA=document.getElementById("btnDashIA");
   if(btnIA&&!f.mega_ia){
-    btnIA.innerHTML='🔒 MegaIA <span style="background:var(--gold);color:#0c0c0e;font-size:9px;font-weight:700;padding:1px 5px;border-radius:2px;margin-left:4px">PRO+</span>';
+    btnIA.innerHTML='🔒 MegaIA <span style="background:var(--gold);color:var(--volt-fg);font-size:9px;font-weight:700;padding:1px 5px;border-radius:2px;margin-left:4px">PRO+</span>';
   }
 }
 // Atualiza o rodapé do menu lateral com o plano real
@@ -12733,7 +12815,7 @@ function applyPlanGating(){
     const existing=el.querySelector(".gate-banner");if(existing)existing.remove();
     if(msg){
       const d=document.createElement("div");d.className="gate-banner";
-      d.style.cssText="background:rgba(255,176,32,.12);border:1px solid rgba(255,176,32,.4);border-radius:2px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:14px;font-size:13px";
+      d.style.cssText="background:rgba(201,161,90,.12);border:1px solid rgba(201,161,90,.4);border-radius:2px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:14px;font-size:13px";
       d.innerHTML=`<span style="font-size:20px">⚠️</span><span style="flex:1">${msg}</span><button class="btn btn-gold btn-sm" onclick="go('assinatura')" style="flex:none">Ver planos</button>`;
       el.prepend(d);
     }
@@ -13182,7 +13264,7 @@ function createRateLimitStatusBar() {
       </div>
       
       <!-- Timer de penalidade (se penalizado) -->
-      <div id="rateLimitPenaltyTimer" style="display:none;background:var(--red);background:rgba(255,81,104,.1);border:1px solid rgba(255,81,104,.3);border-radius:2px;padding:8px;text-align:center">
+      <div id="rateLimitPenaltyTimer" style="display:none;background:rgba(226,112,95,.1);border:1px solid rgba(226,112,95,.3);border-radius:2px;padding:8px;text-align:center">
         <div style="color:var(--red);font-weight:700;font-size:13px;margin-bottom:4px">
           🚫 PENALIZADO
         </div>
@@ -13930,7 +14012,7 @@ function mrProgresso(p){
     return;
   }
   if(p.stage === 'failed'){
-    bar.style.width = '100%'; bar.style.background = '#EF4444';
+    bar.style.width = '100%'; bar.style.background = 'var(--red)';
     txt.textContent = `Falhou: ${p.message || p.code || 'erro desconhecido'}`;
     return;
   }

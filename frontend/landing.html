@@ -31,7 +31,7 @@
   --bg:#14161A; --bg2:#191C21; --bg3:#1F232A;
   --paper:#EDEBE6; --paper2:#E2DFD7;
   --tx:#E9E7E2; --tx2:#9BA0A6; --mut:#828891;
-  --ink:#14161A; --ink2:#4A4F55;
+  --ink:#14161A; --ink2:#4A4F55; --ink-h:#25292F;
   --ln:#282C33; --ln2:#343941; --ln-p:#CFCCC3;
   --y:#FFC107; --y-2:#E0AA05; --y-dim:rgba(255,193,7,.13);
   --r:2px;
@@ -67,13 +67,14 @@ h1,h2,h3,h4{font-family:var(--disp);font-weight:700;letter-spacing:-.028em;line-
   cursor:pointer;transition:background .14s,color .14s,border-color .14s,transform .14s;
 }
 .btn-y{background:var(--y);color:#14161A}
-.btn-y:hover{background:#FFCE33;transform:translateY(-1px)}
+.btn-y:hover{background:var(--y-2);transform:translateY(-1px)}
 .btn-line{border-color:var(--ln2);color:var(--tx)}
 .btn-line:hover{border-color:var(--tx2);background:var(--bg2)}
 .btn-ink{background:var(--ink);color:var(--paper)}
-.btn-ink:hover{background:#25292F}
+.btn-ink:hover{background:var(--ink-h)}
 .lnk{border-bottom:1px solid var(--ln2);padding-bottom:2px;font-size:14px;font-weight:500;transition:border-color .14s,color .14s}
 .lnk:hover{border-color:var(--y);color:var(--y)}
+.lnk-muted{color:var(--ink2);border-color:var(--ln-p)}
 
 /* ---------- topo ---------- */
 .top{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--ln)}
@@ -658,7 +659,7 @@ footer a:hover{color:var(--tx)}
     <div>
       <div class="acts">
         <a href="/painel?signup=1" class="btn btn-ink">Começar 7 dias grátis</a>
-        <a href="/guia" class="lnk" style="color:#4A4F55;border-color:#CFCCC3">Ler o guia primeiro</a>
+        <a href="/guia" class="lnk lnk-muted">Ler o guia primeiro</a>
       </div>
       <p class="fine">Sem cartão · Cancelamento pelo painel</p>
     </div>
