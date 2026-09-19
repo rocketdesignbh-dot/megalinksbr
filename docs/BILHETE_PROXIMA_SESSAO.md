@@ -12,8 +12,9 @@
 
 **Onde está:** o PR **#19** (restilização, 35 commits) foi mergeado em `main`
 (`022f63b`); o **#20** (gzip no nginx) em `39fa036`; o **#21** (docs) em `fa1cc21`.
-A `main` do remoto já tem tudo. A branch `redesign/megalinks-ui-v3` **ainda existe**
-no remoto (não foi apagada). **O deploy da `main` é AUTOMÁTICO** (medido em 19/09:
+A `main` do remoto já tem tudo. A branch `redesign/megalinks-ui-v3` **foi apagada** no
+remoto (19/09, a pedido do Érico, depois de conferir que estava 100% contida em `origin/main`).
+**O deploy da `main` é AUTOMÁTICO** (medido em 19/09:
 ~13 s após o merge já estava no ar) — cuidado com o que entra na `main`. Detalhe
 completo no ESTADO_ATUAL: REVISÃO 164 e os adendos de 19/09.
 
@@ -41,8 +42,12 @@ encerrado — **0 overflow, 0 resto das paletas antigas, 0 erro de JS**. "Usuár
 
 **O que falta (nada disto foi testado):**
 
-- redirect `/r/` **real** e o preview de link do WhatsApp (só um código inexistente,
-  404, foi visto; o `gzip` que aparece no `/r/` vem do Supabase/Cloudflare, não do nginx);
+- o **cartão que o WhatsApp desenha de verdade**: o redirect `/r/` real e a prévia OG
+  **foram medidos em 19/09** (302 com `sub_id` no `xzadtgh`, 200 `text/html` com as tags
+  OG certas no `zzogt01`, sem `nosniff`/CSP, gzip do `/r/` idêntico ao corpo puro; tudo
+  com User-Agent de robô, sem contar clique; ver o adendo "4ª parte" no ESTADO_ATUAL).
+  Falta só enviar um link **novo** numa conversa e ver o cartão; o caminho de gente
+  (302 + `link_clicks`) não foi repetido, porque contaria clique;
 - as 4 páginas puladas por risco de efeito colateral: Conexão WhatsApp (pareamento),
   IA Insights (custo), Automações, Conexões Admin;
 - o fluxo **real** do trial encerrado (só o template foi renderizado) e reduced-motion
