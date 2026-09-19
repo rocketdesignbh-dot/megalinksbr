@@ -1,3 +1,35 @@
+// product-search v37 — Sub-ID da Shopee no link nativo (17/09)
+//   Com rotulo cadastrado em Config Afiliados -> Shopee -> Sub-ID, o link
+//   nativo passa a sair da mutation `generateShortLink` com subIds
+//   [rotulo, origem]. Sem rotulo (ou se a mutation falhar) nada muda: continua
+//   o `productOfferV2.offerLink`. Medicoes que sustentam o formato estao no
+//   comentario de `subIdsShopee`.
+//
+// product-search v36 — Link Rapido trava produto de ML recusado pelo programa (17/09)
+// v36 (REVISAO 159, P153): MEDIDO em 17/09 — o ML responde HTTP 400
+//   {"error":{"message":"URL not allowed in affiliates program","error_code":111}}
+//   para anuncio que nao pode receber link de afiliado (o caso medido estava
+//   INDISPONIVEL no site; recusado em todos os formatos de URL, com controles
+//   aceitos na mesma rodada). Ate a v35 isso virava `null` igual a qualquer
+//   outra falha e o Link Rapido entregava o link do encurtador com alerta verde.
+//   Agora o modo "link_nativo" devolve motivo:"ml_item_recusado" SO nesse caso;
+//   o front trava e explica. Outras falhas (sem cookie, sessao expirada, CSRF,
+//   rede) continuam devolvendo so native_link:false e caem no fluxo de sempre.
+//   O Postar Agora (fetchMercadoLivre) NAO mudou.
+//
+// product-search v35 — modo "link_nativo" para o Link Rapido (16/09)
+// v35 (REVISAO 156): pedido do Erico — o Link Rapido continuava saindo com o
+//   encurtador proprio (megalinksbr.com.br/r/...) para Shopee e ML, enquanto
+//   Postar Agora (v34) e Grupos de Oferta (send-post v30/group-blast v9) ja
+//   saiam com o link nativo da loja. O Link Rapido nao le produto (so a
+//   resolve-link), entao chamar a busca inteira gastaria leitura de loja e,
+//   no ML, bateria no bloqueio medido na P151. Corpo {url, credentials,
+//   modo:"link_nativo"} devolve SO o link nativo, sem ler a pagina:
+//     - Shopee: Open API oficial (productOfferV2 -> offerLink), App Key/Secret
+//       vindos em `credentials` (mesmo formato do Postar Agora).
+//     - ML: mesmo gerarLinkNativoML da v34 (cookie de sessao + Etiqueta ML).
+//   Falhou ou faltou credencial -> {success:false, native_link:false} e o
+//   front cai no fluxo de sempre (an_redir/matt_* + encurtador). Sem regressao.
 // product-search v34 — link de afiliado NATIVO do Mercado Livre (11/09)
 // v34 (REVISAO 144): fetchMercadoLivre agora tenta gerar o link curto oficial
 //   (mercadolivre.com/sec/... ou equivalente) via o endpoint interno que o
@@ -351,7 +383,12 @@ async function fetchCsrfTokenML(url: string, cookieHeader: string): Promise<stri
 }
 
 async function gerarLinkNativoML(url: string, cookieHeader: string, tag: string): Promise<string | null> {
-  if (!cookieHeader || !tag) return null;
+  return (await gerarLinkNativoMLDetalhado(url, cookieHeader, tag)).link;
+}
+
+// v36: mesma chamada, mas diz se o ML RECUSOU o anuncio (error_code 111).
+async function gerarLinkNativoMLDetalhado(url: string, cookieHeader: string, tag: string): Promise<{ link: string | null; recusado: boolean }> {
+  if (!cookieHeader || !tag) return { link: null, recusado: false };
   try {
     const csrfToken = await fetchCsrfTokenML(url, cookieHeader);
     const r = await fw("https://www.mercadolivre.com.br/affiliate-program/api/v2/stripe/user/links", {
@@ -368,14 +405,17 @@ async function gerarLinkNativoML(url: string, cookieHeader: string, tag: string)
       body: JSON.stringify({ url, tag }),
     }, 12000);
     if (!r.ok) {
-      console.warn(`[ML][link-nativo] HTTP ${r.status}: ${(await r.text().catch(() => "")).slice(0, 200)}`);
-      return null;
+      const corpo = await r.text().catch(() => "");
+      console.warn(`[ML][link-nativo] HTTP ${r.status}: ${corpo.slice(0, 200)}`);
+      let codigo: unknown = null;
+      try { codigo = JSON.parse(corpo)?.error?.error_code; } catch { /* corpo nao-JSON */ }
+      return { link: null, recusado: r.status === 400 && Number(codigo) === 111 };
     }
     const d = await r.json();
-    return d?.short_url || null;
+    return { link: d?.short_url || null, recusado: false };
   } catch (e) {
     console.warn(`[ML][link-nativo] falhou: ${(e as Error).message}`);
-    return null;
+    return { link: null, recusado: false };
   }
 }
 
@@ -560,7 +600,59 @@ async function urlLimpaPelaResolveLink(url: string, authHeader: string | null): 
   }
 }
 
-async function fetchShopee(url: string, appId: string, appSecret: string, authHeader: string | null): Promise<any> {
+// ── Sub-ID da Shopee no link nativo (REVISAO 163) ────────────────────────
+//
+// MEDIDO em 17/09, com as credenciais reais, direto na Open API:
+//   subIds:["eko-teste9","","","",""] -> erro 11001 "invalid sub id"
+//   subIds:["eko-teste9"]             -> erro 11001 (o hifen e o SEPARADOR
+//                                        dos 5 campos, nao pode vir dentro)
+//   subIds:["ekoteste9"]              -> ok; o destino resolvido volta com
+//                                        utm_content=ekoteste9---- e
+//                                        mmp_pid=an_18344180897 (afiliado certo)
+//   subIds:["eko","teste9x"]          -> ok; utm_content=eko-teste9x---
+//
+// Ou seja: cada slot vai como um item do array, SEM hifen e SEM string vazia.
+// Slot 1 = rotulo cadastrado em Config Afiliados -> Shopee -> Sub-ID.
+// Slot 2 = a tela que gerou o link (linkrapido/postaragora/postauto/grupo).
+//
+// Sem rotulo cadastrado NAO chamamos a mutation: o caminho continua sendo o
+// `productOfferV2.offerLink` de sempre, byte a byte igual ao de antes.
+function limparSubId(v: unknown): string {
+  return String(v ?? "").replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20);
+}
+function subIdsShopee(rotulo: unknown, origem: string): string[] {
+  const r = limparSubId(rotulo);
+  if (!r) return [];
+  const o = limparSubId(origem);
+  return o ? [r, o] : [r];
+}
+// Gera o link curto oficial da Shopee JA com os sub_ids. Devolve null em
+// qualquer falha — quem chama cai no offerLink de sempre.
+async function shopeeShortLinkComSubId(originUrl: string, appId: string, appSecret: string, subIds: string[]): Promise<string | null> {
+  if (!subIds.length || !appId || !appSecret) return null;
+  try {
+    const lista = subIds.map((s) => JSON.stringify(s)).join(",");
+    const query = `mutation{generateShortLink(input:{originUrl:${JSON.stringify(originUrl)},subIds:[${lista}]}){shortLink}}`;
+    const ts = Math.floor(Date.now() / 1000);
+    const payload = JSON.stringify({ query });
+    const sig = await sha256Hex(`${appId}${ts}${payload}${appSecret}`);
+    const r = await fw("https://open-api.affiliate.shopee.com.br/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `SHA256 Credential=${appId},Timestamp=${ts},Signature=${sig}` },
+      body: payload,
+    }, 12000);
+    if (!r.ok) { console.warn(`[shopee][sub-id] HTTP ${r.status}`); return null; }
+    const d = await r.json();
+    if (Array.isArray(d?.errors) && d.errors.length) { console.warn(`[shopee][sub-id] API recusou: ${d.errors[0]?.message}`); return null; }
+    const link = d?.data?.generateShortLink?.shortLink;
+    return typeof link === "string" && link ? link : null;
+  } catch (e) {
+    console.warn(`[shopee][sub-id] falhou: ${(e as Error).message}`);
+    return null;
+  }
+}
+
+async function fetchShopee(url: string, appId: string, appSecret: string, authHeader: string | null, rotuloSubId = ""): Promise<any> {
   let itemId: string | undefined, shopId: string | undefined;
   let m = url.match(/\/product\/(\d+)\/(\d+)/);
   if (!m) {
@@ -607,6 +699,14 @@ async function fetchShopee(url: string, appId: string, appSecret: string, authHe
     if (bruto > precoVenda) deDerivado = String(bruto);
   }
 
+  // REVISAO 163: com rotulo de Sub-ID cadastrado, o link nativo passa a sair
+  // da mutation `generateShortLink` (mesma API, mesmo afiliado) ja carimbado.
+  // Sem rotulo, ou se a mutation falhar, fica o `offerLink` de sempre.
+  const subIds = subIdsShopee(rotuloSubId, "postaragora");
+  const linkFinal = (subIds.length
+    ? await shopeeShortLinkComSubId(`https://shopee.com.br/product/${shopId}/${itemId}`, appId, appSecret, subIds)
+    : null) || node.offerLink;
+
   return {
     success: true, source: "api", store: "shopee",
     name: node.productName, title: node.productName,
@@ -616,13 +716,13 @@ async function fetchShopee(url: string, appId: string, appSecret: string, authHe
     price_from_derived: deDerivado ? true : undefined,
     commission_rate: node.commissionRate,
     discount_pct: node.priceDiscountRate ? Math.round(node.priceDiscountRate) : undefined,
-    rating: node.ratingStar, sales: node.sales, short_link: node.offerLink,
+    rating: node.ratingStar, sales: node.sales, short_link: linkFinal,
     product_link: node.productLink,
   };
 }
 
 
-// ── Amazon lida da pagina (copiado da clone-ingest v15 · P21) ─────────────
+// ── Amazon lida da pagina (copiado da clone-ingest v15 · P21) ─────────
 //
 // COPIA VERBATIM, e a duplicacao e consciente. O certo seria um modulo
 // compartilhado, mas cada Edge Function do projeto e deployada com o seu proprio
@@ -925,29 +1025,79 @@ async function consultarShein(url: string): Promise<any> {
   };
 }
 
+// v35 — so o link nativo, sem ler o produto (Link Rapido). Nunca lanca.
+async function somenteLinkNativo(url: string, store: string, credentials: any, sb: ReturnType<typeof createClient> | null, userId: string | null, origem = ""): Promise<{ link: string | null; motivo?: string }> {
+  try {
+    if (store === "shopee") {
+      const appId = String(credentials?.shopee_app_id ?? "").trim();
+      const appSecret = String(credentials?.shopee_app_secret ?? "").trim();
+      if (!appId || !appSecret) return { link: null };
+      const m = url.split("#")[0].match(/\/product\/(\d+)\/(\d+)/);
+      if (!m) return { link: null };
+      const query = `{ productOfferV2(itemId: ${m[2]}, shopId: ${m[1]}) { nodes { offerLink } } }`;
+      const ts = Math.floor(Date.now() / 1000);
+      const payload = JSON.stringify({ query });
+      const sig = await sha256Hex(`${appId}${ts}${payload}${appSecret}`);
+      const r = await fw("https://open-api.affiliate.shopee.com.br/graphql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `SHA256 Credential=${appId},Timestamp=${ts},Signature=${sig}` },
+        body: payload,
+      }, 12000);
+      if (!r.ok) { console.warn(`[shopee][link-nativo] HTTP ${r.status}`); return { link: null }; }
+      const d = await r.json();
+      if (Array.isArray(d?.errors) && d.errors.length) { console.warn(`[shopee][link-nativo] API recusou: ${d.errors[0]?.message}`); return { link: null }; }
+      const offerLink = d?.data?.productOfferV2?.nodes?.[0]?.offerLink || null;
+      const subIds = subIdsShopee(credentials?.shopee_sub_id, origem || "linkrapido");
+      if (subIds.length) {
+        const comSubId = await shopeeShortLinkComSubId(`https://shopee.com.br/product/${m[1]}/${m[2]}`, appId, appSecret, subIds);
+        if (comSubId) return { link: comSubId };
+      }
+      return { link: offerLink };
+    }
+    if (store === "mercadolivre") {
+      const [, , mlCookie] = await getPersonalMlCredentials(sb, userId);
+      if (!mlCookie) return { link: null };
+      const tag = await getMlAffiliateTag(sb, userId);
+      if (!tag) return { link: null };
+      const r = await gerarLinkNativoMLDetalhado(url, mlCookie, tag);
+      return r.recusado ? { link: null, motivo: "ml_item_recusado" } : { link: r.link };
+    }
+  } catch (e) { console.warn(`[link-nativo] falhou: ${(e as Error).message}`); }
+  return { link: null };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   try {
-    const { url, credentials = {} } = await req.json();
-    console.log(`[product-search v34] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
+    const { url, credentials = {}, modo = "", origem = "" } = await req.json();
+    console.log(`[product-search v37] payload recebido: url=${JSON.stringify(url)} typeof=${typeof url}`);
     if (!url || !/^https?:\/\//i.test(url))
       return new Response(JSON.stringify({ success: false, motivo: "url_sem_protocolo", error: "O link colado não começa com http:// ou https://. Copie o endereço completo da página do produto." }), { status: 400, headers: { ...CORS, "Content-Type": "application/json" } });
 
     const store = detectStore(url);
     const authHeader = req.headers.get("authorization");
     const userId = getUserIdFromJwt(authHeader);
-    console.log(`[product-search v34] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
+    console.log(`[product-search v37] store=${store} url=${url.slice(0, 80)} user=${userId ?? "anon"}`);
 
     const waEngineUrl = Deno.env.get("WA_ENGINE_URL") || "https://megalinksbr-wa-engine.fwezsn.easypanel.host";
     const waEngineToken = Deno.env.get("WA_ENGINE_TOKEN") || "";
     const sb = (SUPABASE_URL && SERVICE_ROLE) ? createClient(SUPABASE_URL, SERVICE_ROLE) : null;
+
+    if (modo === "link_nativo") {
+      const nativo = await somenteLinkNativo(url, store, credentials, sb, userId, origem);
+      console.log(`[product-search v37] link_nativo store=${store} ok=${!!nativo.link} motivo=${nativo.motivo ?? "-"} user=${userId ?? "anon"}`);
+      return new Response(JSON.stringify(nativo.link
+        ? { success: true, store, native_link: true, short_link: nativo.link }
+        : { success: false, store, native_link: false, ...(nativo.motivo ? { motivo: nativo.motivo } : {}) }),
+        { headers: { ...CORS, "Content-Type": "application/json" } });
+    }
 
     let result: any = null;
 
     if (store === "mercadolivre") {
       result = await fetchMercadoLivre(url, waEngineUrl, waEngineToken, sb, userId);
     } else if (store === "shopee" && credentials.shopee_app_id && credentials.shopee_app_secret) {
-      result = await fetchShopee(url, credentials.shopee_app_id, credentials.shopee_app_secret, authHeader);
+      result = await fetchShopee(url, credentials.shopee_app_id, credentials.shopee_app_secret, authHeader, credentials.shopee_sub_id || "");
     } else if (store === "shopee") {
       // v27: ate aqui, credencial faltando caia no generico "Loja sem integracao
       // automatica" — a mesma frase que o link nao reconhecido produzia. Duas
@@ -975,7 +1125,7 @@ Deno.serve(async (req: Request) => {
       result = result || { success: false, source: "none", store, motivo: "loja_sem_integracao", error: "Loja sem integração automática. Preencha manualmente." };
     }
 
-    console.log(`[product-search v34] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
+    console.log(`[product-search v37] success=${result.success} name=${(result.name || "").slice(0, 40)}`);
     return new Response(JSON.stringify(result), { headers: { ...CORS, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ success: false, error: (e as Error).message }), { status: 500, headers: { ...CORS, "Content-Type": "application/json" } });

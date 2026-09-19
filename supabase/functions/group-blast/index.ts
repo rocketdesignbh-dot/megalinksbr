@@ -1,3 +1,8 @@
+// Mega Links BR · Edge Function "group-blast" v10 — Sub-ID da Shopee (17/09)
+// v10: o link nativo da Shopee do Disparo Manual passa a sair carimbado com o
+//      sub_id quando o usuario tem rotulo cadastrado (Config Afiliados ->
+//      Shopee -> Sub-ID). Slot 1 = rotulo, slot 2 = "grupo". Sem rotulo, nada
+//      muda: continua o `productOfferV2.offerLink` de sempre.
 // Mega Links BR · Edge Function "group-blast" v8 — "De/Por" no disparo manual
 // v8: O Disparo Manual (Starter, este arquivo) nunca mostrava o preço "De"
 //     riscado — só o preço atual e, quando havia, "X% OFF". O `send-post`
@@ -119,7 +124,43 @@ async function sha256Hex(s: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
-async function gerarLinkNativoShopee(url: string, appId: string, appSecret: string): Promise<string | null> {
+// REVISAO 163 — Sub-ID da Shopee no link nativo do disparo. MEDIDO em 17/09 na
+// Open API: cada slot vai como um item do array `subIds`, sem hifen (o hifen e
+// o separador dos 5 campos) e sem string vazia; o destino resolvido volta com
+// utm_content=<slot1>-<slot2>--- e o mmp_pid do afiliado certo. Slot 1 = rotulo
+// cadastrado em Config Afiliados -> Shopee -> Sub-ID; slot 2 = "grupo".
+// Sem rotulo a mutation nao e chamada e o caminho fica o offerLink de sempre.
+function limparSubId(v: unknown): string {
+  return String(v ?? "").replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20);
+}
+function subIdsShopee(rotulo: unknown): string[] {
+  const r = limparSubId(rotulo);
+  return r ? [r, "grupo"] : [];
+}
+async function shopeeShortLinkComSubId(originUrl: string, appId: string, appSecret: string, subIds: string[]): Promise<string | null> {
+  if (!subIds.length || !appId || !appSecret) return null;
+  try {
+    const lista = subIds.map((s) => JSON.stringify(s)).join(",");
+    const query = `mutation{generateShortLink(input:{originUrl:${JSON.stringify(originUrl)},subIds:[${lista}]}){shortLink}}`;
+    const ts = Math.floor(Date.now() / 1000);
+    const payload = JSON.stringify({ query });
+    const sig = await sha256Hex(`${appId}${ts}${payload}${appSecret}`);
+    const r = await fetchWithTimeout("https://open-api.affiliate.shopee.com.br/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `SHA256 Credential=${appId},Timestamp=${ts},Signature=${sig}` },
+      body: payload,
+    }, 10000);
+    if (!r.ok) { console.warn(`[shopee][sub-id] HTTP ${r.status}`); return null; }
+    const d = await r.json();
+    if (Array.isArray(d?.errors) && d.errors.length) { console.warn(`[shopee][sub-id] API recusou: ${d.errors[0]?.message}`); return null; }
+    const link = d?.data?.generateShortLink?.shortLink;
+    return typeof link === "string" && link ? link : null;
+  } catch (e) {
+    console.warn("[shopee][sub-id] falhou:", e instanceof Error ? e.message : String(e));
+    return null;
+  }
+}
+async function gerarLinkNativoShopee(url: string, appId: string, appSecret: string, rotuloSubId = ""): Promise<string | null> {
   if (!appId || !appSecret) return null;
   const m = url.split("#")[0].match(/\/product\/(\d+)\/(\d+)/);
   if (!m) return null;
@@ -137,7 +178,13 @@ async function gerarLinkNativoShopee(url: string, appId: string, appSecret: stri
     if (!r.ok) { console.warn(`[shopee-nativo] HTTP ${r.status}`); return null; }
     const d = await r.json();
     if (Array.isArray(d?.errors) && d.errors.length) { console.warn(`[shopee-nativo] API recusou: ${d.errors[0]?.message}`); return null; }
-    return d?.data?.productOfferV2?.nodes?.[0]?.offerLink || null;
+    const offerLink = d?.data?.productOfferV2?.nodes?.[0]?.offerLink || null;
+    const subIds = subIdsShopee(rotuloSubId);
+    if (subIds.length) {
+      const comSubId = await shopeeShortLinkComSubId(`https://shopee.com.br/product/${shopId}/${itemId}`, appId, appSecret, subIds);
+      if (comSubId) return comSubId;
+    }
+    return offerLink;
   } catch (e) {
     console.warn("[shopee-nativo] falhou:", e instanceof Error ? e.message : String(e));
     return null;
@@ -239,7 +286,7 @@ async function linkFinalDoProduto(product: any, credsMap: Record<string, Record<
     const appId = String(cred["App Key"] || cred["ID de Afiliado"] || "").trim();
     const appSecret = String(cred["App Secret"] || "").trim();
     if (appId && appSecret) {
-      const nativo = await gerarLinkNativoShopee(original, appId, appSecret);
+      const nativo = await gerarLinkNativoShopee(original, appId, appSecret, String(cred["Sub-ID"] || ""));
       if (nativo) return nativo;
     }
   }

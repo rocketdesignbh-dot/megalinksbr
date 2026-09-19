@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 155 — 16/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 164 — 19/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1733,7 +1733,9 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
-**REVISÃO 155 — 16/09/2026 — Restilização pedida de novo (3ª vez: REVISÃO 63-66, depois REVISÃO 154 investigou e não mudou código, agora esta sessão mudou código de verdade). Checkout sincronizado com `origin/main` (0/0 de divergência, `git fetch` conferido no início) — não é o bug da REVISÃO 154. Branch `redesign/megalinks-ui-v3`, 28 commits (atualizado em 19/09), NÃO mergeada em `main`.**
+**REVISÃO 164 — 19/09/2026 (restilização iniciada em 16/09 como "REVISÃO 155"; renumerada ao integrar com a `main`, que já tinha as REVISÕES 156–163) — Restilização pedida de novo (3ª vez: REVISÃO 63-66, depois REVISÃO 154 investigou e não mudou código, agora esta sessão mudou código de verdade). Checkout sincronizado com `origin/main` (0/0 de divergência, `git fetch` conferido no início) — não é o bug da REVISÃO 154. Branch `redesign/megalinks-ui-v3`, 28 commits (atualizado em 19/09), NÃO mergeada em `main`.**
+
+**Integração com a `main` feita em 19/09 (`git merge origin/main` na branch, via CLI):** conflitos só em `index.html` (4 trechos, todos na região do Post Automático da REVISÃO 160 — resolvidos ficando com a lógica da `main`: `grupoStatusDisparo`/`stDisp`/`GRUPO_STATUS_COR`; só as cores foram reaplicadas por cima) e neste doc (2 trechos). As demais páginas integraram sem conflito.
 
 ### O que foi pedido e como foi resolvido o "já foi feito"
 
@@ -1773,7 +1775,7 @@ Ao contrário da REVISÃO 154 (que só confirmou "já foi feito, não fizemos na
 
 **⚠️ Medido em 19/09 via CLI (`git fetch` + `git merge-tree`, simulação sem tocar em nada) — a branch está DEFASADA em relação à `main`:**
 
-- `origin/main` andou **15 commits** desde a base desta branch (`95d4aa8`, REVISÃO 154) e já está na **REVISÃO 163**; a branch tem 28 (27 de código + docs). **A numeração "REVISÃO 155" acima colide com revisões que já existem na `main`** — renumerar (próxima livre: 164) ao integrar.
+- `origin/main` andou **15 commits** desde a base desta branch (`95d4aa8`, REVISÃO 154) e já está na **REVISÃO 163**; a branch tem 28 (27 de código + docs). **Resolvido em 19/09:** a numeração "REVISÃO 155" colidia com revisões já existentes na `main`; esta entrada foi renumerada para **164** na integração.
 - Existe um **segundo clone** do mesmo repo em `C:\Users\PC\github\megalinksbr`, na `main` atualizada (REVISÃO 163). É o que reflete o remoto; o clone de `Documents\megalinksbr` é o da branch de restilização. Não confundir os dois (mesmo padrão da P150).
 - **Merge simulado: conflito em 2 arquivos** — `frontend/index.html` (**4 trechos**, todos na região do Post Automático reescrita pela REVISÃO 160: `autoColor`, `grupoStatusDisparo`, `stDisp`, badges de "fora do rodízio") e este doc (2 trechos: cabeçalho de revisão e "Última alteração"). `landing.html`, `guia.html`, `revops.html`, `termos.html`, `privacidade.html`: **0 commits na `main`** desde a base → integram limpo.
 - **Depois de resolver, reexecutar as varreduras**, porque o código novo da `main` reintroduziu os padrões que a branch já limpou (contagem em `origin/main`): 33× `rgba(245,197,24,)`, 13× `#ef4444` solto, 9× `rgba(239,68,68,)`, 8× `rgba(255,176,32,)`, 8× `#f59e0b`, 5× `#22c55e`, 4× `rgba(245,158,11,)`, 4× plural "canalis", 27× `#0c0c0e` literal. Os scripts são mecânicos e idempotentes; usar sempre o cuidado de **pular a linha que define o token** (bug do `--green` circular).
@@ -1789,6 +1791,196 @@ Ao contrário da REVISÃO 154 (que só confirmou "já foi feito, não fizemos na
 ### Estado ao encerrar
 
 Branch `redesign/megalinks-ui-v3`, 28 commits, working tree limpa. Cada commit testado individualmente via `frontend-static` (porta 5173) — console sem erro novo, foco de teclado conferido ao vivo com Tab de verdade num modal real.
+
+**ADENDO 2 à REVISÃO 163 — 18/09/2026 — Frontend REBUILDADO no EasyPanel pelo Érico e CONFERIDO NO HTML SERVIDO.** `GET https://www.megalinksbr.com.br/painel/` devolveu 200 com 831.048 bytes e, dentro dele, todos os marcadores das revisões pendentes de publicação: `shopee_sub_id` (REVISÃO 163), `lrLinkNativo(d.url,jwt,"linkrapido")` e `origem:origem||"linkrapido"` (REVISÃO 163), `renderPgAutoAtalho` (REVISÃO 161) e `PROD_LOJAS_COM_VERIFICADOR` (REVISÃO 162). Ou seja: o webhook serviu o `index.html` novo — não é só "rebuild concluído". As REVISÕES 160, 161, 162 e 163 estão **inteiras no ar**, backend e tela.
+
+**ADENDO à REVISÃO 163 — 18/09/2026 — "E do Mercado Livre dá pra fazer igual?" MEDIDO: o ML já carrega o equivalente ao sub_id (a `tag`/Etiqueta ML, que vira `matt_word` no link), e ele NÃO aceita tag inventada na hora. Decisão do Érico: deixar como está. NENHUMA LINHA DE CÓDIGO MUDOU.**
+
+### O que foi medido (18/09, endpoint interno de afiliados do ML, conta do Érico)
+
+| chamada | resultado |
+|---|---|
+| `POST /affiliate-program/api/v2/stripe/user/links` com `tag:"eko"` | ✅ 200 — `short_url: https://meli.la/22eNUhp`, `long_url` com `matt_word=eko&matt_tool=18051249` |
+| mesma chamada com `tag:"ekolinkrapido"` | ❌ 400 — `{"message":"Tag is not associated with this affiliate.","error_code":109}` |
+| `GET /affiliate-program/api/v2/stripe/user/tags` | ✅ 200 — `[{"tag":"eko","in_use":true},{"tag":"anan1844639","in_use":false}]` |
+
+### Leitura
+
+- **A `tag` do ML É o sub_id do ML.** Ela já vai em TODO link nativo de ML desde a REVISÃO 144 (`gerarLinkNativoMLDetalhado` manda `{url, tag}` com a Etiqueta ML) e aparece no destino como `matt_word`. Ou seja, diferente da Shopee, aqui nunca houve buraco de rastreio — só não havia separação por tela.
+- **A diferença estrutural:** na Shopee o `subIds` é texto livre, então dá para inventar `[rótulo, origem]` na hora. No ML a tag precisa **existir cadastrada na conta de afiliado** — `error_code 109` é o ML recusando tag desconhecida. Separar por tela no ML exigiria criar 2 a 4 tags no painel do ML e escolher a tag conforme a origem.
+- **Decisão do Érico (18/09): deixar como está** — o ML continua com a tag única `eko`. Não é pendência; é escolha.
+- **Achado extra, útil:** `GET /affiliate-program/api/v2/stripe/user/tags` lista as tags da conta. Serve para, no futuro, validar a Etiqueta ML cadastrada em Config Afiliados ANTES de o usuário descobrir pelo erro 109. Não implementado.
+- ⚠️ `error_code 109` (tag não cadastrada) é DIFERENTE do `error_code 111` (anúncio recusado pelo programa, tratado na v36/P153). Se um dia aparecer 109 em produção, a causa é a Etiqueta ML errada ou removida do painel do ML — não o produto.
+
+**REVISÃO 163 — 17/09/2026 — Sub-ID da Shopee passa a viajar no link nativo (Link Rápido, Postar Agora, Post Automático e Disparo Manual). `product-search` v37 (deploy 66), `send-post` v31 (deploy 66) e `group-blast` v10 (deploy 22) NO AR, conferidas byte a byte contra o repo. MEDIDO em produção: link do Link Rápido resolve com `utm_content=eko-linkrapido---` e o do Postar Agora com `utm_content=eko-postaragora---`, os dois com `mmp_pid=an_18344180897`; sem rótulo cadastrado o destino continua `utm_content=----` (sem regressão). ⚠️ Durante o deploy, o `verify_jwt` da `send-post` foi religado pela ferramenta e o Post Automático caiu com 401 por alguns minutos — consertado no cron e medido (200, `groups:17`).**
+
+### O pedido
+
+O Érico mandou um link de destino da Shopee e perguntou se o Sub-ID dele aparecia ali. **Não aparecia:** `utm_content=----` (cinco campos vazios). Aprovou implementar "se não for interferir em nada".
+
+### O que estava acontecendo
+
+O rótulo de Sub-ID (Config Afiliados → Shopee → Sub-ID) só era usado num caminho: `shopeeSubId()` no frontend, que cola `sub_id=<rótulo>-<code>` em links `s.shopee.com.br/an_redir`. **O link NATIVO não passa por ali** — ele vem pronto do `productOfferV2.offerLink` da Open API, e o `offerLink` não carrega sub_id nenhum. Como a REVISÃO 156 (Link Rápido), a P143 (Postar Agora) e a P146 (disparo) passaram tudo para o link nativo, o rastreio por Sub-ID tinha sumido junto — sem ninguém notar.
+
+`grep` confirmou: `sub_id` não existia em `send-post/index.ts` nem em `group-blast/index.ts`.
+
+### Medições que definiram o formato (17/09, credenciais reais, direto na Open API)
+
+| `subIds` enviado | resultado |
+|---|---|
+| `["eko-teste9","","","",""]` | ❌ `error [11001]: Params Error : invalid sub id` |
+| `["eko-teste9"]` (com hífen) | ❌ `error [11001]` |
+| `["ekoteste9"]` | ✅ link gerado; destino com `utm_content=ekoteste9----` |
+| `["eko","teste9x"]` | ✅ destino com `utm_content=eko-teste9x---` |
+| sem `subIds` | ✅ mesmo link do `offerLink` |
+
+**Conclusão:** cada campo vai como um ITEM do array, sem hífen (o hífen é o separador dos 5 campos do lado da Shopee) e sem string vazia. Isso é incompatível com a convenção antiga do frontend (`<rótulo>-<code>` numa string só) — por isso o valor foi remontado como array.
+
+### O que mudou
+
+- **`product-search` v37 (deploy 66):**
+  - `subIdsShopee(rotulo, origem)` monta `[rótulo, origem]` já higienizado (`[^a-zA-Z0-9_]` fora, 20 caracteres no máximo). **Sem rótulo cadastrado devolve `[]` e a mutation nem é chamada** — o caminho fica idêntico ao de antes.
+  - `shopeeShortLinkComSubId()` chama `mutation generateShortLink(input:{originUrl, subIds}){shortLink}`. Qualquer falha devolve `null` e quem chamou cai no `offerLink` de sempre.
+  - `fetchShopee` (Postar Agora) usa origem `postaragora`; `somenteLinkNativo` (Link Rápido) usa a origem que vem no corpo, default `linkrapido`.
+  - O corpo da requisição ganhou `origem`; `credentials` ganhou `shopee_sub_id`.
+- **`send-post` v31 (deploy 66)** e **`group-blast` v10 (deploy 22):** mesmo helper, origem `postauto` e `grupo`, lendo `cred["Sub-ID"]` das credenciais do dono do grupo.
+- **Frontend:** `prColetarCredenciais()` passa `shopee_sub_id`; `lrLinkNativo(url, jwt, origem)` manda `origem:"linkrapido"`.
+
+### Prova (comportamento, não status)
+
+1. Link Rápido (`modo:"link_nativo"`, credenciais do Érico) → `https://s.shopee.com.br/9Ki8RHtgQT` → destino `utm_content=eko-linkrapido---`, `mmp_pid=an_18344180897`.
+2. Postar Agora (sem `modo`) → `https://s.shopee.com.br/7ptKeYpiZB` → destino `utm_content=eko-postaragora---`, mesmo `mmp_pid`.
+3. Controle, sem rótulo → `https://s.shopee.com.br/7fZsz2Dckl` → destino `utm_content=----`. **Nenhuma regressão para quem não cadastrou Sub-ID.**
+
+### ⚠️ O deploy derrubou o Post Automático por alguns minutos
+
+O `deploy_edge_function` **religou o `verify_jwt` da `send-post`** (estava desligado na versão 65). O cron `mega-send-post` só mandava `x-cron-secret`, então passou a receber `401 {"code":"UNAUTHORIZED_NO_AUTH_HEADER"}` — **medido**, chamando a URL com o comando exato do cron.
+
+Conserto aplicado e medido: o comando do cron (jobid 6) ganhou `Authorization: Bearer <chave anônima>`, que é pública e serve só para passar pelo portão da plataforma. **Quem autoriza continua sendo o `x-cron-secret` conferido dentro da função.** Nova chamada: `200`, `{"groups":17,...}`. Migração `20260917180000_cron_send_post_authorization_header.sql`.
+
+**Aprendizado: `deploy_edge_function` pode mexer no `verify_jwt`. Depois de todo deploy de função chamada por cron, refazer a chamada do cron e conferir o status.**
+
+**REVISÃO 162 — 17/09/2026 — Conferência de preço: Shopee passa a ser conferida (Open API), Amazon volta a ser lida (ia depois do ML e nunca era alcançada) e há uma segunda rodada às 18h. `product-refresh` v22 (deploy 31) NO AR, conferida byte a byte; cron `product-refresh-noite` criado; frontend pushado (`2eee727`) e servido. MEDIDO em produção: 9 rodadas reais, 316 leituras, 67 preços corrigidos, 280 de 285 produtos Shopee conferidos.**
+
+### Pedido e diagnóstico (MEDIDO antes de codar)
+
+- **Pedido:** o Érico perguntou como resolver as observações da lista de produtos ("esta loja ainda não é conferida", "preço conferido há X dias") e aprovou: (1) conferir a Shopee, (2) Amazon 2x/dia, (3) corrigir o texto desatualizado do aviso.
+- **Shopee:** 30 produtos reais consultados na Open API (assinatura feita no próprio banco com `extensions.digest`; atenção: é preciso assinar `body::text` do jsonb, senão dá 10020). Resultado: **30/30 com dados, 7 com preço diferente do gravado**.
+- **Amazon — a causa real:** `product_refresh_runs` mostrava as 7 últimas rodadas **todas** `interrompido_por_tempo`, com **0 a 4 lidos de 73**. Motivo: o ML (bloqueado, P151) abortava a cada 15 s e consumia os 70 s da rodada antes da vez da Amazon, que era a última. Hoje: `conferidos_amazon` = 0.
+
+### O que mudou
+
+- **`product-refresh` v22:**
+  - (a) balde `shopee` (orçamento 40, reserva 12, teto de 25 s): `consultarShopee` usa `productOfferV2 {priceMin priceDiscountRate}` com a credencial do **dono** (`affiliate_credentials`, `App Key || ID de Afiliado` + `App Secret`). O "De" é derivado da taxa só quando taxa > 0 (mesma regra da `product-search` v33). Com taxa 0 o "De" gravado **não** é apagado, salvo se ficou ≤ preço novo. Sem resultado na API → `estado:'sem_dados'`: carimba e grava `unavailable_signal='shopee:fora_das_ofertas'`, sem strike e sem expirar. Link sem LOJA/ITEM ou dono sem credencial → pulo por condição, com carimbo.
+  - (b) ordem nova: `sem_verificador → shopee → amazon → mercado_livre`, com `LIMITE_MS_POR_BALDE` (shopee 25 s, amazon 45 s) e `DEADLINE_MS` de 70 s para 100 s.
+  - (c) corpo `lojas:[…]` restringe os baldes.
+  - (d) **`precoAmazon` passou para a janela de 12000 e a leitura de "De" da `product-search` v32.** No dryRun, a janela de 4000 apagaria 5 "De" certos; com a correção, 2 (páginas sem riscado). "Preço não confirmado" caiu de 15 para 7.
+  - Contadores novos: `conferidos_shopee`, `shopee_fora_das_ofertas`, `baldes_cortados_por_tempo`, `lojas_pedidas`.
+- **Cron `product-refresh-noite`** (`0 21 * * *` = 18h BRT, `{"lojas":["shopee","amazon"]}`); migração `20260917150000_schedule_product_refresh_noite.sql`. O `product-refresh-daily` (06h, todas as lojas) continua igual.
+- **Dados:**
+  - `price_checked_at = null` nos 86 produtos Shopee carimbados pelo pulo antigo ("sem verificador"), porque a tela passaria a dizer "conferido" sem ninguém ter lido.
+  - **51 links encurtados `s.shopee.com.br/…`** (em `original_url`) foram resolvidos pelo cabeçalho `Location` (via `net.http_get`) e regravados como `https://shopee.com.br/product/LOJA/ITEM`. Resultado: 285/285 conferíveis. Isso também ajuda o link nativo do disparo (`gerarLinkNativoShopee` exige esse formato).
+- **Frontend:**
+  - `PROD_LOJAS_COM_VERIFICADOR` inclui `shopee`.
+  - `prodMotivoSemConferencia` ganhou os motivos `url` (Shopee sem LOJA/ITEM), `cred` (sem App Key/App Secret) e `ofertas` (`shopee:fora_das_ofertas`), cada um com texto próprio.
+  - O aviso de preço agora diz "roda às 06h (todas as lojas) e às 18h (Amazon e Shopee), em lotes"; antes dizia "alcança 12 produtos por rodada", o que estava errado desde a v21.
+
+### Prova
+
+- `get_edge_function` v31 idêntica ao repo.
+- dryRuns: Shopee com 32 lidos em 9 s e 0 erros; Amazon com 36 e depois 31 lidos em cerca de 46 s (antes, 0 a 4).
+- 9 rodadas reais: **316 lidos, 67 preços corrigidos, 1 "De" apagado**. Exemplos: Fritadeira Philco (Amazon, outro grupo) de 399 para 559,90; Geladeira Brastemp de 3899 para 4389.
+- Shopee: **280/285 conferidos**, 3 fora do catálogo de ofertas.
+- Tela logada do Érico: o aviso "100 produtos não têm conferência automática" **sumiu**.
+
+### Adendo — tag da Amazon de terceiro nos links antigos (17/09, dado, sem deploy)
+
+O Érico explicou que usava a tag Amazon da Ana Luiza (`analuizashop3-20`) no próprio perfil até trocar para `eko04e-20`. Havia **382 `short_links`** dele (15/07 a 04/09, 43 cliques no histórico, 0 nos últimos 7 dias) redirecionando com a tag antiga. Perguntei se era para apagar: apagar quebraria os posts antigos e levaria os cliques junto (`link_clicks` tem `ON DELETE CASCADE`). **Decisão do Érico: trocar a tag.** `long_url` e `destination` foram regravados com `tag=eko04e-20`. Um link (`pd8c10s`, 26/08) estava sem `https://` e com `?ref=analuizashop3-20` (defeito antigo de URL sem protocolo); foi corrigido para `https://…?…tag=eko04e-20`. Conferido depois: 0 ocorrências de `analuizashop3` em `short_links`, `products` e `affiliate_credentials` da conta.
+
+**REVISÕES 160 e 161 — 17/09/2026 — Status real do post automático em todas as telas, e ligar/pausar só no Post. Automático (com atalho nos grupos). SÓ FRONTEND, pushado (`44344e3`, `3d820c9`), servido em produção e CONFIRMADO NA TELA PELO ÉRICO. Mais uma correção de dado (tags da Amazon).**
+
+### O que disparou a sessão
+
+O Érico mandou um print da lista de produtos do grupo **Achadinhos Eletrodomésticos** (`73493b98-…`) perguntando se as observações cinzas ("esta loja ainda não é conferida automaticamente", "preço conferido há X dias") estavam travando a postagem, e por que não havia botão de aprovar.
+
+**MEDIDO:**
+- As observações são **só informativas**. O próprio código diz: *"NADA é barrado no disparo"*.
+- A causa real era `cursor_index=141` de 141 produtos com `loop_enabled=false`. O log do `send-post` repetia a cada minuto: `[FIM-DA-LISTA] grupo=73493b98… cursor=141 total=141 — Post em Loop desligado, aguardando produto novo`.
+- **Nenhuma tela mostrava isso.** O card do Post. Automático exibia "● ATIVO".
+- Às 13:35 UTC entrou um produto novo, o grupo postou e voltou a esperar. O comportamento está certo (é o modo "não repetir" da REVISÃO 142); o defeito era a tela não contar.
+- Na base inteira: **13 dos 17 grupos com automação ligada estavam nesse estado de espera**, quase todos os "Achadinhos" do Érico com `delete_after_post=true` (1 produto que já saiu, esperando o próximo da captura).
+- Não há botão de aprovar em produto de grupo porque ele **não precisa de aprovação**: aprovação só existe na fila do Clone Post. Decisão do Érico, a partir da recomendação: **aprovação continua no Clone Post**.
+
+### Correção de dado (sem deploy)
+
+13 produtos da Amazon desse grupo tinham `affiliate_url` com `tag=analuizashop3-20` (tag de terceiro). O `send-post` troca a tag pela do dono na hora do disparo (`gerarLinkAfiliado` → `u.searchParams.set("tag", …)`), então **a comissão nunca foi afetada**; só a tela mostrava a tag errada. Com autorização do Érico:
+
+```
+update products set affiliate_url = regexp_replace(affiliate_url, '([?&])tag=analuizashop3-20(&|$)', '\1tag=eko04e-20\2')
+where niche_group_id='73493b98-…' and user_id=<Érico> and source='amazon' and affiliate_url ~ '[?&]tag=analuizashop3-20(&|$)'
+```
+
+Resultado: 13 linhas. Conferido depois: nenhum produto da Amazon da conta com outra tag. Os 96 an_redir de Shopee do grupo usam o ID de afiliado do Érico; 3 estão sem `affiliate_id` gravado, o que o disparo também reescreve.
+
+### REVISÃO 160 — `grupoStatusDisparo(g)`: uma regra, três telas
+
+- A função mora logo depois de `SMART_JANELAS` no `index.html`. Os testes seguem a **ordem dos gates do `send-post` v30**: plano → ligado → WA/destinos → produtos elegíveis (fora do ar / validade / agendado / loja fora do plano, espelhando `PLAN_MARKETPLACES` em `PLANO_LOJAS_DISPARO`) → teto diário → fim de semana → janela (normal ou Horários Inteligentes) → **fim da lista com loop desligado** → "não repetir" esgotado. **Mexeu num, mexe no outro.**
+- Plano segue o servidor: `is_vip ? elite : plan` (`planoDoDisparo`).
+- Ficam de fora, de propósito: credencial de loja faltando (aparece como falha no log de disparos) e o ritmo fino dos Horários Inteligentes.
+- Saídas: 🟢 Postando (próximo "por volta das HH:MM" e, sem loop, "faltam X de N"), 🟡 Em espera / Limite do dia / Todos já saíram hoje, 🌙 Fora do horário / das janelas, ⏸ Pausado / fim de semana, 🔴 Não está postando (falta WA / destino / produto disponível), 🔒 Manual.
+- `loadGroups` passou a trazer `cursorIndex`, `lastPostAt`, `intervalMin`, `prodElegiveis`, `prodForaPlano`, `enviadosHoje` e `elegiveisPostadosHoje` (mesmo "hoje" do `send-post`: data de Brasília + `T00:00:00Z`).
+- **Onde aparece:** faixa `#egStatus` no topo do Editar Grupo (re-renderiza ao salvar); rótulo e explicação nos cards do Post. Automático (que agora chama `loadGroups()` antes de desenhar); rótulo nos cards da lista de Grupos de Oferta, com explicação quando está em espera ou com erro.
+- **Prova:** 11 cenários exercitados em Node (incluindo o do grupo real: 142/142, loop off → "Em espera"), render conferido em Chromium, `node --check` limpo, `index.html` servido contém `grupoStatusDisparo`. O Érico confirmou na tela.
+
+### REVISÃO 161 — ligar/pausar só no Post. Automático (pedido do Érico)
+
+- **Editar Grupo › Geral:** o checkbox `pgAuto` saiu. No lugar, `#pgAutoAtalho` (`renderPgAutoAtalho`) mostra "ligado/desligado" e o botão "▶ Ligar / ⏸ Pausar no Post. Automático →".
+- **`salvarGeral` não grava mais `post_auto_enabled`.** "Limpar tudo" não pausa, e carregar uma pré-configuração não mexe no liga/desliga (o `auto` do preset ficou só informativo).
+- **Cards da lista de Grupos de Oferta:** ganharam o atalho na linha de ações (antes o `btnStart` era montado e nunca usado). A linha falsa "🔀 Aleatório: ✅" (ordem aleatória acabou na v23 do `send-post`) virou "🔁 Loop: ligado/desligado".
+- **`abrirPostAutomatico(gid)`:** guarda `window._paFoco` e navega. O `loadPostAutomatico` rola até `#pa-card-<gid>` e o destaca com borda amarela.
+- O único lugar que liga ou pausa continua sendo o `togglePostAuto`, com as validações de sempre. O subtítulo da página Post. Automático explica o papel dela.
+- **Prova:** render conferido; `index.html` servido contém `abrirPostAutomatico` e `pgAutoAtalho`, sem `id="pgAuto"`. O Érico confirmou o fluxo na tela.
+
+### Também nesta sessão (já registrado nas REVISÕES 156–159)
+
+Link Rápido com link nativo Shopee/ML (`product-search` v35→v36), trava de produto ML recusado (`error_code 111`). Depois do deploy da v36, **2 links ML reais saíram OK** pela conta do Érico (logs 13:01 e 13:02 UTC, `ok=true`), então não houve regressão. O ramo do 111 **ainda não foi exercitado na tela** (P153).
+
+**REVISÃO 159 — 17/09/2026 — P153 (parte Link Rápido): produto de ML recusado pelo programa de afiliados agora TRAVA o Link Rápido, com aviso para escolher outro produto. `product-search` v36 (deploy 65) NO AR e conferido idêntico ao repo; frontend pushado. Tela NÃO medida ainda.**
+
+- **Pedido do Érico:** "quando acontecesse isso, o Link Rápido travasse e avisasse o porquê", "avisasse o usuário pra arrumar outro produto, e não fizesse o link encurtado do Megalinks".
+- **Descoberta que motivou:** o Érico abriu o produto da REVISÃO 158 (`MLB2086858407`) no navegador e o ML mostrou **"produto indisponível"**, o que é consistente com o `error_code 111` em todos os formatos de URL.
+- **`product-search` v36:** `gerarLinkNativoMLDetalhado` devolve `{link, recusado}`, com `recusado = HTTP 400 && error_code 111`. `gerarLinkNativoML` virou um wrapper (a assinatura continua a mesma, então o Postar Agora/`enriquecerComLinkNativoML` não muda). No modo `link_nativo`, o 111 devolve `motivo:"ml_item_recusado"`; as outras falhas continuam só com `native_link:false`.
+- **Frontend (`lrGerar`/`lrLinkNativo`):** `lrLinkNativo` passou a devolver `{link}` ou `{link:null, motivo}`. Com `ml_item_recusado`, a tela mostra um alerta **vermelho** ("O Mercado Livre não gera link de afiliado para este produto… provavelmente indisponível… Nenhum link foi gerado — escolha outro produto pra divulgar") e **para**: não chama `prGerarLinkAfil` nem o encurtador. Sem `motivo`, segue o fluxo antigo. `node --check` limpo; `esbuild` limpo no `.ts`.
+- **Prova até agora:** `get_edge_function` v65 byte a byte igual ao repo. Regressão via `pg_net`: Shopee → `s.shopee.com.br/6Al5DWahDp`; ML anônimo → `success:false` sem `motivo` (correto: sem usuário, sem cookie). **O ramo do 111 NÃO foi exercitado pela função** (exige JWT de usuário real); o 111 em si foi medido direto no endpoint do ML na REVISÃO 158.
+- **Falta:** o Érico colar de novo o link do `MLB2086858407` no Link Rápido e ver o alerta vermelho sem link. O Postar Agora continua sem esse aviso (resto da P153).
+
+**REVISÃO 158 — 17/09/2026 — Link Rápido: um link de ML caiu no encurtador próprio, e a causa é do ML, não do código. NADA de código mudou.** O Érico colou `mercadolivre.com.br/p/MLB2086858407?matt_tool=…&pdp_filters=item_id:MLB4577631357&ua=…` e recebeu `megalinksbr.com.br/r/vtaizos`. **Log MEDIDO:** `[ML][link-nativo] HTTP 400 … "URL not allowed in affiliates program", error_code 111`. **Isolado chamando o mesmo endpoint via `pg_net`, com o cookie e a Etiqueta do Érico:** recusadas com o mesmo 111 a URL completa, a URL sem `ua`, a URL sem query nenhuma (`/p/MLB2086858407`), a URL só com `ua`, e o anúncio direto (`produto.` e `www.` `/MLB-4577631357`). **Controles aceitos na mesma rodada:** o vestido `/up/MLBU3661571949` (devolveu `meli.la/2kt3MDD`, o mesmo do teste da P152) e outro catálogo `/p/MLB45819230` (`meli.la/29H354X`). Conclusão: **esse produto/anúncio é inelegível no programa de afiliados do ML** (em qualquer formato de URL); não é o `ua`, nem o `pdp_filters`, nem o `/p/`. O fallback fez o que devia (tirou o `matt_tool` de terceiro, aplicou o nosso e encurtou), mas **para item inelegível nem o link com `matt_*` deve gerar comissão**, e a tela mostra verde mesmo assim. Ver P153.
+
+**REVISÃO 157 — 17/09/2026 — P152 FECHADA: o Link Rápido com link nativo foi confirmado na tela, nas duas lojas.** Push da REVISÃO 156 feito pela CLI (clone limpo no dispositivo do Érico, PAT clássico da sessão, `6dc9c90..7f31963`). Deploy do `app` pelo webhook confirmado: o `index.html` servido em `megalinksbr.com.br` contém `lrLinkNativo` e a legenda "link oficial de afiliado da". **Érico testou na sessão logada dele:** Mercado Livre (`/up/MLBU3661571949…`) saiu `https://meli.la/2kt3MDD`, com o alerta verde e a legenda de link oficial (print conferido); Shopee também saiu com o link nativo, segundo o relato dele. Observação: este push reiniciou o `wa-engine` (P16), assim como o da REVISÃO 156. O PAT foi colado no chat, então precisa ser revogado (mesma classe da P72).
+
+**REVISÃO 156 — 16/09/2026 — Link Rápido passa a entregar o link NATIVO da Shopee e do Mercado Livre, igual Postar Agora (REVISÃO 144) e Grupos de Oferta (P146). `product-search` v35 (deploy 64) NO AR e conferido idêntico ao repo; `frontend/index.html` pushado (deploy do `app` sai pelo webhook). Shopee MEDIDA no backend; ML e a tela ainda NÃO medidos.**
+
+### O que o Érico pediu
+
+"Em Link Rápido, aplique a mesma lógica dos links que você fez para Postar Agora e em Grupo de Ofertas. Lá os links da Shopee e ML ainda estão saindo com encurtamento da megalinks."
+
+### O que foi feito
+
+- **Por que não bastava copiar o `eLinkOficialDaLoja` do Postar Agora:** o Link Rápido nunca chama a `product-search` (só `resolve-link` + encurtador), então não tinha `short_link` nativo nenhum em mãos. Chamar a busca inteira leria o produto — gasta leitura de loja e, no ML, bate no bloqueio da P151.
+- **`product-search` v35:** corpo `{url, credentials, modo:"link_nativo"}` devolve SÓ o link nativo, sem ler a página (`somenteLinkNativo`). Shopee: Open API oficial (`productOfferV2 { offerLink }`) com App Key/App Secret vindos do front (mesmo `prColetarCredenciais` do Postar Agora). ML: o mesmo `gerarLinkNativoML` da v34 (cookie `ml_session_cookie` + `Etiqueta ML`). Falhou/faltou credencial → `{success:false, native_link:false}`. Sem o `modo`, a função é idêntica à v34.
+- **Frontend (`lrGerar`)**: para Shopee e Mercado Livre, depois de resolver o link e checar credencial, chama `lrLinkNativo()` (timeout 30 s). Veio link nativo → entrega ele cru, sem `encurtarLinkFinal`, com a legenda "link oficial de afiliado da <loja>". Não veio → segue exatamente o fluxo antigo (`prGerarLinkAfil` + encurtador). Amazon e demais lojas não mudaram. `node --check` limpo nos 5 blocos `<script>`.
+
+### Prova
+
+- `get_edge_function` depois do deploy: `version` 64, `index.ts` **byte a byte igual** ao repo. `verify_jwt` continua `true`.
+- Chamada real via `pg_net` com as credenciais Shopee do Érico (lidas dentro do SQL), produto `1362613236/27893329314` do Radar: **`{"success":true,"native_link":true,"short_link":"https://s.shopee.com.br/9Ki6245gNB"}`**.
+- Controles: mesma chamada **sem App Secret** → `success:false`; ML **sem usuário** (anon) → `success:false` — os dois caem no fallback, como desenhado.
+- Achado de lado: o produto `1006215031/24442629738` (o da P26) hoje volta **sem nó** na API (saiu do catálogo de ofertas). Nesse caso o Link Rápido cai no `an_redir` + encurtador — mesmo comportamento do Postar Agora.
+
+### O que NÃO foi medido
+
+- **ML nativo pelo Link Rápido**: exige JWT de usuário real (o `sub` escolhe o cookie); não dá para forjar da sessão. Código é o mesmo da v34 (provado na P143), a diferença é que a URL enviada é a canônica devolvida pela `resolve-link`.
+- **A tela em produção** (deploy do `app` pelo webhook + clique real). Ver P152.
 
 **REVISÃO 154 — 15/09/2026 — Sessão pediu restilização completa de novo (mesmo pedido da REVISÃO 153, sem saber que ela já tinha rodado); nada de visual novo foi commitado — a sessão foi de investigação, fechou a P71 e registrou a P150. NADA de código mudou nesta sessão.**
 
@@ -10552,7 +10744,24 @@ antigos; hoje é **Premium**).
 
 ## Componentes — estado
 
-### Post Automático — `send-post` v29 (deploy 63) NO AR, PUSHADO
+### Sub-ID da Shopee no link nativo — `product-search` v37 / `send-post` v31 / `group-blast` v10 (REVISÃO 163)
+
+- **Onde o rótulo é cadastrado:** Config Afiliados → Shopee → "Sub-ID de rastreamento". Campo livre.
+- **Como viaja:** o link nativo passa a ser gerado pela mutation `generateShortLink(input:{originUrl, subIds})` da Open API da Shopee, com `subIds = [rótulo, origem]`. A origem diz QUAL tela gerou: `linkrapido`, `postaragora`, `postauto` (Post Automático) ou `grupo` (Disparo Manual).
+- **Onde aparece:** no relatório da Shopee, `Sub_id1` = rótulo e `Sub_id2` = origem. No destino resolvido isso aparece como `utm_content=<rótulo>-<origem>---`.
+- **Regras do valor (MEDIDAS, ver REVISÃO 163):** cada campo é um ITEM do array, **sem hífen** (o hífen é o separador dos 5 campos do lado da Shopee) e **sem string vazia** — as duas coisas dão `error [11001]: invalid sub id`. A higienização tira tudo que não for `[a-zA-Z0-9_]` e corta em 20 caracteres.
+- **Sem rótulo cadastrado, nada muda:** a mutation não é chamada e o link continua vindo do `productOfferV2.offerLink`. Medido: destino com `utm_content=----`, como sempre foi.
+- **Qualquer falha da mutation cai no `offerLink`** — o link nativo nunca deixa de sair por causa do sub_id.
+- ⚠️ **O `an_redir` do frontend (`shopeeSubId`) continua existindo e continua usando `sub_id=<rótulo>-<code>` numa string só** — ali o hífen É o separador e está certo. São dois caminhos diferentes com formatos diferentes de propósito.
+
+### Post Automático — `send-post` v31 (deploy 66) NO AR, conferida byte a byte
+
+> **REVISÃO 163 (17/09): v31 no ar (deploy 66) — Sub-ID da Shopee no link
+> nativo. ⚠️ O deploy religou o `verify_jwt` desta função e o cron passou a
+> levar 401; consertado no comando do cron (`Authorization` com a chave
+> anônima). Depois de QUALQUER deploy desta função, refazer a chamada do cron
+> e conferir o status antes de dar por encerrado.**
+
 
 > ⚠️ Histórico de desalinhamentos deste componente: REVISÃO 124 deployou v24
 > sem pushar (corrigido na 125); entre a 125 e a 126, outra sessão deployou v26
@@ -10944,6 +11153,19 @@ na "Última alteração" da REVISÃO 32.
 
 ---
 
+### Post Automático — status e liga/pausa (REVISÕES 160–161, 17/09 — CONFIRMADO NA TELA)
+
+- **Ligar e pausar só na página Post. Automático** (`togglePostAuto`). A lista de Grupos de Oferta e o Editar Grupo têm só atalho (`abrirPostAutomatico(gid)` → rola e destaca `#pa-card-<gid>`). `salvarGeral` não grava `post_auto_enabled`.
+- **Status real** vem de `grupoStatusDisparo(g)`, espelho da ordem de gates do `send-post` v30, e aparece nas três telas. Loop desligado + cursor no fim = 🟡 "Em espera" (comportamento esperado; posta quando entra produto novo), não erro.
+- Aprovação de ofertas continua **só** na fila do Clone Post (decisão do Érico, 17/09).
+
+### Conferência de preço — `product-refresh` v22 (REVISÃO 162, 17/09 — MEDIDA)
+
+- Lojas conferidas: **Mercado Livre** (wa-engine/Scrape.do, custo de crédito), **Amazon** (página direta, custo zero) e **Shopee** (Open API com a credencial do dono, custo zero).
+- Rodadas: **06h BRT** (`product-refresh-daily`, todas as lojas) e **18h BRT** (`product-refresh-noite`, só Shopee e Amazon).
+- Orçamento por rodada: shopee 40, amazon 45, mercado_livre 8, sem_verificador 20. Ordem shopee → amazon → ML, com teto de tempo por balde.
+- Shopee fora do catálogo de ofertas = `unavailable_signal='shopee:fora_das_ofertas'`: não expira, só avisa na tela.
+
 ### Link Rápido (aba nova, 03/08 — NÃO MEDIDA EM PRODUÇÃO)
 
 Aba do menu do afiliado, logo abaixo de "Postar Agora" (`data-page="link-rapido"`,
@@ -10953,6 +11175,12 @@ de afiliado do usuário logado.
 Fluxo de `lrGerar()`: `resolve-link` v5 (segue redirects, desembrulha `an_redir` e
 `?go=`, **tira o afiliado de origem** e devolve `stripped[]`) → `temCredencialLoja` →
 `prGerarLinkAfil` com o `CREDS_STATE` do usuário logado → `encurtarLinkFinal`.
+
+**REVISÃO 156 (16/09):** para **Shopee e Mercado Livre**, depois do `temCredencialLoja`, o
+`lrGerar` chama `lrLinkNativo()` → `product-search` v35 `modo:"link_nativo"`. Se vier link
+nativo (`s.shopee.com.br/…` / link curto oficial do ML), ele é entregue **cru, sem
+encurtador** (sem rastreio de cliques no nosso domínio — decisão da REVISÃO 144). Se não
+vier, segue o fluxo acima. **Medido na tela em 17/09 (P152 fechada):** ML → `meli.la/…`, Shopee → `s.shopee.com.br/…`.
 
 - **Verde (`alert g`) só quando as três coisas fecharam:** loja reconhecida,
   credencial presente e link **efetivamente diferente** do original. Sem credencial e
@@ -10971,7 +11199,7 @@ Fluxo de `lrGerar()`: `resolve-link` v5 (segue redirects, desembrulha `an_redir`
   `CREDS_STATE`: Shopee, Mercado Livre, Amazon, AliExpress, Magalu, Shein, Natura,
   TerabyteShop.
 - Sem gate de plano, sem tabela nova, sem Edge Function nova, sem consumo de
-  Scrape.do.
+  Scrape.do (o modo `link_nativo` da REVISÃO 156 também não lê a página).
 
 ---
 
@@ -11078,8 +11306,17 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P159** | 🟡 (tela no ar desde 18/09, então o Link Rápido já dá para conferir na mão) **Sub-ID no DISPARO (Post Automático e Disparo Manual) não foi medido num post real.** O código de `send-post` v31 e `group-blast` v10 é o MESMO helper provado no Link Rápido e no Postar Agora (mesma mutation, mesmo formato de `subIds`), mas nenhum disparo de produto Shopee real foi conferido depois do deploy. Fechar assim: esperar um post automático de produto Shopee num grupo com App Key/App Secret e Sub-ID cadastrados, abrir o link que saiu e conferir `utm_content=<rótulo>-postauto---` (ou `-grupo---` no Disparo Manual) | 17/09 |
+| **P158** | 🟡 **Uma conta tem uma URL inteira gravada no campo Sub-ID** (`https://collshp.com/achadinhosbrmr?view=storefront`). A higienização transforma isso em `httpscollshpcomachadi` — não quebra nada, mas vira lixo no relatório da Shopee. Saída: validar o campo na tela de Config Afiliados (só letras, números e `_`, até 20 caracteres) e avisar a dona | 17/09 |
+| **P157** | 🟡 **Links encurtados da Shopee voltam a entrar pela captura.** Os 51 atuais foram resolvidos na REVISÃO 162, mas produto novo com `original_url = s.shopee.com.br/…` volta a ser "sem link consultável" (pulo por condição da `product-refresh` v22). Saída: gravar a URL normalizada da `resolve-link` como `original_url` na `clone-ingest`/Postar Agora, ou resolver o `Location` dentro da `product-refresh` | 17/09 |
+| **P156** | 🟡 **Uma conta Elite (VIP, 4–5 produtos Shopee) tem credencial Shopee recusada pela API (`error [10020]: Invalid Signature`).** Os produtos dela ficam `desconhecido` em toda rodada (sem carimbo, sempre na frente da fila de nulos, ocupando cerca de 5 das 40 vagas) e o Postar Agora/link nativo da Shopee dessa conta também deve falhar. Ação: avisar a dona para recadastrar App Key/App Secret. Opcional: tratar 10020 como pulo por condição com carimbo | 17/09 |
+| **P155** | 🟡 **Fila do admin (`filaEta`) usa hora UTC para decidir "fora da janela".** `const brHour=now.getUTCHours()` com comentário "ok p/ ordenação relativa". Mas o `inWindow` sai dessa hora, então o painel admin pode mostrar "fora da janela" (ou o contrário) errado por 3 horas. Achado na REVISÃO 160, **não corrigido** (fora do escopo pedido). O status dos usuários (`grupoStatusDisparo`) já usa Brasília | 17/09 |
+| **P154** | 🔴 **Um novo PAT clássico (`ghp_xF28…`) foi colado no chat em 17/09** e usado em todos os pushes das REVISÕES 156–161, feitos pela CLI a partir de um clone limpo no dispositivo do Érico. **Precisa ser revogado** (mesma classe da P72). O push pela nuvem continua negado pelo proxy de sessão (403, mesma coisa da P144) | 17/09 |
 | **P150** | 🟡 **Checkout local ficou 626 commits à frente / 841 atrás do `origin/main` (defasagem de ~1 mês, parado em `b75b5e8` de 11/08) — causou uma sessão inteira de retrabalho antes de perceber.** A sessão da REVISÃO 154 fez 5 commits de restilização visual em cima da cópia desatualizada, achando que implementava o pedido do Érico do zero, até descobrir que a REVISÃO 66 já tinha feito o mesmo trabalho (mais rigoroso) em cima do `main` real. Os 5 commits (branch `redesign/megalinks-ui`) foram abandonados sem merge — não custou nada em produção, mas custou a sessão inteira. **Causa não determinada:** não ficou claro se os 626 commits locais são trabalho não empurrado por alguém, ou resíduo de outro fluxo (deploy direto, outra máquina, outro clone). Recomendação: `git fetch origin main && git rev-list --left-right --count main...origin/main` no início de toda sessão que for mexer em `frontend/index.html` ou qualquer arquivo grande — não confiar só no checkout local | 15/09 |
-| **P149** | 🟡 **Desafio antibot do ML aceito como produto no caminho principal — CODADO E DEPLOYADO, COMPORTAMENTO AINDA NÃO MEDIDO.** Ver a entrada "NOVA — REVISÃO 150" no topo do arquivo para o detalhe completo (2 usuários diferentes medidos nos logs, antes do fix). `wa-engine/server.js` ganhou o filtro `DESAFIOS_ANTIBOT_ML`; commit `034bb65` no `main`, `/health` do `wa-engine` com `uptime` baixo batendo com o horário do push confirma que o Deploy no EasyPanel já rodou (15/09 ~03:00 UTC). Falta só a prova de comportamento: o desafio não é determinístico, então falta um caso real acontecer de novo e confirmar no `query_logs` que agora sai `ok:false`/`sem_titulo_antibot` em vez do título do captcha | 15/09 |
+| ~~P149~~ | ✅ **FECHADA POR COMPORTAMENTO (16/09).** Érico reportou "ML continua com erro no Postar Agora, meu perfil e o da Patricia não conseguem". **MEDIDO no query_logs, ~22 buscas reais de ML dos dois usuários entre 15/09 16:36 e 16/09 02:33, todas depois do deploy:** zero ocorrências de DESAFIO ANTIBOT ou de título de captcha virando produto — o filtro do wa-engine funcionou 100% das vezes que o desafio apareceu (10 casos caíram no fallback Microlink e a página /gz/account-verification com título "Mercado Libre" foi **corretamente rejeitada**, success:false, em vez de virar produto fantasma). **O que o Érico está sentindo é outro problema, não este:** das 22 tentativas, só 8 tiveram resposta limpa do wa-engine na hora; **9 (41%) estouraram os 70 s e abortaram** (`[ML] wa-engine falhou: The signal has been aborted`) antes de cair no Microlink — visto nos dois usuários, inclusive hoje 02:32 UTC na conta do próprio Érico. Isso é o Mercado Livre bloqueando com mais força as duas contas agora (mesmo sintoma do aviso que já existe no frontend sobre o Scrape.do sinalizado pelo ML), não um bug de código introduzido por este conserto. Ver P151 | 16/09 |
+| **P153** | 🟡 **[Link Rápido: CODADO e deployado na REVISÃO 159, tela não medida — Postar Agora: ainda aberto]** Link Rápido/Postar Agora: produto de ML inelegível no programa de afiliados (`error_code 111`; o caso medido estava INDISPONÍVEL no site) sai VERDE, com o link do encurtador próprio. Medido em 17/09 (REVISÃO 158) com `MLB2086858407`/`MLB4577631357`. A `gerarLinkNativoML` só loga o 400 e devolve `null`, então a tela não sabe distinguir "sem cookie" de "o ML não paga comissão neste item". Saída possível (NÃO decidida): a `product-search` devolver `motivo:"ml_item_inelegivel"` quando vier o 111, e o front mostrar amarelo ("o Mercado Livre não paga comissão de afiliado neste produto") em vez do verde | 17/09 |
+| ~~P152~~ | ✅ **FECHADA (17/09, REVISÃO 157) — medida na tela pelo Érico: ML saiu `meli.la/2kt3MDD` e a Shopee saiu com o link nativo.** Registro original: 🟡 **Link Rápido com link nativo (REVISÃO 156) — backend no ar e Shopee medida, TELA E ML NÃO MEDIDOS.** Falta: (1) confirmar que o webhook do EasyPanel serviu o `index.html` novo (procurar `lrLinkNativo` no HTML de produção); (2) colar um link de Shopee no Link Rápido e ver sair `s.shopee.com.br/XXXX` cru com a legenda "link oficial de afiliado"; (3) colar um link de ML (conta com `ml_session_cookie` + `Etiqueta ML`) e ver sair o link curto oficial do ML; (4) controle: Amazon continua saindo pelo encurtador. Se o ML cair no `megalinksbr.com.br/r/…`, olhar `query_logs` por `[ML][link-nativo]` (cookie expirado ou endpoint mudou, mesma leitura da P143) | 16/09 |
+| **P151** | 🟠 **Mercado Livre bloqueando pesado as buscas de Érico e Patricia — taxa de timeout de ~41% medida, causa (IP/token flagado) não isolada.** 9 de 22 buscas de ML dos dois usuários (15–16/09) estouraram os 70 s do wa-engine inteiros (`The signal has been aborted`) antes de qualquer resposta — não é o antibot de título (esse está fechado, P149), é o Scrape.do com super=true não conseguindo passar do desafio a tempo, ou nem isso. Os casos que não deram timeout, quando bateram em antibot, foram **corretamente** rejeitados (nenhum dado inventado) — mas do ponto de vista do Érico e da Patricia continua "não funciona". Não investigado ainda: se é o token pessoal deles (Scrape.do e/ou cookie ML) especificamente flagado, se é um pico de bloqueio geral do ML hoje, ou se o timeout de 70 s ficou curto de novo (mesma classe de problema da REVISÃO 88/v31, mas dessa vez sem confirmar se aumentar o timeout ajudaria — pode ser bloqueio total, não demora). Próximo passo: repetir manualmente agora o mesmo link de um dos 9 timeouts e ver se responde rápido (intermitente) ou trava de novo (bloqueio persistente) | 16/09 |
 | **P146** | 🟡 **Link nativo Shopee no disparo pros grupos WhatsApp — CODADO E DEPLOYADO (`send-post` v30/deploy 65, `group-blast` v9/deploy 21), NÃO MEDIDO EM PRODUÇÃO.** Pedido do Érico: os grupos ainda saíam com o encurtador próprio mesmo depois da P143 (que só cobria a "Postar Agora"). `linkFinalDoProduto` (async) tenta o link nativo da Shopee (Open API oficial, App Key/App Secret) antes de cair no `an_redir`+encurtador de sempre; `ehLinkNativoShopee` evita reembrulhar o resultado. **Decisão do Érico: só Shopee no automático — ML fica de fora** (o link nativo do ML usa o endpoint não documentado do painel de Afiliados com cookie de sessão pessoal; automatizar isso no disparo recorrente multiplicaria o risco de flag na conta, ao contrário da Shopee que usa App Key/App Secret). Falta: disparar um produto Shopee real (Post Automático ou Disparo Manual) com App Secret configurado e conferir no grupo que o link saiu `s.shopee.com.br/XXXX` cru; conferir que ML e as demais lojas não regrediram; conferir que Shopee sem App Secret cai no fallback de sempre | 14/09 |\n| ~~P144~~ | ✅ **FECHADA (12/09, REVISÃO 147).** O push que a REVISÃO 146 deixou registrado como bloqueado (proxy da sessão negando `git push` com 403 + `device_bash` fora do ar) já tinha acontecido antes desta sessão começar — `git clone --depth=1` fresco do `main` mostrou `HEAD` em `7b1b713`, com `docs/ESTADO_ATUAL.md` (REVISÃO 146), `frontend/index.html` (P145/"Clonar 100%") e `clone-ingest` v21 todos presentes. Não foi medido quem rodou o commit/push nem quando. Os dois bugs de infraestrutura em si (proxy de repositório autorizado da sessão, bug de Plan9 drive share do Windows) não foram reconfirmados como corrigidos — só contornados. Se reaparecerem numa sessão futura, não assumir que "já foi resolvido" | 12/09 |
 | **P148** | 🟢 **Post Vídeo (Elite+) — Érico confirmou os dois testes principais: o vídeo chegou certo no grupo do WhatsApp (legenda/link ok) e o modo "post completo" (REVISÃO 152) também funcionou de ponta a ponta.** Ver "Última alteração" (REVISÕES 150/151/152). Falta ainda: (a) testar edição de verdade (trocar vídeo, trocar grupos de um agendamento já existente); (b) testar cancelamento e caminho de falha (grupo sem `group_jid`, sessão desconectada) e conferir que o vídeo continua no Storage quando `partial_failed`/`failed` | 14/09 |
 | **P145** | 🟡 **"Clonar 100%" (`clone_sources.clone_full_content`) — CODADO, backend DEPLOYADO, NÃO MEDIDO.** Ver seção "Clone Post — Clonar 100%" acima para o detalhe completo. Falta: ligar o toggle numa fonte real, esperar uma captura, e conferir se `products.description` saiu com frase coerente (não com lixo nem com auto-promoção do grupo-fonte que o filtro devia ter pego) | 12/09 |
@@ -11233,6 +11470,23 @@ código não relacionado.
 ---
 
 ## Aprendizados — não repetir
+
+**`deploy_edge_function` pode religar o `verify_jwt` — 17/09 (REVISÃO 163)**
+
+- 🔴 **MEDIDO:** a `send-post` estava com `verify_jwt: false` (versão 65). Depois
+  do deploy da v31 a resposta da própria ferramenta veio com `verify_jwt: true`,
+  e o cron `mega-send-post` — que só mandava `x-cron-secret` — passou a receber
+  `401 {"code":"UNAUTHORIZED_NO_AUTH_HEADER"}`. O Post Automático ficou fora do
+  ar até o conserto.
+- A ferramenta de deploy **não expõe** `verify_jwt`, então não dá para devolver
+  ao valor antigo por ela. O conserto foi pelo outro lado: mandar
+  `Authorization: Bearer <chave anônima>` no comando do cron. A chave anônima é
+  pública e só passa pelo portão da plataforma; quem autoriza de verdade
+  continua sendo o `x-cron-secret` conferido dentro da função.
+- **Regra:** depois de todo deploy de Edge Function chamada por `pg_cron` sem
+  `Authorization`, refazer a chamada do cron e olhar o `status_code`. Deploy que
+  volta 200 não prova que o cron continua entrando.
+
 
 **Sobre o push a partir da sessão cloud — RESOLVIDO em 02/09 (REVISÃO 120)**
 

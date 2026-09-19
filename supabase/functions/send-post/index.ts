@@ -1,3 +1,8 @@
+// Mega Links BR · Edge Function "send-post" v31 — Sub-ID da Shopee (17/09)
+// v31: o link nativo da Shopee do Post Automatico passa a sair carimbado com o
+//      sub_id quando o usuario tem rotulo cadastrado (Config Afiliados ->
+//      Shopee -> Sub-ID). Slot 1 = rotulo, slot 2 = "postauto". Sem rotulo,
+//      nada muda: continua o `productOfferV2.offerLink` de sempre.
 // Mega Links BR · Edge Function "send-post" v30 — link nativo Shopee tambem no Post Automatico (P143-b)
 // v30 (P143-b): link nativo da Shopee (API oficial de afiliados, mesma que o
 //      `product-search` v34/"Postar Agora" usa) também no disparo automático.
@@ -113,7 +118,7 @@
 //          PARAR OU RECOMECAR ao chegar no fim da lista:
 //            marcado   -> volta ao 1o produto e recomeca (rodizio infinito,
 //                         que e exatamente o que a plataforma inteira faz hoje)
-//            desmarcado-> PARA de postar ate entrar produto novo no grupo
+//            desmarcado-> PARA de postar ate entrar produto novo
 //          O Math.random() da selecao SUMIU -- e junto com ele o resorteio da
 //          v21 (nunca repetir o post imediatamente anterior), que existia so
 //          para consertar o sorteio. Ordem sequencial nao repete por
@@ -350,7 +355,43 @@ async function sha256Hex(s: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
-async function gerarLinkNativoShopee(url: string, appId: string, appSecret: string): Promise<string | null> {
+// REVISAO 163 — Sub-ID da Shopee no link nativo do disparo. MEDIDO em 17/09 na
+// Open API: cada slot vai como um item do array `subIds`, sem hifen (o hifen e
+// o separador dos 5 campos) e sem string vazia; o destino resolvido volta com
+// utm_content=<slot1>-<slot2>--- e o mmp_pid do afiliado certo. Slot 1 = rotulo
+// cadastrado em Config Afiliados -> Shopee -> Sub-ID; slot 2 = "postauto".
+// Sem rotulo a mutation nao e chamada e o caminho fica o offerLink de sempre.
+function limparSubId(v: unknown): string {
+  return String(v ?? "").replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20);
+}
+function subIdsShopee(rotulo: unknown): string[] {
+  const r = limparSubId(rotulo);
+  return r ? [r, "postauto"] : [];
+}
+async function shopeeShortLinkComSubId(originUrl: string, appId: string, appSecret: string, subIds: string[]): Promise<string | null> {
+  if (!subIds.length || !appId || !appSecret) return null;
+  try {
+    const lista = subIds.map((s) => JSON.stringify(s)).join(",");
+    const query = `mutation{generateShortLink(input:{originUrl:${JSON.stringify(originUrl)},subIds:[${lista}]}){shortLink}}`;
+    const ts = Math.floor(Date.now() / 1000);
+    const payload = JSON.stringify({ query });
+    const sig = await sha256Hex(`${appId}${ts}${payload}${appSecret}`);
+    const r = await fetch("https://open-api.affiliate.shopee.com.br/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `SHA256 Credential=${appId},Timestamp=${ts},Signature=${sig}` },
+      body: payload,
+    });
+    if (!r.ok) { console.warn(`[shopee][sub-id] HTTP ${r.status}`); return null; }
+    const d = await r.json();
+    if (Array.isArray(d?.errors) && d.errors.length) { console.warn(`[shopee][sub-id] API recusou: ${d.errors[0]?.message}`); return null; }
+    const link = d?.data?.generateShortLink?.shortLink;
+    return typeof link === "string" && link ? link : null;
+  } catch (e) {
+    console.warn("[shopee][sub-id] falhou:", e instanceof Error ? e.message : String(e));
+    return null;
+  }
+}
+async function gerarLinkNativoShopee(url: string, appId: string, appSecret: string, rotuloSubId = ""): Promise<string | null> {
   if (!appId || !appSecret) return null;
   const m = url.split("#")[0].match(/\/product\/(\d+)\/(\d+)/);
   if (!m) return null;
@@ -368,7 +409,13 @@ async function gerarLinkNativoShopee(url: string, appId: string, appSecret: stri
     if (!r.ok) { console.warn(`[shopee-nativo] HTTP ${r.status}`); return null; }
     const d = await r.json();
     if (Array.isArray(d?.errors) && d.errors.length) { console.warn(`[shopee-nativo] API recusou: ${d.errors[0]?.message}`); return null; }
-    return d?.data?.productOfferV2?.nodes?.[0]?.offerLink || null;
+    const offerLink = d?.data?.productOfferV2?.nodes?.[0]?.offerLink || null;
+    const subIds = subIdsShopee(rotuloSubId);
+    if (subIds.length) {
+      const comSubId = await shopeeShortLinkComSubId(`https://shopee.com.br/product/${shopId}/${itemId}`, appId, appSecret, subIds);
+      if (comSubId) return comSubId;
+    }
+    return offerLink;
   } catch (e) {
     console.warn("[shopee-nativo] falhou:", e instanceof Error ? e.message : String(e));
     return null;
@@ -467,7 +514,7 @@ async function linkFinalDoProduto(product: any, credsMap: Record<string, Record<
     const appId = String(cred["App Key"] || cred["ID de Afiliado"] || "").trim();
     const appSecret = String(cred["App Secret"] || "").trim();
     if (appId && appSecret) {
-      const nativo = await gerarLinkNativoShopee(original, appId, appSecret);
+      const nativo = await gerarLinkNativoShopee(original, appId, appSecret, String(cred["Sub-ID"] || ""));
       if (nativo) return nativo;
     }
   }
@@ -511,9 +558,9 @@ async function fetchWithTimeout(url: string, opts: RequestInit, ms = 10000): Pro
   try { return await fetch(url, { ...opts, signal: ctrl.signal }); } finally { clearTimeout(t); }
 }
 
-// ══════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
 // HORARIOS INTELIGENTES
-// ══════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
 // Tres janelas fixas, em minutos desde a meia-noite de Brasilia. Nao sao
 // configuraveis de proposito: o valor do recurso e justamente o usuario nao
 // precisar adivinhar horario. Quando ligado, start_hour, end_hour e
@@ -741,7 +788,7 @@ Deno.serve(async (req: Request) => {
 
     const total = products.length;
 
-    // ── EXTRAS (Recados do Grupo / Cupom em Destaque) ───────────────────────
+    // ── EXTRAS (Recados do Grupo / Cupom em Destaque) ──────────────────────
     // Intercalados no rodizio normal, sem consumir posicao de produto. Duas
     // formas de disparo (niche_group_extras.modo_gatilho), lidas na tela
     // Editar Grupo -> Recados do Grupo:
@@ -774,7 +821,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // ── v23: SELECAO DO PRODUTO ─────────────────────────────────────────────
+    // ── v23: SELECAO DO PRODUTO ────────────────────────────────────────
     // A ordem e SEMPRE a de cadastro (products.position, ja aplicado no
     // .order("position") la em cima) percorrida pelo cursor_index. O que o
     // "Post em Loop" decide agora nao e a ordem, e o que acontece ao chegar no

@@ -1254,7 +1254,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- ===== ANALÍTICO (métricas, gráficos, melhores horários) ===== -->
   <!-- ===== POST AUTOMÁTICO ===== -->
   <section class="page" id="page-post-automatico">
-    <div class="phead"><div><h1 class="pt">⚡ Post. Automático</h1><div class="psub">Todos os seus Grupos de Oferta — inicie, pause ou dispare a automação.</div></div>
+    <div class="phead"><div><h1 class="pt">⚡ Post. Automático</h1><div class="psub">Acompanhe todos os seus Grupos de Oferta e ligue ou pause a automação. Para mudar horário, intervalo e produtos, use o ✏️ do grupo.</div></div>
       <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button>
       <button class="btn btn-volt btn-sm" onclick="loadPostAutomatico()" style="margin-left:8px">↻ Atualizar</button></div>
     <div class="g4" id="paKpis" style="margin-bottom:20px"></div>
@@ -1620,6 +1620,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section class="page" id="page-editar-grupo">
     <div class="phead"><div><h1 class="pt">Grupo de Oferta: <span id="egNome">—</span> <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:12px" onclick="editarNomeGrupoAtual()" title="Renomear grupo">✏️</button></h1><div class="psub">Configure lojas, layout, canais e o agendamento deste grupo.</div></div>
       <button class="btn btn-ghost" onclick="go('canais-grupos')">← Voltar</button></div>
+    <div id="egStatus"></div>
     <div class="tabs-l1" id="tabsL1"></div>
     <div class="tabs-l2" id="tabsBar"></div>
     <div id="tabPanes"></div>
@@ -2508,17 +2509,28 @@ async function loadGroups(){
       loopEnabled:!!r.loop_enabled,
       deleteAfterPost:!!r.delete_after_post,
       cloneAutoApprove:!!r.clone_auto_approve,
+      // REVISÃO 160 — o que o status do disparo precisa (grupoStatusDisparo)
+      cursorIndex:r.cursor_index??0,
+      lastPostAt:r.last_post_at||null,
+      intervalMin:r.interval_minutes??10,
     }));
     // ─── Buscar contagens reais de grupos WA, canais e produtos vinculados ───
     try{
       const nicheIds=S.grupos.map(g=>g.db_id);
       if(nicheIds.length){
-        const[{data:wgData},{data:chData},{data:prData}]=await Promise.all([
+        // REVISÃO 160 — mesmo "hoje" do send-post (data de Brasília + T00:00:00Z).
+        const hojeDisparo=new Date(Date.now()-3*3600*1000).toISOString().slice(0,10)+"T00:00:00Z";
+        const[{data:wgData},{data:chData},{data:prData},{data:envHoje}]=await Promise.all([
           SB.from("whatsapp_groups").select("niche_group_id").in("niche_group_id",nicheIds),
           SB.from("whatsapp_channels").select("niche_group_id").in("niche_group_id",nicheIds),
-          SB.from("products").select("niche_group_id,expired,valid_until,never_expires,scheduled_at").in("niche_group_id",nicheIds)
+          SB.from("products").select("id,niche_group_id,source,expired,valid_until,never_expires,scheduled_at").in("niche_group_id",nicheIds),
+          SB.from("scheduled_posts").select("group_id,product_id").in("group_id",nicheIds).eq("is_manual",false).eq("status","sent").gte("sent_at",hojeDisparo)
         ]);
         const wgCount={},chCount={},prCount={},prFora={},prVenc={},prAgend={};
+        const prEleg={},prForaPlano={},envCount={},envIds={};
+        (envHoje||[]).forEach(r=>{const k=r.group_id;envCount[k]=(envCount[k]||0)+1;(envIds[k]=envIds[k]||new Set()).add(r.product_id);});
+        const lojasPlano=PLANO_LOJAS_DISPARO[planoDoDisparo()]||null;
+        const elegIds={};
         (wgData||[]).forEach(r=>{wgCount[r.niche_group_id]=(wgCount[r.niche_group_id]||0)+1;});
         (chData||[]).forEach(r=>{chCount[r.niche_group_id]=(chCount[r.niche_group_id]||0)+1;});
         // Mesma precedencia do send-post v15: fora do ar > validade vencida > agendado.
@@ -2527,6 +2539,7 @@ async function loadGroups(){
         (prData||[]).forEach(r=>{
           const k=r.niche_group_id;
           prCount[k]=(prCount[k]||0)+1;
+          if(lojasPlano&&!lojasPlano.includes(r.source||"manual")){prForaPlano[k]=(prForaPlano[k]||0)+1;return;}
           if(r.expired===true){prFora[k]=(prFora[k]||0)+1;return;}
           if(r.never_expires!==true&&r.valid_until){
             const t=new Date(r.valid_until).getTime();
@@ -2534,8 +2547,10 @@ async function loadGroups(){
           }
           if(r.scheduled_at){
             const t=new Date(r.scheduled_at).getTime();
-            if(Number.isFinite(t)&&t>agoraTs){prAgend[k]=(prAgend[k]||0)+1;}
+            if(Number.isFinite(t)&&t>agoraTs){prAgend[k]=(prAgend[k]||0)+1;return;}
           }
+          prEleg[k]=(prEleg[k]||0)+1;
+          (elegIds[k]=elegIds[k]||[]).push(r.id);
         });
         S.grupos.forEach(g=>{
           g.grupos_wa=wgCount[g.db_id]||0;
@@ -2544,6 +2559,11 @@ async function loadGroups(){
           g.prodForaAr=prFora[g.db_id]||0;
           g.prodVencidos=prVenc[g.db_id]||0;
           g.prodAgendados=prAgend[g.db_id]||0;
+          g.prodForaPlano=prForaPlano[g.db_id]||0;
+          g.prodElegiveis=prEleg[g.db_id]||0;
+          g.enviadosHoje=envCount[g.db_id]||0;
+          const ids=envIds[g.db_id];
+          g.elegiveisPostadosHoje=ids?(elegIds[g.db_id]||[]).filter(id=>ids.has(id)).length:0;
         });
       }
     }catch(e){console.warn("loadGroups counts fallback:",e);}
@@ -3387,6 +3407,9 @@ async function loadPostAutomatico(){
   const hojeInicio=new Date();hojeInicio.setHours(0,0,0,0);
 
   try{
+    // REVISÃO 160: o status do card sai de grupoStatusDisparo, que precisa do
+    // S.grupos fresco (cursor, último post, produtos elegíveis, envios de hoje).
+    await loadGroups();
     const [{data:dbGrupos},{data:postsHoje},{data:log},{data:logManual}]=await Promise.all([
       SB.from("niche_groups").select("id,name,post_auto_enabled,interval_minutes,start_hour,end_hour,created_at,last_post_at,last_manual_blast_at").eq("user_id",uid).order("created_at"),
       SB.from("scheduled_posts").select("group_id,status").eq("user_id",uid).gte("sent_at",hojeInicio.toISOString()),
@@ -3445,12 +3468,11 @@ async function loadPostAutomatico(){
         paLista.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">`+(dbGrupos||[]).map(db=>{
           const g=S.grupos.find(x=>x.id===db.id||x.db_id===db.id)||{nome:db.name,postAuto:db.post_auto_enabled,produtos:0,grupos_wa:0,canais:0,telegram:0,intervalo:db.interval_minutes+"min"};
           const autoAtivo=g.postAuto||db.post_auto_enabled;
-          const falta=[];
-          if(!S.waConnected)falta.push("WA");
-          if(!(g.produtos||0))falta.push("produtos");
-          if(!(g.grupos_wa||0)&&!(g.canais||0))falta.push("destinos");
-          const autoColor=!hasPostAuto?"var(--mut)":autoAtivo?"var(--green)":falta.length?"var(--red)":"var(--warn)";
-          const autoLabel=!hasPostAuto?"MANUAL 🔒":autoAtivo?"● ATIVO":falta.length?"● INATIVO":"● PAUSADO";
+          // REVISÃO 160: "● ATIVO" dizia só que a chave estava ligada — o grupo
+          // podia estar parado no fim da lista. O rótulo agora é o status real.
+          const st=grupoStatusDisparo({...g,postAuto:autoAtivo});
+          const autoColor=GRUPO_STATUS_COR[st.nivel];
+          const autoLabel=`${st.icone} ${esc(st.titulo)}`;
           const pg=postsPorGrupo[db.id]||{total:0,ok:0};
           const iniciou=db.created_at?new Date(db.created_at).toLocaleDateString("pt-BR"):"—";
           const ultimo=db.last_post_at?new Date(db.last_post_at).toLocaleString("pt-BR"):"Nunca";
@@ -3458,10 +3480,11 @@ async function loadPostAutomatico(){
           const gid=db.id;
 
           const btnAuto=hasPostAuto
-            ?`<button class="btn btn-sm ${autoAtivo?"btn-ghost":"btn-volt"}" style="flex:1;justify-content:center;${autoAtivo?"color:var(--red,#ef4444);border-color:var(--red,#ef4444)":""}" onclick="togglePostAuto('${gid}').then(()=>loadPostAutomatico())">${autoAtivo?"⏸ Pausar":"▶ Iniciar"}</button>`
+            ?`<button class="btn btn-sm ${autoAtivo?"btn-ghost":"btn-volt"}" style="flex:1;justify-content:center;${autoAtivo?"color:var(--red,#ef4444);border-color:var(--red,#ef4444)":""}" onclick="togglePostAuto('${gid}').then(()=>loadPostAutomatico())">${autoAtivo?"⏸ Pausar":"▶ Ligar"}</button>`
             :`<button class="btn btn-gold btn-sm" style="flex:1;justify-content:center" onclick="dispararGrupo('${gid}')">⚡ Disparar</button>`;
 
-          return `<div style="background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column">
+          const foco=String(window._paFoco||"")===String(gid);
+          return `<div id="pa-card-${gid}" style="background:var(--surf);border:${foco?"2px solid var(--volt)":"1px solid var(--bd)"};border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column">
             <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--bd)">
               <div style="width:40px;height:40px;border-radius:50%;background:var(--surf2);display:flex;align-items:center;justify-content:center;font-size:18px;flex:none">📢</div>
               <div style="flex:1;min-width:0">
@@ -3481,7 +3504,7 @@ async function loadPostAutomatico(){
               <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">🕐 Último post</span><strong style="font-size:11px">${ultimo}</strong></div>
               ${pg.total>0?`<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--mut)">✅ Sucesso</span><strong style="color:${pg.ok===pg.total?"var(--green)":"var(--warn)"}">${pg.ok}/${pg.total}</strong></div>`:""}
             </div>
-            ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 14px 10px;padding:5px 10px;background:rgba(226,112,95,.08);border:1px solid rgba(226,112,95,.2);border-radius:2px;font-size:11px;color:var(--red)">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
+            ${st.detalhe?`<div style="margin:0 14px 10px;padding:6px 10px;border:1px solid var(--bd);border-left:3px solid ${autoColor};border-radius:2px;font-size:11.5px;line-height:1.5;color:var(--tx2)">${esc(st.detalhe)}${st.acao?`<br><span style="color:var(--mut)">${esc(st.acao)}</span>`:""}</div>`:""}
             <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bd)">
               ${btnAuto}
               <button class="btn btn-ghost btn-sm" style="padding:0 12px" onclick="editarGrupo('${gid}')" title="Editar grupo">✏️</button>
@@ -3489,6 +3512,13 @@ async function loadPostAutomatico(){
           </div>`;
         }).join("")+`</div>`;
       }
+    }
+
+    // REVISÃO 161: veio de um atalho "Ligar/Pausar →" — rola até o card do grupo.
+    if(window._paFoco){
+      const alvo=document.getElementById("pa-card-"+window._paFoco);
+      if(alvo)setTimeout(()=>alvo.scrollIntoView({behavior:"smooth",block:"center"}),50);
+      window._paFoco="";
     }
 
     // Log de disparos automáticos
@@ -5580,12 +5610,10 @@ function renderGrupos(){const has=S.grupos.length>0;
   gBody.innerHTML=S.grupos.map(g=>{
     // Post Auto status
     const autoAtivo=g.postAuto;
-    const falta=[];
-    if(!S.waConnected)falta.push("WA");
-    if(!(g.produtos||0))falta.push("produtos");
-    if(!(g.grupos_wa||0)&&!(g.canais||0))falta.push("destinos WA");
-    const autoColor=!hasPostAuto?"var(--mut)":autoAtivo?"var(--green)":falta.length?"var(--red)":"var(--warn)";
-    const autoLabel=!hasPostAuto?"MANUAL 🔒":autoAtivo?"ATIVO":falta.length?`INATIVO`:falta.length?"PAUSADO":"PAUSADO";
+    // REVISÃO 160: mesmo status real do Post. Automático e do Editar Grupo.
+    const stDisp=grupoStatusDisparo(g);
+    const autoColor=GRUPO_STATUS_COR[stDisp.nivel];
+    const autoLabel=`<span title="${esc(stDisp.detalhe).replace(/"/g,"&quot;")}">${esc(stDisp.titulo.split(" — ")[0])}</span>`;
     const autoIcon=!hasPostAuto?"🔒":autoAtivo?"▶":"⏸";
 
     // WA status
@@ -5612,8 +5640,9 @@ function renderGrupos(){const has=S.grupos.length>0;
     ].filter(Boolean).join(" · ");
 
     // Botão principal
+    // REVISÃO 161: ligar/pausar mora no Post. Automático — aqui é só atalho.
     const btnStart=hasPostAuto
-      ?`<button class="btn btn-sm ${autoAtivo?"btn-ghost":"btn-volt"}" style="flex:1;justify-content:center;${autoAtivo?"color:var(--red,#ef4444);border-color:var(--red,#ef4444)":""}" onclick="togglePostAuto('${g.id}')">${autoAtivo?"⏸ Pausar":"▶ Iniciar"}</button>`
+      ?`<button class="btn btn-sm btn-ghost" style="flex:1;justify-content:center" onclick="abrirPostAutomatico('${g.db_id||g.id}')" title="Abre o Post. Automático com este grupo em destaque">${autoAtivo?"⏸ Pausar":"▶ Ligar"} →</button>`
       :`<button class="btn btn-gold btn-sm" style="flex:1;justify-content:center" onclick="dispararGrupo('${g.id}')">⚡ Disparar</button>`;
 
     return `<div style="background:var(--surf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;transition:.15s" onmouseover="this.style.borderColor='var(--volt)'" onmouseout="this.style.borderColor='var(--bd)'">
@@ -5643,9 +5672,9 @@ function renderGrupos(){const has=S.grupos.length>0;
           <span style="font-size:11px;font-weight:700;color:var(--tx)">${g.intervalo&&g.intervalo!=="N/A"?g.intervalo:"N/A"}</span>
         </div>
         <div style="display:flex;align-items:center;gap:7px">
-          <span style="font-size:14px">🔀</span>
-          <span style="font-size:11px;color:var(--mut)">Aleatório:</span>
-          <span style="font-size:11px;font-weight:700;color:var(--mut)">✅</span>
+          <span style="font-size:14px">🔁</span>
+          <span style="font-size:11px;color:var(--mut)">Loop:</span>
+          <span style="font-size:11px;font-weight:700;color:var(--tx)" title="Ordem sempre a de cadastro. Loop ligado: recomeça do primeiro ao chegar no fim. Desligado: espera produto novo.">${g.loopEnabled?"ligado":"desligado"}</span>
         </div>
         <div style="display:flex;align-items:center;gap:7px">
           <span style="font-size:14px">✈️</span>
@@ -5658,11 +5687,12 @@ function renderGrupos(){const has=S.grupos.length>0;
           <span style="font-size:11px;font-weight:700;color:${waColor}">${waLabel}</span>
         </div>
       </div>
-      ${falta.length&&hasPostAuto&&!autoAtivo?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(226,112,95,.08);border:1px solid rgba(226,112,95,.2);border-radius:2px;font-size:11px;color:var(--red)">⚠️ Faltando: ${falta.join(", ")}</div>`:""}
+      ${(stDisp.nivel==="erro"||stDisp.nivel==="espera")?`<div style="margin:0 16px 10px;padding:6px 10px;border:1px solid var(--bd);border-left:3px solid ${autoColor};border-radius:2px;font-size:11.5px;line-height:1.5;color:var(--tx2)">${stDisp.icone} ${esc(stDisp.detalhe)}${stDisp.acao?`<br><span style="color:var(--mut)">${esc(stDisp.acao)}</span>`:""}</div>`:""}
       ${(foraRodizio||g.prodAgendados)?`<div style="margin:0 16px 10px;padding:6px 10px;background:rgba(201,161,90,.08);border:1px solid rgba(201,161,90,.25);border-radius:2px;font-size:11px;color:var(--warn);cursor:pointer" onclick="editarGrupo('${g.id}')" title="Estes produtos continuam cadastrados, mas não estão sendo postados agora. Clique para abrir o grupo.">⏳ Fora do rodízio: ${detalhesFora}</div>`:""}
-      <!-- Botões de ação — só Editar e Apagar aqui; automação fica em Visão Post Aut. -->
+      <!-- Botões de ação — Editar configura; ligar/pausar é atalho para o Post. Automático (REVISÃO 161). -->
       <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bd)">
         <button class="btn btn-volt btn-sm" style="flex:1;justify-content:center" onclick="editarGrupo('${g.id}')">✏️ Editar</button>
+        ${btnStart}
         <button class="btn btn-sm" style="color:var(--red,#ef4444);border:1px solid var(--red,#ef4444);background:transparent;padding:0 10px;border-radius:var(--r-sm);cursor:pointer" onclick="excluirGrupo('${g.id}')" title="Excluir grupo">🗑️</button>
       </div>
     </div>`;
@@ -5710,7 +5740,7 @@ async function loadTabProdCounts(){
     _tabProdCounts["prod-meus"]=data?.length||0;
   }catch(e){}
 }
-function editarGrupo(id,tab){S.grupoAtual=S.grupos.find(g=>String(g.id)===String(id)||String(g.db_id)===String(id));if(!S.grupoAtual){toast("Grupo não encontrado.","⚠️");return;}PROD_EDIT_ID=null;egNome.textContent=S.grupoAtual.nome+" · ID "+id;_tabProdCounts={};loadTabProdCounts().then(()=>buildTabs());go("editar-grupo");if(tab)setTimeout(()=>{const t=document.querySelector(`.etab[data-tab="${tab}"]`);if(t)t.click();},250);}
+function editarGrupo(id,tab){S.grupoAtual=S.grupos.find(g=>String(g.id)===String(id)||String(g.db_id)===String(id));if(!S.grupoAtual){toast("Grupo não encontrado.","⚠️");return;}PROD_EDIT_ID=null;egNome.textContent=S.grupoAtual.nome+" · ID "+id;renderEgStatus();_tabProdCounts={};loadTabProdCounts().then(()=>buildTabs());go("editar-grupo");if(tab)setTimeout(()=>{const t=document.querySelector(`.etab[data-tab="${tab}"]`);if(t)t.click();},250);}
 async function editarNomeGrupoAtual(){
   const g=S.grupoAtual;if(!g){toast("Grupo não encontrado.","⚠️");return;}
   const novoNome=prompt("Novo nome do grupo:",g.nome||"");
@@ -5816,11 +5846,111 @@ const SMART_JANELAS=[
 const SMART_PISO_MIN=10;
 const SMART_MAX_DIA=SMART_JANELAS.reduce((t,j)=>t+Math.floor((j.fim-j.ini)/SMART_PISO_MIN),0);
 
+/* ── REVISÃO 160 — status do disparo automático, UMA regra para as três telas ──
+   Pedido do Érico em 17/09: o grupo "Achadinhos Eletrodomésticos" ficou sem
+   postar (cursor 141 de 141, Post em Loop desligado — log do send-post:
+   "[FIM-DA-LISTA] … aguardando produto novo") e NENHUMA tela dizia isso: o card
+   do Post. Automático mostrava "● ATIVO". Medido no mesmo dia: 13 dos 17 grupos
+   com automação ligada estavam nesse estado.
+   A ordem dos testes abaixo é a ORDEM DOS GATES do send-post (v30): plano →
+   ligado → WA/destinos → produtos → teto diário → fim de semana → janela →
+   fim da lista → "não repetir". Mexeu lá, mexe aqui — senão a tela volta a
+   mentir. Fica de fora, de propósito: credencial de loja faltando (o send-post
+   registra como falha visível no log de disparos) e o ritmo fino dos Horários
+   Inteligentes (quantos já saíram vs. esperados na janela). */
+const PLANO_LOJAS_DISPARO={ // ESPELHO do PLAN_MARKETPLACES do send-post
+  starter:["shopee","mercado_livre","manual","outra"],
+  pro:["shopee","mercado_livre","amazon","manual","outra"],
+};
+function planoDoDisparo(){return (MY_PROFILE&&MY_PROFILE.is_vip)?"elite":MY_PLAN;} // send-post: is_vip ? elite : plan
+function grupoStatusDisparo(g){
+  const pf=PLAN_FEATURES[planoDoDisparo()]||{};
+  const R=(nivel,icone,titulo,detalhe,acao)=>({nivel,icone,titulo,detalhe:detalhe||"",acao:acao||""});
+  if(!pf.wa_post_automation)return R("manual","🔒","Disparo manual","Seu plano não inclui Post Automático.");
+  if(!g.postAuto)return R("pausa","⏸","Pausado","O Post Automático está desligado neste grupo.","Para ligar, use o botão ▶ Ligar na tela Post. Automático.");
+  const falta=[];
+  if(!S.waConnected)falta.push("conectar o WhatsApp");
+  if(!(g.grupos_wa||0)&&!(g.canais||0))falta.push("vincular um grupo ou canal de destino");
+  if(falta.length)return R("erro","🔴","Não está postando",`Falta ${falta.join(" e ")}.`);
+  const total=g.produtos||0;
+  const eleg=(typeof g.prodElegiveis==="number")?g.prodElegiveis:total;
+  if(!total)return R("erro","🔴","Sem produtos","Cadastre produtos neste grupo para o disparo começar.");
+  if(!eleg){
+    const por=[
+      g.prodForaAr?`${g.prodForaAr} fora do ar na loja`:"",
+      g.prodVencidos?`${g.prodVencidos} com validade vencida`:"",
+      g.prodAgendados?`${g.prodAgendados} aguardando a data agendada`:"",
+      g.prodForaPlano?`${g.prodForaPlano} de loja fora do seu plano`:"",
+    ].filter(Boolean).join(" · ");
+    return R("erro","🔴","Nenhum produto disponível agora",`Os ${total} produtos estão fora do rodízio${por?": "+por:""}.`);
+  }
+  const teto=pf.auto_posts_daily;
+  if(teto>0&&(g.enviadosHoje||0)>=teto)return R("espera","🟡","Limite do dia atingido",`O plano ${pf.label||""} faz ${teto} disparo${teto>1?"s":""} automático${teto>1?"s":""} por dia em cada grupo. Volta amanhã.`);
+  const br=new Date(Date.now()-3*3600*1000);
+  const hBR=br.getUTCHours(),minBR=hBR*60+br.getUTCMinutes(),dow=br.getUTCDay();
+  const fds=dow===0||dow===6;
+  const hhmm=m=>String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
+  const smart=!!g.smartSchedule&&!!pf.smart_schedule;
+  if(smart){
+    if(fds&&!g.smartWeekend)return R("pausa","⏸","Sem postagem no fim de semana","Os Horários Inteligentes deste grupo não rodam sábado e domingo. Volta na segunda.");
+    if(!SMART_JANELAS.some(j=>minBR>=j.ini&&minBR<j.fim)){
+      const prox=SMART_JANELAS.find(j=>j.ini>minBR)||SMART_JANELAS[0];
+      return R("pausa","🌙","Fora das janelas",`Horários Inteligentes — próxima janela às ${hhmm(prox.ini)}.`);
+    }
+  }else{
+    if(fds&&g.weekendEnabled===false)return R("pausa","⏸","Sem postagem no fim de semana","Este grupo não posta sábado e domingo. Volta na segunda.");
+    const ini=g.startHour??0,fim=g.endHour??23;
+    const dentro=ini<=fim?(hBR>=ini&&hBR<=fim):(hBR>=ini||hBR<=fim);
+    if(!dentro)return R("pausa","🌙","Fora do horário",`Posta das ${ini}h às ${fim}h59. Volta às ${ini}h.`);
+  }
+  const cursor=g.cursorIndex||0;
+  if(!g.loopEnabled&&cursor>=eleg)return R("espera","🟡","Em espera — todos os produtos já saíram",`Os ${eleg} produto${eleg>1?"s":""} deste grupo já foram postados. Ele volta a postar sozinho assim que entrar produto novo.`,"Para a lista recomeçar do primeiro produto, ligue o 🔁 Post em Loop.");
+  if(g.noRepeatDaily&&g.loopEnabled&&(g.elegiveisPostadosHoje||0)>=eleg)return R("espera","🟡","Todos os produtos já saíram hoje","Com 🚫 Não repetir produto ligado, a lista volta amanhã.");
+  const restam=g.loopEnabled?"":` · faltam ${eleg-cursor} de ${eleg} produtos`;
+  if(smart)return R("ok","🟢","Postando",`Horários Inteligentes — janela aberta agora${restam}.`);
+  const iv=g.intervalMin||10;
+  const ult=g.lastPostAt?new Date(g.lastPostAt).getTime():0;
+  const prox=ult+iv*60000;
+  const quando=prox<=Date.now()?"a qualquer momento":"por volta das "+new Date(prox).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+  return R("ok","🟢","Postando",`A cada ${iv} min — próximo ${quando}${restam}.`);
+}
+const GRUPO_STATUS_COR={ok:"var(--green)",espera:"var(--warn)",pausa:"var(--mut)",erro:"var(--red)",manual:"var(--mut)"};
+const GRUPO_STATUS_ALERTA={ok:"g",espera:"y",pausa:"b",erro:"r",manual:"b"};
+// Faixa completa (topo do Editar Grupo).
+function grupoStatusFaixa(g){
+  const st=grupoStatusDisparo(g);
+  return `<div class="alert ${GRUPO_STATUS_ALERTA[st.nivel]}" style="margin:0 0 14px"><span><strong>${st.icone} Disparo automático: ${esc(st.titulo)}</strong>${st.detalhe?`<br>${esc(st.detalhe)}`:""}${st.acao?`<br><small style="opacity:.85">${esc(st.acao)}</small>`:""}</span></div>`;
+}
+// REVISÃO 161 — atalho de ligar/pausar. O botão NÃO liga nada: leva para o
+// Post. Automático já com o card deste grupo em destaque.
+function abrirPostAutomatico(gid){
+  window._paFoco=String(gid||"");
+  go("post-automatico");
+}
+function renderPgAutoAtalho(){
+  const el=document.getElementById("pgAutoAtalho");const g=S.grupoAtual;
+  if(!el||!g)return;
+  const pf=PLAN_FEATURES[planoDoDisparo()]||{};
+  if(!pf.wa_post_automation){
+    el.innerHTML=`<span style="font-weight:600">⚡ Post Automático</span><span class="pill" style="background:var(--gold);color:#3a2600;font-size:10px">🔒 Pro+</span><span style="font-size:12px;color:var(--mut);flex:1">Disponível a partir do plano Pro.</span>`;
+    return;
+  }
+  const gid=g.db_id||g.id;
+  el.innerHTML=`<span style="font-weight:600">⚡ Post Automático:</span>
+    <strong style="color:${g.postAuto?"var(--green)":"var(--mut)"}">${g.postAuto?"ligado":"desligado"}</strong>
+    <span style="font-size:12px;color:var(--mut);flex:1;min-width:180px">Liga e pausa na tela Post. Automático. Aqui você só configura como ele posta.</span>
+    <button type="button" class="btn btn-sm ${g.postAuto?"btn-ghost":"btn-volt"}" onclick="abrirPostAutomatico('${gid}')">${g.postAuto?"⏸ Pausar":"▶ Ligar"} no Post. Automático →</button>`;
+}
+function renderEgStatus(){
+  const el=document.getElementById("egStatus");
+  if(el&&S.grupoAtual)el.innerHTML=grupoStatusFaixa(S.grupoAtual);
+}
+
 const PANES={
 geral:`
   <div class="g2">
     <div class="card" style="margin:0"><div class="ch">⚙️ Postagem automática</div><div class="cb">
-      <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:10px"><input type="checkbox" id="pgAuto" style="width:auto"> Post Automático</label>
+      <div id="pgAutoAtalho" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--bd);border-radius:2px;margin-bottom:14px"></div>
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:14px"><input type="checkbox" id="pgLoop" style="width:auto"> 🔁 Post em Loop <small style="color:var(--mut);font-weight:400">(os produtos saem sempre na ordem em que foram cadastrados. Marcado, ao chegar no último a lista <strong>recomeça do primeiro</strong>; desmarcado, o grupo <strong>para de postar</strong> até você cadastrar produto novo.)</small></label>
       <label style="display:flex;gap:9px;align-items:center;font-weight:600;margin-bottom:6px"><input type="checkbox" id="pgNaoRepetir" style="width:auto" onchange="pgNaoRepetirAlerta()"> 🚫 Não repetir produto <small style="color:var(--mut);font-weight:400">(produto que já saiu hoje neste grupo não sai de novo hoje — amanhã ele volta ao rodízio)</small></label>
       <div id="pgNaoRepetirAviso" class="alert y" style="display:none;margin:0 0 14px"></div>
@@ -6316,8 +6446,7 @@ function buildTabs(){
   // Carrega valores salvos nos campos da aba Geral
   setTimeout(()=>{
     const g=S.grupoAtual;if(!g)return;
-    const pgAuto=document.getElementById("pgAuto");
-    if(pgAuto)pgAuto.checked=!!g.postAuto;
+    renderPgAutoAtalho();
     const pgLoop=document.getElementById("pgLoop");
     if(pgLoop)pgLoop.checked=!!g.loopEnabled;
     const pgExcl=document.getElementById("pgExcluirAposPostar");
@@ -6354,19 +6483,13 @@ function buildTabs(){
   renderL2();
   // gate 2C — bloqueia Post Automático se plano não suporta
   setTimeout(()=>{
-    const pgAuto=document.getElementById("pgAuto");if(!pgAuto)return;
+    // REVISÃO 161: o checkbox pgAuto saiu (ligar/pausar mora no Post. Automático);
+    // o atalho já se desenha bloqueado sozinho (renderPgAutoAtalho). Aqui só o banner.
     const hasAuto=!!(window._planHasPostAuto);
-    const lbl=pgAuto.closest("label");
     if(!hasAuto){
-      pgAuto.disabled=true;pgAuto.title="Disponível a partir do plano Pro";
-      if(lbl){lbl.style.opacity="0.45";lbl.style.cursor="not-allowed";
-        if(!lbl.querySelector(".gate-chip")){const chip=document.createElement("span");chip.className="gate-chip";chip.style.cssText="margin-left:6px;font-size:10px;background:var(--gold);color:#3a2600;padding:2px 6px;border-radius:2px;font-weight:700";chip.textContent="🔒 Pro+";lbl.appendChild(chip);}
-      }
       const gp=document.getElementById("pane-geral");
       if(gp&&!gp.querySelector(".gate-banner")){const b=document.createElement("div");b.className="gate-banner";b.style.cssText="background:rgba(201,161,90,.12);border:1px solid rgba(201,161,90,.4);border-radius:2px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:14px;font-size:13px";b.innerHTML=`<span style="font-size:20px">🔒</span><span style="flex:1">Automação de posts disponível a partir do plano <strong>Pro (R$\u00a099,90/mês)</strong>.</span><button class="btn btn-gold btn-sm" onclick="go('assinatura')">Ver planos</button>`;gp.prepend(b);}
     }else{
-      pgAuto.disabled=false;pgAuto.title="";
-      if(lbl){lbl.style.opacity="";lbl.style.cursor="";const c=lbl.querySelector(".gate-chip");if(c)c.remove();}
       const gp=document.getElementById("pane-geral");if(gp){const bann=gp.querySelector(".gate-banner");if(bann)bann.remove();}
     }
   },60);
@@ -6461,33 +6584,15 @@ async function salvarGeral(){
   const validadeSel=document.getElementById("pgValidade")?.value||"";
   g.validadeDias=validadeSel?Number(validadeSel):null;
 
-  if(document.getElementById("pgAuto")?.checked){
-    if(!hasPostAuto){
-      g.postAuto=false;
-      if(document.getElementById("pgAuto"))document.getElementById("pgAuto").checked=false;
-      toast("Post Automático disponível a partir do plano Pro.","🔒");
-      await persistGroups();renderGrupos();return;
-    }
-    const problemas=[];
-    if(!S.waConnected)problemas.push("WhatsApp não conectado");
-    if((g.produtos||0)<1)problemas.push("nenhum produto cadastrado");
-    if((g.canais||0)<1&&(g.grupos_wa||0)<1)problemas.push("nenhum destino WA vinculado");
-    if(problemas.length&&!jaEstavaLigado){
-      toast(`⚠️ Falta: ${problemas.join(", ")}. Corrija antes de ativar.`,"⚠️");
-      g.postAuto=false;
-      if(document.getElementById("pgAuto"))document.getElementById("pgAuto").checked=false;
-    }else{
-      g.postAuto=true;
-    }
-  }else{
-    g.postAuto=false;
-  }
+  // REVISÃO 161 (pedido do Érico): ligar/pausar o Post Automático mora SÓ na
+  // tela Post. Automático (togglePostAuto, que valida os pré-requisitos). Salvar
+  // a configuração do grupo não liga nem desliga nada — nem post_auto_enabled vai
+  // no update abaixo. `jaEstavaLigado`/`hasPostAuto` ficam sem uso aqui.
 
   // Persiste no banco
   if(g.db_id){
     try{
       await SB.from("niche_groups").update({
-        post_auto_enabled:g.postAuto,
         interval_minutes:Number(intervalo),
         start_hour:g.startHour,
         end_hour:g.endHour,
@@ -6502,19 +6607,19 @@ async function salvarGeral(){
       }).eq("id",g.db_id);
     }catch(e){console.warn("salvarGeral update:",e);}
   }
-  await persistGroups();renderGrupos();prodIdeaisCalc();
+  await persistGroups();renderGrupos();prodIdeaisCalc();renderEgStatus();
 
   // Feedback visual
   const msg=document.getElementById("pgSalvoMsg");
   if(msg){msg.style.display="inline";setTimeout(()=>msg.style.display="none",3000);}
-  toast(g.postAuto?`▶ Post automático ATIVADO! A cada ${intervalo} min, das ${ini}h às ${fim}h.`:"✅ Configurações salvas!",g.postAuto?"🚀":"✅");
+  toast("✅ Configurações salvas!","✅");
 }
 
 // Limpar tudo
 function pgResetGeral(){
   if(!confirm("Limpar todas as configurações deste grupo?"))return;
   const g=S.grupoAtual;
-  g.postAuto=false;g.intervalo="10 min";g.startHour=8;g.endHour=22;g.loopEnabled=false;g.deleteAfterPost=false;g.cloneAutoApprove=false;g.weekendEnabled=true;g.noRepeatDaily=false;
+  g.intervalo="10 min";g.startHour=8;g.endHour=22;g.loopEnabled=false;g.deleteAfterPost=false;g.cloneAutoApprove=false;g.weekendEnabled=true;g.noRepeatDaily=false;
   buildTabs();
   toast("Configurações limpas.","🗑️");
 }
@@ -6524,7 +6629,7 @@ function pgSalvarPreset(){
   const ini=(document.getElementById("pgIni")?.value||"8h").replace("h","");
   const fim=(document.getElementById("pgFim")?.value||"22h").replace("h","");
   const intervalo=document.getElementById("pgInt")?.value||"10";
-  const auto=document.getElementById("pgAuto")?.checked||false;
+  const auto=!!S.grupoAtual?.postAuto; // só informativo no rótulo do preset (REVISÃO 161)
   const nome=prompt("Nome desta configuração (ex: 60min das 8h às 22h):");
   if(!nome?.trim())return;
   const presets=JSON.parse(localStorage.getItem("mlbr_presets")||"[]");
@@ -6554,7 +6659,6 @@ function pgRenderPresets(){
 function pgCarregarPreset(i){
   const presets=JSON.parse(localStorage.getItem("mlbr_presets")||"[]");
   const p=presets[i];if(!p)return;
-  const pgAuto=document.getElementById("pgAuto");if(pgAuto)pgAuto.checked=!!p.auto;
   const pgInt=document.getElementById("pgInt");
   if(pgInt){const opt=[...pgInt.options].find(o=>o.value===String(p.intervalo));if(opt)pgInt.value=p.intervalo;}
   const pgIni=document.getElementById("pgIni");
@@ -7048,7 +7152,7 @@ function prodMax(){
    Duas listas do mesmo vocabulário em lugares diferentes é exatamente o risco
    `mercadolivre`/`mercado_livre` da P31 — por isso aqui usamos o MESMO enum do
    banco (`products.source`), e não os slugs da resolve-link. Mexeu lá, mexe aqui. */
-const PROD_LOJAS_COM_VERIFICADOR=new Set(["mercado_livre","amazon"]);
+const PROD_LOJAS_COM_VERIFICADOR=new Set(["mercado_livre","amazon","shopee"]); // REVISÃO 162: + shopee (product-refresh v22)
 
 /* 🔴 O CARIMBO NÃO SIGNIFICA "FOI CONSULTADO NA LOJA".
    A product-refresh grava `price_checked_at` em TRÊS pulos por condição —
@@ -7072,8 +7176,17 @@ function prodMotivoSemConferencia(p){
   if(!url)return "url";
   try{ const u=new URL(url,window.location.origin);
        if(u.hostname.replace(/^www\./,"")==="megalinksbr.com.br"&&u.pathname.startsWith("/r/"))return "url"; }catch(e){}
-  // (c) loja sem verificador — hoje tudo que não é Mercado Livre nem Amazon
+  // (c) loja sem verificador — hoje tudo que não é Mercado Livre, Amazon nem Shopee
   if(!PROD_LOJAS_COM_VERIFICADOR.has(String(p.source||"")))return "loja";
+  // (d) REVISÃO 162 — Shopee: a product-refresh v22 só confere com o link na
+  // forma /product/LOJA/ITEM (ou -i.LOJA.ITEM) E com App Key + App Secret do
+  // dono. Nos dois casos ela carimba sem ler — a tela não pode dizer "conferido".
+  if(p.source==="shopee"){
+    if(!/\/product\/\d+\/\d+|-i\.\d+\.\d+/.test(url))return "url";
+    const c=(CREDS_STATE&&CREDS_STATE["Shopee"])||{};
+    if(!String(c["App Secret"]||"").trim()||!String(c["App Key"]||c["ID de Afiliado"]||"").trim())return "cred";
+    if(String(p.unavailable_signal||"")==="shopee:fora_das_ofertas")return "ofertas";
+  }
   return null;
 }
 
@@ -7086,6 +7199,8 @@ function prodIdadePreco(p){
   if(motivo==="plano")return {txt:"seu plano não inclui conferência automática de preço",cor:"var(--mut)",velho:false,nunca:false,semConferencia:true};
   if(motivo==="loja") return {txt:"esta loja ainda não é conferida automaticamente",cor:"var(--mut)",velho:false,nunca:false,semConferencia:true};
   if(motivo==="url")  return {txt:"sem link consultável — não dá para conferir o preço",cor:"var(--gold)",velho:false,nunca:false,semConferencia:true};
+  if(motivo==="cred") return {txt:"cadastre App Key e App Secret da Shopee para conferir o preço",cor:"var(--gold)",velho:false,nunca:false,semConferencia:true};
+  if(motivo==="ofertas")return {txt:"fora do catálogo de ofertas da Shopee — preço não conferido",cor:"var(--gold)",velho:false,nunca:false,semConferencia:true};
   if(!iso)return {txt:"preço nunca conferido",cor:"var(--gold)",velho:true,nunca:true,semConferencia:false};
   const h=Math.floor((Date.now()-new Date(iso).getTime())/3600000);
   if(!Number.isFinite(h))return {txt:"",cor:"var(--mut)",velho:false,nunca:false,semConferencia:false};
@@ -7125,7 +7240,7 @@ async function wireProdLista(){
   // inflaria o alarme e escondia a causa. Os inconferíveis viram linha própria.
   const idades=data.map(p=>({p,a:prodIdadePreco(p),m:prodMotivoSemConferencia(p)}));
   const semConf=idades.filter(x=>x.a.semConferencia).length;
-  const semConfPorMotivo={plano:0,loja:0,url:0};
+  const semConfPorMotivo={plano:0,loja:0,url:0,cred:0,ofertas:0};
   idades.forEach(x=>{if(x.m)semConfPorMotivo[x.m]++;});
   const nunca=idades.filter(x=>x.a.nunca).length;
   const velhos=idades.filter(x=>x.a.velho&&!x.a.nunca).length;
@@ -7144,18 +7259,20 @@ async function wireProdLista(){
   const avisoPreco=(nunca||velhos)?`<div class="alert b" style="margin:10px 0 0;font-size:12.5px"><div>🕐 ${[
       nunca?`<b>${nunca}</b> produto(s) com preço <b>nunca conferido</b> na loja`:"",
       velhos?`<b>${velhos}</b> com preço conferido há 3 dias ou mais`:""
-    ].filter(Boolean).join(" · ")}. O post usa o preço gravado aqui, não o preço de agora — a conferência automática roda 1x por dia e alcança 12 produtos por rodada.</div></div>`:"";
+    ].filter(Boolean).join(" · ")}. O post usa o preço gravado aqui, não o preço de agora. A conferência automática roda às 06h (todas as lojas) e às 18h (Amazon e Shopee), em lotes — produtos novos entram nas próximas rodadas.</div></div>`:"";
   // Linha própria, e não somada ao aviso acima: aqui o problema não é atraso,
   // é ausência de mecanismo. Juntar os dois faria parecer que basta esperar.
   // A explicação segue o motivo REAL. Dizer "a Shopee não tem verificador" para
   // quem está travado pelo plano seria trocar uma informação errada por outra.
   const explicaSemConf=(()=>{
     const m=semConfPorMotivo;
-    if(m.plano&&!m.loja&&!m.url)return `o plano ${myFeatures().label} não inclui monitoramento de preço e estoque. O preço deles é o que foi gravado no cadastro e não muda sozinho.`;
+    if(m.plano&&!m.loja&&!m.url&&!m.cred&&!m.ofertas)return `o plano ${myFeatures().label} não inclui monitoramento de preço e estoque. O preço deles é o que foi gravado no cadastro e não muda sozinho.`;
     const partes=[];
     if(m.plano)partes.push(`<b>${m.plano}</b> pelo plano ${myFeatures().label}, que não inclui monitoramento`);
-    if(m.loja) partes.push(`<b>${m.loja}</b> em loja sem verificador — só Mercado Livre e Amazon são consultados hoje`);
-    if(m.url)  partes.push(`<b>${m.url}</b> sem link original consultável`);
+    if(m.loja) partes.push(`<b>${m.loja}</b> em loja sem verificador — hoje são consultados Mercado Livre, Amazon e Shopee`);
+    if(m.url)  partes.push(`<b>${m.url}</b> sem link original consultável (link encurtado ou sem o código do produto)`);
+    if(m.cred) partes.push(`<b>${m.cred}</b> da Shopee sem App Key/App Secret cadastrados em <a href="#" onclick="go('config-afiliados');return false">Config Afiliados</a>`);
+    if(m.ofertas)partes.push(`<b>${m.ofertas}</b> fora do catálogo de ofertas da Shopee`);
     return partes.join(" · ")+". O preço deles é o que foi gravado no cadastro e não muda sozinho.";
   })();
   const avisoSemConf=semConf?`<div class="alert y" style="margin:10px 0 0;font-size:12.5px"><div>🔍 <b>${semConf}</b> produto(s) <b>não têm conferência automática</b> de preço: ${explicaSemConf}</div></div>`:"";
@@ -9376,6 +9493,11 @@ function prColetarCredenciais(){
     const appSecret=c["App Secret"]||"";
     if(appKey)creds.shopee_app_id=String(appKey).trim();
     if(appSecret)creds.shopee_app_secret=String(appSecret).trim();
+    // REVISÃO 163 — rótulo de Sub-ID vai junto: com ele a product-search gera o
+    // link nativo pela mutation `generateShortLink` já carimbado (sub_id no
+    // utm_content do destino). Sem rótulo, a product-search nem chama a
+    // mutation e o link continua saindo do `offerLink` de sempre.
+    if(c["Sub-ID"])creds.shopee_sub_id=String(c["Sub-ID"]).trim();
     console.log("[creds] Shopee appKey:",appKey?"✅":"❌","appSecret:",appSecret?"✅":"❌");
   }
   // Amazon
@@ -9904,6 +10026,29 @@ async function lrGerar(){
       lrMsg("y",'<span><strong>⚠️ Link resolvido ('+lojaSafe+'), mas falta a sua credencial dessa loja.</strong><br>Sem o seu ID de afiliado o link sairia <strong>sem comissão nenhuma</strong>. <a href="#" onclick="go(\'config-afiliados\');return false" style="color:var(--volt-tx);font-weight:700">Configurar '+lojaSafe+' agora</a></span>');
       return;
     }
+    // REVISÃO 156 — mesma regra do Postar Agora (REVISÃO 144) e dos Grupos de
+    // Oferta (P146): Shopee e Mercado Livre saem com o link NATIVO da loja
+    // (s.shopee.com.br/… / link curto oficial do ML), sem passar pelo
+    // encurtador próprio. A product-search v35 no modo "link_nativo" só gera o
+    // link, sem ler o produto (não gasta Scrape.do). Falhou ou faltou
+    // credencial (App Secret da Shopee; cookie/Etiqueta do ML) → segue o
+    // fluxo de sempre logo abaixo, sem regressão.
+    if(loja==="Shopee"||loja==="Mercado Livre"){
+      lrMsg("b","🔗 Gerando o link oficial de afiliado da "+lojaSafe+"…");
+      const nativo=await lrLinkNativo(d.url,jwt,"linkrapido");
+      if(nativo&&nativo.link){
+        LR_LINK=nativo.link;
+        lrRender(d,loja,true,true);
+        return;
+      }
+      // REVISÃO 159 (P153) — o ML recusou o anúncio no programa de afiliados
+      // (error_code 111; medido em anúncio indisponível). Trava: não entrega
+      // link nenhum, porque nem o link com matt_* renderia comissão.
+      if(nativo&&nativo.motivo==="ml_item_recusado"){
+        lrMsg("r",'<span><strong>❌ O Mercado Livre não gera link de afiliado para este produto.</strong><br>O anúncio provavelmente está <strong>indisponível</strong> (pausado, esgotado ou encerrado) ou fora do programa de afiliados — divulgar esse link não daria comissão.<br><strong>Nenhum link foi gerado — escolha outro produto pra divulgar.</strong></span>');
+        return;
+      }
+    }
     const afil=prGerarLinkAfil(d.url,loja)||d.url;
     if(afil===d.url){
       lrMsg("y",'<span><strong>⚠️ Não consegui injetar o seu ID nesse link de '+lojaSafe+'.</strong><br>Confira em <a href="#" onclick="go(\'config-afiliados\');return false" style="color:var(--volt-tx);font-weight:700">Config Afiliados</a> se o campo do ID de afiliado dessa loja está preenchido.</span>');
@@ -9920,11 +10065,33 @@ async function lrGerar(){
   }
 }
 
-function lrRender(d,loja,encurtou){
+// Pede à product-search só o link nativo (Shopee/ML). Nunca lança.
+// Devolve {link} ou {link:null, motivo}; null = usar o fluxo de sempre.
+async function lrLinkNativo(url,jwt,origem){
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),30000);
+  try{
+    const r=await fetch(`${SUPA_URL}/functions/v1/product-search`,{
+      method:"POST",
+      headers:{"Authorization":"Bearer "+jwt,"Content-Type":"application/json"},
+      body:JSON.stringify({url,credentials:prColetarCredenciais(),modo:"link_nativo",origem:origem||"linkrapido"}),
+      signal:controller.signal
+    });
+    if(!r.ok)return null;
+    const d=await r.json();
+    if(d&&d.success&&d.native_link&&d.short_link)return {link:String(d.short_link)};
+    return {link:null,motivo:(d&&d.motivo)||""};
+  }catch(e){console.warn("[link-rapido] link nativo falhou:",e&&e.message?e.message:e);return null;}
+  finally{clearTimeout(timeout);}
+}
+
+function lrRender(d,loja,encurtou,nativo){
   const s=document.getElementById("lrStatus");
   if(!s)return;
   const rastreado=(typeof planTemRastreamento==="function")&&planTemRastreamento();
-  const nota=!encurtou
+  const nota=nativo
+    ? "link oficial de afiliado da "+lrEsc(loja||"loja")+" — sai com a cara da loja (os cliques ficam no painel de afiliados da própria loja)"
+    : !encurtou
     ? "a encurtadora não respondeu — este é o link de afiliado direto, funciona igual"
     : (rastreado
         ? "encurtado no seu domínio, com <strong>rastreio de cliques</strong> no Analítico"
