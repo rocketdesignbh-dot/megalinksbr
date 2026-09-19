@@ -1733,7 +1733,7 @@ abaixo — cada linha ali tem o detalhe técnico.
 
 ## Última alteração
 
-**REVISÃO 155 — 16/09/2026 — Restilização pedida de novo (3ª vez: REVISÃO 63-66, depois REVISÃO 154 investigou e não mudou código, agora esta sessão mudou código de verdade). Checkout sincronizado com `origin/main` (0/0 de divergência, `git fetch` conferido no início) — não é o bug da REVISÃO 154. Branch `redesign/megalinks-ui-v3`, 22 commits (atualizado em 18/09), NÃO mergeada em `main`.**
+**REVISÃO 155 — 16/09/2026 — Restilização pedida de novo (3ª vez: REVISÃO 63-66, depois REVISÃO 154 investigou e não mudou código, agora esta sessão mudou código de verdade). Checkout sincronizado com `origin/main` (0/0 de divergência, `git fetch` conferido no início) — não é o bug da REVISÃO 154. Branch `redesign/megalinks-ui-v3`, 28 commits (atualizado em 19/09), NÃO mergeada em `main`.**
 
 ### O que foi pedido e como foi resolvido o "já foi feito"
 
@@ -1760,18 +1760,35 @@ Ao contrário da REVISÃO 154 (que só confirmou "já foi feito, não fizemos na
 - **4 páginas inteiras nunca tinham passado pela REVISÃO 66** (arquivos datados de 30/07, enquanto `index.html`/`landing.html` são de 23/08+): `guia.html` (Plus Jakarta Sans, `--volt:#F5C518`, raio 12px, blob radial, glow de 26px no CTA, pills 999px), `revops.html` (painel interno `noindex`, 2506 linhas: mesmas fontes antigas, `--glow` de 32px, 57 raios espalhados, duas manchas radiais no login), `termos.html` e `privacidade.html` (fonte de sistema, amarelo antigo, cinzas soltos). As quatro migradas para os tokens/tipografia atuais. Em `revops.html` mantive de propósito a paleta semântica `--money/--risk/--danger/--info` (dashboard financeiro precisa diferenciar séries), só dessaturada. `--violet/--pink` tinham zero uso lá.
 - **Escala de espaçamento:** só declarei `--sp-1..--sp-7` (base 4px) em `index.html` como referência. **Não** migrei os ~13.000 paddings/margins inline — decisão deliberada, risco de regressão em milhares de pontos por ganho cosmético.
 
-**Ainda em aberto após este adendo:** (a) KPIs do admin, tela de trial encerrado e o restante do `revops.html` logado — nunca vistos no navegador, exigem sessão real; (b) ~7 fundos escuros de badge com hex solto em `revops.html` (`#2A3A5C`, `#3A2A16`…), deixados de propósito; (c) revisão visual tela-por-tela das 26 telas logadas; (d) loading states/skeletons e microinterações além do `prefers-reduced-motion` global; (e) push/merge da branch, decisão do Érico.
+**Adendo de 19/09 — etapas 10, 11 e 12 (5 commits):**
+
+- **Loading (etapa 10):** 9 listas com texto "Carregando…" viraram skeleton (pulso de opacidade, sem gradiente), com `.sr-only` + `role="status"`. O overlay global `#globalLoading` ainda usava o amarelo antigo `#F5C518`, textos do sistema anterior e `blur(4px)` — agora nos tokens. `#tw` (toasts) ganhou `aria-live`; antes não existia `aria-live` em lugar nenhum do arquivo.
+- **Responsividade (etapa 11), medida e não amostrada:** técnica útil para sessões futuras — forçar `authGate:none` + `.page.on` via JS mostra o layout de cada tela **sem login** (só markup estático, sem dados). Medi `scrollWidth - clientWidth` nas 28 `<section class="page">` em 320/375/414/768px. Em 320px, 3 estouravam (assinatura, grupos, telegram): `.g4` com `1fr` crescia até o min-content dos planos → `minmax(0,1fr)` em `.g2/.g3/.g4/.g23`; banner Starter sem `flex-wrap`; `.alert` (flex) com `<strong>` no meio da frase. Depois: 28 telas × 4 larguras = 0 overflow. **Limite:** não cobre conteúdo montado por JS com dados reais.
+- **Microinterações (etapa 12):** só entrada de modal (fade 140ms + `fadeInUp` 180ms) e dropdown (140ms), reaproveitando o keyframe existente. Sem animação de saída, de propósito. **Não observei** o comportamento com reduced-motion ligado (não consegui emular) — só confirmei que a regra global está no CSS.
+- 🐛 **Bug de texto (não de estilo), corrigido em commit separado:** o plural era montado como `"canal" + "is"` → "**canalis**" (card do plano mostrava "2 Canalis WA"; também nos avisos de limite e na mensagem de sucesso do post). 6 pontos corrigidos para "canais".
+- Sobras de rgba das cores neon (14 em `index.html`, 1 em `revops.html`) que a troca de hex da paleta não pegou — fechadas. **Lição:** trocar cor por hex não basta; conferir também `rgba(R,G,B,` do mesmo RGB.
+- Correção de uma ressalva minha anterior: eu havia dito que `var()` em `stroke` de SVG teria suporte inconsistente; testei no Chromium e resolve certo (`rgb(127,185,141)`). Não era bug.
+
+**Ainda em aberto:** (a) KPIs do admin, tela de trial encerrado e o restante do `revops.html` logado — nunca vistos no navegador, exigem sessão real; (b) ~7 fundos escuros de badge com hex solto em `revops.html` (`#2A3A5C`, `#3A2A16`…), deixados de propósito; (c) telas logadas **com dados reais** (tabelas, listas montadas por JS) em mobile; (d) `#modalTicket` e `#modalNewPass` continuam no modal antigo, fora do sistema de foco (o de senha é fluxo de recuperação, não deve fechar por engano); (e) estado de botão em loading (`.btn.loading`) — nenhum código aplicaria a classe hoje; (f) performance (etapa 14: bundle/fontes) não analisada; (g) push/merge da branch, decisão do Érico.
+
+**⚠️ Medido em 19/09 via CLI (`git fetch` + `git merge-tree`, simulação sem tocar em nada) — a branch está DEFASADA em relação à `main`:**
+
+- `origin/main` andou **15 commits** desde a base desta branch (`95d4aa8`, REVISÃO 154) e já está na **REVISÃO 163**; a branch tem 28 (27 de código + docs). **A numeração "REVISÃO 155" acima colide com revisões que já existem na `main`** — renumerar (próxima livre: 164) ao integrar.
+- Existe um **segundo clone** do mesmo repo em `C:\Users\PC\github\megalinksbr`, na `main` atualizada (REVISÃO 163). É o que reflete o remoto; o clone de `Documents\megalinksbr` é o da branch de restilização. Não confundir os dois (mesmo padrão da P150).
+- **Merge simulado: conflito em 2 arquivos** — `frontend/index.html` (**4 trechos**, todos na região do Post Automático reescrita pela REVISÃO 160: `autoColor`, `grupoStatusDisparo`, `stDisp`, badges de "fora do rodízio") e este doc (2 trechos: cabeçalho de revisão e "Última alteração"). `landing.html`, `guia.html`, `revops.html`, `termos.html`, `privacidade.html`: **0 commits na `main`** desde a base → integram limpo.
+- **Depois de resolver, reexecutar as varreduras**, porque o código novo da `main` reintroduziu os padrões que a branch já limpou (contagem em `origin/main`): 33× `rgba(245,197,24,)`, 13× `#ef4444` solto, 9× `rgba(239,68,68,)`, 8× `rgba(255,176,32,)`, 8× `#f59e0b`, 5× `#22c55e`, 4× `rgba(245,158,11,)`, 4× plural "canalis", 27× `#0c0c0e` literal. Os scripts são mecânicos e idempotentes; usar sempre o cuidado de **pular a linha que define o token** (bug do `--green` circular).
+- Ordem sugerida: (1) `git merge origin/main` na branch; (2) resolver os 4+2 trechos mantendo a lógica da REVISÃO 160 e só trocando cor/estilo; (3) reexecutar as varreduras; (4) rodar o teste de overflow 28 telas × 4 larguras; (5) só então push/PR.
 
 ### O que NÃO foi feito (decisão herdada + limitação desta sessão)
 
 - **Emoji mantido como está**, por decisão explícita do Érico já registrada na REVISÃO 154 ("quer manter os emoji como estão") — só removi emoji em 3 casos de **duplicação literal** (nav com SVG *e* emoji fazendo o mesmo papel: Postar Agora, Post Automático, Post Vídeo), não uma limpeza geral.
 - **Não confirmado visualmente**: a paleta neon dos KPIs do admin e a tela de conversão de trial exigem login real (admin ou trial expirado) que esta sessão não tinha. Troca mecânica de valor de cor, baixo risco, mas **falta conferir no navegador do Érico**.
 - Escala de espaçamento (a auditoria classificou como menor impacto) e uma varredura visual final tela-por-tela (as 26 telas que a REVISÃO 66 percorreu uma a uma) não foram feitas.
-- **Branch não mergeada em `main`** — os 22 commits estão só em `redesign/megalinks-ui-v3` local.
+- **Branch não mergeada em `main`** — os 28 commits estão só em `redesign/megalinks-ui-v3` local.
 
 ### Estado ao encerrar
 
-Branch `redesign/megalinks-ui-v3`, 22 commits, working tree limpa. Cada commit testado individualmente via `frontend-static` (porta 5173) — console sem erro novo, foco de teclado conferido ao vivo com Tab de verdade num modal real.
+Branch `redesign/megalinks-ui-v3`, 28 commits, working tree limpa. Cada commit testado individualmente via `frontend-static` (porta 5173) — console sem erro novo, foco de teclado conferido ao vivo com Tab de verdade num modal real.
 
 **REVISÃO 154 — 15/09/2026 — Sessão pediu restilização completa de novo (mesmo pedido da REVISÃO 153, sem saber que ela já tinha rodado); nada de visual novo foi commitado — a sessão foi de investigação, fechou a P71 e registrou a P150. NADA de código mudou nesta sessão.**
 
