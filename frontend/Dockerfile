@@ -29,6 +29,16 @@ server {
   listen 80;
   root /usr/share/nginx/html;
 
+  # Compressao. MEDIDO em producao (19/09): o painel saia SEM Content-Encoding,
+  # 843.735 bytes por carga (gzip -9 do mesmo arquivo: ~244 KB). O nginx:alpine
+  # traz o gzip desligado. text/html ja e comprimido por padrao; os tipos
+  # abaixo cobrem js/css/json/svg. Imagens (png/jpg) ja sao comprimidas.
+  gzip on;
+  gzip_comp_level 6;
+  gzip_min_length 1024;
+  gzip_vary on;
+  gzip_types text/css text/javascript application/javascript application/json image/svg+xml text/plain application/xml;
+
   # P49 — HTML nao fica em cache do navegador. Sem isto, depois de um Deploy
   # quem ja estava logado continua rodando o bundle antigo por tempo
   # indeterminado, sem nada na tela dizendo isso. Os assets (png, js, css)
@@ -84,6 +94,10 @@ server {
     proxy_hide_header X-Content-Type-Options;
     proxy_hide_header Content-Security-Policy;
     add_header Content-Type "text/html; charset=utf-8" always;
+
+    # Fora do gzip de proposito: o corpo e minusculo e o consumidor e o
+    # crawler de preview (WhatsApp); nao vale mexer no que ja foi medido (P60).
+    gzip off;
   }
 
   location / {
