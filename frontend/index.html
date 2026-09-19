@@ -637,7 +637,7 @@ tr:hover td{background:var(--surf2)}
 #mobStats{display:none}
 /* ── MOBILE ── */
 @media(max-width:820px){
-  .g2,.g3,.g4,.g23{grid-template-columns:1fr}
+  .g2,.g3,.g4,.g23{grid-template-columns:minmax(0,1fr)}
   .rail{transform:translateX(-100%);transition:transform .25s ease;box-shadow:none;z-index:200}
   .rail.mob-open{transform:translateX(0);box-shadow:none}
   #mobOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(3px);z-index:199}
@@ -1594,7 +1594,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </button>
     </div>
     <div id="grupoLimiteAlert" style="display:none;background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.4);border-radius:2px;padding:12px 16px;margin-bottom:12px;align-items:center;gap:12px;font-size:13px"></div>
-    <div id="grupoStarterBanner" style="display:none;background:var(--volt-soft);border:1px solid rgba(255,193,7,.3);border-radius:2px;padding:14px 18px;margin-bottom:14px;align-items:center;gap:14px;font-size:13px">
+    <div id="grupoStarterBanner" style="display:none;background:var(--volt-soft);border:1px solid rgba(255,193,7,.3);border-radius:2px;padding:14px 18px;margin-bottom:14px;align-items:center;gap:14px;flex-wrap:wrap;font-size:13px">
       <span style="font-size:24px">📦</span>
       <div style="flex:1"><strong>Seu grupo pode estar postando produto que já acabou.</strong><div style="color:var(--tx2);margin-top:3px;line-height:1.5">Do plano Pro em diante, conferimos seus anúncios todo dia: o que sair de estoque é retirado do rodízio automaticamente e você recebe um aviso no WhatsApp — antes dos seus membros clicarem num link que não vende.</div></div>
       <button class="btn btn-gold btn-sm" onclick="go('assinatura')" style="flex:none">Ativar monitoramento</button>
@@ -1800,7 +1800,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button></div></div></div>
 
     <!-- Instrução -->
-    <div class="alert y" style="margin-bottom:16px;font-size:13px">
+    <div class="alert y" style="margin-bottom:16px;font-size:13px;display:block;overflow-wrap:anywhere">
       <strong>Como funciona:</strong> Adicione <strong>@megalinksbr_bot</strong> como admin no seu canal/grupo Telegram, depois cole o link ou @username abaixo.
     </div>
 
