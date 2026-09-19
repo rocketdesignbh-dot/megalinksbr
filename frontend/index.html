@@ -661,6 +661,13 @@ tr:hover td{background:var(--surf2)}
   .login-icon{display:block}
 }
 @keyframes spin{to{transform:rotate(360deg)}}
+/* Skeleton: pulso de opacidade, sem gradiente/shimmer. Com reduced-motion a
+   regra global zera a animacao e o bloco fica estatico. */
+@keyframes skelPulse{0%,100%{opacity:.45}50%{opacity:1}}
+.skel{display:block;background:var(--surf3);border-radius:var(--r-sm);animation:skelPulse 1.4s ease-in-out infinite}
+.skel-list{display:flex;flex-direction:column;gap:10px;padding:6px 0}
+.skel-row{height:44px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 /* Botao desabilitado — ate 26/08 nao havia estilo nenhum, entao o "Buscar"
    continuava com cara de clicavel enquanto a busca automatica ja estava rodando
@@ -1188,7 +1195,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
       <div class="card">
         <div class="ch">🗓️ Fila de vídeos agendados</div>
-        <div class="cb" id="pvFila"><p style="color:var(--mut);text-align:center;padding:28px">Carregando…</p></div>
+        <div class="cb" id="pvFila"><div class="skel-list" role="status"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div></div>
       </div>
     </div>
   </section>
@@ -1244,9 +1251,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button class="btn btn-ghost" onclick="go('dashboard')" style="white-space:nowrap">← Voltar</button>
       <button class="btn btn-volt btn-sm" onclick="loadPostAutomatico()" style="margin-left:8px">↻ Atualizar</button></div>
     <div class="g4" id="paKpis" style="margin-bottom:20px"></div>
-    <div class="card"><div class="ch">🟢 Automações Ativas</div><div class="cb" id="paLista"><p style="color:var(--mut);text-align:center;padding:28px">Carregando…</p></div></div>
-    <div class="card" style="margin-top:16px"><div class="ch">📋 Últimos Disparos Automáticos <span class="r"><span style="font-size:11px;color:var(--mut)">últimas 24h</span></span></div><div class="cb" id="paLog" style="padding:0"><p style="color:var(--mut);text-align:center;padding:28px">Carregando…</p></div></div>
-    <div class="card" style="margin-top:16px"><div class="ch">⚡ Últimos Disparos Manuais <span class="r"><span style="font-size:11px;color:var(--mut)">últimas 24h</span></span></div><div class="cb" id="paLogManual" style="padding:0"><p style="color:var(--mut);text-align:center;padding:28px">Carregando…</p></div></div>
+    <div class="card"><div class="ch">🟢 Automações Ativas</div><div class="cb" id="paLista"><div class="skel-list" role="status"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div></div></div>
+    <div class="card" style="margin-top:16px"><div class="ch">📋 Últimos Disparos Automáticos <span class="r"><span style="font-size:11px;color:var(--mut)">últimas 24h</span></span></div><div class="cb" id="paLog" style="padding:0"><div class="skel-list" role="status" style="padding:14px 16px"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div></div></div>
+    <div class="card" style="margin-top:16px"><div class="ch">⚡ Últimos Disparos Manuais <span class="r"><span style="font-size:11px;color:var(--mut)">últimas 24h</span></span></div><div class="cb" id="paLogManual" style="padding:0"><div class="skel-list" role="status" style="padding:14px 16px"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div></div></div>
   </section>
 
   <section class="page" id="page-analitico">
@@ -1419,14 +1426,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="tp on" id="ctab-fila">
         <div class="card">
           <div class="ch">🗂️ Fila de clones <span class="r"><span id="clfUpd" class="cs-upd"></span><a href="#" onclick="cloneFilaAtualizar();return false">atualizar</a></span></div>
-          <div class="cb" id="cloneFila"><div style="color:var(--tx2);font-size:13px">Carregando…</div></div>
+          <div class="cb" id="cloneFila"><div class="skel-list" role="status"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div></div>
         </div>
       </div>
 
       <div class="tp" id="ctab-fontes">
         <div class="card">
           <div class="ch">🤖 Fontes automáticas <span class="r"><span id="csUpd" class="cs-upd"></span><a href="#" onclick="csAtualizar();return false">atualizar</a></span></div>
-          <div class="cb" id="csBox"><div style="color:var(--tx2);font-size:13px">Carregando…</div></div>
+          <div class="cb" id="csBox"><div class="skel-list" role="status"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div></div>
         </div>
       </div>
     </div>
@@ -2414,18 +2421,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div></div>
 
-<div class="tw" id="tw"></div>
+<div class="tw" id="tw" role="status" aria-live="polite"></div>
 
 <!-- Loading Global -->
-<div id="globalLoading" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(12,12,14,.75);backdrop-filter:blur(4px);flex-direction:column;align-items:center;justify-content:center;gap:16px">
+<div id="globalLoading" role="status" aria-live="polite" aria-busy="true" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(20,22,26,.82);flex-direction:column;align-items:center;justify-content:center;gap:16px">
   <div style="position:relative;width:56px;height:56px">
-    <svg viewBox="0 0 56 56" style="width:56px;height:56px;animation:spin 1s linear infinite">
-      <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,193,7,.15)" stroke-width="4"/>
-      <circle cx="28" cy="28" r="24" fill="none" stroke="#F5C518" stroke-width="4" stroke-linecap="round" stroke-dasharray="60 90" stroke-dashoffset="0"/>
+    <svg viewBox="0 0 56 56" aria-hidden="true" style="width:56px;height:56px;animation:spin 1s linear infinite">
+      <circle cx="28" cy="28" r="24" fill="none" stroke="var(--volt-soft)" stroke-width="4"/>
+      <circle cx="28" cy="28" r="24" fill="none" stroke="var(--volt)" stroke-width="4" stroke-linecap="round" stroke-dasharray="60 90" stroke-dashoffset="0"/>
     </svg>
   </div>
-  <div id="globalLoadingMsg" style="color:#f0f0f4;font-size:14px;font-weight:600;letter-spacing:.02em">Carregando…</div>
-  <div style="color:#9494a8;font-size:12px">Aguarde um momento</div>
+  <div id="globalLoadingMsg" style="color:var(--tx);font-family:var(--disp);font-size:14px;font-weight:600;letter-spacing:.02em">Carregando…</div>
+  <div style="color:var(--tx2);font-size:12px">Aguarde um momento</div>
 </div>
 <script>
 /* ── LOADING GLOBAL (movido do <style> para o <script>, onde de fato funciona) ── */
@@ -5887,7 +5894,7 @@ recados:`
     <button class="btn btn-volt" onclick="rgAdicionar()">➕ Adicionar</button>
   </div></div>
   <div class="card"><div class="ch">📋 Itens deste grupo <span class="r"><button class="btn btn-ghost btn-sm" onclick="rgCarregar()">↻ Atualizar</button></span></div>
-    <div class="cb" id="rgLista"><p style="color:var(--mut);text-align:center;padding:20px">Carregando…</p></div></div>`,
+    <div class="cb" id="rgLista"><div class="skel-list" role="status"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div></div></div>`,
 wacanais:`
   <div class="alert ${"b"}" id="wcAlert">ℹ️ Vincule um <strong>Canal do WhatsApp</strong> a este grupo. O número conectado precisa ser <strong>Dono</strong> ou <strong>Admin</strong> do canal.</div>
   <div class="card"><div class="ch">🔗 Vincular canal <span class="r" id="wcConn"></span></div><div class="cb">
@@ -6133,7 +6140,7 @@ async function rgCarregar(){
   const el=document.getElementById("rgLista");if(!el)return;
   const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
   if(!gid){el.innerHTML="";return;}
-  el.innerHTML=`<p style="color:var(--mut);text-align:center;padding:20px">Carregando…</p>`;
+  el.innerHTML=`<div class="skel-list" role="status"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div>`;
   const{data,error}=await SB.from("niche_group_extras").select("*").eq("niche_group_id",gid).order("ordem");
   if(error){el.innerHTML=`<p style="color:var(--mut);text-align:center;padding:20px">Erro ao carregar: ${error.message}</p>`;return;}
   if(!data||!data.length){el.innerHTML=`<p style="color:var(--mut);text-align:center;padding:20px">Nenhum recado ou cupom cadastrado ainda.</p>`;return;}
@@ -7086,7 +7093,7 @@ async function wireProdLista(){
   const el=document.getElementById("prodListaBody");if(!el)return;
   const gid=S.grupoAtual?.db_id||S.grupoAtual?.id;
   if(!gid){el.innerHTML='<p style="color:var(--mut);text-align:center;padding:28px">Salve o grupo primeiro.</p>';return;}
-  el.innerHTML='<p style="color:var(--mut);text-align:center;padding:28px">Carregando…</p>';
+  el.innerHTML='<div class="skel-list" role="status"><span class="sr-only">Carregando…</span><span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div>';
   const{data,error}=await SB.from("products").select("*").eq("niche_group_id",gid).order("position");
   if(error||!data){el.innerHTML=`<p style="color:var(--red);text-align:center;padding:28px">Erro: ${error?.message||"desconhecido"}</p>`;return;}
   S.grupoAtual.produtos=data.length;renderGrupos();
