@@ -669,6 +669,13 @@ tr:hover td{background:var(--surf2)}
 .skel-row{height:44px}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* Entrada de overlays: 140-180ms, so opacidade + 8px de translate. Sem saida
+   animada de proposito -- o display:none imediato mantem fechamento e
+   devolucao de foco previsiveis. prefers-reduced-motion ja zera tudo isto. */
+@keyframes mbgIn{from{opacity:0}to{opacity:1}}
+.mbg.open,.mbg.on{animation:mbgIn .14s ease-out}
+.mbg.open .modal,.mbg.on .modal{animation:fadeInUp .18s ease-out}
+.dd.open{animation:fadeInUp .14s ease-out}
 /* Botao desabilitado — ate 26/08 nao havia estilo nenhum, entao o "Buscar"
    continuava com cara de clicavel enquanto a busca automatica ja estava rodando
    e o usuario clicava de novo. */
