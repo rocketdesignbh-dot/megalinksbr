@@ -5589,7 +5589,7 @@ function renderGrupos(){const has=S.grupos.length>0;
     // Telegram status
     const tgOk=(g.telegram||0)>0;
     const tgColor=tgOk?"var(--green)":"var(--red)";
-    const tgLabel=tgOk?`${g.telegram} canal${g.telegram>1?"is":""}`:"DESCONECTADO";
+    const tgLabel=tgOk?`${g.telegram} ${g.telegram>1?"canais":"canal"}`:"DESCONECTADO";
 
     // Produtos
     const prodOk=(g.produtos||0)>0;
@@ -6642,7 +6642,7 @@ async function vincularCanal(nome,link,whatsappId,papelReal){
   const totalCanais=S.grupos.reduce((a,g)=>a+(g.canais||0),0);
   if(totalCanais>=maxCh){
     const f=myFeatures();
-    toast(`Limite de ${maxCh} canal${maxCh>1?"is":""} WA do plano ${f.label} atingido. Faça upgrade!`,"⚠️");
+    toast(`Limite de ${maxCh} ${maxCh>1?"canais":"canal"} WA do plano ${f.label} atingido. Faça upgrade!`,"⚠️");
     go("assinatura");return;
   }
   const uid=CURRENT_USER?.id;
@@ -7796,8 +7796,8 @@ function buildPlansFromFeatures(){
     const f=planRow(key);
     const feats=[];
     feats.push((f.wa_groups===-1?"✅ Grupos WA ilimitados":"✅ "+f.wa_groups+" Grupo"+(f.wa_groups>1?"s":"")+" de WhatsApp"));
-    feats.push((f.wa_channels===-1?"✅ Canais WA ilimitados":"✅ "+f.wa_channels+" Canal"+(f.wa_channels>1?"is":"")+" WA"));
-    feats.push((f.tg_channels===-1?"✅ Telegram ilimitado":"✅ "+f.tg_channels+" Canal"+(f.tg_channels>1?"is":"")+" Telegram"));
+    feats.push((f.wa_channels===-1?"✅ Canais WA ilimitados":"✅ "+f.wa_channels+" "+(f.wa_channels>1?"Canais":"Canal")+" WA"));
+    feats.push((f.tg_channels===-1?"✅ Telegram ilimitado":"✅ "+f.tg_channels+" "+(f.tg_channels>1?"Canais":"Canal")+" Telegram"));
     feats.push("✅ "+f.wa_connections+" Conexão"+(f.wa_connections>1?"ões":"")+" WhatsApp");
     feats.push(f.marketplaces===-1?"✅ Todos os marketplaces":
       f.marketplaces===1?"✅ Shopee":
@@ -8030,7 +8030,7 @@ async function tgValidarCanal(){
   const maxTg=lim("tg_channels")===-1?9999:lim("tg_channels");
   if(TG_CANAIS.length>=maxTg){
     const f=myFeatures();
-    toast(`Limite de ${maxTg} canal${maxTg>1?"is":""} Telegram do plano ${f.label} atingido. Faça upgrade!`,"⚠️");
+    toast(`Limite de ${maxTg} ${maxTg>1?"canais":"canal"} Telegram do plano ${f.label} atingido. Faça upgrade!`,"⚠️");
     go("assinatura");return;
   }
   const input=document.getElementById("tgChatInput");
@@ -12098,7 +12098,7 @@ async function prDisparar(){
       successBanner.innerHTML=`<div style="background:var(--surf);border-radius:var(--r);padding:36px 40px;text-align:center;max-width:380px">
         <div style="font-size:52px;margin-bottom:12px">🚀</div>
         <h2 style="margin:0 0 8px;font-family:var(--disp)">Post disparado!</h2>
-        <p style="color:var(--tx2);margin:0 0 20px">${ok} canal${ok>1?"is":""} recebeu${ok>1?"ram":""} o post com sucesso.${err>0?`<br><small style="color:var(--mut)">${err} com falha: ${errMsgs.slice(0,2).join(", ")}</small>`:""}</p>
+        <p style="color:var(--tx2);margin:0 0 20px">${ok} ${ok>1?"canais":"canal"} recebeu${ok>1?"ram":""} o post com sucesso.${err>0?`<br><small style="color:var(--mut)">${err} com falha: ${errMsgs.slice(0,2).join(", ")}</small>`:""}</p>
         <button class="btn btn-volt" onclick="this.closest('[style*=fixed]').remove();prStep2Reset()" style="width:100%">✓ Fechar e novo post</button>
       </div>`;
       document.body.appendChild(successBanner);
