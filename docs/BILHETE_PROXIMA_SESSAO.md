@@ -1,8 +1,38 @@
 # Bilhete para a próxima sessão — Mega Links BR
 
-> **Primeira ação: ler `docs/ESTADO_ATUAL.md` do repo, inteiro.** Ele está na
-> **REVISÃO 53**. Este bilhete não substitui o ESTADO_ATUAL — ele só diz por onde
-> começar e o que não redescobrir.
+> **Primeira ação: ler `docs/ESTADO_ATUAL.md` do repo, inteiro.** Este bilhete
+> não substitui o ESTADO_ATUAL — ele só diz por onde começar e o que não
+> redescobrir. (Atualizado em 19/09: o número da revisão não é mais fixado aqui,
+> ele envelhecia — a `main` estava na 163 e este bilhete dizia 53. Conferir o
+> cabeçalho do ESTADO_ATUAL.)
+
+---
+
+## Frente ativa em 19/09: restilização visual (branch `redesign/megalinks-ui-v3`)
+
+**Onde está:** branch enviada ao remoto, **29 commits à frente da `main`** (28 de
+trabalho + 1 de merge), **0 atrás** em 19/09. **Sem PR aberto, sem merge em `main`** —
+isso e o deploy são do Érico. Detalhe completo na entrada **REVISÃO 164** do
+ESTADO_ATUAL, seção "Como retomar esta frente".
+
+**Três coisas antes de qualquer edição:**
+
+1. `git fetch origin` e conferir a divergência com `origin/main`. Há **dois
+   clones** (`C:\Users\PC\Documents\megalinksbr` e `C:\Users\PC\github\megalinksbr`);
+   não confiar num checkout local (P150).
+2. Se a `main` andou, **integrar antes de continuar** (`git merge origin/main`) e
+   **reexecutar as varreduras de cor** — código novo da `main` reintroduz as
+   paletas antigas. Pular a linha que *define* o token (foi assim que
+   `--green:var(--green)` nasceu).
+3. Não refazer a restilização do zero, não limpar emoji em massa (decisão do
+   Érico) e não migrar paddings inline para `--sp-*` em massa.
+
+**Falta:** conferir com **login real** (KPIs do admin, tela de trial encerrado,
+`revops.html` logado, telas com dados em mobile); `#modalTicket`/`#modalNewPass`
+fora do sistema de foco; performance (etapa 14). Lista completa no ESTADO_ATUAL.
+
+*As seções abaixo são o histórico da sessão de 17/08 (P62, Shopee `sub_id`) e
+seguem valendo como registro do que não redescobrir.*
 
 ---
 
