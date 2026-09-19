@@ -52,8 +52,14 @@ encerrado — **0 overflow, 0 resto das paletas antigas, 0 erro de JS**. "Usuár
   IA Insights (custo), Automações, Conexões Admin;
 - o fluxo **real** do trial encerrado (só o template foi renderizado) e reduced-motion
   com a preferência ligada;
-- `#modalNewPass` (recuperação de senha, fora do sistema de foco de propósito),
-  `.btn.loading` (nenhum código aplica a classe), ~7 fundos de badge em `revops.html`;
+- `#modalNewPass` (recuperação de senha, fora do sistema de foco de propósito: **decisão,
+  não pendência**);
+- **feito na 5ª parte de 19/09 (PR aberto, ver o adendo no ESTADO_ATUAL):** os resíduos
+  de paleta em `revops.html` (13 fundos de badge em `rgba()` + os 7 cabeçalhos do Kanban),
+  o bug do alerta de vencimento (`var(--x)22` é CSS inválido) e o `.btn.loading`, que era
+  um **item fantasma** (o CSS nunca existiu; o app usa `showLoading()` e `.btn:disabled`).
+  Só falta, se o Érico quiser, um estado de carregamento *no botão* (feature nova) e 3
+  callouts de tutorial em `exemplo-configuracao.js`/`exemplo-postagens.js` ainda na paleta antiga;
 - capturas de tela: o `captureScreenshot` do Chrome MCP estourou 4 vezes nessa passada.
 
 **Lições de ferramenta (Chrome MCP em 19/09):** `resize_window` não muda o viewport
