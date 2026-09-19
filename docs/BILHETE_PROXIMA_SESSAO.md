@@ -8,28 +8,54 @@
 
 ---
 
-## Frente ativa em 19/09: restilização visual (branch `redesign/megalinks-ui-v3`)
+## Frente ativa em 19/09: restilização visual — MERGEADA e NO AR (sem PR aberto desta frente)
 
-**Onde está:** branch enviada ao remoto, **29 commits à frente da `main`** (28 de
-trabalho + 1 de merge), **0 atrás** em 19/09. **Sem PR aberto, sem merge em `main`** —
-isso e o deploy são do Érico. Detalhe completo na entrada **REVISÃO 164** do
-ESTADO_ATUAL, seção "Como retomar esta frente".
+**Onde está:** o PR **#19** (restilização, 35 commits) foi mergeado em `main`
+(`022f63b`); o **#20** (gzip no nginx) em `39fa036`; o **#21** (docs) em `fa1cc21`.
+A `main` do remoto já tem tudo. A branch `redesign/megalinks-ui-v3` **ainda existe**
+no remoto (não foi apagada). **O deploy da `main` é AUTOMÁTICO** (medido em 19/09:
+~13 s após o merge já estava no ar) — cuidado com o que entra na `main`. Detalhe
+completo no ESTADO_ATUAL: REVISÃO 164 e os adendos de 19/09.
 
-**Três coisas antes de qualquer edição:**
+**Antes de qualquer edição:**
 
-1. `git fetch origin` e conferir a divergência com `origin/main`. Há **dois
-   clones** (`C:\Users\PC\Documents\megalinksbr` e `C:\Users\PC\github\megalinksbr`);
-   não confiar num checkout local (P150).
-2. Se a `main` andou, **integrar antes de continuar** (`git merge origin/main`) e
-   **reexecutar as varreduras de cor** — código novo da `main` reintroduz as
-   paletas antigas. Pular a linha que *define* o token (foi assim que
-   `--green:var(--green)` nasceu).
-3. Não refazer a restilização do zero, não limpar emoji em massa (decisão do
-   Érico) e não migrar paddings inline para `--sp-*` em massa.
+1. **Nunca partir do `main` LOCAL deste clone** (`C:\Users\PC\Documents\megalinksbr`):
+   ele está velho (11/08, 900 commits atrás e 626 à frente de `origin/main`; os
+   commits só dele são de *Mega Results* e existem em branches remotas). Sempre:
+   `git fetch origin && git switch -c <nome> origin/main`. Não fazer `pull`/`merge` nele.
+   Há **dois clones** (o outro é `C:\Users\PC\github\megalinksbr`); não confiar num
+   checkout local (P150).
+2. A `main` só recebe mudança **por PR**; o padrão usado foi **merge commit**. Push com
+   o nome explícito da branch (`git push -u origin <nome>`): uma branch criada de
+   `origin/main` herda `origin/main` como upstream. O `git push` pode ficar parado
+   esperando o Git Credential Manager — não é hook; aguardar.
+3. Não refazer a restilização do zero, não limpar emoji em massa (decisão do Érico) e
+   não migrar paddings inline para `--sp-*` em massa. Trocas em massa de cor:
+   pular a linha que *define* o token e conferir hex **e** `rgba()`.
 
-**Falta:** conferir com **login real** (KPIs do admin, tela de trial encerrado,
-`revops.html` logado, telas com dados em mobile); `#modalTicket`/`#modalNewPass`
-fora do sistema de foco; performance (etapa 14). Lista completa no ESTADO_ATUAL.
+**O que já foi conferido em produção (passada logada de 19/09, só leitura):** 25 telas
+(17 do afiliado + 8 do admin) em desktop e a 371 px, `revops.html` (9 seções × 2
+larguras), `#modalTicket` com ticket real (foco, Tab preso, ESC) e o template do trial
+encerrado — **0 overflow, 0 resto das paletas antigas, 0 erro de JS**. "Usuários ativos
+0 / MRR R$ 0,00" na Visão Geral **não é bug** (KPIs contam só não-VIP/não-admin).
+
+**O que falta (nada disto foi testado):**
+
+- redirect `/r/` **real** e o preview de link do WhatsApp (só um código inexistente,
+  404, foi visto; o `gzip` que aparece no `/r/` vem do Supabase/Cloudflare, não do nginx);
+- as 4 páginas puladas por risco de efeito colateral: Conexão WhatsApp (pareamento),
+  IA Insights (custo), Automações, Conexões Admin;
+- o fluxo **real** do trial encerrado (só o template foi renderizado) e reduced-motion
+  com a preferência ligada;
+- `#modalNewPass` (recuperação de senha, fora do sistema de foco de propósito),
+  `.btn.loading` (nenhum código aplica a classe), ~7 fundos de badge em `revops.html`;
+- capturas de tela: o `captureScreenshot` do Chrome MCP estourou 4 vezes nessa passada.
+
+**Lições de ferramenta (Chrome MCP em 19/09):** `resize_window` não muda o viewport
+reportado → para mobile usar **iframe da mesma origem** de 375 px; `javascript_tool` devolve
+`{}` para `Promise`/`setTimeout` → código síncrono + `computer wait`; `find` lê o gate de login
+escondido; clique por coordenada errou → `.click()` no elemento; `serve` (porta 5173) não
+tem fallback de SPA → entrar por `/index.html`. Login/senha são sempre do Érico.
 
 *As seções abaixo são o histórico da sessão de 17/08 (P62, Shopee `sub_id`) e
 seguem valendo como registro do que não redescobrir.*
