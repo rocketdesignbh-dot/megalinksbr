@@ -11615,6 +11615,28 @@ código não relacionado.
   volta 200 não prova que o cron continua entrando.
 
 
+**COMO FAZER PUSH SOZINHO — caminho que funciona (MEDIDO 23/09, REVISÃO 165)**
+
+- Pré-requisito do lado do Érico: a pasta `C:\Users\PC\github` conectada à
+  sessão (aí aparece o `device_bash`) e, quando o git precisar apagar arquivo
+  (atualizar a pasta, travas `.lock`), aprovar o pedido de permissão de apagar
+  — vale só para aquela sessão.
+- O GitHub CLI já mora na pasta conectada, com login salvo (conta
+  `rocketdesignbh-dot`, token clássico com `repo`/`workflow`), desde 03/09:
+  ```
+  source "$HOME/mnt/github/.gh/env.sh"
+  cd "$HOME/mnt/github/megalinksbr"
+  git fetch origin main && git merge --ff-only origin/main
+  # ... commits ...
+  git -c credential.helper= -c credential.helper='!gh auth git-credential' push origin main
+  ```
+  Nenhum token passa pelo chat. **Nunca** imprimir `hosts.yml`; `gh auth status` mascara.
+- Push da sessão CLOUD (`Bash` da nuvem) continua recusado pelo proxy
+  ("not in this session's authorized repository set") — bug aberto da Anthropic
+  (anthropics/claude-code#96075, 22/09). Não perder tempo com ele.
+- ⚠️ Git dentro da pasta montada SEM a permissão de apagar deixa `.git/index.lock`
+  preso (aconteceu em 23/09): pedir a permissão ANTES do primeiro `merge`/`pull`.
+
 **Sobre o push a partir da sessão cloud — RESOLVIDO em 02/09 (REVISÃO 120)**
 
 - 🟢 **A sessão cloud NÃO consegue pushar neste repo** — o proxy dela recusa com
