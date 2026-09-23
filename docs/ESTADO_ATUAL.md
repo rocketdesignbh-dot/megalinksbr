@@ -1760,7 +1760,7 @@ abaixo — cada linha ali tem o detalhe técnico.
 ### NÃO medido ainda
 - Um disparo do `send-post` saindo com um desses produtos (janela abre 8h).
 - Uma captura real inserida pela v32 (colunas novas preenchidas no insert).
-- A primeira rodada do cron `clone-reler-loja` (jobid 38).
+- ~~A primeira rodada do cron `clone-reler-loja` (jobid 38).~~ **MEDIDA:** 00:30 BRT, HTTP 200, `avaliadas:0` — correto: as 3 que falharam às 00:18 ainda estavam dentro dos 10 min de espera.
 
 **REVISÃO 164 — 19/09/2026 (restilização iniciada em 16/09 como "REVISÃO 155"; renumerada ao integrar com a `main`, que já tinha as REVISÕES 156–163) — Restilização pedida de novo (3ª vez: REVISÃO 63-66, depois REVISÃO 154 investigou e não mudou código, agora esta sessão mudou código de verdade). Checkout sincronizado com `origin/main` (0/0 de divergência, `git fetch` conferido no início) — não é o bug da REVISÃO 154. Branch `redesign/megalinks-ui-v3`, 28 commits (atualizado em 19/09), NÃO mergeada em `main`.**
 
@@ -11417,7 +11417,7 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
-| **P165** | 🟡 **Medir a v32 em produção (REVISÃO 165).** (a) cron `clone-reler-loja` (jobid 38) rodando: `net._http_response` 200 e `publicadas`/`falharam_de_novo` no corpo; (b) uma captura real da v32 gravando `store_read_error`/`store_read_attempts=1` quando a Amazon falha; (c) um dos 7 produtos publicados em 23/09 saindo num disparo do `send-post` depois das 8h; (d) contar em 48h quantas `message` da Amazon viraram `store` (`store_read_attempts>=2 and data_source='store'`) contra quantas expiraram | 23/09 |
+| **P165** | 🟡 **Medir a v32 em produção (REVISÃO 165).** (a) ~~cron rodando~~ — 1ª rodada 00:30 de 23/09 medida (200, 0 elegíveis); falta ver uma rodada que releia e publique sozinha; (b) uma captura real da v32 gravando `store_read_error`/`store_read_attempts=1` quando a Amazon falha; (c) um dos 7 produtos publicados em 23/09 saindo num disparo do `send-post` depois das 8h; (d) contar em 48h quantas `message` da Amazon viraram `store` (`store_read_attempts>=2 and data_source='store'`) contra quantas expiraram | 23/09 |
 | **P161** | 🟠 **Amazon: "o buybox não confirmou o preço (duas testemunhas)" é o motivo medido das falhas de leitura desde 15/09 (6 de 6 na amostra de 23/09, nenhum captcha).** O `precoAmazon()` exige `apex-pricetopay-accessibility-label` + `a-price-whole/fraction` iguais dentro de `corePriceDisplay_desktop_feature_div`. Hipótese NÃO medida: a Amazon passou a servir, para parte das requisições, uma variante de página sem uma das duas testemunhas. Próximo passo: guardar (ou baixar de novo) o HTML de uma leitura que falhou e ver qual testemunha sumiu, ANTES de afrouxar a regra — preço errado publicado não se desfaz. O mesmo leitor mora no `product-refresh` (conferência de preço), que deve estar sofrendo igual | 23/09 |
 | **P162** | 🟠 **O `app` caiu no EasyPanel em 22/09 (~23:40 BRT) — "Service is not reachable" — causa não determinada.** Voltou depois que o Érico mexeu no EasyPanel. Ler o log do serviço no EasyPanel na próxima vez, antes de reiniciar | 23/09 |
 | **P163** | 🟡 **Cron `megareply_drain` (jobid 25, a cada minuto) devolve 500 `{"erro":"Falha ao expirar a fila: Unregistered API key"}` em toda rodada** (visto em `net._http_response` em 23/09 02:3x UTC). É o worker do MegaReply na Vercel, fora deste repo. Não investigado | 23/09 |
