@@ -1757,6 +1757,11 @@ abaixo — cada linha ali tem o detalhe técnico.
 - `reler_loja` **dryRun** → 7 releriam, 3 `falhou_de_novo`. **Execução real (autorizada pelo Érico)** → **7 publicadas, 3 falharam de novo**, e o conjunto mudou entre as duas rodadas (Notebook leu no ensaio e falhou no real; Massinha o contrário) — **o bloqueio é intermitente, que é exatamente o caso em que a nova tentativa ajuda.** Produtos criados com foto e preço da loja: Achadinhos Pet 1→2, Casa & Decoração 1→3, Bebe Clone 17→20, Eletrodomésticos 145→146.
 - **Descoberta:** nas 6 falhas medidas o motivo foi **"o buybox da Amazon não confirmou o preço (duas testemunhas)"** — nenhuma foi captcha. Ver P161.
 
+### Depois do push (23/09, 00:51 BRT)
+- `main` = `bcfbb81` (push feito pelo Érico com o `.bat`; o resto — fetch, merge, `git am` — foi pela CLI na pasta dele, com permissão de apagar concedida na sessão).
+- Painel republicado pelo webhook: `/painel` servido com `Last-Modified 03:51:38 GMT` e o rótulo `loja_inativa` presente. WhatsApp: 6 conexões `connected` com sinal às 00:54 BRT (as 4 `disconnected` já estavam assim antes).
+- Cron `clone-reler-loja`: ver P165 (a) — as 10 pendentes foram todas publicadas em 3 rodadas.
+
 ### NÃO medido ainda
 - Um disparo do `send-post` saindo com um desses produtos (janela abre 8h).
 - Uma captura real inserida pela v32 (colunas novas preenchidas no insert).
@@ -11417,7 +11422,7 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
-| **P165** | 🟡 **Medir a v32 em produção (REVISÃO 165).** (a) ~~cron rodando~~ — 1ª rodada 00:30 de 23/09 medida (200, 0 elegíveis); falta ver uma rodada que releia e publique sozinha; (b) uma captura real da v32 gravando `store_read_error`/`store_read_attempts=1` quando a Amazon falha; (c) um dos 7 produtos publicados em 23/09 saindo num disparo do `send-post` depois das 8h; (d) contar em 48h quantas `message` da Amazon viraram `store` (`store_read_attempts>=2 and data_source='store'`) contra quantas expiraram | 23/09 |
+| **P165** | 🟡 **Medir a v32 em produção (REVISÃO 165).** (a) ~~cron rodando e publicando sozinho~~ — **MEDIDO 23/09:** 00:30 (0 elegíveis), 00:40 (2 publicadas na 2ª leitura, 1 falhou), 00:50 (o Notebook publicado na 3ª leitura). **As 10 pendentes da Amazon de 22/09 terminaram as 10 publicadas com dado da loja**, sem nenhuma aprovação manual; (b) uma captura real da v32 gravando `store_read_error`/`store_read_attempts=1` quando a Amazon falha; (c) um dos 7 produtos publicados em 23/09 saindo num disparo do `send-post` depois das 8h; (d) contar em 48h quantas `message` da Amazon viraram `store` (`store_read_attempts>=2 and data_source='store'`) contra quantas expiraram | 23/09 |
 | **P161** | 🟠 **Amazon: "o buybox não confirmou o preço (duas testemunhas)" é o motivo medido das falhas de leitura desde 15/09 (6 de 6 na amostra de 23/09, nenhum captcha).** O `precoAmazon()` exige `apex-pricetopay-accessibility-label` + `a-price-whole/fraction` iguais dentro de `corePriceDisplay_desktop_feature_div`. Hipótese NÃO medida: a Amazon passou a servir, para parte das requisições, uma variante de página sem uma das duas testemunhas. Próximo passo: guardar (ou baixar de novo) o HTML de uma leitura que falhou e ver qual testemunha sumiu, ANTES de afrouxar a regra — preço errado publicado não se desfaz. O mesmo leitor mora no `product-refresh` (conferência de preço), que deve estar sofrendo igual | 23/09 |
 | **P162** | 🟠 **O `app` caiu no EasyPanel em 22/09 (~23:40 BRT) — "Service is not reachable" — causa não determinada.** Voltou depois que o Érico mexeu no EasyPanel. Ler o log do serviço no EasyPanel na próxima vez, antes de reiniciar | 23/09 |
 | **P163** | 🟡 **Cron `megareply_drain` (jobid 25, a cada minuto) devolve 500 `{"erro":"Falha ao expirar a fila: Unregistered API key"}` em toda rodada** (visto em `net._http_response` em 23/09 02:3x UTC). É o worker do MegaReply na Vercel, fora deste repo. Não investigado | 23/09 |
