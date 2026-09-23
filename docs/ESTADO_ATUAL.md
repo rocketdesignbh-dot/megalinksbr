@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 164 — 19/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 165 — 23/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1732,6 +1732,35 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 165 — 22–23/09/2026 — Painel fora do ar (EasyPanel) + grupos parando de postar à tarde. Causa do segundo MEDIDA: capturas da Amazon que não leem a página ficavam presas em 'pending' e expiravam. `clone-ingest` v32 NO AR (conferida byte a byte, `verify_jwt:false`), migração `clone_posts_leitura_da_loja` aplicada, cron `clone-reler-loja` (jobid 38, a cada 10 min) criado com autorização do Érico. Primeira rodada real: 7 de 10 pendentes publicadas com dado da loja.**
+
+### 1. Painel fora do ar (22/09, ~23:40 BRT)
+- Érico: "não conseguimos fazer login". **MEDIDO no navegador:** `megalinksbr.com.br` servia a página padrão do EasyPanel *"Service is not reachable"* — o serviço `app` não estava respondendo. Não era Supabase, nem código.
+- Érico mexeu no EasyPanel e o painel do EasyPanel mostrou *"Failed to fetch dynamically imported module .../assets/Term-….js"* — esse erro era **do próprio painel do EasyPanel** (`187.77.37.62:3000`), não do MegaLinks; saiu com hard refresh. (Na sessão isso foi descrito como cache do site — correção registrada aqui.)
+- **MEDIDO depois:** landing e tela de login carregando, console limpo. **Causa da queda NÃO determinada** (não foi lido log do EasyPanel).
+
+### 2. Grupos parando de postar à tarde (Érico e Ana Luiza)
+- `send-post` respondia 200 com `skipped` em todos os grupos às 23:50 — isso era só a janela 8h–22h. **O problema real estava antes:** 12 grupos tinham parado entre 13:35 e 19:28 BRT com o `cursor_index` no fim da lista (`loop_enabled=false` + `delete_after_post=true`, reserva de 1 produto) — sem produto novo entrando, apesar de as fontes capturarem o dia todo.
+- **Causa MEDIDA:** capturas da Amazon cuja leitura da página falha viram `data_source='message'` e, por desenho (v11/P94), ficam fora da auto-publicação. A captura tentava ler **uma vez só**; ninguém aprovava na mão; expiravam. Taxa de falha da Amazon por dia: **0% até 14/09; 38/30/32/29% em 15–18/09; 5–17% em 19–22/09.** Em 7 dias: 376 lidas da loja × **119 só do texto (109 expiraram sem postar)**. Shopee no mesmo período: 679/679 lidas da loja.
+- Prova de que publicar o texto não seria saída: entre as pendentes havia "título" *"Economize também em outras categorias, participe dos nossos outros grupos:"* com R$ 5,33 onde a loja mostra R$ 7,62.
+
+### O que mudou (`clone-ingest` v32, `supabase/functions/clone-ingest/index.ts`)
+1. **`LOJAS_ATIVAS = [mercadolivre, shopee, amazon, shein]`** (decisão do Érico): link de qualquer outra loja — inclusive "outras" que a `resolve-link` não reconhece — sai com status novo **`loja_inativa`**, no pré-filtro por domínio (quando dá) ou logo depois da `resolve-link`. Vale por cima do `lojas_permitidas` de cada fonte. `DOMINIOS_LOJA` ganhou shein/magalu/aliexpress. Motivou: uma captura de Magalu ("sem credencial dessa loja") presa na fila de um grupo.
+2. **Motivo da falha de leitura gravado:** colunas novas `clone_posts.store_read_error`, `store_read_attempts`, `store_read_last_at` (migração `20260923040000_clone_posts_leitura_da_loja.sql`) + índice parcial. O `motivo` do `clone_ingest_log` para captura de texto passa a trazer "(a loja respondeu: …)".
+3. **Action `reler_loja`** (cron `clone-reler-loja`, `*/10`, migração `20260923041000_schedule_clone_reler_loja.sql`, com `Authorization` anônima pelo motivo da REVISÃO 163): relê a página da Amazon das `pending`+`message`, até **4 leituras no total** por captura, 10 min entre elas; "fora de estoque" encerra. **Só publica se a loja confirmar** — vira `store` e passa pela MESMA auto-publicação (fonte `auto_publish` OU grupo `clone_auto_approve`); filtro `min_discount` reaplicado com o desconto real da loja. Não grava no `clone_ingest_log` (evita contagem dupla no card da fonte); o registro é a própria linha.
+4. `frontend/index.html`: rótulo `loja_inativa` → "de loja não disponível na plataforma" no card de vereditos da fonte. **Só entra no ar no próximo deploy do `app`** (lembrar P4: deploy do `app` reinicia o `wa-engine`).
+
+### Prova
+- `get_edge_function` v32 = arquivo do repo, **SHA-256 idêntico** (`6f9dc799…`), `verify_jwt:false`. Tipos: `deno check` 0 erros no original e no novo (import trocado para `npm:` só na checagem — o JSR está bloqueado no sandbox).
+- `{"action":"jids"}` pelo `pg_net` → 200 com 16 JIDs. Vereditos do wa-engine continuaram sendo gravados depois do deploy (00:21 BRT).
+- `reler_loja` **dryRun** → 7 releriam, 3 `falhou_de_novo`. **Execução real (autorizada pelo Érico)** → **7 publicadas, 3 falharam de novo**, e o conjunto mudou entre as duas rodadas (Notebook leu no ensaio e falhou no real; Massinha o contrário) — **o bloqueio é intermitente, que é exatamente o caso em que a nova tentativa ajuda.** Produtos criados com foto e preço da loja: Achadinhos Pet 1→2, Casa & Decoração 1→3, Bebe Clone 17→20, Eletrodomésticos 145→146.
+- **Descoberta:** nas 6 falhas medidas o motivo foi **"o buybox da Amazon não confirmou o preço (duas testemunhas)"** — nenhuma foi captcha. Ver P161.
+
+### NÃO medido ainda
+- Um disparo do `send-post` saindo com um desses produtos (janela abre 8h).
+- Uma captura real inserida pela v32 (colunas novas preenchidas no insert).
+- A primeira rodada do cron `clone-reler-loja` (jobid 38).
 
 **REVISÃO 164 — 19/09/2026 (restilização iniciada em 16/09 como "REVISÃO 155"; renumerada ao integrar com a `main`, que já tinha as REVISÕES 156–163) — Restilização pedida de novo (3ª vez: REVISÃO 63-66, depois REVISÃO 154 investigou e não mudou código, agora esta sessão mudou código de verdade). Checkout sincronizado com `origin/main` (0/0 de divergência, `git fetch` conferido no início) — não é o bug da REVISÃO 154. Branch `redesign/megalinks-ui-v3`, 28 commits (atualizado em 19/09), NÃO mergeada em `main`.**
 
@@ -11388,6 +11417,11 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P165** | 🟡 **Medir a v32 em produção (REVISÃO 165).** (a) cron `clone-reler-loja` (jobid 38) rodando: `net._http_response` 200 e `publicadas`/`falharam_de_novo` no corpo; (b) uma captura real da v32 gravando `store_read_error`/`store_read_attempts=1` quando a Amazon falha; (c) um dos 7 produtos publicados em 23/09 saindo num disparo do `send-post` depois das 8h; (d) contar em 48h quantas `message` da Amazon viraram `store` (`store_read_attempts>=2 and data_source='store'`) contra quantas expiraram | 23/09 |
+| **P161** | 🟠 **Amazon: "o buybox não confirmou o preço (duas testemunhas)" é o motivo medido das falhas de leitura desde 15/09 (6 de 6 na amostra de 23/09, nenhum captcha).** O `precoAmazon()` exige `apex-pricetopay-accessibility-label` + `a-price-whole/fraction` iguais dentro de `corePriceDisplay_desktop_feature_div`. Hipótese NÃO medida: a Amazon passou a servir, para parte das requisições, uma variante de página sem uma das duas testemunhas. Próximo passo: guardar (ou baixar de novo) o HTML de uma leitura que falhou e ver qual testemunha sumiu, ANTES de afrouxar a regra — preço errado publicado não se desfaz. O mesmo leitor mora no `product-refresh` (conferência de preço), que deve estar sofrendo igual | 23/09 |
+| **P162** | 🟠 **O `app` caiu no EasyPanel em 22/09 (~23:40 BRT) — "Service is not reachable" — causa não determinada.** Voltou depois que o Érico mexeu no EasyPanel. Ler o log do serviço no EasyPanel na próxima vez, antes de reiniciar | 23/09 |
+| **P163** | 🟡 **Cron `megareply_drain` (jobid 25, a cada minuto) devolve 500 `{"erro":"Falha ao expirar a fila: Unregistered API key"}` em toda rodada** (visto em `net._http_response` em 23/09 02:3x UTC). É o worker do MegaReply na Vercel, fora deste repo. Não investigado | 23/09 |
+| **P164** | 🟡 **Pasta local do Érico (`C:\Users\PC\github\megalinksbr`) atrás do `origin/main`**: o `docs/ESTADO_ATUAL.md` de lá estava na REVISÃO 162/163 enquanto o `main` já tinha a 164. Mesma classe da P150. Fazer `git pull` antes de trabalhar nela | 23/09 |
 | **P159** | 🟡 (tela no ar desde 18/09, então o Link Rápido já dá para conferir na mão) **Sub-ID no DISPARO (Post Automático e Disparo Manual) não foi medido num post real.** O código de `send-post` v31 e `group-blast` v10 é o MESMO helper provado no Link Rápido e no Postar Agora (mesma mutation, mesmo formato de `subIds`), mas nenhum disparo de produto Shopee real foi conferido depois do deploy. Fechar assim: esperar um post automático de produto Shopee num grupo com App Key/App Secret e Sub-ID cadastrados, abrir o link que saiu e conferir `utm_content=<rótulo>-postauto---` (ou `-grupo---` no Disparo Manual) | 17/09 |
 | **P158** | 🟡 **Uma conta tem uma URL inteira gravada no campo Sub-ID** (`https://collshp.com/achadinhosbrmr?view=storefront`). A higienização transforma isso em `httpscollshpcomachadi` — não quebra nada, mas vira lixo no relatório da Shopee. Saída: validar o campo na tela de Config Afiliados (só letras, números e `_`, até 20 caracteres) e avisar a dona | 17/09 |
 | **P157** | 🟡 **Links encurtados da Shopee voltam a entrar pela captura.** Os 51 atuais foram resolvidos na REVISÃO 162, mas produto novo com `original_url = s.shopee.com.br/…` volta a ser "sem link consultável" (pulo por condição da `product-refresh` v22). Saída: gravar a URL normalizada da `resolve-link` como `original_url` na `clone-ingest`/Postar Agora, ou resolver o `Location` dentro da `product-refresh` | 17/09 |
@@ -11554,6 +11588,12 @@ código não relacionado.
 ## Aprendizados — não repetir
 
 **`deploy_edge_function` pode religar o `verify_jwt` — 17/09 (REVISÃO 163)**
+
+- 🔴 **ATUALIZADO em 23/09 (REVISÃO 165):** a ferramenta de deploy passou a expor
+  o parâmetro `verify_jwt` — e o **padrão dela é `true`**. É isso que religava.
+  **Sempre passar `verify_jwt` explícito** com o valor que a função já tinha
+  (`list_edge_functions` antes), e conferir no retorno. A `clone-ingest` v32 foi
+  deployada com `false` explícito e voltou `false`.
 
 - 🔴 **MEDIDO:** a `send-post` estava com `verify_jwt: false` (versão 65). Depois
   do deploy da v31 a resposta da própria ferramenta veio com `verify_jwt: true`,

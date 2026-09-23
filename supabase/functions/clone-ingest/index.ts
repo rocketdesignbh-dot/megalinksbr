@@ -10,6 +10,24 @@
 // { "messages": [ { "sessionPhone", "jid", "msgId", "text", "ts" } ], "dryRun": false }
 // { "action": "jids" }     -> lista de grupos a escutar, pro engine filtrar na origem
 // { "action": "reparse" }  -> reaplica o fallback de texto nas capturas failed
+// { "action": "reler_loja", "dryRun"?, "limit"?, "id"? }
+//                          -> v32: rele a pagina da Amazon das capturas pending
+//                             de texto e auto-publica as que a loja confirmar
+//
+//  * v32 — 23/09, pedido do Erico. Tres mudancas, uma causa: grupos parando de
+//    postar a tarde com captura rodando. MEDIDO em 22/09: as capturas da Amazon
+//    que nao conseguiam ler a pagina (15-38% por dia desde 15/09, 0% antes)
+//    viravam 'message', ficavam fora da auto-publicacao e expiravam — 109 em 7
+//    dias — enquanto os grupos com "nao repetir" + "excluir apos postar"
+//    esvaziavam.
+//    (1) LOJAS_ATIVAS: so ML, Shopee, Amazon e Shein sao capturadas; o resto sai
+//        como 'loja_inativa' antes da busca de dados.
+//    (2) store_read_error / store_read_attempts / store_read_last_at gravados
+//        na captura: o motivo da falha de leitura da loja deixa de sumir.
+//    (3) action 'reler_loja', chamada por cron: nova leitura da pagina da
+//        Amazon, ate RELER_MAX_TENTATIVAS no total. Publica SO se a loja
+//        confirmar — a regra da v11 (texto de terceiro nao se auto-publica)
+//        fica intacta.
 //
 // Decisoes que valem a pena estarem escritas aqui:
 //
@@ -312,7 +330,26 @@ const DOMINIOS_LOJA: Array<[string, string]> = [
   ["amzlink.to", "amazon"],
   ["link.amazon", "amazon"],
   ["a.co", "amazon"],
+  // v32: dominios crus das demais lojas que a resolve-link conhece (mesma
+  // lista dela), para o pre-filtro decidir sem gastar resolve-link — inclusive
+  // recusar Magalu/AliExpress, que nao estao em LOJAS_ATIVAS.
+  ["shein.com", "shein"],
+  ["shein.com.br", "shein"],
+  ["magazineluiza.com.br", "magalu"],
+  ["magazinevoce.com.br", "magalu"],
+  ["aliexpress.com", "aliexpress"],
 ];
+
+// ── v32 · lojas ATIVAS na plataforma ─────────────────────────────────────
+// Decisao do Erico, 23/09: a captura so trabalha com as lojas que a plataforma
+// opera hoje. Link de qualquer outra (Magalu, AliExpress, Natura, Terabyte, ou
+// loja que a resolve-link nao reconhece — "outras") e recusado com status
+// 'loja_inativa', ANTES da busca de dados. MEDIDO em 22/09: uma captura de
+// Magalu ficou 'pending' com "sem credencial dessa loja" ocupando a fila de um
+// grupo sem nunca poder sair. Isto vale por cima do lojas_permitidas de cada
+// fonte: a fonte escolhe DENTRO destas, nunca fora.
+// Quando uma loja nova for ativada, e aqui que ela entra.
+const LOJAS_ATIVAS: string[] = ["mercadolivre", "shopee", "amazon", "shein"];
 
 // Casa por sufixo: s.shopee.com.br e produto.mercadolivre.com.br precisam cair
 // no mesmo balde que o dominio raiz. Devolve null para tudo que nao reconhece —
@@ -730,6 +767,18 @@ async function buscarMlDireto(url: string, cred: { token: string; token2: string
 const AMZ_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
 const AMZ_TIMEOUT_MS = 15000;
 
+// v32 · action 'reler_loja' (ver o bloco da action no handler).
+// Total de leituras por captura, contando a do momento da captura.
+const RELER_MAX_TENTATIVAS = 4;
+// Espera minima entre duas leituras da mesma captura. O bloqueio da Amazon e
+// intermitente (15-38% de falha por dia desde 15/09, nunca 100%): reler no
+// mesmo minuto tende a pegar o mesmo bloqueio.
+const RELER_ESPERA_MIN = 10;
+const RELER_LOTE = 10;
+// Cada leitura pode levar ate AMZ_TIMEOUT_MS. Para de pegar linha nova depois
+// disto, bem antes do limite da Edge Function e do timeout do cron (120 s).
+const RELER_ORCAMENTO_MS = 90000;
+
 // Numero vindo do HTML pt-BR da loja: aqui o ponto e SEMPRE separador de
 // milhar. Nao confundir com numeroBr() la em cima, que trata texto DIGITADO por
 // gente e por isso precisa decidir pelo tamanho do ultimo grupo. A ambiguidade
@@ -1043,7 +1092,9 @@ Deno.serve(async (req: Request) => {
 
   const dryRun = body?.dryRun === true;
   const entradas: any[] = Array.isArray(body?.messages) ? body.messages.slice(0, MAX_MSGS_POR_LOTE) : [];
-  if (!entradas.length) return json({ ok: true, recebidas: 0, resultados: [], nota: "lote vazio" });
+  // v32: a action 'reler_loja' nao traz mensagens — ela e tratada mais abaixo,
+  // depois das funcoes de publicacao que ela reaproveita.
+  if (!entradas.length && body?.action !== "reler_loja") return json({ ok: true, recebidas: 0, resultados: [], nota: "lote vazio" });
 
   const agora = new Date();
   const hoje = hojeSP();
@@ -1177,6 +1228,175 @@ Deno.serve(async (req: Request) => {
     return cred;
   }
 
+  // ── v32 · action: reler_loja ────────────────────────────────────────────
+  // Nova leitura da PAGINA da Amazon para capturas que ficaram 'pending' com
+  // data_source='message' porque a leitura do momento da captura falhou.
+  //
+  // MEDIDO em 22/09: desde 15/09, 15-38% das capturas da Amazon por dia nao
+  // conseguem ler a pagina (ate 14/09 era 0%). A captura so tentava UMA vez;
+  // se falhava, virava 'message', ficava fora da auto-publicacao (regra da v11,
+  // que continua valendo) e ninguem aprovava na mao: 109 expiraram em 7 dias
+  // sem nunca postar. Com "nao repetir" + "excluir apos postar", os grupos
+  // esvaziaram a tarde e pararam de postar.
+  //
+  // O que isto NAO faz: publicar o que veio do texto. So publica se a LOJA
+  // responder — a linha vira data_source='store' com titulo, preco e foto da
+  // pagina, e so entao passa pela MESMA auto-publicacao da captura (auto_publish
+  // da fonte OU clone_auto_approve do grupo). O preco publicado e o de agora,
+  // nao o de quando a mensagem chegou.
+  //
+  // So Amazon por enquanto: e o unico caso medido. "Fora de estoque" e resposta
+  // definitiva da loja e encerra as tentativas. Nao grava no clone_ingest_log de
+  // proposito: o card da fonte conta capturas por status nas ultimas 24h, e uma
+  // releitura contada ali seria captura em dobro. O registro duravel mora na
+  // propria linha (store_read_attempts, store_read_error, data_source).
+  if (body?.action === "reler_loja") {
+    const dry = body?.dryRun === true;
+    const limite = Math.max(1, Math.min(Number(body?.limit ?? RELER_LOTE), 30));
+    const inicio = Date.now();
+    const corte = new Date(inicio - RELER_ESPERA_MIN * 60000).toISOString();
+
+    let q = sb.from("clone_posts")
+      .select("*")
+      .eq("status", "pending")
+      .eq("data_source", "message")
+      .eq("store", "amazon")
+      .lt("store_read_attempts", RELER_MAX_TENTATIVAS)
+      .or(`store_read_last_at.is.null,store_read_last_at.lt.${corte}`)
+      .order("created_at", { ascending: false })
+      .limit(limite);
+    if (body?.id) q = q.eq("id", String(body.id));
+    const { data: linhas, error: eSel } = await q;
+    if (eSel) return json({ ok: false, error: eSel.message }, 500);
+
+    const cacheFonte = new Map<string, any>();
+    async function fonteDe(id: string | null) {
+      if (!id) return null;
+      if (cacheFonte.has(id)) return cacheFonte.get(id);
+      const { data } = await sb.from("clone_sources").select("*").eq("id", id).maybeSingle();
+      cacheFonte.set(id, data ?? null);
+      return data ?? null;
+    }
+
+    const out: any[] = [];
+    for (const cp of linhas ?? []) {
+      if (Date.now() - inicio > RELER_ORCAMENTO_MS) {
+        out.push({ id: cp.id, status: "adiado", motivo: "orcamento de tempo da rodada esgotado — fica para a proxima" });
+        continue;
+      }
+      const tentativa = Number(cp.store_read_attempts ?? 0) + 1;
+      const quando = new Date().toISOString();
+      const busca = await consultarAmazonDireto(String(cp.clean_url ?? ""));
+      const titulo = String(busca?.title ?? "").slice(0, 120);
+      const preco = Number(busca?.price_to);
+
+      if (!busca?.success || !titulo || !(preco > 0)) {
+        const erro = String(busca?.error ?? "sem detalhe").slice(0, 300);
+        const definitivo = /fora de estoque/i.test(erro);
+        if (!dry) {
+          await sb.from("clone_posts").update({
+            store_read_error: erro,
+            store_read_attempts: definitivo ? RELER_MAX_TENTATIVAS : tentativa,
+            store_read_last_at: quando,
+          }).eq("id", cp.id).eq("status", "pending");
+        }
+        out.push({ id: cp.id, status: definitivo ? "desistiu" : "falhou_de_novo", tentativa, motivo: erro });
+        continue;
+      }
+
+      // Mesmas regras da captura: "de" da loja; se ela nao trouxer, o do texto
+      // so quando coerente (v27). Parcelamento do texto nao vale para o preco
+      // da loja — na captura com loja ok ele tambem fica nulo. Cupom e do texto
+      // (v19) e ja esta na linha.
+      let precoDe: number | null = Number(busca.price_from) > 0 ? Number(busca.price_from) : null;
+      if (precoDe == null) {
+        const deTxt = lerOfertaDoTexto(String(cp.source_text ?? "")).price_original;
+        if (deTxt != null && deTxt > preco) precoDe = deTxt;
+      }
+      if (precoDe != null && !(precoDe > preco)) precoDe = null;
+      const desconto = precoDe != null ? Math.round((1 - preco / precoDe) * 100) : null;
+      const imagem = String(busca.image || cp.image_url || "");
+
+      const patch: Record<string, unknown> = {
+        title: titulo,
+        price: preco,
+        price_original: precoDe,
+        discount_pct: desconto,
+        price_installment: null,
+        image_url: imagem || null,
+        data_source: "store",
+        store_read_error: null,
+        store_read_attempts: tentativa,
+        store_read_last_at: quando,
+      };
+
+      if (dry) {
+        out.push({ id: cp.id, status: "releria", tentativa, title: titulo, price: preco, price_original: precoDe, discount_pct: desconto, antes: { title: cp.title, price: cp.price } });
+        continue;
+      }
+
+      // So troca a linha se ela ainda for a mesma pendente de texto: o dono
+      // pode ter aprovado ou descartado na mao enquanto a loja respondia.
+      const { data: trocou, error: eUpd } = await sb.from("clone_posts")
+        .update(patch).eq("id", cp.id).eq("status", "pending").eq("data_source", "message")
+        .select("id");
+      if (eUpd) { out.push({ id: cp.id, status: "erro", motivo: eUpd.message }); continue; }
+      if (!trocou?.length) { out.push({ id: cp.id, status: "mudou_no_meio", motivo: "a linha deixou de ser pendente de texto durante a leitura" }); continue; }
+
+      const linha = { ...cp, ...patch };
+      const fonte = await fonteDe(cp.clone_source_id ?? null);
+      if (!fonte || !fonte.active) {
+        out.push({ id: cp.id, status: "relido", tentativa, title: titulo, price: preco, motivo: "dados conferidos na loja; fonte removida ou desativada — fica na fila para revisao" });
+        continue;
+      }
+
+      // Filtro de desconto da fonte, agora com o desconto REAL da loja. A
+      // captura passou pelo filtro com o numero do texto; se o da loja nao
+      // passa, nao publica sozinho — fica na fila, com o motivo.
+      if (fonte.min_discount != null && (!desconto || desconto < Number(fonte.min_discount))) {
+        await sb.from("clone_posts").update({
+          store_read_error: `na loja o desconto e ${desconto ?? 0}%, abaixo do minimo da fonte (${fonte.min_discount}%) — nao auto-publicado`,
+        }).eq("id", cp.id);
+        out.push({ id: cp.id, status: "relido", tentativa, title: titulo, price: preco, motivo: `desconto ${desconto ?? 0}% abaixo do minimo ${fonte.min_discount}%` });
+        continue;
+      }
+
+      const grupoAprova = cp.niche_group_id ? await grupoAutoAprova(cp.niche_group_id) : false;
+      if (!(fonte.auto_publish || grupoAprova)) {
+        out.push({ id: cp.id, status: "relido", tentativa, title: titulo, price: preco, motivo: "dados conferidos na loja; sem auto-publicacao ligada — fica na fila para revisao" });
+        continue;
+      }
+
+      // Publica no grupo DA CAPTURA e em nome do dono DA CAPTURA, mesmo que a
+      // fonte tenha sido reapontada depois.
+      const pub = await publicarClone(linha, { ...fonte, niche_group_id: cp.niche_group_id, user_id: cp.user_id });
+      if (pub.ok) {
+        await sb.from("clone_posts").update({
+          status: "approved",
+          product_id: pub.productId,
+          approved_at: new Date().toISOString(),
+          error: null,
+        }).eq("id", cp.id);
+        out.push({ id: cp.id, status: "publicado", tentativa, product_id: pub.productId, title: titulo, price: preco });
+      } else {
+        await sb.from("clone_posts").update({ error: `auto-publicacao falhou: ${pub.motivo}` }).eq("id", cp.id);
+        out.push({ id: cp.id, status: "relido", tentativa, title: titulo, motivo: `auto-publicacao falhou (${pub.motivo}) — ficou na fila para revisao` });
+      }
+    }
+
+    const conta = (s: string) => out.filter((r) => r.status === s).length;
+    const resumo = {
+      avaliadas: out.length,
+      publicadas: conta("publicado"),
+      relidas_sem_publicar: conta("relido"),
+      falharam_de_novo: conta("falhou_de_novo"),
+      desistiu: conta("desistiu"),
+      adiadas: conta("adiado"),
+    };
+    console.log(`[clone-ingest/reler_loja] ${JSON.stringify(resumo)} dryRun=${dry}`);
+    return json({ ok: true, dryRun: dry, ...resumo, resultados: out });
+  }
+
   for (const msg of entradas) {
     const jid = normalizarJid(msg?.jid);
     const msgId = String(msg?.msgId ?? "").trim();
@@ -1268,21 +1488,33 @@ Deno.serve(async (req: Request) => {
       const permitidas: string[] = Array.isArray(fonte.lojas_permitidas)
         ? fonte.lojas_permitidas.map((s: unknown) => String(s ?? "").trim()).filter(Boolean)
         : [];
+      // v32: o que a fonte aceita de fato = as escolhidas dela (ou todas, se
+      // vazio) DENTRO das ativas da plataforma. Ver LOJAS_ATIVAS.
+      const efetivas: string[] = (permitidas.length ? permitidas : LOJAS_ATIVAS)
+        .filter((l) => LOJAS_ATIVAS.includes(l));
 
-      if (permitidas.length) {
+      {
         const crus = linksDoTexto(texto);
         const lojasCruas = crus.map((u) => lojaDoDominio(partesDoLink(u).host));
         const todosConhecidos = lojasCruas.length > 0 && lojasCruas.every((l) => l !== null);
-        const nenhumPermitido = lojasCruas.every((l) => l !== null && !permitidas.includes(l));
+        const nenhumPermitido = lojasCruas.every((l) => l !== null && !efetivas.includes(l));
         if (todosConhecidos && nenhumPermitido) {
           const loja = String(lojasCruas[0]);
           const alvo = partesDoLink(crus[0]);
-          const nomes = permitidas.map((x) => STORE_LABEL[x] || x).join(", ");
-          resultados.push({
-            ...marca, status: "loja_filtrada", store: loja,
-            link_host: alvo.host, link_path: alvo.path,
-            motivo: `[pre-filtro] ${STORE_LABEL[loja] || loja} reconhecida pelo dominio cru ${alvo.host} e nao esta nas lojas escolhidas para esta fonte (${nomes}) — a resolve-link nao chegou a ser chamada`,
-          });
+          if (!LOJAS_ATIVAS.includes(loja)) {
+            resultados.push({
+              ...marca, status: "loja_inativa", store: loja,
+              link_host: alvo.host, link_path: alvo.path,
+              motivo: `[pre-filtro] ${STORE_LABEL[loja] || loja} nao esta ativa na plataforma (ativas: ${LOJAS_ATIVAS.map((x) => STORE_LABEL[x] || x).join(", ")}) — a resolve-link nao chegou a ser chamada`,
+            });
+          } else {
+            const nomes = permitidas.map((x) => STORE_LABEL[x] || x).join(", ");
+            resultados.push({
+              ...marca, status: "loja_filtrada", store: loja,
+              link_host: alvo.host, link_path: alvo.path,
+              motivo: `[pre-filtro] ${STORE_LABEL[loja] || loja} reconhecida pelo dominio cru ${alvo.host} e nao esta nas lojas escolhidas para esta fonte (${nomes}) — a resolve-link nao chegou a ser chamada`,
+            });
+          }
           continue;
         }
       }
@@ -1325,6 +1557,15 @@ Deno.serve(async (req: Request) => {
       // v17: `permitidas` ja foi calculada acima, no pre-filtro. Uma leitura so
       // do campo, dois pontos de uso — declarar de novo aqui seria erro de
       // compilacao, e recalcular seria convite a divergir.
+      // v32: loja fora das ativas da plataforma (inclui "outras", que a
+      // resolve-link devolve para dominio que nao reconhece).
+      if (!LOJAS_ATIVAS.includes(store)) {
+        resultados.push({
+          ...marca, status: "loja_inativa",
+          motivo: `[pos-filtro] ${STORE_LABEL[store] || store} nao esta ativa na plataforma (ativas: ${LOJAS_ATIVAS.map((x) => STORE_LABEL[x] || x).join(", ")})`,
+        });
+        continue;
+      }
       if (permitidas.length && !permitidas.includes(store)) {
         const nomes = permitidas.map((x) => STORE_LABEL[x] || x).join(", ");
         resultados.push({
@@ -1515,6 +1756,14 @@ Deno.serve(async (req: Request) => {
           ? `a loja nao devolveu os dados do produto (${erroLoja}) e o texto da mensagem nao trazia titulo e preco`
           : (semCredencial ? "sem credencial dessa loja — o link sairia sem a sua comissao" : null),
         resolved_at: agora.toISOString(),
+        // v32: POR QUE a loja nao foi lida. Ate a v31 o erroLoja so aparecia no
+        // dryRun; em producao a captura virava 'message' sem dizer se foi
+        // captcha, fora de estoque ou buybox — e sem isso nao da pra medir o que
+        // bloqueia a Amazon desde 15/09. A primeira leitura conta como tentativa
+        // 1; a action 'reler_loja' continua a contagem.
+        store_read_error: lojaFalhou ? String(erroLoja).slice(0, 300) : null,
+        store_read_attempts: lojaFalhou ? 1 : 0,
+        store_read_last_at: lojaFalhou ? agora.toISOString() : null,
       };
 
       const { data: ins, error: eIns } = await sb
@@ -1579,8 +1828,8 @@ Deno.serve(async (req: Request) => {
           ? `${erroLoja} — e o texto da mensagem nao trazia titulo e preco`
           : (dataSource === "message"
               ? ((fonte.auto_publish || grupoAprova)
-                  ? "aguardando revisao — auto-publicacao (fonte ou grupo) nao vale para dados lidos do texto da mensagem"
-                  : "aguardando revisao — dados lidos do texto da mensagem")
+                  ? `aguardando revisao — auto-publicacao (fonte ou grupo) nao vale para dados lidos do texto da mensagem (a loja respondeu: ${erroLoja})`
+                  : `aguardando revisao — dados lidos do texto da mensagem (a loja respondeu: ${erroLoja})`)
               : "aguardando revisao"),
       });
     }
