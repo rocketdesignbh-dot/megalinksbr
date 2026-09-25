@@ -1,3 +1,12 @@
+// Mega Links BR · Edge Function "send-post" v34 — link nativo do ML no disparo (25/09)
+// v34: produto do Mercado Livre sai com o link nativo meli.la (endpoint do
+//      painel de Afiliados, cookie profiles.ml_session_cookie + Etiqueta ML do
+//      dono do grupo), uma chamada por post, e vai "cru" pro grupo como o link
+//      nativo da Shopee. Decisao do Erico em 25/09 (revoga a de 14/09, "so
+//      Shopee no automatico"), depois que a vitrine do Clone Post (resolve-link
+//      v6) passou a trazer produto de ML. Sem cookie/etiqueta, ou se o ML
+//      recusar (cookie vencido, item inelegivel 111), cai no fluxo de sempre:
+//      matt_* + encurtador proprio. Cupom de ML nao mudou.
 // Mega Links BR · Edge Function "send-post" v33 — Cupons tambem Amazon e ML (25/09)
 // v33: linkAfiliadoCupom() por loja — Shopee (Open API), Amazon (tag + encurtador
 //      proprio) e Mercado Livre (matt_* + encurtador proprio). Titulo do post
@@ -440,6 +449,76 @@ function ehLinkNativoShopee(url: string): boolean {
   } catch { return false; }
 }
 
+// v34: link nativo do Mercado Livre (meli.la) — mesmo endpoint e mesmos
+// cabecalhos da product-search (gerarLinkNativoMLDetalhado, REVISAO 144/159),
+// copiado, nao importado (padrao do projeto). Nunca lanca: null = fallback.
+const ML_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+async function fetchComTempo(url: string, opts: RequestInit, ms: number): Promise<Response> {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  try { return await fetch(url, { ...opts, signal: ctl.signal }); } finally { clearTimeout(t); }
+}
+async function csrfTokenML(url: string, cookieHeader: string): Promise<string> {
+  const m = cookieHeader.match(/(?:^|;\s*)_csrf=([^;]+)/);
+  if (m) { try { return decodeURIComponent(m[1]); } catch { return m[1]; } }
+  try {
+    const r = await fetchComTempo(url, { headers: { cookie: cookieHeader, "user-agent": ML_UA } }, 10000);
+    if (r.ok) {
+      const html = await r.text();
+      const mm = html.match(/"csrfToken"\s*:\s*"([^"]+)"/) || html.match(/csrf[-_]?token["']?\s*[:=]\s*["']([^"']+)["']/i);
+      if (mm) return mm[1];
+    }
+  } catch { /* segue sem token */ }
+  return "";
+}
+// URL do produto sem os matt_* (de terceiro ou nossos) e sem #; o resto da
+// query (ex.: pdp_filters=item_id:MLB...) fica, e o que escolhe o anuncio.
+function urlLimpaML(url: string): string {
+  try {
+    const u = new URL(url.split("#")[0].split("%23")[0]);
+    for (const k of [...u.searchParams.keys()]) if (/^matt_/i.test(k)) u.searchParams.delete(k);
+    return u.toString();
+  } catch { return url; }
+}
+async function gerarLinkNativoML(url: string, cookieHeader: string, tag: string): Promise<string | null> {
+  if (!cookieHeader || !tag || !url) return null;
+  try {
+    const alvo = urlLimpaML(url);
+    const csrf = await csrfTokenML(alvo, cookieHeader);
+    const r = await fetchComTempo("https://www.mercadolivre.com.br/affiliate-program/api/v2/stripe/user/links", {
+      method: "POST",
+      headers: {
+        "accept": "application/json, text/plain, */*",
+        "content-type": "application/json",
+        "x-csrf-token": csrf,
+        "cookie": cookieHeader,
+        "referer": alvo,
+        "origin": "https://produto.mercadolivre.com.br",
+        "user-agent": ML_UA,
+      },
+      body: JSON.stringify({ url: alvo, tag }),
+    }, 12000);
+    if (!r.ok) {
+      const corpo = await r.text().catch(() => "");
+      console.warn(`[ML][link-nativo] HTTP ${r.status}: ${corpo.slice(0, 200)}`);
+      return null;
+    }
+    const d = await r.json();
+    const link = typeof d?.short_url === "string" ? d.short_url : "";
+    return ehLinkNativoML(link) ? link : null;
+  } catch (e) {
+    console.warn(`[ML][link-nativo] falhou: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+function ehLinkNativoML(url: string): boolean {
+  try { return new URL(url).hostname === "meli.la"; } catch { return false; }
+}
+// Link oficial da loja: sai "cru", sem o encurtador proprio.
+function ehLinkNativoLoja(url: string): boolean {
+  return ehLinkNativoShopee(url) || ehLinkNativoML(url);
+}
+
 // ── Encurtamento (mesmo padrão do Postar Agora) ────────────────────────────────
 function gerarCode(len = 7): string {
   const chars = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -515,7 +594,7 @@ async function carregarCredenciais(sb: any, userId: string): Promise<Record<stri
   return map;
 }
 
-async function linkFinalDoProduto(product: any, credsMap: Record<string, Record<string, string>>): Promise<string> {
+async function linkFinalDoProduto(product: any, credsMap: Record<string, Record<string, string>>, mlCookie = ""): Promise<string> {
   const original = product.original_url || product.affiliate_url || "";
   if (!original) return product.affiliate_url || "";
   // Já é um short link nosso (produto salvo pelo fluxo antigo): posta como está.
@@ -529,6 +608,12 @@ async function linkFinalDoProduto(product: any, credsMap: Record<string, Record<
       const nativo = await gerarLinkNativoShopee(original, appId, appSecret, String(cred["Sub-ID"] || ""));
       if (nativo) return nativo;
     }
+  }
+  // v34: Mercado Livre com cookie de sessao + Etiqueta ML -> meli.la nativo.
+  if (product.source === "mercado_livre" && cred && mlCookie) {
+    const tag = String(cred["Etiqueta ML"] || "").trim();
+    const nativo = await gerarLinkNativoML(original, mlCookie, tag);
+    if (nativo) { console.log(`[ML][link-nativo] produto=${product.id} -> ${nativo}`); return nativo; }
   }
   return gerarLinkAfiliado(original, product.source, cred) || product.affiliate_url || original;
 }
@@ -1007,8 +1092,14 @@ Deno.serve(async (req: Request) => {
       // 1º regenera a afiliação com as credenciais ATUAIS (tenta o link nativo da
       // Shopee primeiro), 2º encurta com o user_id do dono — exceto quando já é o
       // link nativo, que sai "cru", sem passar pelo encurtador próprio.
-      const linkFinal = await linkFinalDoProduto(product, credsMap);
-      product.affiliate_url = ehLinkNativoShopee(linkFinal) ? linkFinal : await encurtarLink(sb, group.user_id, linkFinal, montarOg(product));
+      // v34: cookie do ML so e lido quando o produto da vez e de ML.
+      let mlCookie = "";
+      if (product.source === "mercado_livre" && credsMap["mercado_livre"]) {
+        const { data: prof } = await sb.from("profiles").select("ml_session_cookie").eq("id", group.user_id).maybeSingle();
+        mlCookie = String(prof?.ml_session_cookie || "").trim();
+      }
+      const linkFinal = await linkFinalDoProduto(product, credsMap, mlCookie);
+      product.affiliate_url = ehLinkNativoLoja(linkFinal) ? linkFinal : await encurtarLink(sb, group.user_id, linkFinal, montarOg(product));
       msg = montarTexto(product);
     }
     let groupSent = 0, groupFailed = 0;
