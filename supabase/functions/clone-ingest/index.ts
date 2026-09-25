@@ -14,6 +14,15 @@
 //                          -> v32: rele a pagina da Amazon das capturas pending
 //                             de texto e auto-publica as que a loja confirmar
 //
+//  * v33 — 25/09, pedido do Erico: CUPONS AUTOMATICOS. Link de campanha/cupom
+//    da Shopee (/m/..., /user/voucher-wallet) deixa de morrer em
+//    'resolve_falhou' quando o dono ligou cupons da Shopee em Cupons
+//    (coupon_settings ativo, com imagem): vira linha em coupon_captures,
+//    'approved' (automatico) ou 'pending' (aprovar), um por grupo por dia.
+//    Status novos no log: cupom_aprovado, cupom_pendente, cupom_repetido.
+//    Quem envia e a send-post, nos horarios de cupom (1-3 por dia).
+//    Dono sem cupons ligados: nada muda.
+//
 //  * v32 — 23/09, pedido do Erico. Tres mudancas, uma causa: grupos parando de
 //    postar a tarde com captura rodando. MEDIDO em 22/09: as capturas da Amazon
 //    que nao conseguiam ler a pagina (15-38% por dia desde 15/09, 0% antes)
@@ -368,6 +377,47 @@ function lojaDoDominio(host: unknown): string | null {
 function linksDoTexto(texto: unknown): string[] {
   const achados = String(texto ?? "").match(/https?:\/\/[^\s<>"'\)\]]+/gi) || [];
   return achados.map((u) => u.replace(/[.,;:!?]+$/, "")).filter(Boolean);
+}
+
+// ── v33 · cupons automaticos (REVISAO 166, 25/09) ─────────────────────────
+// Link de campanha/cupom da Shopee nao tem par LOJA/ITEM e a resolve-link
+// recusa — correto para produto. MEDIDO em 24/09: a Open API de afiliados
+// (generateShortLink) aceita essas paginas e devolve link com o ID de afiliado
+// do dono. Aqui so se reconhece e grava em coupon_captures; o link de afiliado
+// e gerado pela send-post na hora do envio, com as credenciais ATUAIS.
+// Lista conservadora: so caminhos vistos em grupo real (log de 18-24/09) e as
+// paginas de cupom/oferta relampago da propria Shopee.
+function ehLinkCupomShopee(url: unknown): boolean {
+  try {
+    const u = new URL(String(url ?? ""));
+    const h = u.hostname.toLowerCase().replace(/^www\./, "");
+    if (h !== "shopee.com.br") return false;
+    const p = u.pathname.toLowerCase();
+    return /^\/m\/[a-z0-9-]+\/?$/.test(p)
+      || /^\/user\/voucher-wallet\/?$/.test(p)
+      || /^\/voucher(s)?(\/|$)/.test(p)
+      || /^\/flash_sale\/?$/.test(p);
+  } catch { return false; }
+}
+
+// URL canonica da campanha: sem query (utm e afiliado alheio) e sem barra final.
+// E a chave do dedupe por grupo por dia.
+function urlCanonicaCupom(url: string): string {
+  const u = new URL(url);
+  return `https://shopee.com.br${u.pathname.replace(/\/+$/, "")}`;
+}
+
+// "/m/super-ofertas-v200" -> "Super Ofertas". Vai para a linha de destaque do post.
+function rotuloCampanha(url: string): string {
+  try {
+    const p = new URL(url).pathname.toLowerCase();
+    if (p.startsWith("/user/voucher-wallet") || p.startsWith("/voucher")) return "Cupons de desconto";
+    if (p.startsWith("/flash_sale")) return "Oferta Relâmpago";
+    const slug = p.replace(/^\/m\//, "").replace(/\/+$/, "").replace(/-v\d+$/, "");
+    const txt = slug.split("-").filter(Boolean).join(" ");
+    if (!txt) return "Cupons de desconto";
+    return txt.charAt(0).toUpperCase() + txt.slice(1);
+  } catch { return "Cupons de desconto"; }
 }
 
 // Planos com captura automatica, caso plan_features esteja indisponivel.
@@ -1117,6 +1167,20 @@ Deno.serve(async (req: Request) => {
     return v;
   }
 
+  // v33: configuracao de cupom por (dono, loja). Cache pelo mesmo motivo dos
+  // de cima. null = dono nao ligou cupons para essa loja.
+  const cacheCupomCfg = new Map<string, any>();
+  async function cupomCfgDe(userId: string, store: string) {
+    const k = `${userId}:${store}`;
+    if (cacheCupomCfg.has(k)) return cacheCupomCfg.get(k);
+    const { data } = await sb.from("coupon_settings")
+      .select("active, image_url, per_day, auto_publish")
+      .eq("user_id", userId).eq("store", store).maybeSingle();
+    const v = data && data.active && data.image_url ? data : null;
+    cacheCupomCfg.set(k, v);
+    return v;
+  }
+
   async function planoPermite(userId: string) {
     if (cachePlano.has(userId)) return cachePlano.get(userId)!;
     let veredito = { permitido: false, motivo: "perfil nao encontrado" };
@@ -1526,6 +1590,54 @@ Deno.serve(async (req: Request) => {
         // encurtador nao diz nada sobre a loja, e "amzlink.to" repetido 40 vezes
         // no log e o mesmo que nao ter log.
         const alvo = partesDoLink(resolve?.resolved || resolve?.original);
+
+        // ── v33 · cupom/campanha da Shopee ──────────────────────────────
+        // So entra aqui quando o dono LIGOU cupons da Shopee (coupon_settings
+        // ativo e com imagem) e a Shopee e aceita por esta fonte. Sem isso a
+        // mensagem segue exatamente o caminho de antes (resolve_falhou).
+        const finalCupom = String(resolve?.resolved || resolve?.original || "");
+        const shopeeNaFonte = efetivas.includes("shopee");
+        const cfgCupom = shopeeNaFonte && ehLinkCupomShopee(finalCupom)
+          ? await cupomCfgDe(fonte.user_id, "shopee") : null;
+        if (cfgCupom) {
+          const campanha = urlCanonicaCupom(finalCupom);
+          const alvoC = partesDoLink(campanha);
+          const base = { ...marca, store: "shopee", link_host: alvoC.host, link_path: alvoC.path };
+          const auto = !!cfgCupom.auto_publish;
+          const linhaCupom = {
+            user_id: fonte.user_id,
+            niche_group_id: fonte.niche_group_id,
+            clone_source_id: fonte.id,
+            store: "shopee",
+            source_jid: jid,
+            source_msg_id: msgId || null,
+            source_text: texto.slice(0, 2000),
+            campaign_url: campanha,
+            campaign_label: rotuloCampanha(campanha),
+            coupon_code: acharCupom(texto),
+            status: auto ? "approved" : "pending",
+            approved_at: auto ? agora.toISOString() : null,
+            capture_day: hoje,
+          };
+          if (dryRun) {
+            resultados.push({ ...base, status: "cupom_salvaria", cupom: linhaCupom, motivo: `cupom da Shopee (${linhaCupom.campaign_label}) — ${auto ? "sairia automatico" : "iria para aprovacao"}` });
+            continue;
+          }
+          const { error: eCup } = await sb.from("coupon_captures").insert(linhaCupom);
+          if (eCup) {
+            const dup = /duplicate key|unique/i.test(eCup.message);
+            resultados.push({ ...base, status: dup ? "cupom_repetido" : "erro", motivo: dup ? "mesmo cupom ja capturado hoje para esse grupo" : `cupom nao gravado: ${eCup.message}` });
+            continue;
+          }
+          resultados.push({
+            ...base, status: auto ? "cupom_aprovado" : "cupom_pendente",
+            motivo: auto
+              ? `cupom da Shopee (${linhaCupom.campaign_label}) — sai no proximo horario de cupom do grupo`
+              : `cupom da Shopee (${linhaCupom.campaign_label}) — aguardando sua aprovacao em Cupons`,
+          });
+          continue;
+        }
+
         resultados.push({
           ...marca, status: "resolve_falhou", etapa: resolve?.stage ?? "?",
           store: resolve?.store ?? null, link_host: alvo.host, link_path: alvo.path,

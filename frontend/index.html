@@ -1714,6 +1714,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button class="btn btn-volt" onclick="cupomAbrirModal()">＋ Novo Cupom</button>
     </div>
 
+    <!-- Cupons automáticos dos grupos-fonte (REVISÃO 166) -->
+    <div class="card" id="cupAutoCard" style="margin-bottom:20px">
+      <div class="cb" style="padding:16px">
+        <div style="font-weight:700;font-size:15px;margin-bottom:4px">📣 Cupons automáticos dos grupos</div>
+        <div class="cs-meta" style="margin-bottom:12px">Quando um grupo-fonte do Clone Post mandar link de cupom ou campanha do marketplace, ele vira um post de cupom com o <b>seu</b> link de afiliado e a imagem que você escolher aqui. Escolha o marketplace:</div>
+        <div id="cupAutoLojas" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+        <div id="cupAutoPainel" style="margin-top:14px"></div>
+        <input type="file" id="cupAutoArquivo" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="cupAutoSubirImagem(this)">
+      </div>
+    </div>
+
     <!-- KPIs -->
     <div class="g4" id="cupomKpis" style="margin-bottom:20px"></div>
 
@@ -2769,6 +2780,137 @@ async function loadCuponsPage(){
   await loadCoupons();
   renderCupons();
   cupomRenderLista();
+  cupAutoCarregar();
+}
+
+/* ─── CUPONS AUTOMÁTICOS DOS GRUPOS (REVISÃO 166, 25/09) ───────────────────
+   coupon_settings: uma linha por (dono, marketplace) — imagem fixa do post de
+   cupom, quantas vezes por dia (1-3), automático ou aprovar, ligado/desligado.
+   coupon_captures: cupons que o clone-ingest capturou; os 'pending' esperam o
+   Aprovar daqui. Quem envia é a send-post, nos horários de CUP_AUTO_HORARIOS
+   (mesmos valores da SLOTS_CUPOM de lá — se mudar um, mudar o outro). */
+const CUP_AUTO_LOJAS={shopee:"🛍️ Shopee",amazon:"📦 Amazon",mercado_livre:"🟡 Mercado Livre",shein:"👗 Shein",aliexpress:"🌐 AliExpress",magalu:"💙 Magalu",natura:"🌿 Natura",terabyte:"💻 Terabyte"};
+const CUP_AUTO_SUPORTADAS=new Set(["shopee"]);
+const CUP_AUTO_HORARIOS={1:"10h",2:"10h e 18h",3:"10h, 14h e 19h"};
+let CUP_AUTO={lojas:[],cfg:{},sel:null,capturas:[],grupos:{}};
+
+async function cupAutoCarregar(){
+  const uid=CURRENT_USER?.id;if(!uid)return;
+  try{
+    const[cred,cfg,cap,grp]=await Promise.all([
+      SB.from("affiliate_credentials").select("store,connected").eq("user_id",uid),
+      SB.from("coupon_settings").select("*").eq("user_id",uid),
+      SB.from("coupon_captures").select("id,niche_group_id,store,campaign_label,coupon_code,status,capture_day,created_at,sent_at,error").eq("user_id",uid).gte("created_at",new Date(Date.now()-3*86400000).toISOString()).order("created_at",{ascending:false}).limit(100),
+      SB.from("niche_groups").select("id,name").eq("user_id",uid)
+    ]);
+    CUP_AUTO.lojas=[...new Set((cred.data||[]).filter(r=>r.connected!==false).map(r=>r.store).filter(s=>CUP_AUTO_LOJAS[s]))];
+    CUP_AUTO.cfg={};(cfg.data||[]).forEach(r=>{CUP_AUTO.cfg[r.store]=r;});
+    CUP_AUTO.capturas=cap.data||[];
+    CUP_AUTO.grupos={};(grp.data||[]).forEach(g=>{CUP_AUTO.grupos[g.id]=g.name;});
+    if(!CUP_AUTO.sel||!CUP_AUTO.lojas.includes(CUP_AUTO.sel))CUP_AUTO.sel=CUP_AUTO.lojas.includes("shopee")?"shopee":(CUP_AUTO.lojas[0]||null);
+  }catch(e){console.warn("cupAutoCarregar:",e);}
+  cupAutoRender();
+}
+
+function cupAutoRender(){
+  const lojasEl=document.getElementById("cupAutoLojas");
+  const painel=document.getElementById("cupAutoPainel");
+  if(!lojasEl||!painel)return;
+  if(!CUP_AUTO.lojas.length){
+    lojasEl.innerHTML="";
+    painel.innerHTML='<div class="cs-meta">Nenhum marketplace cadastrado ainda. Cadastre em <a href="#" onclick="go(\'config-afiliados\');return false">Config Afiliados</a>.</div>';
+    return;
+  }
+  lojasEl.innerHTML=CUP_AUTO.lojas.map(s=>{
+    const on=CUP_AUTO.cfg[s]?.active;
+    return `<button type="button" class="btn btn-sm ${CUP_AUTO.sel===s?"btn-volt":"btn-ghost"}" onclick="cupAutoEscolher('${s}')">${CUP_AUTO_LOJAS[s]}${on?" ✅":""}</button>`;
+  }).join("");
+  const s=CUP_AUTO.sel;
+  if(!CUP_AUTO_SUPORTADAS.has(s)){
+    painel.innerHTML=`<div class="alert b" style="font-size:12.5px">A captura automática de cupons ainda não está disponível para ${esc(CUP_AUTO_LOJAS[s]||s)}. Hoje ela funciona com a Shopee.</div>`;
+    return;
+  }
+  const c=CUP_AUTO.cfg[s]||{active:false,per_day:1,auto_publish:false,image_url:null};
+  const img=c.image_url
+    ?`<img src="${esc(c.image_url)}" alt="Imagem do post de cupom" style="width:140px;height:140px;object-fit:cover;border-radius:6px;border:1px solid var(--bdr,rgba(255,255,255,.12))">`
+    :`<div style="width:140px;height:140px;border-radius:6px;border:1px dashed var(--bdr,rgba(255,255,255,.25));display:flex;align-items:center;justify-content:center;text-align:center;font-size:12px;color:var(--mut);padding:8px">Sem imagem ainda</div>`;
+  const vezes=[1,2,3].map(n=>`<button type="button" class="btn btn-sm ${Number(c.per_day)===n?"btn-volt":"btn-ghost"}" onclick="cupAutoSalvar({per_day:${n}})">${n}x</button>`).join("");
+  const modo=`<button type="button" class="btn btn-sm ${c.auto_publish?"btn-volt":"btn-ghost"}" onclick="cupAutoSalvar({auto_publish:true})">⚡ Sai automático</button>
+    <button type="button" class="btn btn-sm ${!c.auto_publish?"btn-volt":"btn-ghost"}" onclick="cupAutoSalvar({auto_publish:false})">✋ Eu aprovo antes</button>`;
+  const doMarket=CUP_AUTO.capturas.filter(x=>x.store===s);
+  const pend=doMarket.filter(x=>x.status==="pending");
+  const rotSt={pending:"⏳ aguardando sua aprovação",approved:"🕐 aprovado — sai no próximo horário",sent:"✅ enviado",rejected:"🗑️ descartado"};
+  const hojeBR=new Date(Date.now()-3*3600000).toISOString().slice(0,10);
+  const lista=doMarket.length?doMarket.slice(0,30).map(x=>{
+    const venc=x.capture_day!==hojeBR&&(x.status==="pending"||x.status==="approved");
+    const st=venc?"⌛ venceu (cupom vale só no dia da captura)":(rotSt[x.status]||x.status);
+    const acoes=(x.status==="pending"&&!venc)?`<button type="button" class="btn btn-volt btn-sm" onclick="cupAutoDecidir('${x.id}','approved')">Aprovar</button> <button type="button" class="btn btn-ghost btn-sm" onclick="cupAutoDecidir('${x.id}','rejected')">Descartar</button>`:"";
+    return `<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--bdr,rgba(255,255,255,.08));flex-wrap:wrap">
+      <div style="min-width:0"><div style="font-size:13px;font-weight:600">${esc(x.campaign_label||"Cupom")}${x.coupon_code?` · <code>${esc(x.coupon_code)}</code>`:""}</div>
+      <div class="cs-meta">→ ${esc(CUP_AUTO.grupos[x.niche_group_id]||"grupo")} · ${esc(new Date(x.created_at).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}))} · ${st}${x.error&&x.status==="approved"?` · <span style="color:var(--red)">${esc(x.error)}</span>`:""}</div></div>
+      <div style="white-space:nowrap">${acoes}</div></div>`;
+  }).join(""):'<div class="cs-meta">Nenhum cupom capturado nos últimos 3 dias.</div>';
+  painel.innerHTML=`
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+      <div style="text-align:center">${img}<div style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('cupAutoArquivo').click()">${c.image_url?"Trocar imagem":"Subir imagem"}</button></div></div>
+      <div style="flex:1;min-width:220px">
+        <div class="cs-meta" style="margin-bottom:4px">Quantas vezes por dia, em cada grupo</div>
+        <div style="display:flex;gap:6px;margin-bottom:4px">${vezes}</div>
+        <div class="cs-meta" style="margin-bottom:12px">Horários: ${CUP_AUTO_HORARIOS[c.per_day]||CUP_AUTO_HORARIOS[1]} (dentro do horário de postagem do grupo)</div>
+        <div class="cs-meta" style="margin-bottom:4px">Como o cupom sai</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${modo}</div>
+        <label style="display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer"><input type="checkbox" ${c.active?"checked":""} onchange="cupAutoAtivar(this)"> <b>Capturar cupons ${esc(CUP_AUTO_LOJAS[s].replace(/^\S+\s/,""))}</b></label>
+        ${!c.image_url?'<div class="cs-meta" style="color:var(--red);margin-top:4px">Suba a imagem para poder ligar.</div>':""}
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <div style="font-weight:600;font-size:13px;margin-bottom:4px">Cupons capturados${pend.length?` — ${pend.length} aguardando você`:""}</div>
+      ${lista}
+    </div>`;
+}
+
+function cupAutoEscolher(s){CUP_AUTO.sel=s;cupAutoRender();}
+
+async function cupAutoSalvar(patch){
+  const uid=CURRENT_USER?.id,s=CUP_AUTO.sel;if(!uid||!s)return false;
+  const atual=CUP_AUTO.cfg[s]||{};
+  const row={user_id:uid,store:s,active:!!atual.active,per_day:Number(atual.per_day||1),auto_publish:!!atual.auto_publish,image_path:atual.image_path||null,image_url:atual.image_url||null,...patch,updated_at:new Date().toISOString()};
+  const{data,error}=await SB.from("coupon_settings").upsert(row,{onConflict:"user_id,store"}).select().single();
+  if(error){console.warn("cupAutoSalvar:",error);toast("Não consegui salvar: "+error.message,"⚠️");return false;}
+  CUP_AUTO.cfg[s]=data;cupAutoRender();return true;
+}
+
+async function cupAutoAtivar(el){
+  const s=CUP_AUTO.sel;const c=CUP_AUTO.cfg[s]||{};
+  if(el.checked&&!c.image_url){el.checked=false;toast("Suba a imagem do post de cupom primeiro.","🖼️");return;}
+  if(await cupAutoSalvar({active:el.checked}))toast(el.checked?"Captura de cupons ligada.":"Captura de cupons desligada.",el.checked?"✅":"⏸️");
+}
+
+async function cupAutoSubirImagem(input){
+  const f=input.files&&input.files[0];input.value="";
+  const uid=CURRENT_USER?.id,s=CUP_AUTO.sel;if(!f||!uid||!s)return;
+  if(!/^image\/(jpeg|png|webp)$/.test(f.type)){toast("Use JPG, PNG ou WEBP.","⚠️");return;}
+  if(f.size>5*1024*1024){toast("Imagem acima de 5 MB.","⚠️");return;}
+  const ext=f.type==="image/png"?"png":f.type==="image/webp"?"webp":"jpg";
+  const path=`${uid}/${s}-${Date.now()}.${ext}`;
+  toast("Enviando imagem…","⏳");
+  const up=await SB.storage.from("coupon-images").upload(path,f,{contentType:f.type,upsert:false});
+  if(up.error){console.warn("cupAutoSubirImagem:",up.error);toast("Falha no envio: "+up.error.message,"⚠️");return;}
+  const url=SB.storage.from("coupon-images").getPublicUrl(path).data.publicUrl;
+  const antigo=CUP_AUTO.cfg[s]?.image_path;
+  if(await cupAutoSalvar({image_path:path,image_url:url})){
+    if(antigo&&antigo!==path)SB.storage.from("coupon-images").remove([antigo]).catch(()=>{});
+    toast("Imagem salva.","🖼️");
+  }
+}
+
+async function cupAutoDecidir(id,status){
+  const patch={status};if(status==="approved")patch.approved_at=new Date().toISOString();
+  const{error}=await SB.from("coupon_captures").update(patch).eq("id",id).eq("status","pending");
+  if(error){toast("Não consegui salvar: "+error.message,"⚠️");return;}
+  const x=CUP_AUTO.capturas.find(c=>c.id===id);if(x)x.status=status;
+  cupAutoRender();
+  toast(status==="approved"?"Cupom aprovado — sai no próximo horário de cupom.":"Cupom descartado.",status==="approved"?"✅":"🗑️");
 }
 /* Scrape.do pessoal — buscas de Mercado Livre sem limite compartilhado */
 async function carregarScrapeDoStatus(){
@@ -10615,6 +10757,9 @@ const CS_ROTULO_STATUS={
   resolve_falhou:"link n\u00e3o resolveu",
   loja_filtrada:"de loja que voc\u00ea n\u00e3o escolheu",
   loja_inativa:"de loja n\u00e3o dispon\u00edvel na plataforma",
+  cupom_aprovado:"cupons capturados",
+  cupom_pendente:"cupons aguardando aprova\u00e7\u00e3o",
+  cupom_repetido:"cupons repetidos",
   ignorado:"sem link",
   sem_fonte:"descartadas",
   sem_sessao:"descartadas",
@@ -10684,7 +10829,7 @@ async function csCarregarLojas(){
   const{data,error}=await SB.from("clone_ingest_log")
     .select("source_jid,status,store").gte("created_at",desde).not("store","is",null).limit(4000);
   if(error||!data)return;
-  const capturou=new Set(["salvo","salvo_incompleto","publicado"]);
+  const capturou=new Set(["salvo","salvo_incompleto","publicado","cupom_aprovado","cupom_pendente"]);
   for(const r of data){
     const j=r.source_jid||"";const s=r.store||"";
     if(!s)continue;

@@ -1,3 +1,11 @@
+// Mega Links BR · Edge Function "send-post" v32 — Cupons automaticos (25/09)
+// v32: cupom capturado pelo clone-ingest (coupon_captures, status 'approved',
+//      capturado hoje) ocupa a rodada do grupo nos horarios de cupom
+//      (SLOTS_CUPOM, 1 a 3 por dia, escolhido em Cupons). Imagem fixa do
+//      marketplace (coupon_settings.image_url), link nativo da Shopee via
+//      generateShortLink com sub-ids [rotulo, "cupom"]. Nao anda cursor, nao
+//      apaga produto, nao conta como produto para os extras. Sem link nativo
+//      nao envia. Grupos sem cupom aprovado hoje: nada muda.
 // Mega Links BR · Edge Function "send-post" v31 — Sub-ID da Shopee (17/09)
 // v31: o link nativo da Shopee do Post Automatico passa a sair carimbado com o
 //      sub_id quando o usuario tem rotulo cadastrado (Config Afiliados ->
@@ -552,6 +560,24 @@ function montarTexto(p: {
   return texto;
 }
 
+// v32: horarios de cupom, em minutos desde a meia-noite de Brasilia, por
+// quantidade escolhida em Cupons (coupon_settings.per_day).
+const SLOTS_CUPOM: Record<number, number[]> = {
+  1: [10 * 60],
+  2: [10 * 60, 18 * 60],
+  3: [10 * 60, 14 * 60, 19 * 60],
+};
+
+function montarTextoCupom(c: { campaign_label: string | null; coupon_code: string | null }, link: string): string {
+  const linhas: string[] = ["🎟️ CUPONS SHOPEE LIBERADOS 🎟️"];
+  if (c.campaign_label) linhas.push(`📣 ${c.campaign_label}`);
+  if (c.coupon_code) linhas.push(`🏷️ Use o cupom: ${c.coupon_code}`);
+  linhas.push("⏳ Resgate antes que acabe!");
+  linhas.push("");
+  linhas.push(`Pegue aqui 👉 ${link}`);
+  return linhas.join("\n");
+}
+
 async function fetchWithTimeout(url: string, opts: RequestInit, ms = 10000): Promise<Response> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
@@ -821,6 +847,54 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // ── v32: CUPONS AUTOMATICOS (coupon_captures / coupon_settings) ────────
+    // Cupom capturado HOJE para este grupo, aprovado (automatico ou pelo dono),
+    // sai nos horarios fixos de cupom: 1x -> 10h; 2x -> 10h e 18h; 3x -> 10h,
+    // 14h e 19h (Brasilia). A cada rodada: quantos horarios ja passaram hoje vs
+    // quantos cupons ja sairam hoje neste grupo. Se esta devendo e ha cupom
+    // aprovado, a rodada leva o cupom em vez do produto -- como o extra, sem
+    // tocar cursor e sem apagar produto. Extra tem prioridade sobre cupom.
+    // Link: SEMPRE o link nativo da Open API da Shopee (generateShortLink),
+    // gerado agora com as credenciais atuais. Sem ele o cupom NAO sai (fica
+    // aprovado e tenta de novo na proxima rodada) -- sem link de afiliado o post
+    // so faria propaganda de graca.
+    let cupomEscolhido: { id: string; texto: string; imagem: string } | null = null;
+    if (!extraEscolhido) {
+      try {
+        const { data: cuponsHoje } = await sb.from("coupon_captures")
+          .select("id, store, campaign_url, campaign_label, coupon_code, status, created_at")
+          .eq("niche_group_id", group.id).eq("capture_day", todayBR)
+          .in("status", ["approved", "sent"])
+          .order("created_at", { ascending: false });
+        const aprovado = (cuponsHoje ?? []).find((c: any) => c.status === "approved");
+        if (aprovado) {
+          const { data: cfg } = await sb.from("coupon_settings")
+            .select("active, image_url, per_day")
+            .eq("user_id", group.user_id).eq("store", aprovado.store).maybeSingle();
+          const enviadosHoje = (cuponsHoje ?? []).filter((c: any) => c.status === "sent").length;
+          const slots = SLOTS_CUPOM[Math.min(3, Math.max(1, Number(cfg?.per_day ?? 1)))] ?? [];
+          const devidos = slots.filter((m) => brMinutos >= m).length;
+          if (cfg?.active && cfg.image_url && enviadosHoje < devidos) {
+            const cred = credsMap["shopee"] || null;
+            const appId = String(cred?.["App Key"] || cred?.["ID de Afiliado"] || "").trim();
+            const appSecret = String(cred?.["App Secret"] || "").trim();
+            const rot = limparSubId(cred?.["Sub-ID"]);
+            const link = aprovado.store === "shopee"
+              ? await shopeeShortLinkComSubId(aprovado.campaign_url, appId, appSecret, rot ? [rot, "cupom"] : ["cupom"])
+              : null;
+            if (link) {
+              cupomEscolhido = { id: aprovado.id, texto: montarTextoCupom(aprovado, link), imagem: cfg.image_url };
+            } else {
+              await sb.from("coupon_captures").update({ error: "nao consegui gerar o link de afiliado da Shopee (confira App Key/App Secret em Config Afiliados) — tento de novo na proxima rodada" }).eq("id", aprovado.id);
+              console.warn(`[CUPOM] grupo=${group.id} cupom=${aprovado.id} sem link nativo — nao enviado`);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`[CUPOM] grupo=${group.id} falhou a selecao: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+
     // ── v23: SELECAO DO PRODUTO ────────────────────────────────────────
     // A ordem e SEMPRE a de cadastro (products.position, ja aplicado no
     // .order("position") la em cima) percorrida pelo cursor_index. O que o
@@ -857,6 +931,11 @@ Deno.serve(async (req: Request) => {
       // rodada nos mesmos canais (WA grupos/canais, Telegram) do post normal.
       product = { id: null, image_url: null };
       msg = extraEscolhido.conteudo;
+      nextCursor = inicio;
+    } else if (cupomEscolhido) {
+      // Cupom tambem nao consome produto nem anda o cursor.
+      product = { id: null, image_url: cupomEscolhido.imagem };
+      msg = cupomEscolhido.texto;
       nextCursor = inicio;
     } else {
       // Loop ligado varre a lista inteira a partir do cursor, dando a volta.
@@ -1034,7 +1113,12 @@ Deno.serve(async (req: Request) => {
     await sb.from("scheduled_posts").insert({ user_id:group.user_id, group_id:group.id, product_id:product.id, status:groupSent>0?"sent":"failed", scheduled_for:now.toISOString(), sent_at:groupSent>0?now.toISOString():null, is_manual:false, error:erroDetalhado });
 
     // ── EXTRAS: contabilidade so quando de fato saiu em algum canal ──────────
-    if (groupSent > 0) {
+    if (groupSent > 0 && cupomEscolhido) {
+      await sb.from("coupon_captures")
+        .update({ status: "sent", sent_at: now.toISOString(), error: null })
+        .eq("id", cupomEscolhido.id);
+    }
+    if (groupSent > 0 && !cupomEscolhido) {
       if (extraEscolhido) {
         // O extra que acabou de sair zera o proprio contador e marca a data
         // (horario_fixo usa a data pra nao repetir no mesmo dia; a_cada_posts
@@ -1100,7 +1184,7 @@ Deno.serve(async (req: Request) => {
     // ser inserida acima) sobrevive com product_id nulo; so o produto some do
     // rodizio. Roda ANTES do update de cursor_index (v29) porque o valor final
     // do cursor depende de a exclusao ter acontecido ou nao -- ver P123 acima.
-    if (group.delete_after_post && groupSent > 0 && !extraEscolhido) {
+    if (group.delete_after_post && groupSent > 0 && !extraEscolhido && !cupomEscolhido) {
       if (total > 1) {
         const { error: eDel } = await sb.from("products").delete().eq("id", product.id);
         if (eDel) {

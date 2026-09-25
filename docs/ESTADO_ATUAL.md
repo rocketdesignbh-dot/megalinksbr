@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 165 — 23/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 166 — 25/09/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1732,6 +1732,31 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 166 — 24–25/09/2026 — "Grupo de Achadinhos #14" sem postar (diagnóstico) + CUPONS AUTOMÁTICOS (função nova, pedido do Érico). `clone-ingest` v33 (deploy 33) e `send-post` v32 (deploy 67) NO AR, as duas conferidas byte a byte contra o repo. Migração `cupons_automaticos` aplicada. Painel: seção nova em Cupons.**
+
+### 1. Por que o grupo #14 não postava (24/09, MEDIDO)
+- Havia **duas fontes com o mesmo `source_jid`** (`120363021929866316@g.us`) do mesmo dono: uma → "Achadinhos Geral", outra → "Grupo Canal TrendShop". O dedupe "mensagem ja processada" (`clone_posts.source_msg_id`, índice único **sem** `clone_source_id`) deixa só a primeira fonte levar a mensagem; a do TrendShop venceu desde 20/09 e o Achadinhos Geral parou em 20/09 20:45 UTC. **O Érico apagou a fonte duplicada** — conferido no banco: sobrou só a `44432c7f…` → Achadinhos Geral.
+- ⚠️ **Limitação que continua valendo:** a mesma mensagem nunca alimenta dois grupos de destino. Duas fontes no mesmo grupo-fonte = uma delas fica muda. Não mexido (decisão pendente, ver P166).
+- Volume do #14: a maior parte é Mercado Livre (fora do `lojas_permitidas` = Shopee+Amazon). A Shopee "parou" em 21/09 porque desde 22/09 o grupo só mandou link de **campanha/cupom** (`/m/cupom-de-desconto`, `/user/voucher-wallet`, `/m/super-ofertas-v200`…), que a `resolve-link` recusa corretamente (sem par LOJA/ITEM). Produto `/product/…` da Shopee continua publicando normal (80+ em 18–21/09 nesse grupo).
+
+### 2. Teste que liberou a função (24/09, MEDIDO)
+- `generateShortLink` da Open API da Shopee (conta do Érico, assinada dentro do banco via `pg_net`, credencial sem sair do banco) **aceita página de campanha**: `/m/cupom-de-desconto`, `/user/voucher-wallet`, `/m/super-ofertas-v200` e o controle de produto devolveram `s.shopee.com.br/…`; os três de campanha redirecionam para a página certa com `mmp_pid=an_18344180897`, `utm_medium=affiliates`, `utm_content=testecupom----`. Compra/comissão NÃO testada.
+- Sub-id com `_` foi recusado (`invalid sub id`); só letras/números passou.
+
+### 3. O que mudou
+- **Banco** (`supabase/migrations/20260925040000_cupons_automaticos.sql`): `coupon_settings` (dono × loja: `active`, `image_path/url`, `per_day` 1–3, `auto_publish`) e `coupon_captures` (cupom capturado por grupo de destino; `pending|approved|sent|rejected`; único por `niche_group_id+campaign_url+capture_day`), RLS de dono nas duas; bucket **público** `coupon-images` (5 MB, jpg/png/webp) com políticas de escrita só na pasta `<user_id>/`.
+- **`clone-ingest` v33:** quando a `resolve-link` recusa e o destino é página de campanha/cupom da Shopee (`/m/<slug>`, `/user/voucher-wallet`, `/voucher…`, `/flash_sale`), a fonte aceita Shopee e o dono tem `coupon_settings` Shopee **ativo e com imagem** → grava `coupon_captures` (`approved` se automático, `pending` se aprovar), com `campaign_label` do slug e `coupon_code` pelo `acharCupom`. Status novos no log: `cupom_aprovado`, `cupom_pendente`, `cupom_repetido`. **Dono sem cupons ligados: nada muda** (provado, ver Prova).
+- **`send-post` v32:** cupom `approved` capturado HOJE para o grupo ocupa a rodada nos horários fixos — 1x: 10h · 2x: 10h e 18h · 3x: 10h, 14h e 19h (Brasília), sempre dentro da janela/intervalo do grupo. Extra tem prioridade sobre cupom. Link = `generateShortLink(campaign_url, [Sub-ID, "cupom"])` na hora; **sem link nativo não envia** (grava `error` e tenta na próxima rodada). Imagem = `coupon_settings.image_url`. Não anda cursor, não apaga produto, não conta para extras. Texto: "🎟️ CUPONS SHOPEE LIBERADOS 🎟️ / 📣 <campanha> / 🏷️ Use o cupom: X / ⏳ … / Pegue aqui 👉 link".
+- **`frontend/index.html`** (página Cupons): card "📣 Cupons automáticos dos grupos" — escolhe o marketplace cadastrado (`affiliate_credentials`), sobe 1 imagem, 1x/2x/3x por dia, "⚡ Sai automático" / "✋ Eu aprovo antes", liga/desliga (só liga com imagem), lista dos cupons capturados nos últimos 3 dias com Aprovar/Descartar. Só Shopee captura; as outras lojas mostram "ainda não disponível". Rótulos novos no card da fonte do Clone Post.
+
+### Prova
+- Deploys: `send-post` deploy 67 (`verify_jwt:true`, como estava; precisou de `import_map_path: "deno.json"` explícito) e `clone-ingest` deploy 33 (`verify_jwt:false`) — `get_edge_function` igual ao repo nas duas. Cron `mega-send-post` 03:30 UTC depois do deploy: **200**.
+- `clone-ingest` `dryRun`, grupo real do #14: **baseline** (sem `coupon_settings`) → `/m/cupom-de-desconto` = `resolve_falhou`, igual a antes. **Com `coupon_settings` temporário** → `/m/cupom-de-desconto` = `cupom_salvaria` ("Cupom de desconto", código `TESTE10`), `/user/voucher-wallet` = `cupom_salvaria` ("Cupons de desconto"); **controle** produto Shopee = `salvaria` com dado da loja, igual a antes. Config temporária apagada; `coupon_settings`/`coupon_captures`/log de teste = 0 linhas.
+- RLS: como `authenticated` do Érico, insert em `coupon_settings` e em `storage.objects` (`coupon-images/<uid>/…`) passaram (transação desfeita).
+- ⚠️ **NÃO MEDIDO:** um cupom real saindo pela `send-post` num grupo (depende do Érico ligar a função com imagem) e o painel novo clicado na sessão logada.
+
+---
 
 **REVISÃO 165 — 22–23/09/2026 — Painel fora do ar (EasyPanel) + grupos parando de postar à tarde. Causa do segundo MEDIDA: capturas da Amazon que não leem a página ficavam presas em 'pending' e expiravam. `clone-ingest` v32 NO AR (conferida byte a byte, `verify_jwt:false`), migração `clone_posts_leitura_da_loja` aplicada, cron `clone-reler-loja` (jobid 38, a cada 10 min) criado com autorização do Érico. Primeira rodada real: 7 de 10 pendentes publicadas com dado da loja.**
 
@@ -10860,6 +10885,13 @@ antigos; hoje é **Premium**).
 
 ## Componentes — estado
 
+### Cupons automáticos dos grupos — `clone-ingest` v33 / `send-post` v32 / página Cupons (REVISÃO 166)
+
+- **No ar:** `clone-ingest` deploy 33 e `send-post` deploy 67, byte a byte iguais ao repo; tabelas `coupon_settings`/`coupon_captures` e bucket `coupon-images`. Painel: no ar a partir do push da REVISÃO 166.
+- **Desligado por padrão:** só age para quem ligar em Cupons (Shopee, com imagem). Em 25/09 nenhuma configuração existe.
+- **Só Shopee.** Horários: `SLOTS_CUPOM` na `send-post` e `CUP_AUTO_HORARIOS` no frontend — mudar os dois juntos.
+- **Cupom vale só no dia da captura** (`capture_day`); o que não sai no dia fica sem enviar.
+
 ### Sub-ID da Shopee no link nativo — `product-search` v37 / `send-post` v31 / `group-blast` v10 (REVISÃO 163)
 
 - **Onde o rótulo é cadastrado:** Config Afiliados → Shopee → "Sub-ID de rastreamento". Campo livre.
@@ -11422,6 +11454,7 @@ código não relacionado.
 
 | # | Pendência | Origem |
 |---|---|---|
+| **P166** | 🟡 **Cupons automáticos (REVISÃO 166) — falta medir em produção:** (a) Érico ligar em Cupons (Shopee, imagem, 1–3x, automático/aprovar) e conferir no painel logado que salva e a imagem aparece; (b) primeira captura real em `coupon_captures` + `clone_ingest_log.status like 'cupom_%'`; (c) primeiro cupom saindo pela `send-post` num grupo: `coupon_captures.status='sent'`, imagem chegou e o link abre a campanha com `utm_content=<SubID>-cupom---`. (d) **Decisão pendente do Érico:** a mesma mensagem de um grupo-fonte hoje só alimenta UM grupo de destino (dedupe por `source_msg_id` sem `clone_source_id`) — se quiser dois destinos para o mesmo grupo-fonte, é mudança de índice + `clone-ingest` | 25/09 |
 | **P165** | 🟡 **Medir a v32 em produção (REVISÃO 165).** (a) ~~cron rodando e publicando sozinho~~ — **MEDIDO 23/09:** 00:30 (0 elegíveis), 00:40 (2 publicadas na 2ª leitura, 1 falhou), 00:50 (o Notebook publicado na 3ª leitura). **As 10 pendentes da Amazon de 22/09 terminaram as 10 publicadas com dado da loja**, sem nenhuma aprovação manual; (b) uma captura real da v32 gravando `store_read_error`/`store_read_attempts=1` quando a Amazon falha; (c) um dos 7 produtos publicados em 23/09 saindo num disparo do `send-post` depois das 8h; (d) contar em 48h quantas `message` da Amazon viraram `store` (`store_read_attempts>=2 and data_source='store'`) contra quantas expiraram | 23/09 |
 | **P161** | 🟠 **Amazon: "o buybox não confirmou o preço (duas testemunhas)" é o motivo medido das falhas de leitura desde 15/09 (6 de 6 na amostra de 23/09, nenhum captcha).** O `precoAmazon()` exige `apex-pricetopay-accessibility-label` + `a-price-whole/fraction` iguais dentro de `corePriceDisplay_desktop_feature_div`. Hipótese NÃO medida: a Amazon passou a servir, para parte das requisições, uma variante de página sem uma das duas testemunhas. Próximo passo: guardar (ou baixar de novo) o HTML de uma leitura que falhou e ver qual testemunha sumiu, ANTES de afrouxar a regra — preço errado publicado não se desfaz. O mesmo leitor mora no `product-refresh` (conferência de preço), que deve estar sofrendo igual | 23/09 |
 | **P162** | 🟠 **O `app` caiu no EasyPanel em 22/09 (~23:40 BRT) — "Service is not reachable" — causa não determinada.** Voltou depois que o Érico mexeu no EasyPanel. Ler o log do serviço no EasyPanel na próxima vez, antes de reiniciar | 23/09 |
