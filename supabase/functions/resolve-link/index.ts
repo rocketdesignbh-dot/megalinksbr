@@ -1,4 +1,22 @@
-// resolve-link v5 - resolve o link de um post copiado de outro grupo (Clone Post)
+// resolve-link v6 - resolve o link de um post copiado de outro grupo (Clone Post)
+//
+// v6 (25/09, REVISAO 166) - VITRINE DO AFILIADO NO ML VIRA PRODUTO. Pedido do Erico.
+//   MEDIDO em 25/09: 256 recusas de vitrine (/social/<afiliado>) em 7 dias no
+//   Clone Post. O meli.la leva a /social/<afiliado>?ref=<cifrado>, e o `ref`
+//   diz qual produto o afiliado compartilhou: a pagina da vitrine traz esse
+//   produto em DESTAQUE. Duas marcas na propria pagina, as duas conferidas em
+//   25 links reais (25 de 25):
+//     (1) o bloco de rastreio da pagina: "item_id":"MLB…" junto de
+//         "source":"affiliate-profile" — exatamente um por pagina;
+//     (2) o card desse item em "polycards": "metadata":{"id":"MLB…",
+//         "product_id":"MLB…",…,"url":"<pagina do produto>"}.
+//   O og:title da pagina e o titulo desse produto (conferido nos 25).
+//   Pagina que e so LISTA do afiliado ("Minhas listas de recomendacoes") nao tem
+//   a marca (1) — continua recusada, agora com motivo proprio.
+//   Regra estrita de proposito: sem as duas marcas batendo, NAO adivinha pelo
+//   nome — dois anuncios parecidos convivem na mesma vitrine (medido: duas
+//   lava-loucas Midea quase homonimas na mesma pagina).
+//
 //
 // v5 (31/07, noite) - TERCEIRO formato de URL de produto da Shopee: /{loja}/LOJA/ITEM.
 //   MEDIDO: https://s.shopee.com.br/4AykYR6yxu (link gerado pelo Radar DESTA
@@ -227,6 +245,61 @@ async function followRedirects(startUrl: string) {
   return { url, hops, seen: [...seen], trail, spa };
 }
 
+// v6: vitrine do afiliado no ML (/social/<nome>?ref=…) -> pagina do produto em
+// destaque. Recebe a URL COM o `ref` (antes do stripAffiliate: e ele que diz qual
+// produto a pagina destaca). Devolve null quando a pagina nao tem destaque
+// (lista do afiliado) ou quando as duas marcas nao batem.
+const VITRINE_TIMEOUT_MS = 12000;
+function ehVitrineMl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return detectStore(url) === "mercadolivre" && /^\/social\/[^\/]+\/?$/i.test(u.pathname);
+  } catch { return false; }
+}
+
+async function produtoDaVitrine(url: string): Promise<{ url: string; item: string; titulo: string } | { erro: string }> {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), VITRINE_TIMEOUT_MS);
+  let html = "";
+  try {
+    const r = await fetch(url, {
+      method: "GET", redirect: "follow",
+      headers: {
+        "User-Agent": UA,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "pt-BR,pt;q=0.9",
+      },
+      signal: c.signal,
+    });
+    if (!r.ok) return { erro: `a vitrine do Mercado Livre respondeu HTTP ${r.status}` };
+    html = await r.text();
+  } catch (e) {
+    return { erro: `nao consegui abrir a vitrine do Mercado Livre: ${(e as Error).message}` };
+  } finally { clearTimeout(t); }
+
+  // Marca (1): o item que a PAGINA diz estar destacando.
+  const destaque = html.match(/"item_id":"(MLB\d+)"[^{}]{0,400}"source":"affiliate-profile"/)?.[1];
+  if (!destaque) {
+    return { erro: "esse link leva a uma LISTA do afiliado no Mercado Livre, sem um produto em destaque. Abra o link, entre no produto anunciado e copie o link de la." };
+  }
+  const titulo = (html.match(/<meta property="og:title" content="([^"]{1,200})"/)?.[1] ?? "").trim();
+
+  // Marca (2): o card desse item, com a URL da pagina do produto.
+  const re = /"metadata":\{"id":"(MLB\d+)"(?:,"product_id":"(MLB\d+)")?[^{}]{0,400}?"url":"([^"]+)"/g;
+  for (const m of html.matchAll(re)) {
+    if (m[1] !== destaque && m[2] !== destaque) continue;
+    const item = m[1];
+    const base = "https://" + m[3].replace(/\\u002F/gi, "/").replace(/^https?:\/\//i, "").split("#")[0].split("?")[0];
+    if (detectStore(base) !== "mercadolivre") break;
+    // Pagina de catalogo (/p/) e de "user product" (/up/) mostram o anuncio
+    // certo com pdp_filters=item_id — o mesmo formato que o proprio ML usa nos
+    // links da vitrine e que o /ml-product do wa-engine ja le.
+    const final = /\/(p|up)\//i.test(base) ? `${base}?pdp_filters=item_id%3A${item}` : base;
+    return { url: final, item, titulo };
+  }
+  return { erro: "achei o produto em destaque na vitrine do Mercado Livre, mas nao o link da pagina dele. Abra o link, entre no produto anunciado e copie o link de la." };
+}
+
 function stripAffiliate(url: string): { url: string; stripped: string[] } {
   try {
     const u = new URL(url);
@@ -309,21 +382,32 @@ Deno.serve(async (req: Request) => {
           : `O link terminou em ${host}, que nao e uma loja que a gente sabe ler. Abra a oferta no navegador e cole o link da pagina do produto.`,
       }, 422);
     }
+    // v6: vitrine do afiliado no ML -> produto em destaque (ver o cabecalho).
+    let vitrine: { de: string; item: string; titulo: string } | null = null;
+    if (ehVitrineMl(resolved)) {
+      const v = await produtoDaVitrine(resolved);
+      if ("erro" in v) {
+        return json({ ok: false, stage: "vitrine", original: picked, resolved, store, store_label: STORE_LABEL[store] || "", hops, trail, error: v.erro }, 422);
+      }
+      vitrine = { de: resolved, item: v.item, titulo: v.titulo };
+      resolved = v.url; trail.push(v.url); hops++;
+    }
     const { url: cleaned, stripped } = stripAffiliate(resolved);
     const allStripped = [...new Set([...seen, ...stripped])];
     const norm = normalize(cleaned, store);
     if (norm.error) {
       return json({ ok: false, stage: "normalize", original: picked, resolved, store, store_label: STORE_LABEL[store] || "", hops, trail, error: norm.error }, 422);
     }
-    console.log(`[resolve-link v5] ok store=${store} hops=${hops} stripped=${allStripped.join(",") || "-"} -> ${norm.url.slice(0, 80)}`);
+    console.log(`[resolve-link v6] ok store=${store} hops=${hops} vitrine=${vitrine ? vitrine.item : "-"} stripped=${allStripped.join(",") || "-"} -> ${norm.url.slice(0, 80)}`);
     return json({
       ok: true, original: picked, resolved, url: norm.url, store,
       store_label: STORE_LABEL[store] || "", hops, trail, stripped: allStripped,
+      vitrine,
       foreign_affiliate: allStripped.length > 0,
       other_urls: urls.filter((u) => u !== picked).slice(0, 5),
     });
   } catch (e) {
-    console.error("[resolve-link v5] FALHOU:", (e as Error).message);
+    console.error("[resolve-link v6] FALHOU:", (e as Error).message);
     return json({ ok: false, stage: "server", error: (e as Error).message }, 500);
   }
 });
