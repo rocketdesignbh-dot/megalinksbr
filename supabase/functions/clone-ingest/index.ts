@@ -14,6 +14,11 @@
 //                          -> v32: rele a pagina da Amazon das capturas pending
 //                             de texto e auto-publica as que a loja confirmar
 //
+//  * v34 — 25/09: cupons automaticos tambem para Amazon (/promotion/…, medido
+//    em grupo real) e Mercado Livre (/cupons, /ofertas, /l/…, nao medido). Ver
+//    lojaDoCupom(). coupon_captures.store usa a chave de coupon_settings
+//    (shopee | amazon | mercado_livre).
+//
 //  * v33 — 25/09, pedido do Erico: CUPONS AUTOMATICOS. Link de campanha/cupom
 //    da Shopee (/m/..., /user/voucher-wallet) deixa de morrer em
 //    'resolve_falhou' quando o dono ligou cupons da Shopee em Cupons
@@ -400,17 +405,76 @@ function ehLinkCupomShopee(url: unknown): boolean {
   } catch { return false; }
 }
 
+// v34 (REVISAO 166, 25/09) — Amazon e Mercado Livre tambem.
+//  * Amazon: /promotion/psp/<ID> MEDIDO em grupo real (8 recusas em 14 dias,
+//    "nao achei o ASIN"). Tambem /promotion/…, /coupons, /cupons, /deals e
+//    /gp/goldbox — paginas de promocao da propria Amazon.
+//  * Mercado Livre: NENHUM link de cupom apareceu nos grupos em 30 dias
+//    (medido 25/09); /cupons, /ofertas e /l/<campanha> entram pela estrutura
+//    publica do site, NAO por medicao. /social (vitrine) nunca e cupom — e a
+//    resolve-link v6 que trata.
+function ehLinkCupomAmazon(url: unknown): boolean {
+  try {
+    const u = new URL(String(url ?? ""));
+    const h = u.hostname.toLowerCase().replace(/^www\./, "");
+    if (h !== "amazon.com.br") return false;
+    const p = u.pathname.toLowerCase();
+    return /^\/promotion\/[a-z0-9\/_-]+$/.test(p)
+      || /^\/(coupons|cupons)(\/|$)/.test(p)
+      || /^\/deals\/?$/.test(p)
+      || /^\/gp\/goldbox\/?$/.test(p);
+  } catch { return false; }
+}
+function ehLinkCupomMl(url: unknown): boolean {
+  try {
+    const u = new URL(String(url ?? ""));
+    const h = u.hostname.toLowerCase().replace(/^www\./, "");
+    if (h !== "mercadolivre.com.br") return false;
+    const p = u.pathname.toLowerCase();
+    return /^\/cupons(\/[a-z0-9_-]+)*\/?$/.test(p)
+      || /^\/ofertas(\/[a-z0-9_-]+)*\/?$/.test(p)
+      || /^\/l\/[a-z0-9_-]+\/?$/.test(p);
+  } catch { return false; }
+}
+
+// Qual loja de cupom e o link (chave de loja da captura: shopee | amazon |
+// mercadolivre). null = nao e pagina de cupom/campanha conhecida.
+function lojaDoCupom(url: unknown): string | null {
+  if (ehLinkCupomShopee(url)) return "shopee";
+  if (ehLinkCupomAmazon(url)) return "amazon";
+  if (ehLinkCupomMl(url)) return "mercadolivre";
+  return null;
+}
+
+// Chave de loja da captura -> chave de coupon_settings/affiliate_credentials.
+const CUPOM_CFG_STORE: Record<string, string> = { shopee: "shopee", amazon: "amazon", mercadolivre: "mercado_livre" };
+
 // URL canonica da campanha: sem query (utm e afiliado alheio) e sem barra final.
 // E a chave do dedupe por grupo por dia.
 function urlCanonicaCupom(url: string): string {
   const u = new URL(url);
-  return `https://shopee.com.br${u.pathname.replace(/\/+$/, "")}`;
+  const h = u.hostname.toLowerCase().replace(/^www\./, "");
+  const base = h === "shopee.com.br" ? "https://shopee.com.br" : `https://www.${h}`;
+  return `${base}${u.pathname.replace(/\/+$/, "")}`;
 }
 
 // "/m/super-ofertas-v200" -> "Super Ofertas". Vai para a linha de destaque do post.
 function rotuloCampanha(url: string): string {
   try {
-    const p = new URL(url).pathname.toLowerCase();
+    const u = new URL(url);
+    const h = u.hostname.toLowerCase().replace(/^www\./, "");
+    const p = u.pathname.toLowerCase();
+    if (h === "amazon.com.br") {
+      if (p.startsWith("/promotion")) return "Promoção Amazon";
+      if (p.startsWith("/deals") || p.startsWith("/gp/goldbox")) return "Ofertas do dia";
+      return "Cupons de desconto";
+    }
+    if (h === "mercadolivre.com.br") {
+      if (p.startsWith("/ofertas")) return "Ofertas do dia";
+      if (p.startsWith("/cupons")) return "Cupons de desconto";
+      const s = p.replace(/^\/l\//, "").replace(/\/+$/, "").split(/[-_]/).filter(Boolean).join(" ");
+      return s ? s.charAt(0).toUpperCase() + s.slice(1) : "Cupons de desconto";
+    }
     if (p.startsWith("/user/voucher-wallet") || p.startsWith("/voucher")) return "Cupons de desconto";
     if (p.startsWith("/flash_sale")) return "Oferta Relâmpago";
     const slug = p.replace(/^\/m\//, "").replace(/\/+$/, "").replace(/-v\d+$/, "");
@@ -1596,31 +1660,41 @@ Deno.serve(async (req: Request) => {
         // ativo e com imagem) e a Shopee e aceita por esta fonte. Sem isso a
         // mensagem segue exatamente o caminho de antes (resolve_falhou).
         const finalCupom = String(resolve?.resolved || resolve?.original || "");
-        const shopeeNaFonte = efetivas.includes("shopee");
-        const cfgCupom = shopeeNaFonte && ehLinkCupomShopee(finalCupom)
-          ? await cupomCfgDe(fonte.user_id, "shopee") : null;
-        if (cfgCupom) {
+        // v34: Shopee, Amazon ou Mercado Livre — a loja tem que ser aceita pela
+        // fonte E ter cupons ligados em Cupons (coupon_settings ativo com imagem).
+        const lojaCupom = lojaDoCupom(finalCupom);
+        const cfgStore = lojaCupom ? CUPOM_CFG_STORE[lojaCupom] : null;
+        const cfgCupom = lojaCupom && cfgStore && efetivas.includes(lojaCupom)
+          ? await cupomCfgDe(fonte.user_id, cfgStore) : null;
+        if (cfgCupom && cfgStore) {
+          const nomeLoja = STORE_LABEL[lojaCupom as string] || "a loja";
+          // "do Mercado Livre", "da Shopee", "da Amazon".
+          const daLoja = lojaCupom === "mercadolivre" ? `do ${nomeLoja}` : `da ${nomeLoja}`;
+          // v34: "Cupom Amazon: 20% OFF" nao e codigo de cupom — o nome da loja
+          // lido como codigo sairia no post como "Use o cupom: AMAZON".
+          const codigoLido = acharCupom(texto);
+          const codigoCupom = codigoLido && !/^(AMAZON|SHOPEE|MERCADO|MERCADOLIVRE|MELI|LIVRE)$/.test(codigoLido) ? codigoLido : null;
           const campanha = urlCanonicaCupom(finalCupom);
           const alvoC = partesDoLink(campanha);
-          const base = { ...marca, store: "shopee", link_host: alvoC.host, link_path: alvoC.path };
+          const base = { ...marca, store: lojaCupom, link_host: alvoC.host, link_path: alvoC.path };
           const auto = !!cfgCupom.auto_publish;
           const linhaCupom = {
             user_id: fonte.user_id,
             niche_group_id: fonte.niche_group_id,
             clone_source_id: fonte.id,
-            store: "shopee",
+            store: cfgStore,
             source_jid: jid,
             source_msg_id: msgId || null,
             source_text: texto.slice(0, 2000),
             campaign_url: campanha,
             campaign_label: rotuloCampanha(campanha),
-            coupon_code: acharCupom(texto),
+            coupon_code: codigoCupom,
             status: auto ? "approved" : "pending",
             approved_at: auto ? agora.toISOString() : null,
             capture_day: hoje,
           };
           if (dryRun) {
-            resultados.push({ ...base, status: "cupom_salvaria", cupom: linhaCupom, motivo: `cupom da Shopee (${linhaCupom.campaign_label}) — ${auto ? "sairia automatico" : "iria para aprovacao"}` });
+            resultados.push({ ...base, status: "cupom_salvaria", cupom: linhaCupom, motivo: `cupom ${daLoja} (${linhaCupom.campaign_label}) — ${auto ? "sairia automatico" : "iria para aprovacao"}` });
             continue;
           }
           const { error: eCup } = await sb.from("coupon_captures").insert(linhaCupom);
@@ -1632,8 +1706,8 @@ Deno.serve(async (req: Request) => {
           resultados.push({
             ...base, status: auto ? "cupom_aprovado" : "cupom_pendente",
             motivo: auto
-              ? `cupom da Shopee (${linhaCupom.campaign_label}) — sai no proximo horario de cupom do grupo`
-              : `cupom da Shopee (${linhaCupom.campaign_label}) — aguardando sua aprovacao em Cupons`,
+              ? `cupom ${daLoja} (${linhaCupom.campaign_label}) — sai no proximo horario de cupom do grupo`
+              : `cupom ${daLoja} (${linhaCupom.campaign_label}) — aguardando sua aprovacao em Cupons`,
           });
           continue;
         }

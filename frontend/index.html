@@ -2790,7 +2790,7 @@ async function loadCuponsPage(){
    Aprovar daqui. Quem envia é a send-post, nos horários de CUP_AUTO_HORARIOS
    (mesmos valores da SLOTS_CUPOM de lá — se mudar um, mudar o outro). */
 const CUP_AUTO_LOJAS={shopee:"🛍️ Shopee",amazon:"📦 Amazon",mercado_livre:"🟡 Mercado Livre",shein:"👗 Shein",aliexpress:"🌐 AliExpress",magalu:"💙 Magalu",natura:"🌿 Natura",terabyte:"💻 Terabyte"};
-const CUP_AUTO_SUPORTADAS=new Set(["shopee"]);
+const CUP_AUTO_SUPORTADAS=new Set(["shopee","amazon","mercado_livre"]);
 const CUP_AUTO_HORARIOS={1:"10h",2:"10h e 18h",3:"10h, 14h e 19h"};
 let CUP_AUTO={lojas:[],cfg:{},sel:null,capturas:[],grupos:{}};
 
@@ -2827,7 +2827,7 @@ function cupAutoRender(){
   }).join("");
   const s=CUP_AUTO.sel;
   if(!CUP_AUTO_SUPORTADAS.has(s)){
-    painel.innerHTML=`<div class="alert b" style="font-size:12.5px">A captura automática de cupons ainda não está disponível para ${esc(CUP_AUTO_LOJAS[s]||s)}. Hoje ela funciona com a Shopee.</div>`;
+    painel.innerHTML=`<div class="alert b" style="font-size:12.5px">A captura automática de cupons ainda não está disponível para ${esc(CUP_AUTO_LOJAS[s]||s)}. Hoje ela funciona com Shopee, Amazon e Mercado Livre.</div>`;
     return;
   }
   const c=CUP_AUTO.cfg[s]||{active:false,per_day:1,auto_publish:false,image_url:null};
@@ -2852,7 +2852,7 @@ function cupAutoRender(){
   }).join(""):'<div class="cs-meta">Nenhum cupom capturado nos últimos 3 dias.</div>';
   painel.innerHTML=`
     <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
-      <div style="text-align:center">${img}<div style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('cupAutoArquivo').click()">${c.image_url?"Trocar imagem":"Subir imagem"}</button></div></div>
+      <div style="text-align:center">${img}<div style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('cupAutoArquivo').click()">${c.image_url?"Trocar imagem":"Subir imagem"}</button></div><div class="cs-meta" style="margin-top:4px;max-width:160px">Quadrada, 1080×1080 px · JPG, PNG ou WEBP até 5 MB</div></div>
       <div style="flex:1;min-width:220px">
         <div class="cs-meta" style="margin-bottom:4px">Quantas vezes por dia, em cada grupo</div>
         <div style="display:flex;gap:6px;margin-bottom:4px">${vezes}</div>

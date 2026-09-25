@@ -1,3 +1,7 @@
+// Mega Links BR · Edge Function "send-post" v33 — Cupons tambem Amazon e ML (25/09)
+// v33: linkAfiliadoCupom() por loja — Shopee (Open API), Amazon (tag + encurtador
+//      proprio) e Mercado Livre (matt_* + encurtador proprio). Titulo do post
+//      com o nome da loja. Sem credencial da loja o cupom nao sai.
 // Mega Links BR · Edge Function "send-post" v32 — Cupons automaticos (25/09)
 // v32: cupom capturado pelo clone-ingest (coupon_captures, status 'approved',
 //      capturado hoje) ocupa a rodada do grupo nos horarios de cupom
@@ -568,8 +572,40 @@ const SLOTS_CUPOM: Record<number, number[]> = {
   3: [10 * 60, 14 * 60, 19 * 60],
 };
 
-function montarTextoCupom(c: { campaign_label: string | null; coupon_code: string | null }, link: string): string {
-  const linhas: string[] = ["🎟️ CUPONS SHOPEE LIBERADOS 🎟️"];
+// v33: link de afiliado do cupom por loja. SEM credencial da loja devolve null
+// e o cupom NAO sai — cupom com link sem comissao e propaganda de graca.
+//  * shopee: link nativo da Open API (generateShortLink), sub-ids [rotulo, "cupom"]
+//    — medido 24/09 em pagina de campanha.
+//  * amazon: `tag` = ID de Associado na propria URL da promocao (mesma regra do
+//    gerarLinkAfiliado), depois o encurtador proprio.
+//  * mercado_livre: matt_tool/matt_word/matt_medium na URL (mesma regra do
+//    gerarLinkAfiliado), depois o encurtador proprio.
+//  Amazon e ML: atribuicao em pagina de promocao NAO medida (25/09).
+async function linkAfiliadoCupom(sb: any, userId: string, store: string, url: string, credsMap: Record<string, Record<string, string>>): Promise<string | null> {
+  const cred = credsMap[store] || null;
+  if (!cred) return null;
+  if (store === "shopee") {
+    const appId = String(cred["App Key"] || cred["ID de Afiliado"] || "").trim();
+    const appSecret = String(cred["App Secret"] || "").trim();
+    const rot = limparSubId(cred["Sub-ID"]);
+    return await shopeeShortLinkComSubId(url, appId, appSecret, rot ? [rot, "cupom"] : ["cupom"]);
+  }
+  if (store === "amazon") {
+    if (!String(cred["ID de Associado"] || "").trim()) return null;
+  } else if (store === "mercado_livre") {
+    if (!String(cred["matt_tool ID"] || "").trim() && !String(cred["Etiqueta ML"] || "").trim()) return null;
+  } else {
+    return null;
+  }
+  const afiliado = gerarLinkAfiliado(url, store, cred);
+  if (!afiliado || afiliado === url) return null;
+  const titulo = store === "amazon" ? "Promoção Amazon" : "Ofertas Mercado Livre";
+  return await encurtarLink(sb, userId, afiliado, { title: titulo, description: LOJA_LABEL[store] || "", image: "" });
+}
+
+function montarTextoCupom(c: { campaign_label: string | null; coupon_code: string | null; store?: string }, link: string): string {
+  const nome = ({ shopee: "SHOPEE", amazon: "AMAZON", mercado_livre: "MERCADO LIVRE" } as Record<string, string>)[c.store || "shopee"] || "";
+  const linhas: string[] = [`🎟️ CUPONS ${nome} LIBERADOS 🎟️`.replace("  ", " ")];
   if (c.campaign_label) linhas.push(`📣 ${c.campaign_label}`);
   if (c.coupon_code) linhas.push(`🏷️ Use o cupom: ${c.coupon_code}`);
   linhas.push("⏳ Resgate antes que acabe!");
@@ -875,17 +911,11 @@ Deno.serve(async (req: Request) => {
           const slots = SLOTS_CUPOM[Math.min(3, Math.max(1, Number(cfg?.per_day ?? 1)))] ?? [];
           const devidos = slots.filter((m) => brMinutos >= m).length;
           if (cfg?.active && cfg.image_url && enviadosHoje < devidos) {
-            const cred = credsMap["shopee"] || null;
-            const appId = String(cred?.["App Key"] || cred?.["ID de Afiliado"] || "").trim();
-            const appSecret = String(cred?.["App Secret"] || "").trim();
-            const rot = limparSubId(cred?.["Sub-ID"]);
-            const link = aprovado.store === "shopee"
-              ? await shopeeShortLinkComSubId(aprovado.campaign_url, appId, appSecret, rot ? [rot, "cupom"] : ["cupom"])
-              : null;
+            const link = await linkAfiliadoCupom(sb, group.user_id, aprovado.store, aprovado.campaign_url, credsMap);
             if (link) {
               cupomEscolhido = { id: aprovado.id, texto: montarTextoCupom(aprovado, link), imagem: cfg.image_url };
             } else {
-              await sb.from("coupon_captures").update({ error: "nao consegui gerar o link de afiliado da Shopee (confira App Key/App Secret em Config Afiliados) — tento de novo na proxima rodada" }).eq("id", aprovado.id);
+              await sb.from("coupon_captures").update({ error: `nao consegui gerar o seu link de afiliado da ${LOJA_LABEL[aprovado.store] || aprovado.store} (confira os dados em Config Afiliados) — tento de novo na proxima rodada` }).eq("id", aprovado.id);
               console.warn(`[CUPOM] grupo=${group.id} cupom=${aprovado.id} sem link nativo — nao enviado`);
             }
           }
