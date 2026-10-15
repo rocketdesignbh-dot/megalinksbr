@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>WA Feed — bancada de teste</title>
+<link rel="stylesheet" href="wa-feed.css">
+<style>
+  body{margin:0;background:#14161A;color:#E9E7E2;font:14px/1.5 "IBM Plex Sans",system-ui,sans-serif;padding:24px 16px}
+  .grid{display:flex;gap:40px;flex-wrap:wrap;justify-content:center;align-items:flex-start}
+  .col{width:min(320px,100%)}
+  h2{font:600 12px/1 ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#828891;margin:0 0 12px}
+  .ctl{display:flex;gap:8px;align-items:center;margin-top:10px;font:12px ui-monospace,monospace;color:#9BA0A6}
+  input[type=range]{flex:1}
+</style>
+</head>
+<body>
+<!-- Bancada de teste do componente: preset do site (relógio próprio, loop) e
+     preset do showreel (dirigido por seek, com régua de tempo). -->
+<div class="grid">
+  <div class="col"><h2>Site · loop</h2><div id="a"></div><p class="ctl"><button id="pa" type="button"></button> <span id="ta"></span></p></div>
+  <div class="col"><h2>Showreel · seek</h2><div id="b"></div><p class="ctl"><input id="r" type="range" min="0" max="1000" value="0"><span id="tb"></span></p><p class="ctl"><button id="play" type="button">play reel</button></p></div>
+</div>
+<script src="wa-feed.js"></script>
+<script>
+  var a = WAFeed.auto(document.getElementById("a"), "site", document.getElementById("pa"));
+  var b = WAFeed.mount(document.getElementById("b"), "reel");
+  var r = document.getElementById("r"), tb = document.getElementById("tb");
+  function rot() { tb.textContent = b.tempo().toFixed(2) + " / " + b.duracao.toFixed(2) + "s"; document.getElementById("ta").textContent = "volta: " + a.duracao.toFixed(2) + "s"; }
+  r.oninput = function () { b.seek(r.value / 1000 * b.duracao); rot(); };
+  document.getElementById("play").onclick = function () {
+    var t0 = performance.now();
+    (function q(n) { var t = (n - t0) / 1000; b.seek(t); r.value = Math.min(1000, t / b.duracao * 1000); rot(); if (t < b.duracao) requestAnimationFrame(q); })(t0);
+  };
+  rot();
+</script>
+</body>
+</html>
