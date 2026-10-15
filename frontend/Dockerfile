@@ -21,6 +21,8 @@ COPY onboarding-test.js /usr/share/nginx/html/onboarding-test.js
 COPY onboarding-supabase-sync.js /usr/share/nginx/html/onboarding-supabase-sync.js
 COPY exemplo-postagens.js /usr/share/nginx/html/exemplo-postagens.js
 COPY exemplo-configuracao.js /usr/share/nginx/html/exemplo-configuracao.js
+COPY wa-feed /usr/share/nginx/html/wa-feed
+COPY depoimentos /usr/share/nginx/html/depoimentos
 RUN cat <<'NGINXEOF' > /etc/nginx/conf.d/default.conf
 resolver 8.8.8.8 8.8.4.4 valid=10s ipv6=off;
 resolver_timeout 5s;

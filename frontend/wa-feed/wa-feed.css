@@ -1,0 +1,80 @@
+/* WA Feed — conversa de grupo de ofertas do WhatsApp rolando sozinha.
+   Componente único usado no site (landing.html, seção #no-grupo) e no showreel
+   (showreel/whatsapp). Layout em pixels lógicos fixos (tela de 390×844) e escala
+   aplicada no palco inteiro: assim a rolagem é idêntica em qualquer tamanho e a
+   posição de cada pausa é determinística.
+   Cores do tema escuro do WhatsApp Android, conferidas nas capturas de referência. */
+
+.waf{
+  position:relative; width:100%;
+  aspect-ratio:414/868;                   /* reserva o espaço antes do JS: zero CLS */
+  contain:layout paint;
+}
+.waf-stage{
+  position:absolute; left:0; top:0; width:414px; height:868px;
+  transform-origin:0 0; transform:scale(var(--waf-s,1));
+}
+.waf-phone{
+  position:absolute; inset:0; border-radius:56px; background:#0A0B0D;
+  border:1px solid #2A2E35; padding:11px;
+}
+.waf-screen{
+  position:relative; width:390px; height:844px; border-radius:45px; overflow:hidden;
+  background:#0B141A; color:#E9EDEF;
+  font:15px/20px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  display:flex; flex-direction:column; isolation:isolate;
+}
+.waf-screen *{box-sizing:border-box}
+.waf-screen svg{display:block;flex:none}
+
+/* status bar + cabeçalho do grupo */
+.waf-status{height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:6px 30px 0 34px;background:#1F2C34;font-size:15px;font-weight:600}
+.waf-status-i{display:flex;gap:6px;align-items:center}
+.waf-head{height:58px;flex:none;display:flex;align-items:center;gap:8px;padding:0 14px 0 6px;background:#1F2C34;position:relative;z-index:2}
+.waf-back{color:#AEBAC1}
+.waf-av{width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:21px;line-height:1;background:#3B2A12}
+.waf-ttl{min-width:0;flex:1}
+.waf-ttl b{display:block;font-size:16.5px;line-height:21px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.waf-ttl span{display:block;font-size:13px;line-height:17px;color:#8696A0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.waf-acts{display:flex;gap:20px;color:#AEBAC1}
+
+/* área da conversa: janela de altura fixa, conteúdo rola por translateY */
+.waf-chat{
+  position:relative; flex:1; min-height:0; overflow:hidden;
+  background-color:#0B141A;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' fill='none' stroke='%23ffffff' stroke-opacity='.045' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 20h22v16H18zM22 20v-4h14v4'/%3E%3Ccircle cx='112' cy='26' r='10'/%3E%3Cpath d='M106 26h12M112 20v12'/%3E%3Cpath d='M70 70l8-14 8 14z'/%3E%3Cpath d='M20 100c6-8 14-8 20 0s14 8 20 0'/%3E%3Crect x='112' y='92' width='26' height='20' rx='4'/%3E%3Cpath d='M118 92v-5h14v5'/%3E%3Ccircle cx='40' cy='138' r='6'/%3E%3Cpath d='M78 128l6 6 12-14'/%3E%3Cpath d='M140 146l6-6M146 146l-6-6'/%3E%3C/svg%3E");
+  background-size:160px 160px;
+}
+.waf-list{position:absolute;left:0;right:0;top:0;padding:0 10px;will-change:transform;transform:translate3d(0,0,0)}
+.waf-copy{padding-top:2px}
+
+/* bolhas (enviadas por "você", o admin do grupo) */
+.waf-m{display:flex;justify-content:flex-end;padding:0 8px 0 40px;margin-top:10px}
+.waf-b{position:relative;max-width:100%;background:#144D37;border-radius:9px 0 9px 9px;padding:4px 4px 6px}
+.waf-b::after{content:"";position:absolute;right:-8px;top:0;width:0;height:0;border-left:8px solid #144D37;border-bottom:10px solid transparent}
+.waf-m.waf-txt .waf-b{padding:6px 8px 7px 9px}
+.waf-media{width:294px;border-radius:7px;overflow:hidden;background:#0E3828}
+.waf-media img{display:block;width:100%;height:100%;object-fit:cover}
+.waf-t{padding:6px 6px 0 6px;white-space:pre-line;overflow-wrap:break-word;width:294px}
+.waf-m.waf-txt .waf-t{padding:0;width:auto;max-width:290px}
+.waf-t s{text-decoration-thickness:1.5px;color:rgba(233,237,239,.82)}
+.waf-p{color:#25D366;font-weight:600}
+.waf-off{color:#9FD8B8;font-size:13.5px}
+.waf-a{color:#25D366;text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere}
+.waf-sp{display:inline-block;width:64px;height:1px}
+.waf-meta{position:absolute;right:9px;bottom:5px;display:flex;align-items:center;gap:3px;font-size:11.5px;line-height:15px;color:rgba(233,237,239,.74)}
+.waf-meta svg{color:#53BDEB}
+
+/* botão "ir para o fim" e barra de composição */
+.waf-down{position:absolute;right:12px;bottom:12px;width:40px;height:40px;border-radius:50%;background:#1F2C34;display:grid;place-items:center;color:#AEBAC1;z-index:2}
+.waf-bar{flex:none;display:flex;align-items:center;gap:6px;padding:7px 7px 30px;background:#0B141A}
+.waf-box{flex:1;height:48px;border-radius:24px;background:#1F2C34;display:flex;align-items:center;gap:12px;padding:0 14px;color:#8696A0;font-size:16.5px}
+.waf-box span{flex:1}
+.waf-mic{width:48px;height:48px;border-radius:50%;background:#21C063;display:grid;place-items:center;color:#0B141A;flex:none}
+
+/* sem movimento: a conversa vira uma janela que a pessoa rola com o dedo */
+.waf.is-static .waf-chat{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
+.waf.is-static .waf-chat::-webkit-scrollbar{display:none}
+.waf.is-static .waf-list{position:relative;transform:none!important;will-change:auto}
+.waf.is-static .waf-down{display:none}

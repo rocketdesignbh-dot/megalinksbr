@@ -201,6 +201,41 @@ ol.rotina b{color:var(--tx);font-weight:600}
 .rota-foot{display:flex;gap:12px 40px;flex-wrap:wrap;padding-top:22px;font-size:14px;color:var(--ink2)}
 .rota-foot b{color:var(--ink);font-weight:600}
 
+/* No grupo — demonstração da conversa (componente em /wa-feed, o mesmo do showreel) */
+.nogrupo{border-bottom:1px solid var(--ln)}
+.ng{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,320px);gap:clamp(32px,7vw,96px);align-items:center}
+.ng-txt h2{font-size:clamp(25px,3.4vw,38px);margin:16px 0 14px}
+.ng-txt>p{color:var(--tx2);max-width:52ch;font-size:15.5px}
+.ng-leg{margin-top:30px;border-top:1px solid var(--ln);max-width:520px}
+.ng-leg div{display:grid;grid-template-columns:72px minmax(0,1fr);gap:16px;padding:12px 0;border-bottom:1px solid var(--ln)}
+.ng-leg dt{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);padding-top:3px}
+.ng-leg dd{font-size:14.5px;color:var(--tx)}
+.ng-leg code{font-family:var(--mono);font-size:13px;color:var(--tx2)}
+.ng .ng-nota{margin-top:16px;font-size:12.5px;color:var(--mut)}
+.ng-cel{margin:0;width:100%;justify-self:center}
+.ng-pausa{display:block;margin:14px auto 0;background:none;border:1px solid var(--ln2);color:var(--tx2);font:12px/1 var(--mono);letter-spacing:.04em;padding:8px 12px;border-radius:var(--r);cursor:pointer;transition:color .13s,border-color .13s}
+.ng-pausa:hover{color:var(--tx);border-color:var(--mut)}
+@media (max-width:860px){
+  .ng{grid-template-columns:minmax(0,1fr)}
+  .ng-cel{max-width:290px}
+}
+
+/* Depoimentos — prints das conversas, sem moldura extra: o print já é o card */
+.dep{border-bottom:1px solid var(--ln)}
+.dep-h{margin-bottom:34px}
+.dep-h h2{font-size:clamp(25px,3.4vw,38px);margin:16px 0 12px}
+.dep-h p:last-child{color:var(--tx2);max-width:56ch;font-size:15.5px}
+.dep-grid{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;align-items:start}
+.dep-grid img{width:100%;height:auto;border:1px solid var(--ln2);border-radius:var(--r);background:var(--bg2)}
+.dep-nota{margin-top:16px;font-size:12.5px;color:var(--mut)}
+@media (max-width:860px){.dep-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}}
+/* celular: faixa com rolagem lateral (contêiner próprio, o body nunca rola de lado) */
+@media (max-width:560px){
+  .dep-scroll{overflow-x:auto;scroll-snap-type:x mandatory;margin:0 calc(var(--pad)*-1);padding:0 var(--pad) 6px;scrollbar-width:thin}
+  .dep-grid{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:78%}
+  .dep-grid li{scroll-snap-align:center}
+}
+
 /* ---------- operação ---------- */
 .op{border-top:1px solid var(--ln)}
 .op:first-of-type{border-top:none}
@@ -292,6 +327,7 @@ footer a:hover{color:var(--tx)}
 .skip{position:absolute;left:-9999px}
 .skip:focus{left:12px;top:12px;z-index:99;background:var(--y);color:#14161A;padding:10px 14px;border-radius:2px}
 </style>
+<link rel="stylesheet" href="wa-feed/wa-feed.css">
 </head>
 <body>
 <a href="#conteudo" class="skip">Pular para o conteúdo</a>
@@ -464,6 +500,34 @@ footer a:hover{color:var(--tx)}
   </div>
 </section>
 
+<!-- ============ NO GRUPO — o destino da rota, em movimento ============
+     Componente compartilhado com o showreel: frontend/wa-feed (conteúdo,
+     presets de ritmo e motor de rolagem num arquivo só). É a única coisa da
+     página que se move sozinha depois do hero, por pedido explícito: mostra o
+     produto acontecendo. Para fora da tela, tem botão de pausa e, com
+     prefers-reduced-motion, fica parada e rolável com o dedo. -->
+<section id="no-grupo" class="nogrupo">
+  <div class="wrap sec">
+    <div class="ng">
+      <div class="ng-txt rv">
+        <p class="eyebrow">Destino · o que chega no grupo</p>
+        <h2>É isto que o seu grupo recebe, oferta após oferta.</h2>
+        <p>Uma mensagem por oferta, no horário que você agendou: foto do produto, preço lido na loja e o link já refeito com o seu ID de afiliado, encurtado e contando clique.</p>
+        <dl class="ng-leg">
+          <div><dt>Foto</dt><dd>padronizada para não sair cortada no celular</dd></div>
+          <div><dt>Preço</dt><dd>lido na loja antes do envio</dd></div>
+          <div><dt>Link</dt><dd><code>megalinksbr.com.br/r/…</code> com o seu ID e rastreio de clique</dd></div>
+        </dl>
+        <p class="ng-nota">Demonstração ilustrativa. Produtos, preços e grupo são exemplos.</p>
+      </div>
+      <figure class="ng-cel">
+        <div id="waFeed" class="waf" role="img" aria-label="Demonstração: conversa de um grupo de ofertas no WhatsApp rolando, com fotos de produtos, preços e links"></div>
+        <button type="button" class="ng-pausa" id="waFeedPausa" hidden></button>
+      </figure>
+    </div>
+  </div>
+</section>
+
 <!-- ============ 03 OPERAÇÃO ============ -->
 <section id="operacao">
   <div class="wrap sec">
@@ -568,6 +632,32 @@ footer a:hover{color:var(--tx)}
         </div>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ============ DEPOIMENTOS ============
+     Conversas reais de clientes, uso autorizado por eles — confirmado pelo
+     dono do produto em 14/10/2026 (regra "Nunca invente prova social",
+     docs/DIRECAO_VISUAL.md). Trocar ou retirar uma conversa = remover a
+     imagem de frontend/depoimentos e o <figure> correspondente. -->
+<section id="depoimentos" class="dep">
+  <div class="wrap sec">
+    <div class="dep-h rv">
+      <p class="eyebrow">Depoimentos</p>
+      <h2>O que os afiliados mandaram para a gente</h2>
+      <p>Mensagens que chegaram no nosso WhatsApp, do jeito que chegaram.</p>
+    </div>
+    <div class="dep-scroll" tabindex="0" aria-label="Conversas de clientes, role para o lado para ver todas">
+      <ul class="dep-grid">
+        <li><img src="depoimentos/chat-1-bruno.webp" width="792" height="1146" loading="lazy" decoding="async" alt="Bruno Silva: desde que começou a usar a MegaLinksBR, o desempenho nos grupos de WhatsApp mudou muito; as pessoas clicam mais e as vendas aumentaram. Já indicou para outros afiliados."></li>
+        <li><img src="depoimentos/chat-2-juliana.webp" width="798" height="1146" loading="lazy" decoding="async" alt="Juliana Costa: fez as primeiras vendas usando a ferramenta; os links chegam certinho, a automação funciona e os grupos respondem bem. Envia um print com vendas de R$ 1.247,80 e 3.482 cliques."></li>
+        <li><img src="depoimentos/chat-3-ricardo.webp" width="792" height="1146" loading="lazy" decoding="async" alt="Ricardo Almeida: a automação de links deu muito tempo livre e as vendas nos grupos dispararam. Está recomendando para todo mundo."></li>
+        <li><img src="depoimentos/chat-4-camila.webp" width="792" height="1116" loading="lazy" decoding="async" alt="Camila Santos: conseguiu organizar os links e postar nos grupos de forma automática, e as vendas cresceram. Usa todo dia."></li>
+        <li><img src="depoimentos/chat-5-fernando.webp" width="798" height="1116" loading="lazy" decoding="async" alt="Fernando Lima: fazia tudo manualmente sem resultado; com a ferramenta os links são postados certinho e as vendas já bateram o dobro do que fazia antes."></li>
+        <li><img src="depoimentos/chat-6-larissa.webp" width="792" height="1116" loading="lazy" decoding="async" alt="Larissa Ferreira: a MegaLinksBR ajudou a ter mais resultado nos grupos de WhatsApp; os links ficam mais atrativos, o engajamento aumentou e fez várias vendas na semana."></li>
+      </ul>
+    </div>
+    <p class="dep-nota">Conversas reais de clientes, publicadas com autorização. Resultados individuais variam.</p>
   </div>
 </section>
 
@@ -752,6 +842,25 @@ footer a:hover{color:var(--tx)}
     });
   }, { rootMargin: "0px 0px -8% 0px", threshold: 0.06 });
   alvos.forEach(function(a){ obs.observe(a); });
+})();
+
+/* ---- Demonstração no grupo: carrega o componente só perto da seção ---- */
+(function(){
+  var host = document.getElementById("waFeed");
+  if (!host) return;
+  var feito = false;
+  function carregar(){
+    if (feito) return; feito = true;
+    var s = document.createElement("script");
+    s.src = "wa-feed/wa-feed.js";
+    s.onload = function(){ window.WAFeed.auto(host, "site", document.getElementById("waFeedPausa")); };
+    document.body.appendChild(s);
+  }
+  if (!("IntersectionObserver" in window)) return carregar();
+  var io = new IntersectionObserver(function(e){
+    if (e[0].isIntersecting){ io.disconnect(); carregar(); }
+  }, { rootMargin: "600px 0px" });
+  io.observe(host);
 })();
 </script>
 </body>
