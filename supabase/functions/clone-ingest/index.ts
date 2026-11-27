@@ -14,6 +14,12 @@
 //                          -> v32: rele a pagina da Amazon das capturas pending
 //                             de texto e auto-publica as que a loja confirmar
 //
+//  * v36 — 27/11, pedido do Erico: teto diario ILIMITADO por fonte.
+//    clone_sources.max_per_day NULL = sem teto (checkbox "Ilimitado" no
+//    painel); com numero, vale de 1 a 999 (CHECK no banco). Antes era sempre
+//    um numero de 1 a 50 e `?? 10` tratava ausencia como 10. MEDIDO em 26/11:
+//    uma fonte com teto 50 teve 239 ofertas barradas no dia.
+//
 //  * v34 — 25/09: cupons automaticos tambem para Amazon (/promotion/…, medido
 //    em grupo real) e Mercado Livre (/cupons, /ofertas, /l/…, nao medido). Ver
 //    lojaDoCupom(). coupon_captures.store usa a chave de coupon_settings
@@ -1593,9 +1599,12 @@ Deno.serve(async (req: Request) => {
       if (!plano.permitido) { resultados.push({ ...marca, status: "plano", motivo: plano.motivo }); continue; }
 
       // Teto diario. O contador zera sozinho quando vira o dia em Sao Paulo.
+      // v36: max_per_day NULL = ilimitado. O contador continua andando (o
+      // painel mostra quantas entraram hoje), so nao barra.
       const usadosHoje = fonte.captured_day === hoje ? Number(fonte.captured_today ?? 0) : 0;
-      if (usadosHoje >= Number(fonte.max_per_day ?? 10)) {
-        resultados.push({ ...marca, status: "teto", motivo: `teto diario da fonte atingido (${usadosHoje}/${fonte.max_per_day})` });
+      const tetoDia: number | null = fonte.max_per_day == null ? null : Number(fonte.max_per_day);
+      if (tetoDia != null && usadosHoje >= tetoDia) {
+        resultados.push({ ...marca, status: "teto", motivo: `teto diario da fonte atingido (${usadosHoje}/${tetoDia})` });
         continue;
       }
 

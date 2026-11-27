@@ -368,6 +368,11 @@ tr:hover td{background:var(--surf2)}
 .cs-barrado b{color:var(--warn)}
 .cs-teto-bt{font-family:inherit;font-size:12px;font-weight:700;line-height:1;width:20px;height:20px;margin-left:4px;border-radius:2px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--tx2);vertical-align:middle}
 .cs-teto-bt:hover{border-color:var(--volt-tx);color:var(--volt-tx)}
+.cs-teto-linha{margin-top:2px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.cs-teto-ilim{display:inline-flex;gap:5px;align-items:center;cursor:pointer;font-size:12px;color:var(--tx2)}
+.cs-teto-ilim input{width:auto;margin:0}
+.cs-teto-in{width:64px;padding:2px 6px;font-size:12px;height:24px}
+.cs-teto-in:disabled{opacity:.4}
 /* Paginação da fila de clones */
 .cl-pg{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-top:14px;margin-top:4px}
 .cl-pg-info{font-size:12px;color:var(--mut)}
@@ -10898,20 +10903,27 @@ async function csAlternarLoja(id,slug){
 // foi descartada por configuracao, nao por qualidade. Aqui ele ganha linha
 // propria, com o teto ao lado para a conta fechar na mesma frase. So aparece
 // quando ha barrada — card sem barrada nao ganha ruido.
+// Teto diario da fonte (clone_sources.max_per_day): null = ilimitado, senao
+// 1..CS_TETO_MAX. Os limites sao OS MESMOS do CHECK
+// clone_sources_max_per_day_check no banco e da clone-ingest v36.
+const CS_TETO_MAX=999;
+function csTeto(f){
+  const v=f?f.max_per_day:undefined;
+  if(v===null)return null;
+  return Number(v)||10;
+}
 function csTetoBarradoHtml(f){
   const v=CS_VEREDITOS[f.source_jid||""];
   const n=(v&&v.tetoHoje)?v.tetoHoje:0;
   if(!n)return "";
-  const teto=Number(f.max_per_day||10);
+  const teto=csTeto(f);
+  // Ilimitado nao barra nada daqui pra frente; o que aparecer de "teto" hoje
+  // e de antes da mudanca, e dizer "teto de null" seria pior que nao dizer.
+  if(teto===null)return "";
   return '<div class="cs-barrado">\u26d4 <b>'+n+'</b> oferta(s) ficaram de fora hoje \u2014 o grupo entregou mais do que o teto de <b>'
     +teto+'</b> por dia deixa passar.</div>';
 }
 
-// O ajuste grava direto no clique, como o csAlternarLoja: e o padrao que esta
-// tela ja usa e o unico que nao exige um modal novo.
-// Os limites 1 e 50 sao OS MESMOS do formulario de nova fonte, de proposito.
-// Dois lugares que gravam a mesma coluna com tetos diferentes seriam a
-// divergencia mercadolivre/mercado_livre outra vez, agora em numero.
 // Auto-publicar por FONTE (clone_sources.auto_publish) — o mecanismo mais
 // antigo (v11) e mais estreito do que o clone_auto_approve por grupo: existe e
 // funciona desde sempre, mas nunca teve onde ligar pela tela (grep vazio em
@@ -10943,20 +10955,43 @@ async function csAlternarCloneFull(id,ligar){
   toast(ligar?"Clonar 100% ATIVADO nesta fonte — por sua conta e risco.":"Clonar 100% desativado.",ligar?"⚠️":"✅");
   csRender();
 }
-async function csAjustarTeto(id,delta){
-  const f=CS_FONTES.find(x=>String(x.id)===String(id));
-  if(!f)return;
-  const atual=Number(f.max_per_day||10);
-  const novo=Math.min(Math.max(atual+Number(delta||0),1),50);
-  if(novo===atual){toast(Number(delta)>0?"50 por dia \u00e9 o m\u00e1ximo por fonte.":"1 por dia \u00e9 o m\u00ednimo.","\u26a0\ufe0f");return;}
-  const{error}=await SB.from("clone_sources").update({max_per_day:novo}).eq("id",id);
-  if(error){toast("N\u00e3o consegui mudar o teto: "+error.message,"\u26a0\ufe0f");return;}
+// Le o campo numerico do teto (1..999). Devolve null quando o valor nao serve
+// \u2014 vazio, zero, fracao ou acima do limite \u2014 para quem chama avisar em vez de
+// gravar um numero "corrigido" que o usuario nao digitou.
+function csTetoDoCampo(valor){
+  const s=String(valor??"").trim();
+  if(!/^\d{1,3}$/.test(s))return null;
+  const n=parseInt(s,10);
+  return (n>=1&&n<=CS_TETO_MAX)?n:null;
+}
+// Grava o teto direto na mudanca, como o csAlternarLoja: mesmo padrao da tela,
+// sem modal. `novo` = null (ilimitado) ou inteiro 1..999.
+async function csGravarTeto(f,novo){
+  if(csTeto(f)===novo){csRender();return;}
+  const{error}=await SB.from("clone_sources").update({max_per_day:novo}).eq("id",f.id);
+  if(error){toast("N\u00e3o consegui mudar o limite: "+error.message,"\u26a0\ufe0f");csRender();return;}
   f.max_per_day=novo;
-  toast("Teto desta fonte agora \u00e9 "+novo+" por dia.","\u2705");
+  toast(novo===null?"Limite di\u00e1rio desta fonte: ilimitado.":"Limite desta fonte agora \u00e9 "+novo+" por dia.","\u2705");
   csRender();
 }
+async function csAlternarTetoIlimitado(id,ligar){
+  const f=CS_FONTES.find(x=>String(x.id)===String(id));
+  if(!f)return;
+  if(ligar){await csGravarTeto(f,null);return;}
+  // Desligando: usa o numero que estiver no campo ao lado; vazio volta a 50,
+  // o teto mais comum entre as fontes cadastradas.
+  const campo=document.getElementById("csTetoIn_"+id);
+  await csGravarTeto(f,csTetoDoCampo(campo&&campo.value)??50);
+}
+async function csDefinirTeto(id,valor){
+  const f=CS_FONTES.find(x=>String(x.id)===String(id));
+  if(!f)return;
+  const novo=csTetoDoCampo(valor);
+  if(novo===null){toast("Digite um limite de 1 a "+CS_TETO_MAX+" por dia.","\u26a0\ufe0f");csRender();return;}
+  await csGravarTeto(f,novo);
+}
 
-// Mesmo padrão do csAjustarTeto: grava no clique, sem modal novo. Os limites
+// Mesmo padrão do limite por dia (csGravarTeto): grava no clique, sem modal novo. Os limites
 // 6 e 168 são OS MESMOS do CHECK clone_sources_expira_horas_check no banco — dois
 // lugares gravando a mesma coluna com tetos diferentes seria a divergência
 // mercadolivre/mercado_livre outra vez, agora em hora.
@@ -11046,10 +11081,11 @@ function csRender(){
     // captured_today so vale se o contador for de hoje: quem zera e a
     // clone-ingest na proxima captura, nao a virada do relogio.
     const usados=(f.captured_day===hoje)?Number(f.captured_today||0):0;
-    const teto=Number(f.max_per_day||10);
+    const teto=csTeto(f); // null = ilimitado
+    const ilimitado=teto===null;
     const validade=Number(f.expira_horas||24);
-    const pct=Math.min(100,Math.round(usados*100/(teto||1)));
-    const cheio=usados>=teto;
+    const pct=ilimitado?0:Math.min(100,Math.round(usados*100/(teto||1)));
+    const cheio=!ilimitado&&usados>=teto;
     return `
     <div class="cs-card${f.active?"":" off"}">
       <div style="display:flex;gap:8px;align-items:flex-start">
@@ -11061,15 +11097,17 @@ function csRender(){
       <div class="cs-dest">\u2192 ${esc(nomeGrupo(f.niche_group_id))}</div>
       <div>
         <div class="cs-meta" style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px">
-          <span>${usados} de ${teto} hoje</span>
+          <span>${ilimitado?usados+" hoje \u00b7 sem limite":usados+" de "+teto+" hoje"}</span>
           <span>${cheio?"teto do dia atingido":"\u00faltima "+csQuandoTxt(f.last_capture_at)}</span>
         </div>
-        <div class="cs-bar${cheio?" full":""}"><i style="width:${pct}%"></i></div>
+        ${ilimitado?"":`<div class="cs-bar${cheio?" full":""}"><i style="width:${pct}%"></i></div>`}
       </div>
       ${csVereditoHtml(f.source_jid)}
       ${csTetoBarradoHtml(f)}
       ${csLojasHtml(f)}
-      <div class="cs-meta" style="margin-top:2px">🕐 captura o dia inteiro · até ${teto} por dia<button type="button" class="cs-teto-bt" title="Diminuir o teto em 5 por dia" onclick="csAjustarTeto('${f.id}',-5)">−</button><button type="button" class="cs-teto-bt" title="Aumentar o teto em 5 por dia" onclick="csAjustarTeto('${f.id}',5)">+</button></div>
+      <div class="cs-meta cs-teto-linha">🕐 limite por dia:
+        <label class="cs-teto-ilim"><input type="checkbox" ${ilimitado?"checked":""} onchange="csAlternarTetoIlimitado('${f.id}',this.checked)"> Ilimitado</label>
+        <input type="number" class="cs-teto-in" id="csTetoIn_${f.id}" min="1" max="${CS_TETO_MAX}" step="1" inputmode="numeric" placeholder="1–${CS_TETO_MAX}" value="${ilimitado?"":teto}" ${ilimitado?"disabled":""} title="Quantas ofertas desta fonte entram por dia (1 a ${CS_TETO_MAX})" onchange="csDefinirTeto('${f.id}',this.value)" onkeydown="if(event.key==='Enter')this.blur()"></div>
       <div class="cs-meta" style="margin-top:2px">⏳ a fila guarda por ${validade}h sem revisão<button type="button" class="cs-teto-bt" title="Diminuir a validade em 6 horas" onclick="csAjustarValidade('${f.id}',-6)">−</button><button type="button" class="cs-teto-bt" title="Aumentar a validade em 6 horas" onclick="csAjustarValidade('${f.id}',6)">+</button></div>
       <label class="cs-meta" style="margin-top:6px;display:flex;gap:7px;align-items:center;cursor:pointer"><input type="checkbox" style="width:auto" ${f.auto_publish?"checked":""} onchange="csAlternarAutoPublish('${f.id}',this.checked)"> 🤖 Auto-publicar <small style="color:var(--mut)">(só quando a loja confirmar o preço — sem revisão)</small></label>
       <label class="cs-meta" style="margin-top:6px;display:flex;gap:7px;align-items:center;cursor:pointer"><input type="checkbox" style="width:auto" ${f.clone_full_content?"checked":""} onchange="csAlternarCloneFull('${f.id}',this.checked)"> 📝 Clonar 100% <small style="color:var(--mut)">(frases, emojis e cupom do grupo-fonte — por sua conta e risco)</small></label>
@@ -11225,9 +11263,13 @@ async function csAbrirForm(editId){
           <small style="display:block;margin-top:8px;color:var(--tx2);line-height:1.6">A lista acima vem do WhatsApp e <strong>não devolve todos os seus grupos</strong> — grupo grande de promoção costuma ficar de fora. No WhatsApp, abra o grupo → <strong>Convidar via link</strong> → copiar, e cole aqui. <strong>Só funciona para grupo em que você está:</strong> o WhatsApp entrega os dados do convite de qualquer grupo, e fonte de grupo onde você não está nunca captura nada.</small>
         </div>
         ${editando?'':`
-        <div style="margin-top:10px;max-width:220px">
-          <label>Máximo por dia</label>
-          <input id="csMax" type="number" min="1" max="50" value="10" style="width:100%">
+        <div style="margin-top:10px;max-width:260px">
+          <label>Limite por dia</label>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:4px">
+            <label class="cs-teto-ilim" style="margin:0"><input type="checkbox" id="csMaxIlim" onchange="const i=document.getElementById('csMax');i.disabled=this.checked;if(!this.checked&&!i.value)i.value=10"> Ilimitado</label>
+            <input id="csMax" type="number" min="1" max="${CS_TETO_MAX}" step="1" inputmode="numeric" placeholder="1–${CS_TETO_MAX}" value="10" style="width:90px">
+          </div>
+          <small style="display:block;margin-top:4px;color:var(--tx2)">De 1 a ${CS_TETO_MAX} ofertas por dia, ou ilimitado.</small>
         </div>
         <div class="field" style="grid-column:1/-1;margin-top:14px;border-top:1px solid var(--bd2);padding-top:12px">
           <label>Lojas que essa fonte pode clonar <small style="font-weight:400;color:var(--tx2)">— opcional</small></label>
@@ -11521,7 +11563,10 @@ async function csResolverConvite(){
 async function csSalvar(){
   const jid=document.getElementById("csJid")?.value||"";
   const destinos=Array.from(CS_DESTINOS_SEL);
-  const max=parseInt(document.getElementById("csMax")?.value||"10",10)||10;
+  // Limite por dia: null = ilimitado, senao 1..999 (CHECK no banco).
+  const tetoIlim=!!document.getElementById("csMaxIlim")?.checked;
+  const max=tetoIlim?null:csTetoDoCampo(document.getElementById("csMax")?.value);
+  if(!tetoIlim&&max===null){toast("Limite por dia: digite de 1 a "+CS_TETO_MAX+", ou marque Ilimitado.","⚠️");return;}
   // Array vazio = todas as lojas, que e o default da coluna. Nenhuma marcada e
   // um estado valido e comum, nao um erro de preenchimento.
   const lojas=Array.from(document.querySelectorAll("#csLojasNova input[type=checkbox]"))
@@ -11542,7 +11587,7 @@ async function csSalvar(){
     source_jid:jid,
     source_label:(g?.subject||g?.name||jid).slice(0,120),
     session_phone:CS_TEL_ESCOLHIDO||(S.waNumber||"").replace(/\D/g,"")||null,
-    max_per_day:Math.min(Math.max(max,1),50),
+    max_per_day:max,
     lojas_permitidas:lojas,
   };
   let ok=0,jaExistia=0;const falhas=[];

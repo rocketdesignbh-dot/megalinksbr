@@ -5,7 +5,7 @@
 > Este arquivo é a **única fonte de verdade** do projeto. Ele vive em
 > `docs/ESTADO_ATUAL.md` no repo `rocketdesignbh-dot/megalinksbr`.
 >
-> **REVISÃO 167 — 25/09/2026.** Se o número aqui não for o mais alto que você
+> **REVISÃO 168 — 27/11/2026.** Se o número aqui não for o mais alto que você
 > conhece, ou se a data parecer velha, **você está lendo cópia em cache.** Pare e
 > releia direito. Toda sessão que edita este arquivo incrementa a revisão.
 >
@@ -1732,6 +1732,14 @@ abaixo — cada linha ali tem o detalhe técnico.
 ---
 
 ## Última alteração
+
+**REVISÃO 168 — 27/11/2026 — Limite diário da fonte de clone: "Ilimitado" ou 1 a 999 (pedido do Érico). `clone-ingest` v36 NO AR (deploy 36, `verify_jwt:false`, conferida byte a byte contra o repo), migração `clone_sources_teto_ilimitado` aplicada. Painel: PR `feat/teto-ilimitado-fonte`. Diagnósticos do dia (ML parado desde 08/11, Ana Luiza, cupons) abaixo.**
+
+1. **Limite por dia.** `clone_sources.max_per_day` aceita `NULL` = ilimitado; com número, CHECK `clone_sources_max_per_day_check` (1..999). Antes: NOT NULL, painel 1..50 com botões −/+. Card da fonte e cadastro ganharam checkbox **Ilimitado** + campo 1–999 (grava ao mudar; valor inválido avisa e não grava). `clone-ingest` v36: `max_per_day == null` não barra (contador `captured_today` continua andando). MEDIDO em 26/11: "Achados da Gabby #41" (teto 50) teve 239 ofertas barradas por teto num dia. ⚠️ Ilimitado = uma consulta de loja por oferta; fonte movimentada gasta mais product-search. Falta: medir no painel logado depois do deploy (marcar Ilimitado numa fonte e ver `max_per_day` nulo + capturas passando de 50).
+2. **Mercado Livre no Clone Post parado desde 08/11 (todas as contas).** `sem_imagem` 100% desde 08/11; último `publicado`/`salvo` de ML em 08/11. Log da `product-search`: até 07/11 `[ML] wa-engine ok=true … tokenUsado=plataforma`; desde então `ok=false` em ~1,5 s e sem tentativa de Microlink — exatamente o ramo `creditsExhausted` (Scrape.do 401). Hipótese forte: **créditos do token Scrape.do da plataforma (`SCRAPE_DO_TOKEN` no wa-engine) esgotados**. Não confirmado (painel do Scrape.do e logs do wa-engine fora de alcance). Nenhuma mudança de código desde 25/09. Amazon: `sem_imagem` ~60% desde 23/11 (era 6–17%), não investigado.
+3. **Cupons — correção de leitura.** A conta que perdeu ~590 links de cupom da Shopee em 30 dias é a da Ana Luiza; ela só ligou cupons (3 lojas) em 27/11 00:11 BRT, e desde 00:13 caem como `cupom_aprovado`. Achados de config da conta (não alterados): fonte "Conta Mais Promo #3" alimenta também um grupo com Post Automático desligado e sem auto-aprovar, que fica com 7 de 8 ofertas presas em `pending` (dedupe por `source_msg_id` = um destino por mensagem, P166d).
+
+---
 
 **REVISÃO 167 — 25/09/2026 (manhã) — Post Automático passa a postar produto do Mercado Livre com o link nativo `meli.la` (`send-post` v34, deploy 69, `verify_jwt:true`, conferida byte a byte). Diagnóstico dos cupons de hoje. Nada do Clone Post (`clone-ingest`/`resolve-link`) foi tocado.**
 
